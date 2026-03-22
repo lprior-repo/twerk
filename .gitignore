@@ -1,7 +1,11 @@
-# Twerk build artifacts
+# Rust build artifacts
+/target/
+*/target/
 **/target/
+
+# Cargo lock files (we use Cargo.toml for deps)
+Cargo.lock
 **/Cargo.lock
-**/.cargo-lock
 
 # IDE
 .idea/
@@ -13,6 +17,7 @@
 .DS_Store
 Thumbs.db
 
-# Local config overrides
-*.local
+# Local config
 .env
+.env.local
+*.local

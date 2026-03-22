@@ -17,8 +17,10 @@ const BANNER: &str = "
 
 /// Banner display mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum BannerMode {
     /// Print to console (stdout)
+    #[default]
     Console,
     /// Log using tracing (info level)
     Log,
@@ -26,11 +28,6 @@ pub enum BannerMode {
     Off,
 }
 
-impl Default for BannerMode {
-    fn default() -> Self {
-        Self::Console
-    }
-}
 
 impl BannerMode {
     /// Parse banner mode from string
@@ -55,7 +52,7 @@ pub fn display_banner(mode: BannerMode, version: &str, git_commit: &str) {
         BannerMode::Off => {}
         BannerMode::Console => {
             println!("{BANNER}");
-            println!(" {} ({})", version, git_commit);
+            println!(" {version} ({git_commit})");
         }
         BannerMode::Log => {
             info!(

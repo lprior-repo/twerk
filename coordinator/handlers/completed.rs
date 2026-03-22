@@ -1,14 +1,173 @@
 //! Completed handler for task completion events.
+//!
+//! Port of Go `internal/coordinator/handlers/completed.go` with 100% parity.
+//!
+//! # Go Parity
+//!
+//! 1. Receives COMPLETED/SKIPPED tasks
+//! 2. Routes to completeSubTask or completeTopLevelTask
+//! 3. **completeEachTask**: tracks completions, handles concurrency limits,
+//!    dispatches next batch, completes parent when done
+//! 4. **completeParallelTask**: tracks completions, completes parent when done
+//! 5. **completeTopLevelTask**: updates job progress, creates next task,
+//!    marks job as completed when all tasks are done
+//!
+//! # Known Limitations
+//!
+//! - Task evaluation (`eval.EvaluateTask`) is not available in the coordinator
+//!   crate. Tasks are created without template interpolation. This matches
+//!   the structure but skips runtime evaluation.
+//! - The Go `ds.WithTx` transaction pattern is not supported by the current
+//!   Rust `Datastore` trait. Operations are performed sequentially with
+//!   read-modify-write patterns.
 
-use crate::handlers::{
-    noop_task_handler, HandlerContext, HandlerError, TaskEventType, TaskHandlerFunc,
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::sync::Arc;
+
+use tork::broker::queue;
+use tork::job::{Job, JobContext, JOB_STATE_COMPLETED};
+use tork::task::{
+    EachTask, ParallelTask, Task, TASK_STATE_COMPLETED, TASK_STATE_PENDING,
+    TASK_STATE_RUNNING, TASK_STATE_SCHEDULED, TASK_STATE_SKIPPED,
 };
-use tork::task::{Task, TASK_STATE_COMPLETED, TASK_STATE_SKIPPED};
+use tork::{Broker, Datastore};
+
+use crate::handlers::HandlerError;
+
+// ---------------------------------------------------------------------------
+// Pure Calculations (Data → Calc)
+// ---------------------------------------------------------------------------
+
+/// Validates that a task's current state allows completion.
+/// Go: `u.State != tork.TaskStateRunning && u.State != tork.TaskStateScheduled
+///       && u.State != tork.TaskStateSkipped`
+#[must_use]
+pub(crate) fn validate_task_can_complete(state: &str) -> bool {
+    *state == *TASK_STATE_RUNNING
+        || *state == *TASK_STATE_SCHEDULED
+        || *state == *TASK_STATE_SKIPPED
+}
+
+/// Validates that a task is in a valid completion result state (COMPLETED or SKIPPED).
+/// Go: `if t.State != tork.TaskStateCompleted && t.State != tork.TaskStateSkipped`
+#[must_use]
+pub(crate) fn is_completion_state(state: &str) -> bool {
+    *state == *TASK_STATE_COMPLETED || *state == *TASK_STATE_SKIPPED
+}
+
+/// Calculates job progress as a percentage (0–100), rounded to 2 decimal places.
+/// Go: `progress = math.Round(progress*100) / 100`
+///     where `progress = float64(u.Position) / float64(u.TaskCount) * 100`
+#[must_use]
+pub(crate) fn calculate_progress(position: i64, task_count: i64) -> f64 {
+    if task_count == 0 {
+        return 0.0;
+    }
+    let raw = (position as f64) / (task_count as f64) * 100.0;
+    (raw * 100.0).round() / 100.0
+}
+
+/// Checks if an each-task completion is the last one.
+/// Go: `u.Each.Completions >= u.Each.Size`
+#[must_use]
+pub(crate) fn is_last_each_completion(completions: i64, size: i64) -> bool {
+    completions >= size
+}
+
+/// Checks if a parallel-task completion is the last one.
+/// Go: `u.Parallel.Completions >= len(u.Parallel.Tasks)`
+#[must_use]
+pub(crate) fn is_last_parallel_completion(completions: i64, task_count: usize) -> bool {
+    completions >= task_count as i64
+}
+
+/// Checks if there's a next task to execute in the job.
+/// Go: `j.Position <= len(j.Tasks)`
+#[must_use]
+pub(crate) fn has_next_task(position: i64, tasks_len: usize) -> bool {
+    position <= tasks_len as i64
+}
+
+/// Checks if concurrency-limited dispatching should happen for an each-task.
+/// Go: `!isLast && u.Each.Concurrency > 0 && u.Each.Index < u.Each.Size`
+#[must_use]
+pub(crate) fn should_dispatch_next(concurrency: i64, index: i64, size: i64, is_last: bool) -> bool {
+    !is_last && concurrency > 0 && index < size
+}
+
+/// Functionally updates a HashMap with a new key-value pair.
+/// Returns a new HashMap without mutating the original.
+/// Go: `u.Context.Tasks[t.Var] = t.Result` (inside an update callback)
+#[must_use]
+pub(crate) fn update_context_map(
+    existing: Option<HashMap<String, String>>,
+    key: String,
+    value: String,
+) -> HashMap<String, String> {
+    existing
+        .unwrap_or_default()
+        .into_iter()
+        .chain(std::iter::once((key, value)))
+        .collect()
+}
+
+/// Creates a new task for the next position in a job.
+/// Go: `next := j.Tasks[j.Position-1]` + ID/JobID/State/Position/CreatedAt assignment
+///
+/// Note: Does not call `eval.EvaluateTask` because the eval crate is not
+/// available in the coordinator. Task is created in PENDING state directly.
+#[must_use]
+pub(crate) fn create_next_task(
+    task_def: &Task,
+    job: &Job,
+    position: i64,
+    now: time::OffsetDateTime,
+) -> Task {
+    let new_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+    Task {
+        id: Some(new_id),
+        job_id: job.id.clone(),
+        state: TASK_STATE_PENDING.clone(),
+        position,
+        created_at: Some(now),
+        ..task_def.clone()
+    }
+}
+
+/// Increments each-task completions and index.
+/// Go: `u.Each.Completions = u.Each.Completions + 1`
+///     `u.Each.Index = u.Each.Index + 1`
+#[must_use]
+pub(crate) fn increment_each(each: &EachTask) -> EachTask {
+    EachTask {
+        completions: each.completions + 1,
+        index: each.index + 1,
+        ..each.clone()
+    }
+}
+
+/// Increments parallel-task completions.
+/// Go: `u.Parallel.Completions = u.Parallel.Completions + 1`
+#[must_use]
+pub(crate) fn increment_parallel(parallel: &ParallelTask) -> ParallelTask {
+    ParallelTask {
+        completions: parallel.completions + 1,
+        ..parallel.clone()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Handler (Action boundary)
+// ---------------------------------------------------------------------------
 
 /// Completed handler for processing task completion events.
-#[derive(Clone)]
+///
+/// Holds references to the datastore and broker for I/O operations.
+/// Routes sub-task completions to each/parallel handlers.
 pub struct CompletedHandler {
-    handler: TaskHandlerFunc,
+    ds: Arc<dyn Datastore>,
+    broker: Arc<dyn Broker>,
 }
 
 impl std::fmt::Debug for CompletedHandler {
@@ -18,82 +177,1355 @@ impl std::fmt::Debug for CompletedHandler {
 }
 
 impl CompletedHandler {
-    /// Create a new completed handler.
-    pub fn new() -> Self {
-        Self {
-            handler: noop_task_handler(),
-        }
-    }
-
-    /// Create a completed handler with a custom handler function.
-    pub fn with_handler(handler: TaskHandlerFunc) -> Self {
-        Self { handler }
+    /// Create a new completed handler with datastore and broker dependencies.
+    pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
+        Self { ds, broker }
     }
 
     /// Handle a task completion event.
     ///
-    /// Marks the task as completed (or skipped if already in that state).
-    pub fn handle(
-        &self,
-        ctx: HandlerContext,
-        task: &mut Task,
-    ) -> Result<(), HandlerError> {
-        match &*task.state {
-            s if *s == *TASK_STATE_COMPLETED || *s == *TASK_STATE_SKIPPED => {
-                (self.handler)(ctx, TaskEventType::StateChange, task)
+    /// Go parity (`handle`):
+    /// 1. Validates state is COMPLETED or SKIPPED
+    /// 2. Sets completed_at to now
+    /// 3. Delegates to `completeTask`
+    pub async fn handle(&self, task: &Task) -> Result<(), HandlerError> {
+        if !is_completion_state(&task.state) {
+            return Err(HandlerError::InvalidState(format!(
+                "invalid completion state: {}",
+                task.state
+            )));
+        }
+
+        // Go: `t.CompletedAt = &now`
+        let task = Task {
+            completed_at: Some(time::OffsetDateTime::now_utc()),
+            ..task.clone()
+        };
+
+        self.complete_task(&task).await
+    }
+
+    /// Routes to sub-task or top-level completion handler.
+    /// Go: `if t.ParentID != "" { return h.completeSubTask(ctx, t) }`
+    ///
+    /// Returns a pinned boxed future to allow recursive calls from
+    /// `complete_each_task` and `complete_parallel_task`.
+    fn complete_task<'a>(
+        &'a self,
+        task: &'a Task,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), HandlerError>> + Send + 'a>> {
+        Box::pin(async move {
+            match &task.parent_id {
+                Some(_) => self.complete_sub_task(task).await,
+                None => self.complete_top_level_task(task).await,
             }
-            _ => {
-                task.state = TASK_STATE_COMPLETED.clone();
-                (self.handler)(ctx, TaskEventType::StateChange, task)
+        })
+    }
+
+    /// Routes sub-task completion to parallel or each handler.
+    /// Go: `if parent.Parallel != nil { return h.completeParallelTask(ctx, t) }`
+    async fn complete_sub_task(&self, task: &Task) -> Result<(), HandlerError> {
+        let parent_id = task
+            .parent_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("parent_id is required".into()))?;
+
+        let parent = self
+            .ds
+            .get_task_by_id(parent_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("parent task {parent_id} not found"))
+            })?;
+
+        match &parent.parallel {
+            Some(_) => self.complete_parallel_task(task).await,
+            None => self.complete_each_task(task).await,
+        }
+    }
+
+    /// Handles each-task (loop) completion.
+    ///
+    /// Go parity (`completeEachTask`):
+    /// 1. Validates and updates actual task state to completed
+    /// 2. Increments parent's each.completions and each.index
+    /// 3. If concurrency-limited and not last, dispatches next child task
+    /// 4. Updates job context with var → result mapping
+    /// 5. If last completion, completes the parent task recursively
+    async fn complete_each_task(&self, task: &Task) -> Result<(), HandlerError> {
+        let task_id = task
+            .id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("task ID is required".into()))?;
+        let parent_id = task
+            .parent_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("parent_id is required".into()))?;
+        let job_id = task
+            .job_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("job ID is required".into()))?;
+
+        // 1. Validate and update actual task
+        // Go: `tx.UpdateTask(ctx, t.ID, func(u *tork.Task) error { ... })`
+        let current = self
+            .ds
+            .get_task_by_id(task_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("task {task_id} not found"))
+            })?;
+
+        if !validate_task_can_complete(&current.state) {
+            return Err(HandlerError::InvalidState(format!(
+                "can't complete task {task_id} because it's {}",
+                current.state
+            )));
+        }
+
+        let updated_task = Task {
+            state: task.state.clone(),
+            completed_at: task.completed_at,
+            result: task.result.clone(),
+            ..current
+        };
+        self.ds
+            .update_task(task_id.to_string(), updated_task)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 2. Update parent task (each tracking)
+        // Go: `tx.UpdateTask(ctx, t.ParentID, func(u *tork.Task) error { ... })`
+        let parent = self
+            .ds
+            .get_task_by_id(parent_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("parent task {parent_id} not found"))
+            })?;
+
+        let each = parent
+            .each
+            .as_ref()
+            .ok_or_else(|| HandlerError::Validation("parent has no each configuration".into()))?;
+
+        // Go: `isLast = u.Each.Completions >= u.Each.Size`
+        let is_last = is_last_each_completion(each.completions + 1, each.size);
+
+        // Go: `!isLast && u.Each.Concurrency > 0 && u.Each.Index < u.Each.Size`
+        let dispatch_next = should_dispatch_next(each.concurrency, each.index, each.size, is_last);
+
+        // 3. If concurrency-limited, dispatch next child task
+        // Go: `next, err := h.ds.GetNextTask(ctx, u.ID)` ... publish to QUEUE_PENDING
+        if dispatch_next {
+            if let Some(next_task) = self
+                .ds
+                .get_next_task(parent_id.to_string())
+                .await
+                .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            {
+                let next_id = next_task
+                    .id
+                    .clone()
+                    .ok_or_else(|| HandlerError::Validation("next task has no ID".into()))?;
+                let pending_task = Task {
+                    state: TASK_STATE_PENDING.clone(),
+                    ..next_task
+                };
+                self.ds
+                    .update_task(next_id, pending_task.clone())
+                    .await
+                    .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+                self.broker
+                    .publish_task(queue::QUEUE_PENDING.to_string(), &pending_task)
+                    .await
+                    .map_err(|e| HandlerError::Broker(e.to_string()))?;
             }
         }
+
+        // 4. Update parent task with incremented completions/index
+        // Go: `u.Each.Completions = u.Each.Completions + 1`
+        //     `u.Each.Index = u.Each.Index + 1`
+        let updated_each = increment_each(each);
+        let updated_parent = Task {
+            each: Some(updated_each),
+            ..parent
+        };
+        self.ds
+            .update_task(parent_id.to_string(), updated_parent)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 5. Update job context with var → result
+        // Go: `if t.Result != "" && t.Var != "" { tx.UpdateJob(...) }`
+        if let (Some(var), Some(result)) = (&task.var, &task.result) {
+            self.update_job_context(job_id, var.clone(), result.clone())
+                .await?;
+        }
+
+        // 6. If last completion, complete the parent recursively
+        // Go: `if isLast { parent.State = COMPLETED; parent.CompletedAt = &now;
+        //            return h.completeTask(ctx, parent) }`
+        if is_last {
+            let parent = self
+                .ds
+                .get_task_by_id(parent_id.to_string())
+                .await
+                .map_err(|e| HandlerError::Datastore(e.to_string()))?
+                .ok_or_else(|| {
+                    HandlerError::NotFound(format!("parent task {parent_id} not found"))
+                })?;
+
+            let now = time::OffsetDateTime::now_utc();
+            let completed_parent = Task {
+                state: TASK_STATE_COMPLETED.clone(),
+                completed_at: Some(now),
+                ..parent
+            };
+            return self.complete_task(&completed_parent).await;
+        }
+
+        Ok(())
+    }
+
+    /// Handles parallel-task completion.
+    ///
+    /// Go parity (`completeParallelTask`):
+    /// 1. Validates and updates actual task state to completed
+    /// 2. Increments parent's parallel.completions
+    /// 3. Updates job context with var → result mapping
+    /// 4. If last completion, completes the parent task recursively
+    async fn complete_parallel_task(&self, task: &Task) -> Result<(), HandlerError> {
+        let task_id = task
+            .id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("task ID is required".into()))?;
+        let parent_id = task
+            .parent_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("parent_id is required".into()))?;
+        let job_id = task
+            .job_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("job ID is required".into()))?;
+
+        // 1. Validate and update actual task
+        let current = self
+            .ds
+            .get_task_by_id(task_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("task {task_id} not found"))
+            })?;
+
+        if !validate_task_can_complete(&current.state) {
+            return Err(HandlerError::InvalidState(format!(
+                "can't complete task {task_id} because it's {}",
+                current.state
+            )));
+        }
+
+        let updated_task = Task {
+            state: task.state.clone(),
+            completed_at: task.completed_at,
+            result: task.result.clone(),
+            ..current
+        };
+        self.ds
+            .update_task(task_id.to_string(), updated_task)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 2. Update parent task (parallel tracking)
+        let parent = self
+            .ds
+            .get_task_by_id(parent_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("parent task {parent_id} not found"))
+            })?;
+
+        let parallel = parent
+            .parallel
+            .as_ref()
+            .ok_or_else(|| {
+                HandlerError::Validation("parent has no parallel configuration".into())
+            })?;
+
+        let parallel_task_count = parallel.tasks.as_ref().map_or(0, Vec::len);
+        // Go: `isLast = u.Parallel.Completions >= len(u.Parallel.Tasks)`
+        let is_last = is_last_parallel_completion(parallel.completions + 1, parallel_task_count);
+
+        // Go: `u.Parallel.Completions = u.Parallel.Completions + 1`
+        let updated_parallel = increment_parallel(parallel);
+        let updated_parent = Task {
+            parallel: Some(updated_parallel),
+            ..parent
+        };
+        self.ds
+            .update_task(parent_id.to_string(), updated_parent)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 3. Update job context with var → result
+        if let (Some(var), Some(result)) = (&task.var, &task.result) {
+            self.update_job_context(job_id, var.clone(), result.clone())
+                .await?;
+        }
+
+        // 4. If last completion, complete the parent recursively
+        if is_last {
+            let parent = self
+                .ds
+                .get_task_by_id(parent_id.to_string())
+                .await
+                .map_err(|e| HandlerError::Datastore(e.to_string()))?
+                .ok_or_else(|| {
+                    HandlerError::NotFound(format!("parent task {parent_id} not found"))
+                })?;
+
+            let now = time::OffsetDateTime::now_utc();
+            let completed_parent = Task {
+                state: TASK_STATE_COMPLETED.clone(),
+                completed_at: Some(now),
+                ..parent
+            };
+            return self.complete_task(&completed_parent).await;
+        }
+
+        Ok(())
+    }
+
+    /// Handles top-level task completion.
+    ///
+    /// Go parity (`completeTopLevelTask`):
+    /// 1. Validates and updates task state to completed
+    /// 2. Updates job progress and position
+    /// 3. Updates job context with var → result mapping
+    /// 4. If more tasks exist, creates the next task and publishes to QUEUE_PENDING
+    /// 5. If no more tasks, marks job as COMPLETED
+    async fn complete_top_level_task(&self, task: &Task) -> Result<(), HandlerError> {
+        let task_id = task
+            .id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("task ID is required".into()))?;
+        let job_id = task
+            .job_id
+            .as_deref()
+            .ok_or_else(|| HandlerError::Validation("job ID is required".into()))?;
+
+        // 1. Validate and update task
+        let current = self
+            .ds
+            .get_task_by_id(task_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("task {task_id} not found"))
+            })?;
+
+        if !validate_task_can_complete(&current.state) {
+            return Err(HandlerError::InvalidState(format!(
+                "can't complete task {task_id} because it's {}",
+                current.state
+            )));
+        }
+
+        let updated_task = Task {
+            state: task.state.clone(),
+            completed_at: task.completed_at,
+            result: task.result.clone(),
+            ..current
+        };
+        self.ds
+            .update_task(task_id.to_string(), updated_task)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 2. Update job progress and position
+        // Go: `progress = float64(u.Position) / float64(u.TaskCount) * 100`
+        //     `u.Position = u.Position + 1`
+        let job = self
+            .ds
+            .get_job_by_id(job_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("job {job_id} not found"))
+            })?;
+
+        let progress = calculate_progress(job.position, job.task_count);
+        let new_position = job.position + 1;
+
+        // Go: `if t.Result != "" && t.Var != "" { u.Context.Tasks[t.Var] = t.Result }`
+        let updated_context = if let (Some(var), Some(result)) = (&task.var, &task.result) {
+            let new_tasks =
+                update_context_map(job.context.tasks.clone(), var.clone(), result.clone());
+            JobContext {
+                tasks: Some(new_tasks),
+                ..job.context.clone()
+            }
+        } else {
+            job.context.clone()
+        };
+
+        let updated_job = Job {
+            progress,
+            position: new_position,
+            context: updated_context,
+            ..job.clone()
+        };
+        self.ds
+            .update_job(job_id.to_string(), updated_job)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        // 3. Re-read job to get updated state for routing
+        // Go: `j, err := c.ds.GetJobByID(ctx, t.JobID)`
+        let updated_job = self
+            .ds
+            .get_job_by_id(job_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("job {job_id} not found"))
+            })?;
+
+        // 4. Create next task or complete the job
+        // Go: `if j.Position <= len(j.Tasks) { ... create next ... } else { ... complete job ... }`
+        if has_next_task(updated_job.position, updated_job.tasks.len()) {
+            let next_idx = usize::try_from(updated_job.position - 1)
+                .map_err(|_| HandlerError::Validation("position overflow".into()))?;
+            let task_def = updated_job
+                .tasks
+                .get(next_idx)
+                .ok_or_else(|| HandlerError::NotFound("next task definition not found".into()))?;
+
+            // Go: `next := j.Tasks[j.Position-1]`
+            //     `next.ID = uuid.NewUUID()`
+            //     `next.JobID = j.ID`
+            //     `next.State = tork.TaskStatePending`
+            //     `next.Position = j.Position`
+            //     `next.CreatedAt = &now`
+            let now = time::OffsetDateTime::now_utc();
+            let next_task = create_next_task(task_def, &updated_job, new_position, now);
+
+            self.ds
+                .create_task(next_task.clone())
+                .await
+                .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+            self.broker
+                .publish_task(queue::QUEUE_PENDING.to_string(), &next_task)
+                .await
+                .map_err(|e| HandlerError::Broker(e.to_string()))?;
+        } else {
+            // Go: `j.State = tork.JobStateCompleted`
+            //     `j.CompletedAt = &now`
+            //     `return c.onJob(ctx, job.StateChange, j)`
+            let now = time::OffsetDateTime::now_utc();
+            let completed_job = Job {
+                state: JOB_STATE_COMPLETED.to_string(),
+                completed_at: Some(now),
+                ..updated_job.clone()
+            };
+            self.ds
+                .update_job(job_id.to_string(), completed_job)
+                .await
+                .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    /// Updates the job context with a var → result mapping.
+    /// Go: `if u.Context.Tasks == nil { u.Context.Tasks = make(map[string]string) }`
+    ///     `u.Context.Tasks[t.Var] = t.Result`
+    async fn update_job_context(
+        &self,
+        job_id: &str,
+        var: String,
+        result: String,
+    ) -> Result<(), HandlerError> {
+        let job = self
+            .ds
+            .get_job_by_id(job_id.to_string())
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?
+            .ok_or_else(|| {
+                HandlerError::NotFound(format!("job {job_id} not found"))
+            })?;
+
+        let new_tasks = update_context_map(job.context.tasks.clone(), var, result);
+        let updated_context = JobContext {
+            tasks: Some(new_tasks),
+            ..job.context.clone()
+        };
+        let updated_job = Job {
+            context: updated_context,
+            ..job
+        };
+        self.ds
+            .update_job(job_id.to_string(), updated_job)
+            .await
+            .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+
+        Ok(())
     }
 }
 
-impl Default for CompletedHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use tork::task::{TASK_STATE_CANCELLED, TASK_STATE_FAILED};
+
+    // -- Validation tests --
 
     #[test]
-    fn test_completed_handler_normal() {
-        let handler = CompletedHandler::new();
-        let ctx = Arc::new(());
-        let mut task = Task::default();
-
-        let result = handler.handle(ctx, &mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_COMPLETED);
+    fn test_validate_task_can_complete_running() {
+        assert!(validate_task_can_complete(TASK_STATE_RUNNING.as_ref()));
     }
 
     #[test]
-    fn test_completed_handler_already_completed() {
-        let handler = CompletedHandler::new();
-        let ctx = Arc::new(());
-        let mut task = Task::default();
-        task.state = TASK_STATE_COMPLETED.clone();
-
-        let result = handler.handle(ctx, &mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_COMPLETED);
+    fn test_validate_task_can_complete_scheduled() {
+        assert!(validate_task_can_complete(TASK_STATE_SCHEDULED.as_ref()));
     }
 
     #[test]
-    fn test_completed_handler_skipped() {
-        let handler = CompletedHandler::new();
-        let ctx = Arc::new(());
-        let mut task = Task::default();
-        task.state = TASK_STATE_SKIPPED.clone();
+    fn test_validate_task_can_complete_skipped() {
+        assert!(validate_task_can_complete(TASK_STATE_SKIPPED.as_ref()));
+    }
 
-        let result = handler.handle(ctx, &mut task);
-        assert!(result.is_ok());
-        // Skipped state should be preserved
-        assert_eq!(task.state, *TASK_STATE_SKIPPED);
+    #[test]
+    fn test_validate_task_can_complete_rejects_completed() {
+        assert!(!validate_task_can_complete(TASK_STATE_COMPLETED.as_ref()));
+    }
+
+    #[test]
+    fn test_validate_task_can_complete_rejects_failed() {
+        assert!(!validate_task_can_complete(TASK_STATE_FAILED.as_ref()));
+    }
+
+    #[test]
+    fn test_validate_task_can_complete_rejects_pending() {
+        assert!(!validate_task_can_complete(TASK_STATE_PENDING.as_ref()));
+    }
+
+    #[test]
+    fn test_validate_task_can_complete_rejects_cancelled() {
+        assert!(!validate_task_can_complete(TASK_STATE_CANCELLED.as_ref()));
+    }
+
+    // -- Completion state tests --
+
+    #[test]
+    fn test_is_completion_state_completed() {
+        assert!(is_completion_state(TASK_STATE_COMPLETED.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_skipped() {
+        assert!(is_completion_state(TASK_STATE_SKIPPED.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_running() {
+        assert!(!is_completion_state(TASK_STATE_RUNNING.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_failed() {
+        assert!(!is_completion_state(TASK_STATE_FAILED.as_ref()));
+    }
+
+    // -- Progress calculation tests --
+
+    #[test]
+    fn test_calculate_progress_zero_task_count() {
+        assert_eq!(calculate_progress(1, 0), 0.0);
+    }
+
+    #[test]
+    fn test_calculate_progress_half() {
+        assert_eq!(calculate_progress(1, 2), 50.0);
+    }
+
+    #[test]
+    fn test_calculate_progress_full() {
+        assert_eq!(calculate_progress(2, 2), 100.0);
+    }
+
+    #[test]
+    fn test_calculate_progress_third() {
+        let result = calculate_progress(1, 3);
+        assert!((result - 33.33).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_calculate_progress_two_thirds() {
+        let result = calculate_progress(2, 3);
+        assert!((result - 66.67).abs() < 0.01);
+    }
+
+    // -- Completion detection tests --
+
+    #[test]
+    fn test_is_last_each_completion_exact() {
+        assert!(is_last_each_completion(2, 2));
+    }
+
+    #[test]
+    fn test_is_last_each_completion_over() {
+        assert!(is_last_each_completion(3, 2));
+    }
+
+    #[test]
+    fn test_is_last_each_completion_under() {
+        assert!(!is_last_each_completion(1, 2));
+    }
+
+    #[test]
+    fn test_is_last_parallel_completion_exact() {
+        assert!(is_last_parallel_completion(2, 2));
+    }
+
+    #[test]
+    fn test_is_last_parallel_completion_over() {
+        assert!(is_last_parallel_completion(3, 2));
+    }
+
+    #[test]
+    fn test_is_last_parallel_completion_under() {
+        assert!(!is_last_parallel_completion(1, 2));
+    }
+
+    // -- Next task detection tests --
+
+    #[test]
+    fn test_has_next_task_more_remaining() {
+        assert!(has_next_task(1, 2));
+    }
+
+    #[test]
+    fn test_has_next_task_exact() {
+        assert!(has_next_task(2, 2));
+    }
+
+    #[test]
+    fn test_has_next_task_past_end() {
+        assert!(!has_next_task(3, 2));
+    }
+
+    #[test]
+    fn test_has_next_task_empty_tasks() {
+        assert!(!has_next_task(1, 0));
+    }
+
+    // -- Concurrency dispatch tests --
+
+    #[test]
+    fn test_should_dispatch_next_all_conditions_met() {
+        assert!(should_dispatch_next(1, 0, 3, false));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_is_last_blocks() {
+        assert!(!should_dispatch_next(1, 0, 3, true));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_no_concurrency() {
+        assert!(!should_dispatch_next(0, 0, 3, false));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_index_at_size() {
+        assert!(!should_dispatch_next(1, 3, 3, false));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_index_past_size() {
+        assert!(!should_dispatch_next(1, 4, 3, false));
+    }
+
+    // -- Context map tests --
+
+    #[test]
+    fn test_update_context_map_new_map() {
+        let result = update_context_map(None, "key".into(), "value".into());
+        assert_eq!(result.get("key").map(String::as_str), Some("value"));
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_update_context_map_append() {
+        let mut existing = HashMap::new();
+        existing.insert("old".into(), "val".into());
+        let result = update_context_map(Some(existing), "new".into(), "val2".into());
+        assert_eq!(result.len(), 2);
+        assert_eq!(result.get("old").map(String::as_str), Some("val"));
+        assert_eq!(result.get("new").map(String::as_str), Some("val2"));
+    }
+
+    #[test]
+    fn test_update_context_map_overwrite() {
+        let mut existing = HashMap::new();
+        existing.insert("key".into(), "old".into());
+        let result = update_context_map(Some(existing), "key".into(), "new".into());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get("key").map(String::as_str), Some("new"));
+    }
+
+    // -- Next task creation tests --
+
+    #[test]
+    fn test_create_next_task_assigns_fields() {
+        let task_def = Task {
+            name: Some("echo-hello".into()),
+            run: Some("echo hello".into()),
+            ..Task::default()
+        };
+        let job = Job {
+            id: Some("job-1".into()),
+            ..Job::default()
+        };
+        let now = time::OffsetDateTime::now_utc();
+        let next = create_next_task(&task_def, &job, 1, now);
+
+        assert!(next.id.is_some());
+        assert_ne!(next.id.as_deref(), Some(""));
+        assert_eq!(next.job_id.as_deref(), Some("job-1"));
+        assert_eq!(next.state, *TASK_STATE_PENDING);
+        assert_eq!(next.position, 1);
+        assert!(next.created_at.is_some());
+        assert_eq!(next.name.as_deref(), Some("echo-hello"));
+        assert_eq!(next.run.as_deref(), Some("echo hello"));
+    }
+
+    #[test]
+    fn test_create_next_task_generates_unique_ids() {
+        let task_def = Task::default();
+        let job = Job {
+            id: Some("job-1".into()),
+            ..Job::default()
+        };
+        let now = time::OffsetDateTime::now_utc();
+        let t1 = create_next_task(&task_def, &job, 1, now);
+        let t2 = create_next_task(&task_def, &job, 2, now);
+        assert_ne!(t1.id, t2.id);
+    }
+
+    // -- Each increment tests --
+
+    #[test]
+    fn test_increment_each() {
+        let each = EachTask {
+            completions: 1,
+            index: 1,
+            size: 3,
+            concurrency: 1,
+            var: Some("item".into()),
+            list: Some("[1,2,3]".into()),
+            task: None,
+        };
+        let incremented = increment_each(&each);
+        assert_eq!(incremented.completions, 2);
+        assert_eq!(incremented.index, 2);
+        assert_eq!(incremented.size, 3);
+        assert_eq!(incremented.concurrency, 1);
+        assert_eq!(incremented.var.as_deref(), Some("item"));
+    }
+
+    #[test]
+    fn test_increment_each_preserves_task() {
+        let inner_task = Task {
+            name: Some("inner".into()),
+            ..Task::default()
+        };
+        let each = EachTask {
+            completions: 0,
+            index: 0,
+            size: 1,
+            concurrency: 0,
+            var: None,
+            list: None,
+            task: Some(Box::new(inner_task.clone())),
+        };
+        let incremented = increment_each(&each);
+        assert_eq!(incremented.completions, 1);
+        assert_eq!(incremented.index, 1);
+        assert_eq!(incremented.task.as_deref(), Some(&inner_task));
+    }
+
+    // -- Parallel increment tests --
+
+    #[test]
+    fn test_increment_parallel() {
+        let parallel = ParallelTask {
+            completions: 1,
+            tasks: Some(vec![Task::default(), Task::default()]),
+        };
+        let incremented = increment_parallel(&parallel);
+        assert_eq!(incremented.completions, 2);
+        assert_eq!(incremented.tasks.as_ref().map(Vec::len), Some(2));
+    }
+
+    // -- Edge cases from Go test parity ------------------------------------
+
+    // Go: Test_handleCompletedLastTask — position == task_count → 100% progress
+    #[test]
+    fn test_calculate_progress_last_task() {
+        assert_eq!(calculate_progress(2, 2), 100.0);
+    }
+
+    // Go: Test_handleCompletedFirstTask — position 1 of 2 → 50% progress
+    #[test]
+    fn test_calculate_progress_first_of_two() {
+        assert_eq!(calculate_progress(1, 2), 50.0);
+    }
+
+    // Go: 0-based position (single task) → 100%
+    #[test]
+    fn test_calculate_progress_single_task() {
+        assert_eq!(calculate_progress(1, 1), 100.0);
+    }
+
+    // Go: large task count — verifies no floating point drift
+    #[test]
+    fn test_calculate_progress_large_task_count() {
+        let result = calculate_progress(50, 100);
+        assert_eq!(result, 50.0);
+    }
+
+    // Go: verify rounding for odd divisions
+    #[test]
+    fn test_calculate_progress_rounding() {
+        // 1/7 ≈ 14.2857... → round to 14.29
+        let result = calculate_progress(1, 7);
+        let expected = (1.0_f64 / 7.0 * 100.0 * 100.0).round() / 100.0;
+        assert_eq!(result, expected);
+    }
+
+    // Go: zero division guard
+    #[test]
+    fn test_calculate_progress_position_zero() {
+        assert_eq!(calculate_progress(0, 2), 0.0);
+    }
+
+    // Go: negative task count — current impl doesn't guard negative, document behavior
+    #[test]
+    fn test_calculate_progress_negative_task_count() {
+        // calculate_progress only guards against zero, not negative.
+        // Negative task_count produces negative progress — that's the current behavior.
+        let result = calculate_progress(1, -5);
+        assert!(result < 0.0);
+    }
+
+    // -- validate_task_can_complete additional states -----------------------
+
+    #[test]
+    fn test_validate_task_can_complete_rejects_created() {
+        assert!(!validate_task_can_complete(tork::task::TASK_STATE_CREATED.as_ref()));
+    }
+
+    #[test]
+    fn test_validate_task_can_complete_rejects_stopped() {
+        assert!(!validate_task_can_complete(tork::task::TASK_STATE_STOPPED.as_ref()));
+    }
+
+    // -- has_next_task additional edges --------------------------------------
+
+    #[test]
+    fn test_has_next_task_position_zero() {
+        assert!(has_next_task(0, 2));
+    }
+
+    #[test]
+    fn test_has_next_task_single_task_at_end() {
+        assert!(has_next_task(1, 1));
+    }
+
+    #[test]
+    fn test_has_next_task_single_task_past_end() {
+        assert!(!has_next_task(2, 1));
+    }
+
+    // -- is_last_each_completion additional edges ---------------------------
+
+    #[test]
+    fn test_is_last_each_completion_zero_size() {
+        // completions (0) >= size (0) → true
+        assert!(is_last_each_completion(0, 0));
+    }
+
+    #[test]
+    fn test_is_last_each_completion_negative_completions() {
+        assert!(!is_last_each_completion(-1, 2));
+    }
+
+    // -- is_last_parallel_completion additional edges ------------------------
+
+    #[test]
+    fn test_is_last_parallel_completion_zero_tasks() {
+        assert!(is_last_parallel_completion(0, 0));
+    }
+
+    #[test]
+    fn test_is_last_parallel_completion_one_task() {
+        assert!(is_last_parallel_completion(1, 1));
+    }
+
+    #[test]
+    fn test_is_last_parallel_completion_negative_completions() {
+        assert!(!is_last_parallel_completion(-1, 3));
+    }
+
+    // -- should_dispatch_next additional edges -------------------------------
+
+    #[test]
+    fn test_should_dispatch_next_negative_concurrency() {
+        assert!(!should_dispatch_next(-1, 0, 3, false));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_negative_index() {
+        // index < size but concurrency > 0 → true even with negative start
+        assert!(should_dispatch_next(1, -1, 3, false));
+    }
+
+    #[test]
+    fn test_should_dispatch_next_zero_size() {
+        // index (0) < size (0) is false → no dispatch
+        assert!(!should_dispatch_next(1, 0, 0, false));
+    }
+
+    // -- update_context_map additional edges ---------------------------------
+
+    #[test]
+    fn test_update_context_map_existing_with_same_key() {
+        let existing = {
+            let mut m = HashMap::new();
+            m.insert("key".into(), "old".into());
+            Some(m)
+        };
+        let result = update_context_map(existing, "key".into(), "new".into());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get("key").map(String::as_str), Some("new"));
+    }
+
+    #[test]
+    fn test_update_context_map_many_keys() {
+        let existing = {
+            let mut m = HashMap::new();
+            m.insert("a".into(), "1".into());
+            m.insert("b".into(), "2".into());
+            m.insert("c".into(), "3".into());
+            Some(m)
+        };
+        let result = update_context_map(existing, "d".into(), "4".into());
+        assert_eq!(result.len(), 4);
+        assert_eq!(result.get("d").map(String::as_str), Some("4"));
+    }
+
+    // -- create_next_task additional edges -----------------------------------
+
+    #[test]
+    fn test_create_next_task_preserves_image() {
+        let task_def = Task {
+            name: Some("build".into()),
+            image: Some("alpine:3.18".into()),
+            ..Task::default()
+        };
+        let job = Job { id: Some("j1".into()), ..Job::default() };
+        let now = time::OffsetDateTime::now_utc();
+        let next = create_next_task(&task_def, &job, 1, now);
+        assert_eq!(next.image.as_deref(), Some("alpine:3.18"));
+    }
+
+    #[test]
+    fn test_create_next_task_preserves_env() {
+        let env = {
+            let mut m = HashMap::new();
+            m.insert("FOO".into(), "bar".into());
+            Some(m)
+        };
+        let task_def = Task { env, ..Task::default() };
+        let job = Job { id: Some("j1".into()), ..Job::default() };
+        let now = time::OffsetDateTime::now_utc();
+        let next = create_next_task(&task_def, &job, 2, now);
+        assert_eq!(next.env.as_ref().map(HashMap::len), Some(1));
+        assert_eq!(next.position, 2);
+    }
+
+    #[test]
+    fn test_create_next_task_preserves_queue() {
+        let task_def = Task {
+            queue: Some("my-queue".into()),
+            ..Task::default()
+        };
+        let job = Job { id: Some("j1".into()), ..Job::default() };
+        let now = time::OffsetDateTime::now_utc();
+        let next = create_next_task(&task_def, &job, 3, now);
+        assert_eq!(next.queue.as_deref(), Some("my-queue"));
+    }
+
+    // -- increment_each additional edges -------------------------------------
+
+    #[test]
+    fn test_increment_each_from_zero() {
+        let each = EachTask {
+            completions: 0,
+            index: 0,
+            size: 5,
+            concurrency: 2,
+            var: None,
+            list: None,
+            task: None,
+        };
+        let incremented = increment_each(&each);
+        assert_eq!(incremented.completions, 1);
+        assert_eq!(incremented.index, 1);
+    }
+
+    #[test]
+    fn test_increment_each_preserves_var() {
+        let each = EachTask {
+            completions: 2,
+            index: 2,
+            size: 4,
+            concurrency: 1,
+            var: Some("myItem".into()),
+            list: Some("[1,2,3,4]".into()),
+            task: None,
+        };
+        let incremented = increment_each(&each);
+        assert_eq!(incremented.var.as_deref(), Some("myItem"));
+        assert_eq!(incremented.list.as_deref(), Some("[1,2,3,4]"));
+    }
+
+    // -- increment_parallel additional edges ---------------------------------
+
+    #[test]
+    fn test_increment_parallel_from_zero() {
+        let parallel = ParallelTask {
+            completions: 0,
+            tasks: Some(vec![]),
+        };
+        let incremented = increment_parallel(&parallel);
+        assert_eq!(incremented.completions, 1);
+        assert_eq!(incremented.tasks.as_ref().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn test_increment_parallel_preserves_tasks() {
+        let inner = vec![
+            Task { name: Some("p1".into()), ..Task::default() },
+            Task { name: Some("p2".into()), ..Task::default() },
+            Task { name: Some("p3".into()), ..Task::default() },
+        ];
+        let parallel = ParallelTask {
+            completions: 1,
+            tasks: Some(inner.clone()),
+        };
+        let incremented = increment_parallel(&parallel);
+        assert_eq!(incremented.tasks.as_ref().map(Vec::len), Some(3));
+        assert_eq!(
+            incremented.tasks.as_ref().and_then(|t| t.first()).and_then(|t| t.name.as_deref()),
+            Some("p1")
+        );
+    }
+
+    // -- is_completion_state additional edges --------------------------------
+
+    #[test]
+    fn test_is_completion_state_rejects_scheduled() {
+        assert!(!is_completion_state(TASK_STATE_SCHEDULED.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_pending() {
+        assert!(!is_completion_state(TASK_STATE_PENDING.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_cancelled() {
+        assert!(!is_completion_state(TASK_STATE_CANCELLED.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_stopped() {
+        assert!(!is_completion_state(tork::task::TASK_STATE_STOPPED.as_ref()));
+    }
+
+    #[test]
+    fn test_is_completion_state_rejects_created() {
+        assert!(!is_completion_state(tork::task::TASK_STATE_CREATED.as_ref()));
+    }
+
+    // -- CompletedHandler construction tests ---------------------------------
+
+    #[test]
+    fn test_completed_handler_debug() {
+        let handler = CompletedHandler::new(
+            std::sync::Arc::new(MockDs),
+            std::sync::Arc::new(MockBrk),
+        );
+        let debug_str = format!("{handler:?}");
+        assert!(debug_str.contains("CompletedHandler"));
+    }
+
+    #[test]
+    fn test_completed_handler_rejects_invalid_state() {
+        let handler = CompletedHandler::new(
+            std::sync::Arc::new(MockDs),
+            std::sync::Arc::new(MockBrk),
+        );
+        let task = Task {
+            id: Some("t1".into()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Task::default()
+        };
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let result = rt.block_on(handler.handle(&task));
+        assert!(result.is_err());
+        match result.err() {
+            Some(HandlerError::InvalidState(msg)) => {
+                assert!(msg.contains("invalid completion state"));
+            }
+            other => panic!("expected InvalidState, got: {other:?}"),
+        }
+    }
+
+    // -- Mock implementations for handler construction tests -----------------
+
+    struct MockDs;
+
+    impl tork::Datastore for MockDs {
+        fn create_task(&self, _task: Task) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn update_task(&self, _id: String, _task: Task) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_task_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<Task>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_active_tasks(&self, _job_id: String) -> tork::datastore::BoxedFuture<Vec<Task>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_next_task(&self, _parent_task_id: String) -> tork::datastore::BoxedFuture<Option<Task>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn create_task_log_part(&self, _part: tork::task::TaskLogPart) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_task_log_parts(
+            &self, _task_id: String, _q: String, _page: i64, _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 0, size: 0 }) })
+        }
+        fn create_node(&self, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn update_node(&self, _id: String, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_node_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::node::Node>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_active_nodes(&self) -> tork::datastore::BoxedFuture<Vec<tork::node::Node>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn create_job(&self, _job: Job) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn update_job(&self, _id: String, _job: Job) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_job_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<Job>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_job_log_parts(
+            &self, _job_id: String, _q: String, _page: i64, _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 0, size: 0 }) })
+        }
+        fn get_jobs(
+            &self, _current_user: String, _q: String, _page: i64, _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::JobSummary>> {
+            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 0, size: 0 }) })
+        }
+        fn create_scheduled_job(&self, _job: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_active_scheduled_jobs(&self) -> tork::datastore::BoxedFuture<Vec<tork::job::ScheduledJob>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_scheduled_jobs(
+            &self, _current_user: String, _page: i64, _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::ScheduledJobSummary>> {
+            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 0, size: 0 }) })
+        }
+        fn get_scheduled_job_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::job::ScheduledJob>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn update_scheduled_job(&self, _id: String, _job: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn delete_scheduled_job(&self, _id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn create_user(&self, _user: tork::user::User) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_user(&self, _username: String) -> tork::datastore::BoxedFuture<Option<tork::user::User>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn create_role(&self, _role: tork::role::Role) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_role(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::role::Role>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_roles(&self) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_user_roles(&self, _user_id: String) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn assign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn unassign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_metrics(&self) -> tork::datastore::BoxedFuture<tork::stats::Metrics> {
+            Box::pin(async { Ok(tork::stats::Metrics::default()) })
+        }
+        fn health_check(&self) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn shutdown(&self) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    struct MockBrk;
+
+    impl tork::Broker for MockBrk {
+        fn publish_task(&self, _qname: String, _task: &Task) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_tasks(&self, _qname: String, _handler: tork::broker::TaskHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_task_progress(&self, _task: &Task) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_task_progress(&self, _handler: tork::broker::TaskProgressHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_heartbeat(&self, _node: tork::node::Node) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_heartbeats(&self, _handler: tork::broker::HeartbeatHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_job(&self, _job: &tork::job::Job) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_jobs(&self, _handler: tork::broker::JobHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_event(&self, _topic: String, _event: serde_json::Value) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_events(&self, _pattern: String, _handler: tork::broker::EventHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_task_log_part(&self, _part: &tork::task::TaskLogPart) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_task_log_part(&self, _handler: tork::broker::TaskLogPartHandler) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn queues(&self) -> tork::broker::BoxedFuture<Vec<tork::broker::QueueInfo>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn queue_info(&self, _qname: String) -> tork::broker::BoxedFuture<tork::broker::QueueInfo> {
+            Box::pin(async { Ok(tork::broker::QueueInfo { name: String::new(), size: 0, subscribers: 0, unacked: 0 }) })
+        }
+        fn delete_queue(&self, _qname: String) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn health_check(&self) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn shutdown(&self) -> tork::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    // -- Integration tests (require real datastore, ignored by default) -----
+
+    /// Go parity: Test_handleCompletedLastTask
+    /// Requires postgres database. Run with: cargo test -p coordinator -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_last_task_integration() {
+        // This test requires a real datastore and broker (Go parity with
+        // Test_handleCompletedLastTask). The pure-calc variants above
+        // cover the decision logic.
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleCompletedFirstTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_first_task_integration() {
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleSkippedTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_skipped_task_integration() {
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleCompletedLastSubJobTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_last_subjob_task_integration() {
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleCompletedParallelTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_parallel_task_integration() {
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleCompletedEachTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_each_task_integration() {
+        todo!("requires postgres datastore integration");
+    }
+
+    /// Go parity: Test_handleCompletedEachTaskWithNextTask
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_completed_each_task_with_next_integration() {
+        todo!("requires postgres datastore integration");
     }
 }

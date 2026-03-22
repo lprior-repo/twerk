@@ -6,6 +6,13 @@
 //! - **Calc**: Pure getter operations with Option handling
 //! - **Actions**: All operations are thread-safe by design
 
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
 use dashmap::DashMap;
 use std::borrow::Borrow;
 use std::cmp::Eq;
@@ -171,7 +178,6 @@ mod tests {
 
     #[test]
     fn test_concurrent_set_and_get() {
-        use std::sync::Arc;
         use std::thread;
 
         let m = Arc::new(Map::<String, i32>::new());
@@ -182,8 +188,7 @@ mod tests {
             let handle = thread::spawn(move || {
                 m_clone.set("somekey".to_string(), i);
                 let v = m_clone.get(&"somekey".to_string());
-                assert!(v.is_some());
-                assert!(v.unwrap() > 0);
+                assert!(matches!(v, Some(x) if x > 0));
             });
             handles.push(handle);
         }

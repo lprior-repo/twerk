@@ -66,16 +66,16 @@ pub enum Error {
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Error::TaskNotFound, Error::TaskNotFound) => true,
-            (Error::NodeNotFound, Error::NodeNotFound) => true,
-            (Error::JobNotFound, Error::JobNotFound) => true,
-            (Error::ScheduledJobNotFound, Error::ScheduledJobNotFound) => true,
-            (Error::UserNotFound, Error::UserNotFound) => true,
-            (Error::RoleNotFound, Error::RoleNotFound) => true,
-            (Error::ContextNotFound, Error::ContextNotFound) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Error::TaskNotFound, Error::TaskNotFound)
+                | (Error::NodeNotFound, Error::NodeNotFound)
+                | (Error::JobNotFound, Error::JobNotFound)
+                | (Error::ScheduledJobNotFound, Error::ScheduledJobNotFound)
+                | (Error::UserNotFound, Error::UserNotFound)
+                | (Error::RoleNotFound, Error::RoleNotFound)
+                | (Error::ContextNotFound, Error::ContextNotFound)
+        )
     }
 }
 

@@ -43,7 +43,11 @@ pub async fn start_async(addr: SocketAddr, router: axum::Router) -> Result<(), H
         .await
         .map_err(|e| HttpError::BindError(e.to_string()))?;
 
-    let addr_str = format!("{}", addr);
+    // Get the actual address the listener bound to (port 0 means OS assigns port)
+    let actual_addr = listener
+        .local_addr()
+        .map_err(|e| HttpError::BindError(e.to_string()))?;
+    let addr_str = format!("{}", actual_addr);
 
     tokio::spawn(async move {
         let server = axum::serve(listener, router);

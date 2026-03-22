@@ -4,7 +4,6 @@
 
 use std::sync::Arc;
 use tork::node::Node;
-use tork::node::NodeStatus;
 
 /// A handler function that processes a node within a context.
 pub type HandlerFunc = Arc<dyn Fn(Arc<Context>, &Node) -> Result<(), NodeError> + Send + Sync>;
@@ -15,6 +14,7 @@ pub type MiddlewareFunc = Arc<dyn Fn(HandlerFunc) -> HandlerFunc + Send + Sync>;
 /// Context for node operations.
 #[derive(Debug, Clone)]
 pub struct Context {
+    #[allow(dead_code)]
     values: Vec<(String, String)>,
 }
 
@@ -37,7 +37,7 @@ impl Default for Context {
 }
 
 /// Errors that can occur in node middleware.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum NodeError {
     #[error("middleware error: {0}")]
     Middleware(String),
@@ -61,45 +61,60 @@ pub fn noop_handler() -> HandlerFunc {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tork::node::NodeStatus;
+
+    fn make_test_node() -> Node {
+        Node {
+            id: Some("test-id".to_string()),
+            name: Some("test-name".to_string()),
+            started_at: time::OffsetDateTime::UNIX_EPOCH,
+            cpu_percent: 0.0,
+            last_heartbeat_at: time::OffsetDateTime::UNIX_EPOCH,
+            queue: None,
+            status: NodeStatus::from("ONLINE"),
+            hostname: None,
+            port: 8080,
+            task_count: 0,
+            version: "1.0.0".to_string(),
+        }
+    }
 
     #[test]
     fn test_middleware_before() {
         use std::sync::atomic::{AtomicI32, Ordering};
 
         let order = Arc::new(AtomicI32::new(1));
-        let order_clone = order.clone();
+        let order_h = order.clone();
+        let order1 = order.clone();
+        let order2 = order.clone();
 
         let h: HandlerFunc = Arc::new(move |_ctx: Arc<Context>, _node: &Node| {
-            assert_eq!(order_clone.load(Ordering::SeqCst), 3);
+            assert_eq!(order_h.load(Ordering::SeqCst), 3);
             Ok(())
         });
 
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order_inner = order1.clone();
             Arc::new(move |ctx: Arc<Context>, node: &Node| {
-                assert_eq!(order.load(Ordering::SeqCst), 1);
-                order.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(order_inner.load(Ordering::SeqCst), 1);
+                order_inner.fetch_add(1, Ordering::SeqCst);
                 next(ctx, node)
             })
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order_inner = order2.clone();
             Arc::new(move |ctx: Arc<Context>, node: &Node| {
-                assert_eq!(order.load(Ordering::SeqCst), 2);
-                order.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(order_inner.load(Ordering::SeqCst), 2);
+                order_inner.fetch_add(1, Ordering::SeqCst);
                 next(ctx, node)
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx = Arc::new(Context::new());
-        let node = Node {
-            id: Some("test-id".to_string()),
-            name: Some("test-name".to_string()),
-            ..Default::default()
-        };
-        hm(ctx, &node).unwrap();
+        let node = make_test_node();
+        assert!(hm(ctx, &node).is_ok());
     }
 
     #[test]
@@ -107,41 +122,43 @@ mod tests {
         use std::sync::atomic::{AtomicI32, Ordering};
 
         let order = Arc::new(AtomicI32::new(1));
+        let order_h = order.clone();
+        let order1 = order.clone();
+        let order2 = order.clone();
 
+        // Note: with apply_middleware, last element in vec is outermost (runs first)
+        // vec![mw2, mw1] means mw1 is outermost, then mw2, then handler
+        // For "after" middleware (runs after calling next): handler first, then mw2, then mw1
         let h: HandlerFunc = Arc::new(move |_ctx: Arc<Context>, _node: &Node| {
-            assert_eq!(order.load(Ordering::SeqCst), 1);
-            order.fetch_add(1, Ordering::SeqCst);
+            assert_eq!(order_h.load(Ordering::SeqCst), 1);
+            order_h.fetch_add(1, Ordering::SeqCst);
             Ok(())
         });
 
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order_inner = order1.clone();
             Arc::new(move |ctx: Arc<Context>, node: &Node| {
                 let result = next(ctx.clone(), node);
-                assert_eq!(order.load(Ordering::SeqCst), 3);
-                order.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(order_inner.load(Ordering::SeqCst), 3);
+                order_inner.fetch_add(1, Ordering::SeqCst);
                 result
             })
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order_inner = order2.clone();
             Arc::new(move |ctx: Arc<Context>, node: &Node| {
                 let result = next(ctx.clone(), node);
-                assert_eq!(order.load(Ordering::SeqCst), 2);
-                order.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(order_inner.load(Ordering::SeqCst), 2);
+                order_inner.fetch_add(1, Ordering::SeqCst);
                 result
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx = Arc::new(Context::new());
-        let node = Node {
-            id: Some("test-id".to_string()),
-            name: Some("test-name".to_string()),
-            ..Default::default()
-        };
-        hm(ctx, &node).unwrap();
+        let node = make_test_node();
+        assert!(hm(ctx, &node).is_ok());
     }
 
     #[test]
@@ -150,12 +167,8 @@ mod tests {
 
         let hm = apply_middleware(h, vec![]);
         let ctx = Arc::new(Context::new());
-        let node = Node {
-            id: Some("test-id".to_string()),
-            name: Some("test-name".to_string()),
-            ..Default::default()
-        };
-        hm(ctx, &node).unwrap();
+        let node = make_test_node();
+        assert!(hm(ctx, &node).is_ok());
     }
 
     #[test]
@@ -171,23 +184,21 @@ mod tests {
         });
 
         let err = NodeError::Middleware("something bad happened".to_string());
+        let err_arc = Arc::new(err);
         let mw1: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
-            Arc::new(move |_ctx: Arc<Context>, _node: &Node| Err(err.clone()))
+            let err_arc_clone = err_arc.clone();
+            Arc::new(move |_ctx: Arc<Context>, _node: &Node| Err((*err_arc_clone).clone()))
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
             Arc::new(move |_ctx: Arc<Context>, _node: &Node| {
-                panic!("should not get here");
+                Err(NodeError::Handler("should not get here".to_string()))
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx = Arc::new(Context::new());
-        let node = Node {
-            id: Some("test-id".to_string()),
-            name: Some("test-name".to_string()),
-            ..Default::default()
-        };
+        let node = make_test_node();
 
         let result = hm(ctx, &node);
         assert!(result.is_err());

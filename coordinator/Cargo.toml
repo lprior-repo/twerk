@@ -5,8 +5,11 @@ edition = "2021"
 description = "Coordinator module for Tork task queue system"
 
 [dependencies]
-# Local tork crate
+# Local tork crates
 tork = { path = "../tork" }
+tork-input = { path = "../input" }
+tork-health = { path = "../health" }
+locker = { path = "../locker" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -19,6 +22,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yml = "0.0.12"
 
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
@@ -39,8 +43,27 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 itertools = "0.14"
 tap = "1"
 
+# Async utilities
+futures-util = "0.3"
+
+# Cron scheduling (Go gocron parity)
+tokio-cron-scheduler = "0.15"
+
 # Async trait support
 async-trait = "0.1"
+
+# Expression evaluation
+evalexpr = "13"
+regex = "1"
+
+# Password hashing (user creation)
+bcrypt = "0.17"
+
+# System info (for coordinator heartbeats)
+sysinfo = "0.33"
+
+# Hostname (for coordinator heartbeats)
+hostname = "0.4"
 
 [dev-dependencies]
 tokio-test = "0.4"

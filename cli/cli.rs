@@ -22,12 +22,6 @@ pub const DEFAULT_ENDPOINT: &str = "http://localhost:8000";
 /// Default datastore type
 pub const DEFAULT_DATASTORE_TYPE: &str = "postgres";
 
-/// Default broker type
-const DEFAULT_BROKER_TYPE: &str = "inmemory";
-
-/// Default locker type
-const DEFAULT_LOCKER_TYPE: &str = "inmemory";
-
 /// Tork version string
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -35,7 +29,11 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const GIT_COMMIT: &str = "unknown";
 
 /// Get the current git commit hash at runtime
-#[must_use]
+///
+/// # Errors
+///
+/// Returns [`CliError::Logging`] if the log level is invalid.
+#[must_use] 
 pub fn get_git_commit() -> String {
     get_config_string("cli.git_sha").unwrap_or_else(|| "unknown".to_string())
 }
@@ -86,16 +84,6 @@ fn get_postgres_dsn() -> String {
     get_config_string("datastore.postgres.dsn").unwrap_or_else(|| DEFAULT_POSTGRES_DSN.to_string())
 }
 
-/// Get broker type from configuration or default
-fn get_broker_type() -> String {
-    get_config_string("broker.type").unwrap_or_else(|| DEFAULT_BROKER_TYPE.to_string())
-}
-
-/// Get locker type from configuration or default
-fn get_locker_type() -> String {
-    get_config_string("locker.type").unwrap_or_else(|| DEFAULT_LOCKER_TYPE.to_string())
-}
-
 /// Get a string config value, checking config file first, then environment variables.
 /// Environment variables are prefixed with `TORK_` and use double underscore for nesting.
 /// e.g., `TORK_DATABASE__POSTGRES__DSN` for `datastore.postgres.dsn`.
@@ -133,10 +121,7 @@ pub async fn run() -> Result<(), CliError> {
     match cmd {
         Commands::Run { mode } => {
             let mode = mode.unwrap_or_default();
-            let broker_type = get_broker_type();
-            let datastore_type = get_datastore_type();
-            let locker_type = get_locker_type();
-            run_engine(&mode, &broker_type, &datastore_type, &locker_type).await?;
+            run_engine(&mode).await?;
         }
         Commands::Migration { .. } => {
             let dstype = get_datastore_type();

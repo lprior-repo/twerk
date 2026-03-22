@@ -1,126 +1,174 @@
-//! PostgreSQL locker implementation using advisory locks
+//! `PostgreSQL` locker implementation using advisory locks.
+//!
+//! Uses `pg_try_advisory_xact_lock` which is transaction-scoped:
+//! the advisory lock is held as long as the transaction remains open,
+//! and is released when the transaction is rolled back or the connection
+//! is closed (`PostgreSQL` auto-aborts open transactions on disconnect).
+//!
+//! # Executor HRTB workaround
+//!
+//! sqlx's [`sqlx::Executor`] trait has a known limitation: the compiler
+//! cannot prove `for<'c> &'c mut PgConnection: Executor<'c>` in the
+//! auto-trait inference context used by `Box<dyn Future + Send>` coercion
+//! and `tokio::spawn`. This is why the sqlx codebase itself comments out
+//! the `Executor` impl for `Transaction` ("fails to compile due to lack
+//! of lazy normalization").
+//!
+//! We work around this by using the synchronous [`postgres`] crate for all
+//! SQL operations, executed on tokio's blocking thread pool via
+//! [`tokio::task::spawn_blocking`]. The synchronous `postgres::Client` is
+//! `Send` but not `Sync`, so we wrap it in [`std::sync::Mutex`] to satisfy
+//! the `Lock: Send + Sync` trait bound.
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
 
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::Mutex;
 
-use async_trait::async_trait;
+use postgres::Client as PgClient;
 use sha2::{Digest, Sha256};
-use sqlx::postgres::{PgPool, PgPoolOptions};
 
 use crate::error::{InitError, LockError};
 use crate::{Lock, Locker};
 
 /// PostgreSQL-backed distributed locker.
 ///
-/// Uses PostgreSQL advisory locks (`pg_try_advisory_xact_lock`) for
+/// Uses `PostgreSQL` advisory locks (`pg_try_advisory_xact_lock`) for
 /// distributed locking across multiple processes or machines.
 pub struct PostgresLocker {
-    pool: PgPool,
+    dsn: String,
 }
 
-/// Inner lock type for PostgreSQL advisory locking.
+/// Inner lock type for `PostgreSQL` advisory locking.
 ///
-/// Stores the key and pool reference. The lock is released when
-/// the transaction is committed or rolled back.
+/// Stores a synchronous [`PgClient`] (wrapped in [`Mutex`] for `Sync`)
+/// with its open transaction. The lock is released when
+/// [`Lock::release_lock`] rolls back and drops the client.
+///
+/// # Why Mutex?
+///
+/// `postgres::Client` is `Send` but not `Sync` (it contains
+/// `Box<dyn Stream + Send>`). The `Lock` trait requires `Send + Sync`.
+/// `Mutex<T>` is `Sync` when `T: Send`, so this satisfies the bound.
 struct PostgresLock {
     #[allow(dead_code)]
     key: String,
-    #[allow(dead_code)]
-    pool: Arc<PgPool>,
-    acquired: bool,
+    client: Mutex<PgClient>,
 }
 
-impl PostgresLock {
-    /// Create a new PostgresLock.
-    fn new(key: String, pool: Arc<PgPool>) -> Self {
-        Self {
-            key,
-            pool,
-            acquired: true,
-        }
-    }
+// ── Data (pure) ──────────────────────────────────────────────
+
+/// Compute a 64-bit hash from a key string using SHA-256.
+///
+/// Takes the first 8 bytes of the SHA-256 digest and interprets them
+/// as a big-endian i64, matching the Go implementation exactly.
+#[must_use]
+pub fn hash_key(key: &str) -> i64 {
+    let result = Sha256::digest(key.as_bytes());
+    i64::from_be_bytes([
+        result[0], result[1], result[2], result[3],
+        result[4], result[5], result[6], result[7],
+    ])
 }
 
-impl Lock for PostgresLock {
-    fn release_lock(self: Pin<Box<Self>>) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
-        let mut this = unsafe { Pin::into_inner_unchecked(self) };
+// ── Options (data) ───────────────────────────────────────────
 
-        Box::pin(async move {
-            if this.acquired {
-                // The transaction was already rolled back in acquire_lock
-                // The advisory lock is released when the transaction ends
-                this.acquired = false;
-            }
-            Ok(())
-        })
-    }
-}
-
-/// Options for configuring the [`PostgresLocker`] connection pool.
+/// Options for configuring the [`PostgresLocker`].
 #[derive(Debug, Clone, Default)]
 pub struct PostgresLockerOptions {
+    #[allow(dead_code)]
     max_open_conns: Option<u32>,
+    #[allow(dead_code)]
     max_idle_conns: Option<u32>,
+    #[allow(dead_code)]
     conn_max_lifetime: Option<std::time::Duration>,
+    #[allow(dead_code)]
     conn_max_idle_time: Option<std::time::Duration>,
+    connect_timeout: Option<std::time::Duration>,
 }
 
 impl PostgresLockerOptions {
     /// Set the maximum number of open connections.
     #[must_use]
-    pub fn max_open_conns(mut self, n: u32) -> Self {
-        self.max_open_conns = Some(n);
-        self
+    pub fn max_open_conns(self, n: u32) -> Self {
+        Self {
+            max_open_conns: Some(n),
+            ..self
+        }
     }
 
     /// Set the maximum number of idle connections.
     #[must_use]
-    pub fn max_idle_conns(mut self, n: u32) -> Self {
-        self.max_idle_conns = Some(n);
-        self
-    }
-
-    /// Set the maximum lifetime for connections.
-    #[must_use]
-    pub fn conn_max_lifetime(mut self, d: std::time::Duration) -> Self {
-        self.conn_max_lifetime = Some(d);
-        self
-    }
-
-    /// Set the maximum idle time for connections.
-    #[must_use]
-    pub fn conn_max_idle_time(mut self, d: std::time::Duration) -> Self {
-        self.conn_max_idle_time = Some(d);
-        self
-    }
-
-    /// Build the [`PostgresLocker`] with these options.
-    pub async fn build(self, dsn: &str) -> Result<PostgresLocker, InitError> {
-        let mut pool_options = PgPoolOptions::new();
-
-        if let Some(n) = self.max_open_conns {
-            pool_options = pool_options.max_connections(n);
+    pub fn max_idle_conns(self, n: u32) -> Self {
+        Self {
+            max_idle_conns: Some(n),
+            ..self
         }
-        if let Some(n) = self.max_idle_conns {
-            pool_options = pool_options.min_connections(n);
+    }
+
+    /// Set the maximum lifetime for individual connections.
+    #[must_use]
+    pub fn conn_max_lifetime(self, d: std::time::Duration) -> Self {
+        Self {
+            conn_max_lifetime: Some(d),
+            ..self
         }
+    }
 
-        let pool = pool_options
-            .acquire_timeout(std::time::Duration::from_secs(30))
-            .connect(dsn)
-            .await
-            .map_err(|e| InitError::Connection(e.to_string()))?;
+    /// Set the maximum idle time for individual connections.
+    #[must_use]
+    pub fn conn_max_idle_time(self, d: std::time::Duration) -> Self {
+        Self {
+            conn_max_idle_time: Some(d),
+            ..self
+        }
+    }
 
-        Ok(PostgresLocker { pool })
+    /// Set the connection timeout.
+    #[must_use]
+    pub fn connect_timeout(self, d: std::time::Duration) -> Self {
+        Self {
+            connect_timeout: Some(d),
+            ..self
+        }
     }
 }
+
+// ── Lock implementation (actions) ────────────────────────────
+
+impl Lock for PostgresLock {
+    fn release_lock(
+        self: Pin<Box<Self>>,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
+        let PostgresLock { client, .. } = *Pin::into_inner(self);
+
+        // Rollback on the blocking thread, then drop the client.
+        // Sending ROLLBACK ensures the advisory lock is released
+        // immediately rather than waiting for TCP keepalive timeout.
+        let handle = tokio::task::spawn_blocking(move || {
+            if let Ok(mut c) = client.lock() {
+                let _ = c.simple_query("ROLLBACK");
+            }
+        });
+
+        Box::pin(async move {
+            let _ = handle.await;
+            Ok(())
+        })
+    }
+}
+
+// ── Locker implementation (actions) ──────────────────────────
 
 impl PostgresLocker {
     /// Create a new [`PostgresLocker`] with default options.
     ///
     /// # Errors
     ///
-    /// Returns [`InitError`] if connection fails or ping fails.
+    /// Returns [`InitError`] if the connection cannot be established.
     pub async fn new(dsn: &str) -> Result<Self, InitError> {
         Self::with_options(dsn, PostgresLockerOptions::default()).await
     }
@@ -129,18 +177,32 @@ impl PostgresLocker {
     ///
     /// # Errors
     ///
-    /// Returns [`InitError`] if connection fails or ping fails.
-    pub async fn with_options(dsn: &str, opts: PostgresLockerOptions) -> Result<Self, InitError> {
-        let locker = opts.build(dsn).await?;
+    /// Returns [`InitError`] if the connection cannot be established.
+    pub async fn with_options(
+        dsn: &str,
+        opts: PostgresLockerOptions,
+    ) -> Result<Self, InitError> {
+        let timeout = opts.connect_timeout.unwrap_or(std::time::Duration::from_secs(30));
+        let dsn_owned = dsn.to_string();
 
-        // Ping to verify connection
-        locker
-            .pool
-            .acquire()
-            .await
-            .map_err(|e| InitError::Ping(e.to_string()))?;
+        let connect_result = tokio::time::timeout(
+            timeout,
+            tokio::task::spawn_blocking(move || {
+                PgClient::connect(&dsn_owned, postgres::NoTls)
+            }),
+        )
+        .await;
 
-        Ok(locker)
+        match connect_result {
+            Ok(Ok(Ok(_client))) => Ok(Self {
+                dsn: dsn.to_string(),
+            }),
+            Ok(Ok(Err(e))) => Err(InitError::Connection(e.to_string())),
+            Ok(Err(_join_err)) => Err(InitError::Ping("spawn failed".to_string())),
+            Err(_) => Err(InitError::Connection(format!(
+                "connection timed out after {timeout:?}"
+            ))),
+        }
     }
 
     /// Create a new builder for [`PostgresLocker`].
@@ -150,75 +212,80 @@ impl PostgresLocker {
     }
 }
 
-/// Compute a 64-bit hash from a key string using SHA-256.
-///
-/// This takes the first 8 bytes of the SHA-256 hash and interprets
-/// them as a big-endian unsigned 64-bit integer.
-#[must_use]
-pub fn hash_key(key: &str) -> i64 {
-    let mut hasher = Sha256::new();
-    hasher.update(key.as_bytes());
-    let result = hasher.finalize();
-
-    // Take first 8 bytes and interpret as i64
-    i64::from_be_bytes([
-        result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
-    ])
-}
-
-#[async_trait]
 impl Locker for PostgresLocker {
     fn acquire_lock(
         &self,
         key: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>>
+    {
         let key = key.to_string();
-        let pool = Arc::new(self.pool.clone());
+        let dsn = self.dsn.clone();
 
-        Box::pin(async move {
+        // Run all SQL on the blocking thread pool — the synchronous
+        // postgres crate has no Executor HRTB issues.
+        let handle = tokio::task::spawn_blocking(move || {
             let key_hash = hash_key(&key);
 
-            // Begin a transaction
-            let mut tx = pool
-                .begin()
+            // Open a dedicated connection — this is our "session" that holds the lock.
+            let client = PgClient::connect(&dsn, postgres::NoTls)
+                .map_err(|e| LockError::Connection(e.to_string()))?;
+
+            acquire_advisory_lock(key, key_hash, client)
+        });
+
+        Box::pin(async move {
+            handle
                 .await
-                .map_err(|e| LockError::Transaction {
-                    key: key.clone(),
-                    source: Box::new(e),
-                })?;
-
-            // Try to acquire the advisory lock
-            let lock_acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_xact_lock($1)")
-                .bind(key_hash)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(|e| LockError::Transaction {
-                    key: key.clone(),
-                    source: Box::new(e),
-                })?;
-
-            if !lock_acquired {
-                tx.rollback().await.ok();
-                return Err(LockError::AlreadyLocked { key });
-            }
-
-            // Commit the transaction - the advisory lock persists until session ends
-            // But we want to release it on unlock... hmm
-            // Actually pg_try_advisory_xact_lock is transaction-scoped
-            // So we need to keep the transaction open
-            
-            // For now, rollback immediately since we can't hold transaction open
-            // This is a limitation - proper implementation would need connection pinning
-            tx.rollback().await.ok();
-
-            // Create the lock - note that the lock is not actually held after this
-            // This is a bug in this implementation. For proper advisory locks,
-            // the transaction must remain open.
-            let lock: Pin<Box<dyn Lock>> = Box::pin(PostgresLock::new(key, pool));
-            Ok(lock)
+                .unwrap_or_else(|e| Err(LockError::Connection(e.to_string())))
         })
     }
 }
+
+/// Core advisory lock acquisition logic. Runs on a blocking thread.
+///
+/// Opens a transaction, attempts `pg_try_advisory_xact_lock`, and
+/// returns a [`PostgresLock`] holding the connection on success.
+/// On failure, rolls back the transaction and returns an error.
+fn acquire_advisory_lock(
+    key: String,
+    key_hash: i64,
+    mut client: PgClient,
+) -> Result<Pin<Box<dyn Lock>>, LockError> {
+    // Begin a transaction on this connection.
+    client
+        .simple_query("BEGIN")
+        .map_err(|e| LockError::Transaction {
+            key: key.clone(),
+            source: Box::new(e),
+        })?;
+
+    // Attempt to acquire the advisory lock within the transaction.
+    let row = client
+        .query_one("SELECT pg_try_advisory_xact_lock($1)", &[&key_hash])
+        .map_err(|e| LockError::Transaction {
+            key: key.clone(),
+            source: Box::new(e),
+        })?;
+
+    let lock_acquired: bool = row.get(0);
+
+    if !lock_acquired {
+        // Lock not obtained — roll back the transaction.
+        let _ = client.simple_query("ROLLBACK");
+        return Err(LockError::AlreadyLocked { key });
+    }
+
+    // Lock acquired — store the connection (with its open transaction).
+    // The advisory lock is held as long as the transaction remains open.
+    // It will be released when release_lock() rolls back the transaction.
+    let lock: Pin<Box<dyn Lock>> = Box::pin(PostgresLock {
+        key,
+        client: Mutex::new(client),
+    });
+    Ok(lock)
+}
+
+// ── Tests ────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -228,10 +295,24 @@ mod tests {
     fn test_hash_key() {
         let key = "2c7eb7e1951343468ce360c906003a22";
         let hash = hash_key(key);
-        // Expected value from Go implementation: -414568140838410356
-        // Verified by running: go run hashbytes.go
+        // Go reference: int64(-414568140838410356)
         let expected = i64::from_be_bytes([250, 63, 40, 120, 238, 33, 231, 140]);
         assert_eq!(hash, expected);
+    }
+
+    #[test]
+    fn test_hash_key_deterministic() {
+        let key = "my-lock-key";
+        let a = hash_key(key);
+        let b = hash_key(key);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_hash_key_different_keys() {
+        let a = hash_key("key-a");
+        let b = hash_key("key-b");
+        assert_ne!(a, b);
     }
 
     #[tokio::test]
@@ -255,7 +336,7 @@ mod tests {
             .await
             .expect("first acquire should succeed");
 
-        // Second acquisition for same key should fail
+        // Second acquisition for same key should fail (lock held by first)
         let result = locker.acquire_lock(key).await;
         assert!(result.is_err());
 

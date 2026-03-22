@@ -1,20 +1,14 @@
 //! # Host Module
 //!
 //! Provides host system information retrieval functionality.
-
-use thiserror::Error;
-
-/// Errors that can occur during host operations.
-#[derive(Debug, Error)]
-pub enum HostError {
-    #[error("failed to get CPU percentage: {0}")]
-    CpuPercentError(String),
-}
+//! Parity with Go's `internal/host/host.go`: `GetCPUPercent` returns 0.0
+//! on error, matching Go's behavior of logging debug and returning 0.
 
 /// Gets the current CPU usage percentage.
 ///
 /// This function queries the system for CPU usage and returns the percentage
-/// of CPU currently in use. Returns 0.0 if the query fails.
+/// of CPU currently in use. Returns 0.0 if the query fails, matching Go's
+/// `GetCPUPercent` which returns 0 on error.
 ///
 /// # Returns
 ///
@@ -22,7 +16,8 @@ pub enum HostError {
 pub fn get_cpu_percent() -> f64 {
     let mut sys = sysinfo::System::new_all();
     sys.refresh_cpu_all();
-    // Wait a bit to get accurate reading
+    // Small delay required by sysinfo to measure CPU delta between two samples.
+    // Go's gopsutil handles this internally via /proc/stat timestamps.
     std::thread::sleep(std::time::Duration::from_millis(200));
     sys.refresh_cpu_all();
 
@@ -31,8 +26,7 @@ pub fn get_cpu_percent() -> f64 {
         return 0.0;
     }
 
-    let total: f64 = cpus.iter().map(|cpu| cpu.cpu_usage() as f64).sum::<f64>() / cpus.len() as f64;
-    total
+    cpus.iter().map(|cpu| cpu.cpu_usage() as f64).sum::<f64>() / cpus.len() as f64
 }
 
 #[cfg(test)]

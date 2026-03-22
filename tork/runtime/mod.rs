@@ -12,6 +12,13 @@ pub use multi::MultiMounter;
 use crate::task::Task;
 use std::pin::Pin;
 
+/// Docker runtime engine
+pub const RUNTIME_DOCKER: &str = "docker";
+/// Podman runtime engine
+pub const RUNTIME_PODMAN: &str = "podman";
+/// Shell runtime engine
+pub const RUNTIME_SHELL: &str = "shell";
+
 /// Boxed future type for runtime operations
 pub type BoxedFuture<T> = Pin<Box<dyn std::future::Future<Output = Result<T, anyhow::Error>> + Send>>;
 

@@ -53,9 +53,23 @@ mod tests {
         let fake = FakeMounter {
             mount_type: "volume".to_string(),
         };
-        mounter
-            .register_mounter("volume", Box::new(fake))
-            .await;
+        let result = mounter.register_mounter("volume", Box::new(fake));
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_multi_mounter_register_duplicate_errors() {
+        let mut mounter = MultiMounter::new();
+        let fake1 = FakeMounter {
+            mount_type: "volume".to_string(),
+        };
+        let fake2 = FakeMounter {
+            mount_type: "volume".to_string(),
+        };
+        let result = mounter.register_mounter("volume", Box::new(fake1));
+        assert!(result.is_ok());
+        let result = mounter.register_mounter("volume", Box::new(fake2));
+        assert!(result.is_err());
     }
 
     #[tokio::test]

@@ -18,6 +18,7 @@ use tork::task::{
 
 /// Task input type
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Task {
     /// Task name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -202,6 +203,7 @@ pub struct Parallel {
 
 /// Retry configuration
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Retry {
     /// Maximum retry count
     #[serde(default)]
@@ -360,39 +362,6 @@ pub struct Probe {
     pub timeout: Option<String>,
 }
 
-impl Default for Task {
-    fn default() -> Self {
-        Self {
-            name: None,
-            description: None,
-            cmd: None,
-            entrypoint: None,
-            run: None,
-            image: None,
-            registry: None,
-            env: None,
-            files: None,
-            queue: None,
-            pre: None,
-            post: None,
-            sidecars: None,
-            mounts: None,
-            networks: None,
-            retry: None,
-            limits: None,
-            timeout: None,
-            var: None,
-            r#if: None,
-            parallel: None,
-            each: None,
-            subjob: None,
-            gpus: None,
-            tags: None,
-            workdir: None,
-            priority: 0,
-        }
-    }
-}
 
 impl Task {
     /// Creates a new Task with the given name and image
@@ -414,20 +383,20 @@ impl Task {
     /// Returns true if this task has a valid name
     #[must_use]
     pub fn has_name(&self) -> bool {
-        self.name.as_ref().map_or(false, |n| !n.is_empty())
+        self.name.as_ref().is_some_and(|n| !n.is_empty())
     }
 
     /// Returns true if this task has an image
     #[must_use]
     pub fn has_image(&self) -> bool {
-        self.image.as_ref().map_or(false, |i| !i.is_empty())
+        self.image.as_ref().is_some_and(|i| !i.is_empty())
     }
 
     /// Returns true if this task has a command
     #[must_use]
     pub fn has_command(&self) -> bool {
-        self.cmd.as_ref().map_or(false, |c| !c.is_empty())
-            || self.run.as_ref().map_or(false, |r| !r.is_empty())
+        self.cmd.as_ref().is_some_and(|c| !c.is_empty())
+            || self.run.as_ref().is_some_and(|r| !r.is_empty())
     }
 }
 
@@ -445,11 +414,6 @@ impl Retry {
     }
 }
 
-impl Default for Retry {
-    fn default() -> Self {
-        Self { limit: 0 }
-    }
-}
 
 impl Limits {
     /// Creates a new Limits with the given CPU and memory

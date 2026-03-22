@@ -1,15 +1,24 @@
 //! Log event types and middleware utilities.
 
+pub mod redact;
+
 use std::sync::Arc;
 use tork::task::TaskLogPart;
 
 /// Event type for log middleware events.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EventType;
+pub enum EventType {
+    /// Read event type.
+    Read,
+}
 
 impl EventType {
-    /// Read event type.
-    pub const READ: &'static str = "READ";
+    /// Convert the event type to a string slice.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            EventType::Read => "READ",
+        }
+    }
 }
 
 /// A handler function that processes log events.
@@ -19,6 +28,7 @@ pub type HandlerFunc =
 /// Context for log operations.
 #[derive(Debug, Clone)]
 pub struct Context {
+    #[allow(dead_code)]
     values: Vec<(String, String)>,
 }
 
@@ -70,27 +80,21 @@ mod tests {
     #[test]
     fn test_middleware_order() {
         let order = Arc::new(AtomicI32::new(1));
+        let order_for_handler = order.clone();
+        let order_for_mw1 = order.clone();
+        let order_for_mw2 = order.clone();
 
+        // Note: with apply_middleware, last element in vec is outermost (runs first)
+        // vec![mw1, mw2] means mw2 runs first, then mw1, then handler
         let h: HandlerFunc = Arc::new(
             move |_ctx: Arc<Context>, _et: EventType, _logs: &[TaskLogPart]| {
-                assert_eq!(order.load(Ordering::SeqCst), 3);
+                assert_eq!(order_for_handler.load(Ordering::SeqCst), 3);
                 Ok(())
             },
         );
 
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
-            Arc::new(
-                move |ctx: Arc<Context>, et: EventType, logs: &[TaskLogPart]| {
-                    assert_eq!(order.load(Ordering::SeqCst), 1);
-                    order.fetch_add(1, Ordering::SeqCst);
-                    next(ctx, et, logs)
-                },
-            )
-        });
-
-        let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order = order_for_mw1.clone();
             Arc::new(
                 move |ctx: Arc<Context>, et: EventType, logs: &[TaskLogPart]| {
                     assert_eq!(order.load(Ordering::SeqCst), 2);
@@ -100,8 +104,20 @@ mod tests {
             )
         });
 
+        let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
+            let order = order_for_mw2.clone();
+            Arc::new(
+                move |ctx: Arc<Context>, et: EventType, logs: &[TaskLogPart]| {
+                    assert_eq!(order.load(Ordering::SeqCst), 1);
+                    order.fetch_add(1, Ordering::SeqCst);
+                    next(ctx, et, logs)
+                },
+            )
+        });
+
         let hm = apply_middleware(h, vec![mw1, mw2]);
         let ctx = Arc::new(Context::new());
-        hm(ctx, EventType::READ, &[]).unwrap();
+        let result = hm(ctx, EventType::Read, &[]);
+        assert!(result.is_ok());
     }
 }

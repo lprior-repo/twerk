@@ -38,4 +38,7 @@ pub enum MountError {
 
     #[error("unmount operation failed: {0}")]
     UnmountFailed(String),
+
+    #[error("duplicate mounter already registered for type: {0}")]
+    DuplicateMounter(String),
 }

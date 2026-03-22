@@ -39,7 +39,7 @@ impl InMemoryLocker {
 struct InMemLock {
     key: String,
     locks: Arc<Mutex<HashMap<String, mpsc::Sender<()>>>>,
-    _drop_tx: mpsc::Sender<()>,
+    drop_tx: mpsc::Sender<()>,
 }
 
 impl InMemLock {
@@ -58,20 +58,18 @@ impl InMemLock {
         Self {
             key,
             locks,
-            _drop_tx: tx,
+            drop_tx: tx,
         }
     }
 }
 
 impl Lock for InMemLock {
     fn release_lock(self: Pin<Box<Self>>) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
-        // Safety: We're the only impl of Lock and we know we're pinned
-        // This is safe because we immediately move out of the Box
-        let this = unsafe { Pin::into_inner_unchecked(self) };
+        let this = Pin::into_inner(self);
 
         let key = this.key.clone();
         let locks = Arc::clone(&this.locks);
-        drop(this._drop_tx);
+        drop(this.drop_tx);
 
         Box::pin(async move {
             let mut guard = locks.lock();

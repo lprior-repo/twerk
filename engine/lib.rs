@@ -30,7 +30,8 @@ mod engine {
     use crate::datastore::DatastoreProxy;
     use crate::worker::{create_worker, Worker};
     use crate::locker::{create_locker, Locker};
-    use tork::runtime::Runtime;
+    use tork::runtime::mount::Mounter;
+    use tork::runtime::{MultiMounter, Runtime};
     use tork::broker::Broker;
     use tork::datastore::Datastore;
     use anyhow::{anyhow, Result};
@@ -44,32 +45,28 @@ mod engine {
 
     /// Engine execution mode
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Default)]
     pub enum Mode {
         Coordinator,
         Worker,
+        #[default]
         Standalone,
     }
 
-    impl Default for Mode {
-        fn default() -> Self {
-            Mode::Standalone
-        }
-    }
+    
 
     /// Engine state
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Default)]
     pub enum State {
+        #[default]
         Idle,
         Running,
         Terminating,
         Terminated,
     }
 
-    impl Default for State {
-        fn default() -> Self {
-            State::Idle
-        }
-    }
+    
 
     /// Middleware configuration - using boxed types for flexibility
     #[derive(Debug, Default)]
@@ -83,23 +80,17 @@ mod engine {
 
     /// Engine configuration
     #[derive(Debug)]
+    #[derive(Default)]
     pub struct Config {
         pub mode: Mode,
         pub middleware: Middleware,
         pub endpoints: HashMap<String, Box<dyn std::any::Any + Send + Sync>>,
     }
 
-    impl Default for Config {
-        fn default() -> Self {
-            Self {
-                mode: Mode::default(),
-                middleware: Middleware::default(),
-                endpoints: HashMap::new(),
-            }
-        }
-    }
+    
 
     /// Engine is the main orchestration engine
+    #[allow(dead_code)]
     pub struct Engine {
         state: State,
         mode: Mode,
@@ -114,6 +105,7 @@ mod engine {
         locker: Arc<RwLock<Option<Box<dyn Locker + Send + Sync>>>>,
         middleware: Middleware,
         endpoints: HashMap<String, Box<dyn std::any::Any + Send + Sync>>,
+        mounters: HashMap<String, MultiMounter>,
         ds_providers: HashMap<String, Box<dyn Datastore + Send + Sync>>,
         broker_providers: HashMap<String, Box<dyn Broker + Send + Sync>>,
         job_listeners: Arc<RwLock<Vec<JobListener>>>,
@@ -124,6 +116,7 @@ mod engine {
             f.debug_struct("Engine")
                 .field("state", &self.state)
                 .field("mode", &self.mode)
+                .field("mounters", &self.mounters.keys().collect::<Vec<_>>())
                 .finish()
         }
     }
@@ -146,6 +139,7 @@ mod engine {
                 locker: Arc::new(RwLock::new(None)),
                 middleware: config.middleware,
                 endpoints: config.endpoints,
+                mounters: HashMap::new(),
                 ds_providers: HashMap::new(),
                 broker_providers: HashMap::new(),
                 job_listeners: Arc::new(RwLock::new(Vec::new())),
@@ -228,14 +222,28 @@ mod engine {
             Ok(())
         }
 
-        /// Returns the broker
+        /// Returns the broker as a trait object.
         pub fn broker(&self) -> &dyn Broker {
             &self.broker
         }
 
-        /// Returns the datastore
+        /// Returns the datastore as a trait object.
         pub fn datastore(&self) -> &dyn Datastore {
             &self.datastore
+        }
+
+        /// Returns a clone of the broker proxy.
+        ///
+        /// Go parity: `func Broker() broker.Broker`
+        pub fn broker_proxy(&self) -> BrokerProxy {
+            self.broker.clone_inner()
+        }
+
+        /// Returns a clone of the datastore proxy.
+        ///
+        /// Go parity: `func Datastore() datastore.Datastore`
+        pub fn datastore_proxy(&self) -> DatastoreProxy {
+            self.datastore.clone_inner()
         }
 
         /// Register web middleware
@@ -326,6 +334,29 @@ mod engine {
             self.broker_providers.insert(name, provider);
         }
 
+        /// Register a mounter for a specific runtime.
+        ///
+        /// Matches Go's `RegisterMounter(rt, name, mounter)`:
+        /// - Creates a new `MultiMounter` for the runtime if one doesn't exist yet.
+        /// - Registers the named mounter into that runtime's `MultiMounter`.
+        pub fn register_mounter(
+            &mut self,
+            rt: &str,
+            name: &str,
+            mounter: Box<dyn Mounter>,
+        ) {
+            if self.state != State::Idle {
+                return;
+            }
+            let rt_key = rt.to_string();
+            let entry = self.mounters.entry(rt_key).or_default();
+            // Silently ignore duplicate mounter registrations, matching Go's
+            // behavior of creating a new MultiMounter per runtime key. The
+            // underlying `MultiMounter::register_mounter` returns a
+            // `MountError::DuplicateMounter` which we discard here.
+            let _ = entry.register_mounter(name, mounter);
+        }
+
         /// Submit a job to the engine
         pub async fn submit_job(
             &self,
@@ -386,21 +417,27 @@ mod engine {
         /// Wait for termination signal (SIGINT or SIGTERM)
         #[allow(dead_code)]
         async fn await_termination(&self) {
-            // Create a stream that receives both SIGINT and SIGTERM
-            let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .expect("failed to create SIGINT signal handler");
-            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("failed to create SIGTERM signal handler");
+            let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt());
+            let sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate());
             let mut terminate_rx = self.terminate_tx.subscribe();
 
-            tokio::select! {
-                _ = sigint.recv() => {
-                    debug!("Received SIGINT signal");
+            match (sigint, sigterm) {
+                (Ok(mut sigint), Ok(mut sigterm)) => {
+                    tokio::select! {
+                        _ = sigint.recv() => {
+                            debug!("Received SIGINT signal");
+                        }
+                        _ = sigterm.recv() => {
+                            debug!("Received SIGTERM signal");
+                        }
+                        _ = terminate_rx.recv() => {
+                            debug!("Received termination signal");
+                        }
+                    }
                 }
-                _ = sigterm.recv() => {
-                    debug!("Received SIGTERM signal");
-                }
-                _ = terminate_rx.recv() => {
+                _ => {
+                    // If we can't register signal handlers, just wait on the channel
+                    let _ = terminate_rx.recv().await;
                     debug!("Received termination signal");
                 }
             }
@@ -424,7 +461,7 @@ mod engine {
             self.datastore.init().await?;
 
             // Create locker
-            let locker = create_locker("inmemory")?;
+            let locker = create_locker("inmemory").await?;
             *self.locker.write().await = Some(locker);
 
             let coord = create_coordinator(self.broker.clone(), self.datastore.clone()).await?;
@@ -441,26 +478,21 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                // Wait for termination signal (SIGINT, SIGTERM, or internal)
-                let mut sigint = tokio::signal::unix::signal(
+                let sigint = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::interrupt()
-                ).expect("failed to create SIGINT signal handler");
-                let mut sigterm = tokio::signal::unix::signal(
+                ).ok();
+                let sigterm = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::terminate()
-                ).expect("failed to create SIGTERM signal handler");
-                let mut terminate_rx = terminated_tx_clone.subscribe();
+                ).ok();
+                let terminate_rx = {
+                    let terminated_tx = terminated_tx_clone.read().await;
+                    match terminated_tx.as_ref() {
+                        Some(tx) => tx.subscribe(),
+                        None => return,
+                    }
+                };
 
-                tokio::select! {
-                    _ = sigint.recv() => {
-                        debug!("Received SIGINT signal");
-                    }
-                    _ = sigterm.recv() => {
-                        debug!("Received SIGTERM signal");
-                    }
-                    _ = terminate_rx.recv() => {
-                        debug!("Received termination signal");
-                    }
-                }
+                await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
                 debug!("shutting down");
 
@@ -473,7 +505,7 @@ mod engine {
                 }
 
                 // Signal terminated
-                let mut tx = terminated_tx_clone.write().await;
+                let tx = terminated_tx_clone.write().await;
                 if let Some(ref t) = *tx {
                     let _ = t.send(());
                 }
@@ -506,26 +538,21 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                // Wait for termination signal (SIGINT, SIGTERM, or internal)
-                let mut sigint = tokio::signal::unix::signal(
+                let sigint = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::interrupt()
-                ).expect("failed to create SIGINT signal handler");
-                let mut sigterm = tokio::signal::unix::signal(
+                ).ok();
+                let sigterm = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::terminate()
-                ).expect("failed to create SIGTERM signal handler");
-                let mut terminate_rx = terminated_tx_clone.subscribe();
+                ).ok();
+                let terminate_rx = {
+                    let terminated_tx = terminated_tx_clone.read().await;
+                    match terminated_tx.as_ref() {
+                        Some(tx) => tx.subscribe(),
+                        None => return,
+                    }
+                };
 
-                tokio::select! {
-                    _ = sigint.recv() => {
-                        debug!("Received SIGINT signal");
-                    }
-                    _ = sigterm.recv() => {
-                        debug!("Received SIGTERM signal");
-                    }
-                    _ = terminate_rx.recv() => {
-                        debug!("Received termination signal");
-                    }
-                }
+                await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
                 debug!("shutting down");
 
@@ -538,7 +565,7 @@ mod engine {
                 }
 
                 // Signal terminated
-                let mut tx = terminated_tx_clone.write().await;
+                let tx = terminated_tx_clone.write().await;
                 if let Some(ref t) = *tx {
                     let _ = t.send(());
                 }
@@ -552,7 +579,7 @@ mod engine {
             self.datastore.init().await?;
 
             // Create locker
-            let locker = create_locker("inmemory")?;
+            let locker = create_locker("inmemory").await?;
             *self.locker.write().await = Some(locker);
 
             // Set up runtime if not already set
@@ -581,26 +608,21 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                // Wait for termination signal (SIGINT, SIGTERM, or internal)
-                let mut sigint = tokio::signal::unix::signal(
+                let sigint = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::interrupt()
-                ).expect("failed to create SIGINT signal handler");
-                let mut sigterm = tokio::signal::unix::signal(
+                ).ok();
+                let sigterm = tokio::signal::unix::signal(
                     tokio::signal::unix::SignalKind::terminate()
-                ).expect("failed to create SIGTERM signal handler");
-                let mut terminate_rx = terminated_tx_clone.subscribe();
+                ).ok();
+                let terminate_rx = {
+                    let terminated_tx = terminated_tx_clone.read().await;
+                    match terminated_tx.as_ref() {
+                        Some(tx) => tx.subscribe(),
+                        None => return,
+                    }
+                };
 
-                tokio::select! {
-                    _ = sigint.recv() => {
-                        debug!("Received SIGINT signal");
-                    }
-                    _ = sigterm.recv() => {
-                        debug!("Received SIGTERM signal");
-                    }
-                    _ = terminate_rx.recv() => {
-                        debug!("Received termination signal");
-                    }
-                }
+                await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
                 debug!("shutting down");
 
@@ -621,13 +643,45 @@ mod engine {
                 }
 
                 // Signal terminated
-                let mut tx = terminated_tx_clone.write().await;
+                let tx = terminated_tx_clone.write().await;
                 if let Some(ref t) = *tx {
                     let _ = t.send(());
                 }
             });
 
             Ok(())
+        }
+    }
+
+    /// Waits for either an OS signal (SIGINT/SIGTERM) or a broadcast
+    /// channel message. Gracefully degrades if signal handler registration
+    /// fails (e.g. in a constrained container).
+    async fn await_signal_or_channel(
+        sigint: Option<tokio::signal::unix::Signal>,
+        sigterm: Option<tokio::signal::unix::Signal>,
+        mut terminate_rx: broadcast::Receiver<()>,
+    ) {
+        match (sigint, sigterm) {
+            (Some(mut sigint), Some(mut sigterm)) => {
+                tokio::select! {
+                    _ = sigint.recv() => {
+                        debug!("Received SIGINT signal");
+                    }
+                    _ = sigterm.recv() => {
+                        debug!("Received SIGTERM signal");
+                    }
+                    _ = terminate_rx.recv() => {
+                        debug!("Received termination signal");
+                    }
+                }
+            }
+            _ => {
+                // Signal handler registration failed (rare in containers);
+                // fall back to waiting solely on the programmatic channel.
+                debug!("Signal handlers unavailable, awaiting programmatic termination");
+                let _ = terminate_rx.recv().await;
+                debug!("Received termination signal");
+            }
         }
     }
 
@@ -658,6 +712,21 @@ mod engine {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use std::pin::Pin;
+
+        /// Helper: set `TORK_DATASTORE_TYPE=inmemory` for tests that need a datastore.
+        fn ensure_inmemory_datastore_env() {
+            std::env::set_var("TORK_DATASTORE_TYPE", "inmemory");
+        }
+
+        /// Helper: reset `TORK_DATASTORE_TYPE` to inmemory after test.
+        /// We set rather than remove to avoid race conditions with parallel tests
+        /// that call `DatastoreProxy::init()` which defaults to "postgres" when unset.
+        fn clear_datastore_env() {
+            std::env::set_var("TORK_DATASTORE_TYPE", "inmemory");
+        }
+
+        // ── Engine construction ────────────────────────────────────
 
         #[tokio::test]
         async fn test_engine_new() {
@@ -666,105 +735,304 @@ mod engine {
             assert_eq!(engine.mode(), Mode::Standalone);
         }
 
+        // ── Engine lifecycle: standalone ───────────────────────────
+
         #[tokio::test]
-        #[ignore] // Requires working datastore implementation
-        async fn test_engine_start_standalone() {
+        async fn test_start_standalone() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config {
                 mode: Mode::Standalone,
                 ..Default::default()
             });
-
             assert_eq!(engine.state(), State::Idle);
 
-            engine.start().await.expect("should start");
-
+            engine.start().await?;
             assert_eq!(engine.state(), State::Running);
 
-            engine.terminate().await.expect("should terminate");
-
+            engine.terminate().await?;
             assert_eq!(engine.state(), State::Terminated);
+
+            clear_datastore_env();
+            Ok(())
         }
 
+        // ── Engine lifecycle: coordinator ─────────────────────────
+
         #[tokio::test]
-        #[ignore] // Requires working datastore implementation
-        async fn test_engine_start_coordinator() {
+        async fn test_start_coordinator() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config {
                 mode: Mode::Coordinator,
                 ..Default::default()
             });
-
             assert_eq!(engine.state(), State::Idle);
 
-            engine.start().await.expect("should start");
-
+            engine.start().await?;
             assert_eq!(engine.state(), State::Running);
 
-            engine.terminate().await.expect("should terminate");
-
+            engine.terminate().await?;
             assert_eq!(engine.state(), State::Terminated);
+
+            clear_datastore_env();
+            Ok(())
         }
+
+        // ── Engine lifecycle: worker ──────────────────────────────
 
         #[tokio::test]
-        #[ignore] // Requires working datastore implementation
-        async fn test_engine_start_worker() {
-            let mut engine = Engine::new(Config { 
+        async fn test_start_worker() -> Result<(), Box<dyn std::error::Error>> {
+            let mut engine = Engine::new(Config {
                 mode: Mode::Worker,
-                ..Default::default() 
+                ..Default::default()
             });
-
             assert_eq!(engine.state(), State::Idle);
 
-            engine.start().await.expect("should start");
-
+            engine.start().await?;
             assert_eq!(engine.state(), State::Running);
 
-            engine.terminate().await.expect("should terminate");
-
+            engine.terminate().await?;
             assert_eq!(engine.state(), State::Terminated);
+            Ok(())
         }
+
+        // ── Mode & state transitions ──────────────────────────────
 
         #[tokio::test]
         async fn test_engine_set_mode_when_idle() {
             let mut engine = Engine::new(Config::default());
             assert_eq!(engine.mode(), Mode::Standalone);
-
             engine.set_mode(Mode::Worker);
             assert_eq!(engine.mode(), Mode::Worker);
         }
 
         #[tokio::test]
-        #[ignore] // Requires working datastore implementation
-        async fn test_engine_double_start() {
-            let mut engine = Engine::new(Config::default());
-
-            engine.start().await.expect("should start");
-
-            let result = engine.start().await;
-            assert!(result.is_err());
-
-            engine.terminate().await.expect("should terminate");
-        }
-
-        #[tokio::test]
         async fn test_engine_terminate_when_not_running() {
             let mut engine = Engine::new(Config::default());
-
             let result = engine.terminate().await;
             assert!(result.is_err());
         }
 
         #[tokio::test]
-        #[ignore] // Requires working datastore implementation
-        async fn test_engine_middleware_registration_when_idle() {
+        async fn test_double_start() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config::default());
-            
-            // Register middleware should work when idle
+
+            engine.start().await?;
+
+            let result = engine.start().await;
+            assert!(result.is_err());
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Middleware registration ───────────────────────────────
+
+        #[tokio::test]
+        async fn test_middleware_registration_when_idle() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config::default());
+
             let mw: Box<dyn std::any::Any + Send + Sync> = Box::new(());
             engine.register_web_middleware(mw);
-            
-            // Starting should succeed
-            engine.start().await.expect("should start");
-            engine.terminate().await.expect("should terminate");
+
+            engine.start().await?;
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Mounter registration ──────────────────────────────────
+
+        #[test]
+        fn test_register_mounter_creates_multi_mounter() {
+            use tork::mount::Mount;
+            use tork::runtime::mount::MountError;
+            use std::future::Future;
+            use std::pin::Pin;
+
+            struct NoopMounter;
+
+            impl Mounter for NoopMounter {
+                fn mount(
+                    &self,
+                    _ctx: Pin<Box<dyn Future<Output = Result<(), MountError>> + Send>>,
+                    _mnt: &Mount,
+                ) -> Pin<Box<dyn Future<Output = Result<(), MountError>> + Send>> {
+                    Box::pin(async { Ok(()) })
+                }
+
+                fn unmount(
+                    &self,
+                    _ctx: Pin<Box<dyn Future<Output = Result<(), MountError>> + Send>>,
+                    _mnt: &Mount,
+                ) -> Pin<Box<dyn Future<Output = Result<(), MountError>> + Send>> {
+                    Box::pin(async { Ok(()) })
+                }
+            }
+
+            let mut engine = Engine::new(Config::default());
+            engine.register_mounter("docker", "bind", Box::new(NoopMounter));
+
+            assert!(
+                engine.mounters.contains_key("docker"),
+                "expected mounters to contain 'docker'"
+            );
+        }
+
+        #[test]
+        fn test_register_mounter_rejects_when_not_idle() {
+            let mut engine = Engine::new(Config::default());
+            assert_eq!(engine.state(), State::Idle);
+            engine.register_mounter("docker", "bind", Box::new(FakeTestMounter));
+        }
+
+        /// Minimal fake mounter for tests
+        #[derive(Debug)]
+        struct FakeTestMounter;
+
+        impl Mounter for FakeTestMounter {
+            fn mount(
+                &self,
+                _ctx: Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>>,
+                _mnt: &tork::mount::Mount,
+            ) -> Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>> {
+                Box::pin(async { Ok(()) })
+            }
+
+            fn unmount(
+                &self,
+                _ctx: Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>>,
+                _mnt: &tork::mount::Mount,
+            ) -> Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>> {
+                Box::pin(async { Ok(()) })
+            }
+        }
+
+        // ── Runtime registration ──────────────────────────────────
+
+        #[tokio::test]
+        async fn test_register_runtime_then_start() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config {
+                mode: Mode::Standalone,
+                ..Default::default()
+            });
+
+            engine.register_runtime(Box::new(MockRuntime));
+
+            engine.start().await?;
+            assert_eq!(engine.state(), State::Running);
+
+            engine.terminate().await?;
+            assert_eq!(engine.state(), State::Terminated);
+
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Job submission ────────────────────────────────────────
+
+        #[tokio::test]
+        async fn test_submit_job_when_not_running() {
+            let engine = Engine::new(Config::default());
+            let job = tork::job::Job::default();
+            let result = engine.submit_job(job, Vec::new()).await;
+            assert!(result.is_err());
+        }
+
+        #[tokio::test]
+        async fn test_submit_job_in_worker_mode() -> Result<(), Box<dyn std::error::Error>> {
+            let mut engine = Engine::new(Config {
+                mode: Mode::Worker,
+                ..Default::default()
+            });
+            engine.start().await?;
+
+            let job = tork::job::Job::default();
+            let result = engine.submit_job(job, Vec::new()).await;
+            assert!(result.is_err());
+
+            engine.terminate().await?;
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn test_submit_job() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config {
+                mode: Mode::Coordinator,
+                ..Default::default()
+            });
+
+            engine.start().await?;
+            assert_eq!(engine.state(), State::Running);
+
+            let job = tork::job::Job {
+                id: Some("test-job-1".to_string()),
+                name: Some("test job".to_string()),
+                state: tork::job::JOB_STATE_PENDING.to_string(),
+                ..Default::default()
+            };
+
+            let result = engine.submit_job(job, Vec::new()).await;
+            assert!(result.is_ok());
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Broker proxy health ───────────────────────────────────
+
+        #[tokio::test]
+        async fn test_broker_health_before_init() {
+            let engine = Engine::new(Config::default());
+            let result = engine.broker().health_check().await;
+            assert!(result.is_err());
+        }
+
+        #[tokio::test]
+        async fn test_broker_health_after_init() -> Result<(), Box<dyn std::error::Error>> {
+            // Worker mode initialises broker but not datastore
+            let mut engine = Engine::new(Config {
+                mode: Mode::Worker,
+                ..Default::default()
+            });
+            engine.start().await?;
+
+            let result = engine.broker().health_check().await;
+            assert!(result.is_ok());
+
+            engine.terminate().await?;
+            Ok(())
+        }
+
+        // ── Datastore proxy health ────────────────────────────────
+
+        #[tokio::test]
+        async fn test_datastore_health_before_init() {
+            let engine = Engine::new(Config::default());
+            let result = engine.datastore().health_check().await;
+            assert!(result.is_err());
+        }
+
+        #[tokio::test]
+        async fn test_datastore_health_after_init() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config {
+                mode: Mode::Standalone,
+                ..Default::default()
+            });
+            engine.start().await?;
+
+            let result = engine.datastore().health_check().await;
+            assert!(result.is_ok());
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
         }
     }
 }

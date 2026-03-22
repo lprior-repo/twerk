@@ -235,7 +235,7 @@ impl Task {
 /// Creates a deep clone of a slice of tasks
 #[must_use]
 pub fn clone_tasks(tasks: &[Task]) -> Vec<Task> {
-    tasks.iter().map(|t| t.clone()).collect()
+    tasks.to_vec()
 }
 
 /// TaskSummary is a condensed view of a task
@@ -415,16 +415,37 @@ pub struct Permission {
     pub user: Option<crate::user::User>,
 }
 
+impl Permission {
+    /// Creates a deep clone of this permission.
+    ///
+    /// Matches Go's `Permission.Clone()` which only clones the non-nil field:
+    /// if `role` is set, `user` is cleared (and vice versa).
+    #[must_use]
+    pub fn deep_clone(&self) -> Self {
+        if self.role.is_some() {
+            Self {
+                role: self.role.as_ref().map(|r| r.deep_clone()),
+                user: None,
+            }
+        } else {
+            Self {
+                role: None,
+                user: self.user.as_ref().map(|u| u.deep_clone()),
+            }
+        }
+    }
+}
+
 /// Creates a deep clone of a slice of webhooks
 #[must_use]
 pub fn clone_webhooks(webhooks: &[Webhook]) -> Vec<Webhook> {
-    webhooks.iter().map(|w| w.clone()).collect()
+    webhooks.to_vec()
 }
 
 /// Creates a deep clone of a slice of permissions
 #[must_use]
 pub fn clone_permissions(perms: &[Permission]) -> Vec<Permission> {
-    perms.iter().map(|p| p.clone()).collect()
+    perms.iter().map(|p| p.deep_clone()).collect()
 }
 
 /// Creates a new TaskSummary from a Task

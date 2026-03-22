@@ -30,9 +30,21 @@ impl MultiMounter {
         }
     }
 
-    /// Registers a mounter for a specific mount type
-    pub async fn register_mounter(&mut self, mtype: &str, mounter: Box<dyn Mounter>) {
+    /// Registers a mounter for a specific mount type.
+    ///
+    /// Returns `MountError::DuplicateMounter` if a mounter is already
+    /// registered for the given type, matching Go's panic-on-duplicate
+    /// behavior but expressed as a type-safe error.
+    pub fn register_mounter(
+        &mut self,
+        mtype: &str,
+        mounter: Box<dyn Mounter>,
+    ) -> Result<(), MountError> {
+        if self.mounters.contains_key(mtype) {
+            return Err(MountError::DuplicateMounter(mtype.to_string()));
+        }
         self.mounters.insert(mtype.to_string(), mounter);
+        Ok(())
     }
 
     /// Mounts a mount specification, routing to the appropriate mounter

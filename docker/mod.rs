@@ -22,13 +22,17 @@ pub mod archive;
 pub mod auth;
 pub mod bind;
 pub mod credential_helper;
+pub mod docker;
 pub mod reference;
 pub mod tmpfs;
 pub mod tork;
 pub mod volume;
 
 pub use archive::{Archive, ArchiveEntry, ArchiveError};
-pub use auth::{config_path, decode_base64_auth, AuthError, Config};
+pub use auth::{
+    config_path, decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config,
+    KubernetesConfig, ProxyConfig,
+};
 pub use bind::{BindConfig, BindMounter, BindMounterError};
 pub use reference::{parse, Reference, ReferenceError};
 pub use tmpfs::{TmpfsMounter, TmpfsMounterError};

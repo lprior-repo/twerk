@@ -190,9 +190,6 @@ mod tests {
     #[test]
     fn test_parse_duration_negative() {
         // Negative durations are stored as positive in Duration
-        assert_eq!(
-            parse_duration("-1h"),
-            Ok(Duration::from_secs(3600))
-        );
+        assert_eq!(parse_duration("-1h"), Ok(Duration::from_secs(3600)));
     }
 }

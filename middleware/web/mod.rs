@@ -34,7 +34,7 @@ pub trait Context: Send + Sync {
     fn string(&self, code: u16, s: &str) -> Result<(), WebError>;
 
     /// Send a JSON response.
-    fn json(&self, code: u16, data: &dyn serde::Serialize) -> Result<(), WebError>;
+    fn json(&self, code: u16, data: &serde_json::Value) -> Result<(), WebError>;
 
     /// Send an error response.
     fn error(&self, code: u16, err: &dyn std::error::Error);
@@ -71,7 +71,7 @@ pub trait Response: Send + Sync {
 }
 
 /// Errors that can occur in web middleware.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum WebError {
     #[error("web middleware error: {0}")]
     Middleware(String),
@@ -119,7 +119,7 @@ mod tests {
 
         let order_for_mw1 = order.clone();
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order_for_mw1;
+            let order = order_for_mw1.clone();
             Arc::new(move |ctx: Arc<dyn Context>| {
                 assert_eq!(order.load(Ordering::SeqCst), 1);
                 order.fetch_add(1, Ordering::SeqCst);
@@ -129,7 +129,7 @@ mod tests {
 
         let order_for_mw2 = order.clone();
         let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order_for_mw2;
+            let order = order_for_mw2.clone();
             Arc::new(move |ctx: Arc<dyn Context>| {
                 assert_eq!(order.load(Ordering::SeqCst), 2);
                 order.fetch_add(1, Ordering::SeqCst);
@@ -137,9 +137,9 @@ mod tests {
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx: Arc<dyn Context> = Arc::new(MockContext::new());
-        hm(ctx).unwrap();
+        assert!(hm(ctx).is_ok());
     }
 
     #[test]
@@ -148,7 +148,7 @@ mod tests {
 
         let hm = apply_middleware(h, vec![]);
         let ctx: Arc<dyn Context> = Arc::new(MockContext::new());
-        hm(ctx).unwrap();
+        assert!(hm(ctx).is_ok());
     }
 
     #[test]
@@ -163,18 +163,22 @@ mod tests {
             Ok(())
         });
 
-        let err = WebError::Middleware("something bad happened".to_string());
+        let err_msg = "something bad happened".to_string();
+        let err_msg_clone = err_msg.clone();
         let mw1: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
-            Arc::new(move |_ctx: Arc<dyn Context>| Err(err.clone()))
+            let err_msg_for_inner = err_msg_clone.clone();
+            Arc::new(move |_ctx: Arc<dyn Context>| {
+                Err(WebError::Middleware(err_msg_for_inner.clone()))
+            })
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
             Arc::new(move |_ctx: Arc<dyn Context>| {
-                panic!("should not get here");
+                Err(WebError::Handler("should not get here".to_string()))
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx: Arc<dyn Context> = Arc::new(MockContext::new());
 
         let result = hm(ctx);
@@ -214,12 +218,8 @@ mod tests {
             Ok(())
         }
 
-        fn json(&self, _code: u16, _data: &dyn serde::Serialize) -> Result<(), WebError> {
+        fn json(&self, _code: u16, _data: &serde_json::Value) -> Result<(), WebError> {
             Ok(())
-        }
-
-        fn bind<T: serde::de::DeserializeOwned>(&self) -> Result<T, WebError> {
-            Err(WebError::Bind("not implemented".to_string()))
         }
 
         fn error(&self, _code: u16, _err: &dyn std::error::Error) {}

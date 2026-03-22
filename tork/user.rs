@@ -13,7 +13,10 @@ pub const USER_GUEST: UsernameKey = "guest";
 pub const USERNAME: UsernameKey = "username";
 
 impl User {
-    /// Creates a deep clone of this user
+    /// Creates a deep clone of this user.
+    ///
+    /// Matches Go's `User.Clone()` which explicitly excludes the `Password`
+    /// field to prevent credential leakage during cloning.
     #[must_use]
     pub fn deep_clone(&self) -> Self {
         Self {
@@ -21,7 +24,7 @@ impl User {
             name: self.name.clone(),
             username: self.username.clone(),
             password_hash: self.password_hash.clone(),
-            password: self.password.clone(),
+            password: None,
             created_at: self.created_at,
             disabled: self.disabled,
         }

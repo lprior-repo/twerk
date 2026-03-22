@@ -1,101 +1,71 @@
 //! Run command
 //!
 //! Runs the Tork engine in the specified mode.
+//!
+//! Go parity: `cli/run.go` → parses mode arg, calls `engine.SetMode(mode)` then `engine.Run()`.
 
-use super::error::CliError;
+use tork_engine::{Config, Engine, Mode};
+
+use crate::CliError;
 use tracing::info;
 
-/// Engine execution modes
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum EngineMode {
-    /// Standalone mode - all-in-one process
-    #[default]
-    Standalone,
-    /// Coordinator mode - manages job scheduling
-    Coordinator,
-    /// Worker mode - executes tasks
-    Worker,
-    /// Unknown mode
-    Unknown(String),
-}
-
-impl EngineMode {
-    /// Parse engine mode from string
-    #[must_use]
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "standalone" => Self::Standalone,
-            "coordinator" => Self::Coordinator,
-            "worker" => Self::Worker,
-            other => Self::Unknown(other.to_string()),
-        }
-    }
-
-    /// Returns true if this is a valid, known mode
-    #[must_use]
-    pub const fn is_valid(&self) -> bool {
-        !matches!(self, Self::Unknown(_))
+/// Parse engine mode from a CLI argument string.
+///
+/// Maps to Go's `engine.Mode` type: `MODE_STANDALONE`, `MODE_COORDINATOR`, `MODE_WORKER`.
+/// Returns `None` for unrecognized modes.
+#[must_use]
+pub fn parse_mode(s: &str) -> Option<Mode> {
+    match s.trim().to_lowercase().as_str() {
+        "standalone" => Some(Mode::Standalone),
+        "coordinator" => Some(Mode::Coordinator),
+        "worker" => Some(Mode::Worker),
+        _ => None,
     }
 }
 
-/// Run the Tork engine in the specified mode
+/// Run the Tork engine in the specified mode.
+///
+/// Go parity:
+/// ```go
+/// mode := ctx.Args().First()
+/// engine.SetMode(engine.Mode(mode))
+/// return engine.Run()
+/// ```
 ///
 /// # Arguments
 ///
-/// * `mode` - The engine mode to run in
-/// * `broker_type` - The broker type (inmemory, rabbitmq)
-/// * `datastore_type` - The datastore type (inmemory, postgres)
-/// * `locker_type` - The locker type (inmemory, redis)
+/// * `mode` - The engine mode to run in (standalone, coordinator, worker)
 ///
 /// # Errors
 ///
 /// Returns [`CliError::MissingArgument`] if mode is empty.
 /// Returns [`CliError::Engine`] if the mode is unknown.
-/// Returns [`CliError::Engine`] if the engine fails to run.
-pub async fn run_engine(
-    mode: &str,
-    broker_type: &str,
-    datastore_type: &str,
-    locker_type: &str,
-) -> Result<(), CliError> {
-    let mode = mode.trim();
-
-    if mode.is_empty() {
+/// Returns [`CliError::Engine`] if the engine fails to start or run.
+pub async fn run_engine(mode: &str) -> Result<(), CliError> {
+    if mode.trim().is_empty() {
         return Err(CliError::MissingArgument("mode".to_string()));
     }
 
-    let engine_mode = EngineMode::from_str(mode);
-
-    if !engine_mode.is_valid() {
-        return Err(CliError::Engine(format!(
+    let engine_mode = parse_mode(mode).ok_or_else(|| {
+        CliError::Engine(format!(
             "unknown engine mode: {mode}. Valid modes are: standalone, coordinator, worker"
-        )));
-    }
+        ))
+    })?;
 
-    info!(
-        "Starting Tork engine in {} mode (broker={}, datastore={}, locker={})",
-        engine_mode_description(&engine_mode),
-        broker_type,
-        datastore_type,
-        locker_type
-    );
+    info!("Starting Tork engine in {engine_mode:?} mode");
 
-    // In a full implementation, this would:
-    // 1. Set the engine configuration via engine::Config
-    // 2. Initialize the appropriate broker, datastore, and locker
-    // 3. Run the engine via engine::run()
+    let config = Config {
+        mode: engine_mode,
+        ..Config::default()
+    };
+
+    let mut engine = Engine::new(config);
+    engine
+        .run()
+        .await
+        .map_err(|e| CliError::Engine(e.to_string()))?;
 
     Ok(())
-}
-
-/// Get a human-readable description of the engine mode
-const fn engine_mode_description(mode: &EngineMode) -> &'static str {
-    match mode {
-        EngineMode::Standalone => "standalone",
-        EngineMode::Coordinator => "coordinator",
-        EngineMode::Worker => "worker",
-        EngineMode::Unknown(_) => "unknown",
-    }
 }
 
 #[cfg(test)]
@@ -103,36 +73,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_engine_mode_from_str() {
-        assert_eq!(EngineMode::from_str("standalone"), EngineMode::Standalone);
-        assert_eq!(EngineMode::from_str("Standalone"), EngineMode::Standalone);
-        assert_eq!(EngineMode::from_str("STANDALONE"), EngineMode::Standalone);
-        assert_eq!(EngineMode::from_str("coordinator"), EngineMode::Coordinator);
-        assert_eq!(EngineMode::from_str("worker"), EngineMode::Worker);
-        assert_eq!(
-            EngineMode::from_str("unknown"),
-            EngineMode::Unknown("unknown".to_string())
-        );
+    fn test_parse_mode() {
+        assert_eq!(parse_mode("standalone"), Some(Mode::Standalone));
+        assert_eq!(parse_mode("Standalone"), Some(Mode::Standalone));
+        assert_eq!(parse_mode("STANDALONE"), Some(Mode::Standalone));
+        assert_eq!(parse_mode("coordinator"), Some(Mode::Coordinator));
+        assert_eq!(parse_mode("worker"), Some(Mode::Worker));
+        assert_eq!(parse_mode("bogus"), None);
     }
 
     #[test]
-    fn test_engine_mode_is_valid() {
-        assert!(EngineMode::Standalone.is_valid());
-        assert!(EngineMode::Coordinator.is_valid());
-        assert!(EngineMode::Worker.is_valid());
-        assert!(!EngineMode::Unknown("bad".to_string()).is_valid());
-    }
-
-    #[test]
-    fn test_engine_mode_default() {
-        assert_eq!(EngineMode::default(), EngineMode::Standalone);
-    }
-
-    #[test]
-    fn test_engine_mode_description() {
-        assert_eq!(engine_mode_description(&EngineMode::Standalone), "standalone");
-        assert_eq!(engine_mode_description(&EngineMode::Coordinator), "coordinator");
-        assert_eq!(engine_mode_description(&EngineMode::Worker), "worker");
-        assert_eq!(engine_mode_description(&EngineMode::Unknown("x".to_string())), "unknown");
+    fn test_parse_mode_empty() {
+        assert_eq!(parse_mode(""), None);
+        assert_eq!(parse_mode("   "), None);
     }
 }

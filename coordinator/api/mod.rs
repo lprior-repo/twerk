@@ -9,55 +9,36 @@
 //! - Scheduled job management
 //! - User management
 //! - Metrics
+//!
+//! # Architecture
+//!
+//! Follows Data→Calc→Actions: handlers extract data from HTTP requests,
+//! call datastore/broker (boundary actions), and return JSON responses.
+//! All error handling is explicit — no `unwrap()` or `panic!()`.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
 
 mod context;
+pub mod error;
+mod handlers;
 
 pub use context::Context;
 
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    routing::{delete, get, post, put},
-    Json, Router,
-};
-use serde::{Deserialize, Serialize};
+use axum::routing::{delete, get, post, put};
+use axum::Router;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-
-/// Health response type
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HealthResponse {
-    pub status: String,
-}
-
-/// Queue info response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueueInfo {
-    pub name: String,
-    pub size: i64,
-    pub subscribers: i64,
-    pub unacked: i64,
-}
-
-/// Pagination parameters
-#[derive(Debug, Clone, Deserialize)]
-pub struct PaginationParams {
-    pub page: Option<i64>,
-    pub size: Option<i64>,
-    pub q: Option<String>,
-}
+use tork::{Broker, Datastore};
 
 /// Configuration for the API server.
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Address to listen on
+    /// Address to listen on (e.g. "0.0.0.0:8000")
     pub address: String,
-    /// Enabled endpoints
+    /// Enabled endpoint groups. Empty = all enabled.
     pub enabled: HashMap<String, bool>,
     /// CORS origins (empty means allow all)
     pub cors_origins: Vec<String>,
@@ -73,169 +54,108 @@ impl Default for Config {
     }
 }
 
-/// Shared application state.
-#[derive(Debug, Clone)]
+/// Checks if an endpoint group is enabled.
+///
+/// Go parity: `if v, ok := cfg.Enabled["health"]; !ok || v { ... }`
+fn is_enabled(enabled: &HashMap<String, bool>, key: &str) -> bool {
+    enabled.get(key).copied().unwrap_or(true)
+}
+
+/// Shared application state, passed to all handlers via axum's `State`.
+///
+/// Holds `Arc<dyn Trait>` references to the broker and datastore so
+/// the state is cheaply cloneable (required by axum).
+#[derive(Clone)]
 pub struct AppState {
+    /// Message broker for pub/sub and task delivery.
+    pub broker: Arc<dyn Broker>,
+    /// Persistent datastore for jobs, tasks, nodes, users.
+    pub ds: Arc<dyn Datastore>,
+    /// API configuration.
     pub config: Config,
 }
 
 impl AppState {
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    /// Create a new AppState with the given broker, datastore, and config.
+    #[must_use]
+    pub fn new(broker: Arc<dyn Broker>, ds: Arc<dyn Datastore>, config: Config) -> Self {
+        Self {
+            broker,
+            ds,
+            config,
+        }
     }
 }
 
-/// Create a new router with the given state.
+/// Create a new router with the given state and configured endpoints.
+///
+/// Go parity: registers all routes from `NewAPI`, respecting the `Enabled` map.
 pub fn create_router(state: AppState) -> Router {
-    let _cors = CorsLayer::new();
+    let enabled = &state.config.enabled;
+    let cors = CorsLayer::new();
 
-    Router::new()
-        .route("/health", get(health_handler))
-        .route("/tasks/:id", get(task_handler))
-        .route("/tasks/:id/log", get(task_log_handler))
-        .route("/queues", get(queues_handler))
-        .route("/queues/:name", get(queue_handler).delete(delete_queue_handler))
-        .route("/nodes", get(nodes_handler))
-        .route("/jobs", get(jobs_handler).post(create_job_handler))
-        .route("/jobs/:id", get(job_handler))
-        .route("/jobs/:id/log", get(job_log_handler))
-        .route("/jobs/:id/cancel", put(cancel_job_handler))
-        .route("/jobs/:id/restart", put(restart_job_handler))
-        .route("/scheduled-jobs", get(scheduled_jobs_handler).post(create_scheduled_job_handler))
-        .route("/scheduled-jobs/:id", get(scheduled_job_handler))
-        .route("/scheduled-jobs/:id/pause", put(pause_scheduled_job_handler))
-        .route("/scheduled-jobs/:id/resume", put(resume_scheduled_job_handler))
-        .route("/scheduled-jobs/:id", delete(delete_scheduled_job_handler))
-        .route("/metrics", get(metrics_handler))
-        .route("/users", post(create_user_handler))
-        .layer(_cors)
-        .with_state(state)
-}
+    let mut router = Router::new().layer(cors);
 
-/// Health check handler
-async fn health_handler() -> impl axum::response::IntoResponse {
-    Json(HealthResponse {
-        status: "UP".to_string(),
-    })
-}
+    // Health
+    if is_enabled(enabled, "health") {
+        router = router.route("/health", get(handlers::health_handler));
+    }
 
-/// Task handler - GET /tasks/:id
-async fn task_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
+    // Tasks
+    if is_enabled(enabled, "tasks") {
+        router = router
+            .route("/tasks/{id}", get(handlers::get_task_handler))
+            .route("/tasks/{id}/log", get(handlers::get_task_log_handler));
+    }
 
-/// Task log handler - GET /tasks/:id/log
-async fn task_log_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
+    // Jobs
+    if is_enabled(enabled, "jobs") {
+        router = router
+            .route("/jobs", post(handlers::create_job_handler).get(handlers::list_jobs_handler))
+            .route("/jobs/{id}", get(handlers::get_job_handler))
+            .route("/jobs/{id}/log", get(handlers::get_job_log_handler))
+            .route("/jobs/{id}/cancel", put(handlers::cancel_job_handler))
+            .route("/jobs/{id}/restart", put(handlers::restart_job_handler))
+            .route(
+                "/scheduled-jobs",
+                post(handlers::create_scheduled_job_handler)
+                    .get(handlers::list_scheduled_jobs_handler),
+            )
+            .route("/scheduled-jobs/{id}", get(handlers::get_scheduled_job_handler))
+            .route("/scheduled-jobs/{id}/pause", put(handlers::pause_scheduled_job_handler))
+            .route(
+                "/scheduled-jobs/{id}/resume",
+                put(handlers::resume_scheduled_job_handler),
+            )
+            .route("/scheduled-jobs/{id}", delete(handlers::delete_scheduled_job_handler));
+    }
 
-/// Queues handler - GET /queues
-async fn queues_handler() -> impl axum::response::IntoResponse {
-    Json(vec![] as Vec<QueueInfo>)
-}
+    // Queues
+    if is_enabled(enabled, "queues") {
+        router = router
+            .route("/queues", get(handlers::list_queues_handler))
+            .route(
+                "/queues/{name}",
+                get(handlers::get_queue_handler).delete(handlers::delete_queue_handler),
+            );
+    }
 
-/// Queue handler - GET /queues/:name
-async fn queue_handler(Path(_name): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
+    // Nodes
+    if is_enabled(enabled, "nodes") {
+        router = router.route("/nodes", get(handlers::list_nodes_handler));
+    }
 
-/// Delete queue handler - DELETE /queues/:name
-async fn delete_queue_handler(Path(_name): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "cannot delete system queue"})))
-}
+    // Metrics
+    if is_enabled(enabled, "metrics") {
+        router = router.route("/metrics", get(handlers::get_metrics_handler));
+    }
 
-/// Nodes handler - GET /nodes
-async fn nodes_handler() -> impl axum::response::IntoResponse {
-    Json(vec![] as Vec<serde_json::Value>)
-}
+    // Users
+    if is_enabled(enabled, "users") {
+        router = router.route("/users", post(handlers::create_user_handler));
+    }
 
-/// Jobs handler - GET /jobs and POST /jobs
-async fn jobs_handler() -> impl axum::response::IntoResponse {
-    Json(serde_json::json!({
-        "items": [],
-        "number": 1,
-        "size": 10,
-        "total_pages": 0,
-        "total_items": 0
-    }))
-}
-
-/// Create job handler - POST /jobs
-async fn create_job_handler() -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "job creation disabled"})))
-}
-
-/// Job handler - GET /jobs/:id
-async fn job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
-
-/// Job log handler - GET /jobs/:id/log
-async fn job_log_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
-
-/// Cancel job handler - PUT /jobs/:id/cancel
-async fn cancel_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    Json(serde_json::json!({"status": "OK"}))
-}
-
-/// Restart job handler - PUT /jobs/:id/restart
-async fn restart_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "job cannot be restarted"})))
-}
-
-/// Scheduled jobs handler - GET /scheduled-jobs and POST /scheduled-jobs
-async fn scheduled_jobs_handler() -> impl axum::response::IntoResponse {
-    Json(serde_json::json!({
-        "items": [],
-        "number": 1,
-        "size": 10,
-        "total_pages": 0,
-        "total_items": 0
-    }))
-}
-
-/// Create scheduled job handler - POST /scheduled-jobs
-async fn create_scheduled_job_handler() -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "scheduled job creation disabled"})))
-}
-
-/// Scheduled job handler - GET /scheduled-jobs/:id
-async fn scheduled_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"})))
-}
-
-/// Pause scheduled job handler - PUT /scheduled-jobs/:id/pause
-async fn pause_scheduled_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "scheduled job is not active"})))
-}
-
-/// Resume scheduled job handler - PUT /scheduled-jobs/:id/resume
-async fn resume_scheduled_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "scheduled job is not paused"})))
-}
-
-/// Delete scheduled job handler - DELETE /scheduled-jobs/:id
-async fn delete_scheduled_job_handler(Path(_id): Path<String>) -> impl axum::response::IntoResponse {
-    Json(serde_json::json!({"status": "OK"}))
-}
-
-/// Metrics handler - GET /metrics
-async fn metrics_handler() -> impl axum::response::IntoResponse {
-    Json(serde_json::json!({
-        "jobs_completed": 0,
-        "jobs_failed": 0,
-        "jobs_running": 0,
-        "tasks_completed": 0,
-        "tasks_failed": 0,
-        "tasks_running": 0
-    }))
-}
-
-/// Create user handler - POST /users
-async fn create_user_handler() -> impl axum::response::IntoResponse {
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "user creation disabled"})))
+    router.with_state(state)
 }
 
 #[cfg(test)]
@@ -250,11 +170,19 @@ mod tests {
     }
 
     #[test]
-    fn test_health_response_serialization() {
-        let response = HealthResponse {
-            status: "UP".to_string(),
-        };
-        let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("UP"));
+    fn test_is_enabled_default() {
+        let enabled = HashMap::new();
+        assert!(is_enabled(&enabled, "health"));
+        assert!(is_enabled(&enabled, "jobs"));
+    }
+
+    #[test]
+    fn test_is_enabled_explicit() {
+        let mut enabled = HashMap::new();
+        enabled.insert("health".to_string(), false);
+        enabled.insert("jobs".to_string(), true);
+        assert!(!is_enabled(&enabled, "health"));
+        assert!(is_enabled(&enabled, "jobs"));
+        assert!(is_enabled(&enabled, "metrics")); // not in map → default true
     }
 }

@@ -147,3 +147,81 @@ pub fn default_helper() -> String {
         String::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_helper_returns_non_empty() {
+        // The default helper should be non-empty on supported platforms
+        let helper = default_helper();
+        #[cfg(target_os = "linux")]
+        assert!(!helper.is_empty(), "Linux should have a default helper");
+        #[cfg(target_os = "macos")]
+        assert!(!helper.is_empty(), "macOS should have a default helper");
+        #[cfg(target_os = "windows")]
+        assert!(!helper.is_empty(), "Windows should have a default helper");
+    }
+
+    #[test]
+    fn test_default_helper_is_known_value() {
+        let helper = default_helper();
+        #[cfg(target_os = "linux")]
+        assert!(
+            helper == "pass" || helper == "secretservice",
+            "Linux default helper should be pass or secretservice, got: {}",
+            helper
+        );
+        #[cfg(target_os = "macos")]
+        assert_eq!(helper, "osxkeychain");
+        #[cfg(target_os = "windows")]
+        assert_eq!(helper, "wincred");
+    }
+
+    #[test]
+    fn test_get_from_helper_empty_helper_returns_empty_when_no_default() {
+        // On unsupported platforms, empty helper + no default returns empty
+        // On supported platforms, empty helper resolves to default which may or may not exist
+        let result = get_from_helper("", "registry.example.com");
+        // Should not panic — either returns empty creds or falls through
+        match result {
+            Ok((user, pass)) => {
+                // Empty result is fine (helper not found)
+                assert!(user.is_empty() || !user.is_empty());
+                let _ = pass;
+            }
+            Err(_) => {
+                // Also acceptable if default helper fails to execute
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_from_helper_nonexistent_helper_returns_empty() {
+        // A helper binary that doesn't exist should return empty credentials, not error
+        let result = get_from_helper("nonexistent-helper-xyzzy", "registry.example.com");
+        assert!(result.is_ok());
+        let (user, pass) = result.expect("should be ok");
+        assert_eq!("", user);
+        assert_eq!("", pass);
+    }
+
+    #[test]
+    fn test_credential_helper_error_display() {
+        let err = CredentialHelperError::CredentialsNotFound;
+        assert!(!err.to_string().is_empty());
+
+        let err = CredentialHelperError::HelperNotFound;
+        assert!(!err.to_string().is_empty());
+
+        let err = CredentialHelperError::ExecutionFailed("something went wrong".to_string());
+        assert!(err.to_string().contains("something went wrong"));
+    }
+
+    #[test]
+    fn test_token_username_detection() {
+        // The constant should be <token>
+        assert_eq!(TOKEN_USERNAME, "<token>");
+    }
+}

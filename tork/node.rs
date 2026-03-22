@@ -19,6 +19,25 @@ pub const NODE_STATUS_DOWN: &str = "DOWN";
 pub const NODE_STATUS_OFFLINE: &str = "OFFLINE";
 
 impl Node {
+    /// Creates a new Node with the given id and name.
+    #[must_use]
+    pub fn new() -> Self {
+        let now = OffsetDateTime::now_utc();
+        Self {
+            id: None,
+            name: None,
+            started_at: now,
+            cpu_percent: 0.0,
+            last_heartbeat_at: now,
+            queue: None,
+            status: String::new(),
+            hostname: None,
+            port: 0,
+            task_count: 0,
+            version: String::new(),
+        }
+    }
+
     /// Creates a deep clone of this node
     #[must_use]
     pub fn deep_clone(&self) -> Self {

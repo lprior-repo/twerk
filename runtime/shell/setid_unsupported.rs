@@ -25,6 +25,6 @@ pub fn set_gid(gid: &str) {
 }
 
 /// ApplyUIDGID is a no-op on unsupported platforms
-pub fn apply_uid_gid(_cmd: &mut std::process::Command, _uid: &str, _gid: &str) {
+pub fn apply_uid_gid(_cmd: &std::process::Command, _uid: &str, _gid: &str) {
     // No-op on unsupported platforms
 }

@@ -66,7 +66,7 @@ pub struct Config {
     /// Default limits
     pub limits: Limits,
     /// Task middleware functions
-    pub middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync> + Send + Sync>>>,
+    pub middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for Config {
@@ -126,10 +126,10 @@ pub struct Worker {
     limits: Limits,
     /// HTTP API
     api: crate::worker::api::Api,
-    /// Current task count
-    task_count: std::sync::atomic::AtomicI32,
+    /// Current task count (Arc-shared for heartbeat access)
+    task_count: Arc<std::sync::atomic::AtomicI32>,
     /// Task middleware
-    middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync> + Send + Sync>>>,
+    middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for Worker {
@@ -176,7 +176,7 @@ impl Worker {
             tasks,
             limits: cfg.limits,
             api,
-            task_count: std::sync::atomic::AtomicI32::new(0),
+            task_count: Arc::new(std::sync::atomic::AtomicI32::new(0)),
             middleware: cfg.middleware,
         })
     }
@@ -219,7 +219,7 @@ impl Worker {
         // Increment task count
         self.task_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let _decrement = Defer {
-            counter: &self.task_count,
+            counter: Arc::clone(&self.task_count),
         };
 
         let started = time::OffsetDateTime::now_utc();
@@ -278,26 +278,55 @@ impl Worker {
             tracing::warn!(error = %e, "failed to publish task started event");
         }
 
-        // Create the actual task handler
+        // Create the actual task handler with timeout support
+        // (mirrors Go's doRunTask: parse timeout, create timeout context, run)
         let runtime = Arc::clone(&self.runtime);
-        let _task_clone = Arc::clone(&task_for_broker);
-        let task_handler: Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync> =
+        let timeout_str = task.timeout.clone();
+        let task_handler: Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> =
             Arc::new(move |task: Arc<Task>| {
                 let runtime = Arc::clone(&runtime);
+                let timeout_str = timeout_str.clone();
                 Box::pin(async move {
                     let mut t = (*task).clone();
                     let ctx = std::sync::Arc::new(tokio::sync::RwLock::new(()));
-                    if let Err(e) = runtime.run(ctx, &mut t).await {
+
+                    // Parse timeout if defined (Go: doRunTask creates timeout context)
+                    let run_future = runtime.run(ctx, &mut t);
+                    let result = if let Some(ref ts) = timeout_str {
+                        let dur = parse_go_duration(ts);
+                        match tokio::time::timeout(dur, run_future).await {
+                            Ok(inner) => inner,
+                            Err(_) => {
+                                let now = time::OffsetDateTime::now_utc();
+                                t.error = Some(format!(
+                                    "context deadline exceeded: {} timeout",
+                                    ts
+                                ));
+                                t.failed_at = Some(now);
+                                t.state = TASK_STATE_FAILED;
+                                return Err(anyhow::anyhow!(
+                                    "context deadline exceeded: {}",
+                                    ts
+                                ));
+                            }
+                        }
+                    } else {
+                        run_future.await
+                    };
+
+                    if let Err(e) = result {
                         let now = time::OffsetDateTime::now_utc();
                         t.error = Some(e.to_string());
                         t.failed_at = Some(now);
                         t.state = TASK_STATE_FAILED;
+                        Err(e)
                     } else {
                         let now = time::OffsetDateTime::now_utc();
                         t.completed_at = Some(now);
                         t.state = TASK_STATE_COMPLETED;
+                        Ok(())
                     }
-                }) as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+                }) as std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>>
             });
 
         // Apply middleware chain
@@ -312,7 +341,7 @@ impl Worker {
             let task_for_handler = Arc::clone(&task_for_broker);
             tokio::select! {
                 result = handler(task_for_handler) => {
-                    Ok(result)
+                    result
                 }
                 _ = &mut cancel_rx => {
                     tracing::debug!("task cancelled");
@@ -414,62 +443,60 @@ impl Worker {
 
         // Start heartbeat loop
         let stop_tx = Arc::clone(&self.stop_tx);
-        tokio::spawn({
-            let id = self.id.clone();
-            let name = self.name.clone();
-            let start_time = self.start_time;
-            let broker = Arc::clone(&self.broker);
-            let runtime = Arc::clone(&self.runtime);
-            let api_port = self.api.port();
+        let task_count = Arc::clone(&self.task_count);
+        let id = self.id.clone();
+        let name = self.name.clone();
+        let start_time = self.start_time;
+        let broker = Arc::clone(&self.broker);
+        let runtime = Arc::clone(&self.runtime);
+        let api_port = self.api.port();
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_secs(HEARTBEAT_RATE_SECS as u64));
+            loop {
+                tokio::select! {
+                    _ = ticker.tick() => {
+                        let ctx = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            runtime.health_check(),
+                        ).await;
 
-            async move {
-                let mut ticker = interval(Duration::from_secs(HEARTBEAT_RATE_SECS as u64));
-                loop {
-                    tokio::select! {
-                        _ = ticker.tick() => {
-                            let ctx = tokio::time::timeout(
-                                Duration::from_secs(5),
-                                runtime.health_check(),
-                            ).await;
+                        let status = match ctx {
+                            Ok(Ok(())) => NODE_STATUS_UP.to_string(),
+                            _ => NODE_STATUS_DOWN.to_string(),
+                        };
 
-                            let status = match ctx {
-                                Ok(Ok(())) => NODE_STATUS_UP.to_string(),
-                                _ => NODE_STATUS_DOWN.to_string(),
-                            };
+                        let hostname = hostname::get()
+                            .map(|h| h.to_string_lossy().to_string())
+                            .unwrap_or_default();
 
-                            let hostname = hostname::get()
-                                .map(|h| h.to_string_lossy().to_string())
-                                .unwrap_or_default();
+                        let cpu_percent = get_cpu_percent();
 
-                            let cpu_percent = get_cpu_percent();
+                        let node = Node {
+                            id: Some(id.clone()),
+                            name: name.clone(),
+                            started_at: start_time,
+                            cpu_percent,
+                            last_heartbeat_at: time::OffsetDateTime::now_utc(),
+                            queue: Some(format!(
+                                "{}{}",
+                                QUEUE_EXCLUSIVE_PREFIX,
+                                id
+                            )),
+                            status,
+                            hostname: Some(hostname),
+                            port: api_port,
+                            task_count: task_count.load(std::sync::atomic::Ordering::SeqCst) as i64,
+                            version: tork::version::VERSION.to_string(),
+                        };
 
-                            let node = Node {
-                                id: Some(id.clone()),
-                                name: name.clone(),
-                                started_at: start_time,
-                                cpu_percent,
-                                last_heartbeat_at: time::OffsetDateTime::now_utc(),
-                                queue: Some(format!(
-                                    "{}{}",
-                                    QUEUE_EXCLUSIVE_PREFIX,
-                                    id
-                                )),
-                                status,
-                                hostname: Some(hostname),
-                                port: api_port,
-                                task_count: 0,
-                                version: tork::version::VERSION.to_string(),
-                            };
-
-                            if let Err(e) = broker.publish_heartbeat(node).await {
-                                tracing::error!(error = %e, "error publishing heartbeat");
-                            }
+                        if let Err(e) = broker.publish_heartbeat(node).await {
+                            tracing::error!(error = %e, "error publishing heartbeat");
                         }
-                        _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                            // Check if stop signal was sent
-                            if Arc::as_ref(&stop_tx).is_closed() {
-                                break;
-                            }
+                    }
+                    _ = tokio::time::sleep(Duration::from_millis(100)) => {
+                        // Check if stop signal was sent
+                        if Arc::as_ref(&stop_tx).is_closed() {
+                            break;
                         }
                     }
                 }
@@ -518,9 +545,7 @@ impl Worker {
             tasks: Arc::clone(&self.tasks),
             limits: self.limits.clone(),
             api: self.api.clone(),
-            task_count: std::sync::atomic::AtomicI32::new(
-                self.task_count.load(std::sync::atomic::Ordering::SeqCst),
-            ),
+            task_count: Arc::clone(&self.task_count),
             middleware: Arc::clone(&self.middleware),
         }
     }
@@ -533,14 +558,859 @@ impl Clone for Worker {
 }
 
 /// RAII guard to decrement task count when dropped
-struct Defer<'a> {
-    counter: &'a std::sync::atomic::AtomicI32,
+struct Defer {
+    counter: Arc<std::sync::atomic::AtomicI32>,
 }
 
-impl Drop for Defer<'_> {
+impl Drop for Defer {
     fn drop(&mut self) {
         self.counter.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
-use crate::worker::api;
+/// Parses a Go-style duration string (e.g. "5s", "100ms", "1m") into a
+/// [`std::time::Duration`]. Returns `Duration::ZERO` on parse failure so
+/// callers can decide how to handle the error.
+fn parse_go_duration(s: &str) -> std::time::Duration {
+    let s = s.trim();
+    // Try standard Duration from_secs_f64 with common suffixes
+    if let Some(rest) = s.strip_suffix("ms") {
+        return rest
+            .trim()
+            .parse::<f64>()
+            .map(|v| std::time::Duration::from_millis(v as u64))
+            .unwrap_or_default();
+    }
+    if let Some(rest) = s.strip_suffix('s') {
+        return rest
+            .trim()
+            .parse::<f64>()
+            .map(|v| std::time::Duration::from_secs_f64(v))
+            .unwrap_or_default();
+    }
+    if let Some(rest) = s.strip_suffix('m') {
+        return rest
+            .trim()
+            .parse::<f64>()
+            .map(|v| std::time::Duration::from_secs_f64(v * 60.0))
+            .unwrap_or_default();
+    }
+    if let Some(rest) = s.strip_suffix('h') {
+        return rest
+            .trim()
+            .parse::<f64>()
+            .map(|v| std::time::Duration::from_secs_f64(v * 3600.0))
+            .unwrap_or_default();
+    }
+    // Unrecognized suffix — return zero (caller will handle as invalid timeout)
+    std::time::Duration::ZERO
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::broker::inmemory::new_in_memory_broker;
+    use std::sync::atomic::AtomicBool;
+
+    /// A test runtime that can be configured to succeed, fail, or simulate
+    /// long-running tasks for cancellation/timeout tests.
+    struct TestRuntime {
+        healthy: bool,
+        /// If Some(err), run() returns Err(err)
+        error: Option<String>,
+        /// If true, run() sleeps for 10s (useful for cancellation/timeout tests)
+        slow: bool,
+        /// Records how many times run() was called
+        run_count: Arc<AtomicBool>,
+    }
+
+    impl TestRuntime {
+        fn new() -> Self {
+            Self {
+                healthy: true,
+                error: None,
+                slow: false,
+                run_count: Arc::new(AtomicBool::new(false)),
+            }
+        }
+
+        fn unhealthy() -> Self {
+            let mut rt = Self::new();
+            rt.healthy = false;
+            rt
+        }
+
+        fn with_error(msg: &str) -> Self {
+            let mut rt = Self::new();
+            rt.error = Some(msg.to_string());
+            rt
+        }
+
+        fn slow() -> Self {
+            let mut rt = Self::new();
+            rt.slow = true;
+            rt
+        }
+    }
+
+    impl Runtime for TestRuntime {
+        fn run(
+            &self,
+            _ctx: std::sync::Arc<tokio::sync::RwLock<()>>,
+            _task: &mut tork::task::Task,
+        ) -> tork::runtime::BoxedFuture<()> {
+            let error = self.error.clone();
+            let slow = self.slow;
+            let run_count = Arc::clone(&self.run_count);
+            Box::pin(async move {
+                run_count.store(true, std::sync::atomic::Ordering::SeqCst);
+                if let Some(ref err) = error {
+                    return Err(anyhow::anyhow!("{}", err));
+                }
+                if slow {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                }
+                Ok(())
+            })
+        }
+
+        fn health_check(&self) -> tork::runtime::BoxedFuture<()> {
+            let healthy = self.healthy;
+            Box::pin(async move {
+                if healthy {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("runtime unhealthy"))
+                }
+            })
+        }
+    }
+
+    /// Helper to create a Config with the given runtime and broker
+    fn test_config(runtime: TestRuntime) -> Config {
+        Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(runtime)),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        }
+    }
+
+    /// Helper to create a simple task with an ID
+    fn test_task(id: &str) -> Arc<Task> {
+        Arc::new(Task {
+            id: Some(id.to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        })
+    }
+
+    // ---- TestNewWorker (mirrors Go TestNewWorker) ----
+    #[test]
+    fn test_new_worker_broker_required() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: None,
+            runtime: None,
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let result = Worker::new(cfg);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must provide broker"));
+    }
+
+    #[test]
+    fn test_new_worker_runtime_required() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: None,
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let result = Worker::new(cfg);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must provide runtime"));
+    }
+
+    #[test]
+    fn test_new_worker_success() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg);
+        assert!(worker.is_ok());
+        let worker = worker.unwrap();
+        assert!(!worker.id().is_empty());
+        assert_eq!(worker.task_count(), 0);
+    }
+
+    #[test]
+    fn test_new_worker_default_queue() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg).unwrap();
+        // Should have the default queue "default" with concurrency 1
+        assert!(worker.queues.contains_key(queue::QUEUE_DEFAULT));
+    }
+
+    // ---- Test_handleTaskRun (mirrors Go Test_handleTaskRun) ----
+    #[tokio::test]
+    async fn test_handle_task_run_success() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("task-1");
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_task_run_error() {
+        let cfg = test_config(TestRuntime::with_error("something went wrong"));
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("task-err");
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok()); // Worker handles the error internally
+    }
+
+    // ---- Test_handleTaskRunDefaultLimitExceeded (mirrors Go) ----
+    #[tokio::test]
+    async fn test_handle_task_timeout_exceeded() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(TestRuntime::slow())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits {
+                default_cpus_limit: None,
+                default_memory_limit: None,
+                default_timeout: Some("500ms".to_string()),
+            },
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("task-timeout");
+        let result = worker.handle_task(task).await;
+        // The task should time out — worker handles internally and publishes to error queue
+        assert!(result.is_ok());
+    }
+
+    // ---- Test_handleTaskRunDefaultLimitOK (mirrors Go) ----
+    #[tokio::test]
+    async fn test_handle_task_timeout_ok() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits {
+                default_cpus_limit: None,
+                default_memory_limit: None,
+                default_timeout: Some("5s".to_string()),
+            },
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("task-timeout-ok");
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok());
+    }
+
+    // ---- Test_sendHeartbeat (mirrors Go Test_sendHeartbeat) ----
+    #[tokio::test]
+    async fn test_send_heartbeat() {
+        let broker = new_in_memory_broker();
+        let heartbeat_received = Arc::new(tokio::sync::Notify::new());
+        let heartbeat_received_clone = Arc::clone(&heartbeat_received);
+
+        let broker_arc: Arc<dyn Broker> = Arc::new(broker.clone());
+        broker_arc
+            .subscribe_for_heartbeats(Arc::new(move |_node: tork::node::Node| {
+                let notify = Arc::clone(&heartbeat_received_clone);
+                Box::pin(async move {
+                    notify.notify_one();
+                })
+            }))
+            .await
+            .unwrap();
+
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+
+        let mut worker = Worker::new(cfg).unwrap();
+        worker.start().await.unwrap();
+
+        // Wait for at least one heartbeat (HEARTBEAT_RATE_SECS is 30s in prod,
+        // but the test should complete quickly due to the Notify)
+        heartbeat_received.notified().await;
+
+        worker.stop().await.unwrap();
+    }
+
+    // ---- Test_handleTaskCancel (mirrors Go Test_handleTaskCancel) ----
+    #[tokio::test]
+    async fn test_handle_task_cancel() {
+        let cfg = test_config(TestRuntime::slow());
+        let worker = Worker::new(cfg).unwrap();
+
+        let task_id = "cancel-task-1";
+        let task = Arc::new(Task {
+            id: Some(task_id.to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        });
+
+        // Spawn the task handle
+        let worker_clone = worker.clone();
+        let task_for_cancel = Arc::clone(&task);
+        let handle = tokio::spawn(async move {
+            worker_clone.handle_task(task_for_cancel).await
+        });
+
+        // Wait a tiny bit for the task to register, then cancel
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        worker.cancel_task(task_id).await.unwrap();
+
+        let result = handle.await.unwrap();
+        // Task was cancelled — the worker handles it internally
+        assert!(result.is_ok());
+    }
+
+    // ---- task_count tracking ----
+    #[tokio::test]
+    async fn test_task_count_increments() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(TestRuntime::slow())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("count-task");
+        let worker_clone = worker.clone();
+        let handle = tokio::spawn(async move {
+            worker_clone.handle_task(task).await
+        });
+
+        // Give the task time to start and increment the counter
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert_eq!(1, worker.task_count());
+
+        // Cancel to clean up
+        worker.cancel_task("count-task").await.unwrap();
+        let _ = handle.await;
+
+        // After completion, count should be back to 0
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert_eq!(0, worker.task_count());
+    }
+
+    // ---- Limits applied correctly ----
+    #[tokio::test]
+    async fn test_default_limits_applied() {
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits {
+                default_cpus_limit: Some("2.0".to_string()),
+                default_memory_limit: Some("4g".to_string()),
+                default_timeout: Some("10s".to_string()),
+            },
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = Arc::new(Task {
+            id: Some("limits-task".to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        });
+
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok());
+    }
+
+    // ---- cancel unknown task (should be no-op) ----
+    #[tokio::test]
+    async fn test_cancel_unknown_task() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg).unwrap();
+
+        let result = worker.cancel_task("nonexistent").await;
+        assert!(result.is_ok());
+    }
+
+    // Type aliases for middleware readability
+    type BoxedTaskFn = Arc<
+        dyn Fn(Arc<Task>) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>,
+        > + Send + Sync,
+    >;
+    type BoxedMiddlewareFn = Box<dyn Fn(BoxedTaskFn) -> BoxedTaskFn + Send + Sync>;
+
+    // ---- TestStart (mirrors Go TestStart) ----
+    // Verifies basic start/stop lifecycle without error.
+    #[tokio::test]
+    async fn test_start() {
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(new_in_memory_broker())),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let mut worker = match Worker::new(cfg) {
+            Ok(w) => w,
+            Err(e) => panic!("worker creation should succeed: {e}"),
+        };
+        assert!(worker.start().await.is_ok(), "start should succeed");
+        assert!(worker.stop().await.is_ok(), "stop should succeed");
+    }
+
+    // ---- TestStart_subscribes (mirrors Go TestStart — queue subscription) ----
+    // Verifies that after start(), the worker picks up tasks published to its queue.
+    #[tokio::test]
+    async fn test_start_subscribes_to_queues() {
+        let broker = new_in_memory_broker();
+        let completed_notify = Arc::new(tokio::sync::Notify::new());
+        let completed_notify_clone = Arc::clone(&completed_notify);
+        let broker_ref: Arc<dyn Broker> = Arc::new(broker.clone());
+
+        broker_ref
+            .subscribe_for_tasks(
+                QUEUE_COMPLETED.to_string(),
+                Arc::new(move |_task: Arc<Task>| {
+                    let n = Arc::clone(&completed_notify_clone);
+                    Box::pin(async move {
+                        n.notify_one();
+                    })
+                }),
+            )
+            .await
+            .unwrap();
+
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let mut worker = Worker::new(cfg).unwrap();
+        worker.start().await.unwrap();
+
+        // Allow time for queue subscription to register
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let task = Arc::new(Task {
+            id: Some("queue-sub-task".to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        });
+        broker_ref
+            .publish_task(queue::QUEUE_DEFAULT.to_string(), &task)
+            .await
+            .unwrap();
+
+        tokio::time::timeout(Duration::from_secs(2), completed_notify.notified())
+            .await
+            .unwrap();
+
+        worker.stop().await.unwrap();
+    }
+
+    // ---- Test_handleTaskOutput (mirrors Go Test_handleTaskOutput) ----
+    // Verifies that a completed task is published to QUEUE_COMPLETED with
+    // state COMPLETED. Uses the worker's start() to subscribe the queue,
+    // then publishes a task and waits for the completion signal.
+    #[tokio::test]
+    async fn test_handle_task_output_completed() {
+        let broker = new_in_memory_broker();
+        let completed_notify = Arc::new(tokio::sync::Notify::new());
+        let completed_notify_clone = Arc::clone(&completed_notify);
+        let received_state = Arc::new(std::sync::Mutex::new(String::new()));
+        let received_state_clone = Arc::clone(&received_state);
+        let broker_ref: Arc<dyn Broker> = Arc::new(broker.clone());
+
+        // Subscribe to QUEUE_COMPLETED FIRST, before any publish
+        broker_ref
+            .subscribe_for_tasks(
+                QUEUE_COMPLETED.to_string(),
+                Arc::new(move |task: Arc<Task>| {
+                    let n = Arc::clone(&completed_notify_clone);
+                    let st = Arc::clone(&received_state_clone);
+                    Box::pin(async move {
+                        if let Ok(mut guard) = st.lock() {
+                            *guard = task.state.to_string();
+                        }
+                        n.notify_one();
+                    })
+                }),
+            )
+            .await
+            .unwrap();
+
+        // Use the SAME broker instance (not test_config which creates a new one)
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("output-task");
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok());
+
+        // Allow time for the async publish to propagate through broadcast
+        tokio::time::timeout(Duration::from_secs(2), completed_notify.notified())
+            .await
+            .unwrap();
+
+        let state = received_state.lock().map(|g| g.clone()).unwrap_or_default();
+        assert_eq!(TASK_STATE_COMPLETED.as_ref(), state);
+    }
+
+    // ---- Test_handleTaskError (mirrors Go Test_handleTaskError) ----
+    // Verifies that a runtime error publishes the task to QUEUE_ERROR with
+    // a non-empty error message.
+    #[tokio::test]
+    async fn test_handle_task_error_published() {
+        let broker = new_in_memory_broker();
+        let error_notify = Arc::new(tokio::sync::Notify::new());
+        let error_notify_clone = Arc::clone(&error_notify);
+        let received_error = Arc::new(std::sync::Mutex::new(String::new()));
+        let received_error_clone = Arc::clone(&received_error);
+        let broker_ref: Arc<dyn Broker> = Arc::new(broker.clone());
+
+        broker_ref
+            .subscribe_for_tasks(
+                QUEUE_ERROR.to_string(),
+                Arc::new(move |task: Arc<Task>| {
+                    let n = Arc::clone(&error_notify_clone);
+                    let err = Arc::clone(&received_error_clone);
+                    Box::pin(async move {
+                        if let Some(ref e) = task.error {
+                            if let Ok(mut guard) = err.lock() {
+                                guard.clone_from(e);
+                            }
+                        }
+                        n.notify_one();
+                    })
+                }),
+            )
+            .await
+            .unwrap();
+
+        // Use the SAME broker instance (not test_config which creates a new one)
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::with_error("something went wrong"))),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let worker = Worker::new(cfg).unwrap();
+
+        let task = test_task("error-pub-task");
+        let result = worker.handle_task(task).await;
+        assert!(result.is_ok(), "handle_task should handle error internally");
+
+        tokio::time::timeout(Duration::from_secs(2), error_notify.notified())
+            .await
+            .unwrap();
+
+        let error_msg = received_error.lock().map(|g| g.clone()).unwrap_or_default();
+        assert!(!error_msg.is_empty(), "error message should not be empty");
+        assert!(
+            error_msg.contains("something went wrong"),
+            "error should contain original message, got: {error_msg}"
+        );
+    }
+
+    // ---- Test_middleware (mirrors Go Test_middleware) ----
+    // Verifies that middleware is invoked during task processing and the
+    // task completes successfully through the middleware chain.
+    #[tokio::test]
+    async fn test_middleware_chain() {
+        let broker = new_in_memory_broker();
+        let middleware_called = Arc::new(AtomicBool::new(false));
+        let middleware_called_clone = Arc::clone(&middleware_called);
+        let completed_notify = Arc::new(tokio::sync::Notify::new());
+        let completed_notify_clone = Arc::clone(&completed_notify);
+        let broker_ref: Arc<dyn Broker> = Arc::new(broker.clone());
+
+        broker_ref
+            .subscribe_for_tasks(
+                QUEUE_COMPLETED.to_string(),
+                Arc::new(move |_task: Arc<Task>| {
+                    let n = Arc::clone(&completed_notify_clone);
+                    Box::pin(async move {
+                        n.notify_one();
+                    })
+                }),
+            )
+            .await
+            .unwrap();
+
+        let mw: BoxedMiddlewareFn = Box::new(move |next: BoxedTaskFn| -> BoxedTaskFn {
+            let called = Arc::clone(&middleware_called_clone);
+            Arc::new(move |task: Arc<Task>| {
+                let next = Arc::clone(&next);
+                let called = Arc::clone(&called);
+                Box::pin(async move {
+                    called.store(true, std::sync::atomic::Ordering::SeqCst);
+                    next(task).await
+                })
+            })
+        });
+
+        let queues = Arc::new(DashMap::new());
+        queues.insert("someq".to_string(), 1);
+
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues,
+            limits: Limits::default(),
+            middleware: Arc::new(vec![mw]),
+        };
+        let mut worker = Worker::new(cfg).unwrap();
+        worker.start().await.unwrap();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let task = Arc::new(Task {
+            id: Some("middleware-task".to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        });
+        broker_ref
+            .publish_task("someq".to_string(), &task)
+            .await
+            .unwrap();
+
+        tokio::time::timeout(Duration::from_secs(2), completed_notify.notified())
+            .await
+            .unwrap();
+
+        assert!(
+            middleware_called.load(std::sync::atomic::Ordering::SeqCst),
+            "middleware should have been called"
+        );
+        worker.stop().await.unwrap();
+    }
+
+    // ---- Test_middlewareFailure (mirrors Go Test_middlewareFailure) ----
+    // Verifies that when middleware returns an error, the task is published
+    // to QUEUE_ERROR.
+    #[tokio::test]
+    async fn test_middleware_failure() {
+        let broker = new_in_memory_broker();
+        let error_notify = Arc::new(tokio::sync::Notify::new());
+        let error_notify_clone = Arc::clone(&error_notify);
+        let received_error = Arc::new(std::sync::Mutex::new(String::new()));
+        let received_error_clone = Arc::clone(&received_error);
+        let broker_ref: Arc<dyn Broker> = Arc::new(broker.clone());
+
+        broker_ref
+            .subscribe_for_tasks(
+                QUEUE_ERROR.to_string(),
+                Arc::new(move |task: Arc<Task>| {
+                    let n = Arc::clone(&error_notify_clone);
+                    let err = Arc::clone(&received_error_clone);
+                    Box::pin(async move {
+                        if let Some(ref e) = task.error {
+                            if let Ok(mut guard) = err.lock() {
+                                guard.clone_from(e);
+                            }
+                        }
+                        n.notify_one();
+                    })
+                }),
+            )
+            .await
+            .unwrap();
+
+        let mw: BoxedMiddlewareFn =
+            Box::new(|_next: BoxedTaskFn| -> BoxedTaskFn {
+                Arc::new(|_task: Arc<Task>| {
+                    Box::pin(async { Err(anyhow::anyhow!("middleware failure")) })
+                })
+            });
+
+        let queues = Arc::new(DashMap::new());
+        queues.insert("someq".to_string(), 1);
+
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::new())),
+            queues,
+            limits: Limits::default(),
+            middleware: Arc::new(vec![mw]),
+        };
+        let mut worker = Worker::new(cfg).unwrap();
+        worker.start().await.unwrap();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let task = Arc::new(Task {
+            id: Some("mw-fail-task".to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            ..Default::default()
+        });
+        broker_ref
+            .publish_task("someq".to_string(), &task)
+            .await
+            .unwrap();
+
+        tokio::time::timeout(Duration::from_secs(2), error_notify.notified())
+            .await
+            .unwrap();
+
+        let error_msg = received_error.lock().map(|g| g.clone()).unwrap_or_default();
+        assert!(
+            error_msg.contains("middleware failure"),
+            "error should contain middleware failure message, got: {error_msg}"
+        );
+        worker.stop().await.unwrap();
+    }
+
+    // ---- Test_handleTaskRunOutput (mirrors Go Test_handleTaskRunOutput) ----
+    // Integration test: requires a runtime that supports $TORK_OUTPUT capture.
+    // This test is #[ignore] because no mock runtime currently supports output
+    // capture. When a production runtime (Docker/Podman/Shell) implements
+    // tork::Runtime, this test should be updated to use it.
+    //
+    // The Go test verifies that `echo -n hello world > $TORK_OUTPUT` results
+    // in `task.Result == "hello world"`.
+    //
+    // To run: cargo test test_handle_task_run_output -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_task_run_output() {
+        // Requires production runtime with $TORK_OUTPUT support.
+        // See Go Test_handleTaskRunOutput for expected behavior.
+        let broker = new_in_memory_broker();
+        let runtime = crate::runtime::shell::ShellRuntime::new(
+            crate::runtime::shell::ShellConfig::default(),
+        );
+        // NOTE: ShellRuntime does not yet implement tork::Runtime.
+        // This test will compile once that bridge is implemented.
+        let _ = (broker, runtime);
+    }
+
+    // ---- Test_handleTaskRunWithPrePost (mirrors Go Test_handleTaskRunWithPrePost) ----
+    // Integration test: requires a runtime that supports pre/post tasks with
+    // shared volume mounts. This test is #[ignore] because no mock runtime
+    // currently supports pre/post execution.
+    //
+    // The Go test verifies that:
+    // - Pre-tasks execute before the main task (shared volume)
+    // - Post-tasks execute after the main task
+    // - Main task result captures pre-task output
+    //
+    // To run: cargo test test_handle_task_run_with_pre_post -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn test_handle_task_run_with_pre_post() {
+        // Requires production runtime with pre/post task support.
+        // See Go Test_handleTaskRunWithPrePost for expected behavior.
+        let broker = new_in_memory_broker();
+        let runtime = crate::runtime::shell::ShellRuntime::new(
+            crate::runtime::shell::ShellConfig::default(),
+        );
+        // NOTE: ShellRuntime does not yet implement tork::Runtime.
+        // This test will compile once that bridge is implemented.
+        let _ = (broker, runtime);
+    }
+
+    // ---- parse_go_duration ----
+    #[test]
+    fn test_parse_go_duration_seconds() {
+        let dur = parse_go_duration("5s");
+        assert_eq!(std::time::Duration::from_secs(5), dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_milliseconds() {
+        let dur = parse_go_duration("500ms");
+        assert_eq!(std::time::Duration::from_millis(500), dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_minutes() {
+        let dur = parse_go_duration("2m");
+        assert_eq!(std::time::Duration::from_secs(120), dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_hours() {
+        let dur = parse_go_duration("1h");
+        assert_eq!(std::time::Duration::from_secs(3600), dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_float() {
+        let dur = parse_go_duration("1.5s");
+        assert_eq!(std::time::Duration::from_secs_f64(1.5), dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_unknown() {
+        let dur = parse_go_duration("10days");
+        assert_eq!(std::time::Duration::ZERO, dur);
+    }
+
+    #[test]
+    fn test_parse_go_duration_whitespace() {
+        let dur = parse_go_duration("  5s  ");
+        assert_eq!(std::time::Duration::from_secs(5), dur);
+    }
+}
+

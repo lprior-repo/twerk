@@ -8,6 +8,11 @@ pub mod job;
 pub mod task;
 pub mod validate;
 
-pub use job::{AutoDelete, Job, ScheduledJob, JobDefaults, Permission, Webhook};
-pub use task::{Task, SubJob, Each, Parallel, Retry, Limits, Registry, Mount, AuxTask, SidecarTask, Probe};
-pub use validate::{ValidationError, validate_job, validate_scheduled_job};
+pub use job::{AutoDelete, Job, JobDefaults, Permission, ScheduledJob, Webhook};
+pub use task::{
+    AuxTask, Each, Limits, Mount, Parallel, Probe, Registry, Retry, SidecarTask, SubJob, Task,
+};
+pub use validate::{
+    validate_job, validate_job_with_checker, validate_scheduled_job,
+    validate_scheduled_job_with_checker, NoopPermissionChecker, PermissionChecker, ValidationError,
+};

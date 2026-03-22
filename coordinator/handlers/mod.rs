@@ -131,7 +131,7 @@ pub type ScheduledJobHandlerFunc =
     Arc<dyn Fn(HandlerContext, &mut tork::job::ScheduledJob) -> Result<(), HandlerError> + Send + Sync>;
 
 /// Errors that can occur in handlers.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum HandlerError {
     #[error("handler error: {0}")]
     Handler(String),

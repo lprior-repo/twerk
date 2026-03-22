@@ -1,8 +1,13 @@
-//! Locker crate - provides distributed locking abstractions
+//! Locker crate — provides distributed locking abstractions.
 //!
 //! This crate offers two locker implementations:
-//! - [`InMemoryLocker`]: A simple in-memory locker for single-process usage
-//! - [`PostgresLocker`]: A PostgreSQL-backed distributed locker using advisory locks
+//! - [`InMemoryLocker`]: A simple in-memory locker for single-process usage.
+//! - [`PostgresLocker`]: A PostgreSQL-backed distributed locker using advisory locks.
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
 
 pub mod error;
 pub mod inmemory;
@@ -13,6 +18,12 @@ use std::pin::Pin;
 pub use error::LockError;
 pub use inmemory::InMemoryLocker;
 pub use postgres::PostgresLocker;
+
+/// Locker type constant — in-memory (single process only).
+pub const LOCKER_INMEMORY: &str = "inmemory";
+
+/// Locker type constant — `PostgreSQL` (distributed).
+pub const LOCKER_POSTGRES: &str = "postgres";
 
 /// Represents an acquired lock that can be released.
 ///

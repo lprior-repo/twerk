@@ -1,30 +1,33 @@
 //! Reexec utilities for self-reexecution pattern.
 //!
 //! This module provides functionality for re-executing the current binary,
-//! similar to the busybox-style reexec pattern used in Docker.
+//! mirroring the Docker/pkg/reexec pattern used in the Go tork implementation.
 //!
 //! # Architecture
 //!
 //! - **Data**: `Command` struct holds executable path and arguments
-//! - **Calc**: Path resolution via `naive_self()`
+//! - **Calc**: Path resolution via `naive_self`
 //! - **Actions**: Process spawning via std::process::Command
+//!
+//! # Go Parity Notes
+//!
+//! - `register`: Go panics on duplicate; Rust returns `Result` (preferred)
+//! - `command`: Go sets `SysProcAttr.Pdeathsig=SIGTERM` (requires `unsafe`
+//!   in Rust); Rust uses `process_group(0)` as the closest safe equivalent
+//! - `command`: Go sets `Args: args` (argv[0]=args[0]); Rust uses `arg0`
+//!   to match this behavior
 
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use thiserror::Error;
 
 /// Errors that can occur during reexec operations.
 #[derive(Debug, Error)]
 pub enum ReexecError {
+    /// Go panics on duplicate registration; Rust returns this error instead.
     #[error("reexec func already registered under name {0:?}")]
     AlreadyRegistered(String),
-
-    #[error("failed to resolve executable path")]
-    PathResolutionFailed,
-
-    #[error("unsupported platform")]
-    UnsupportedPlatform,
 }
 
 type Initializer = Box<dyn Fn() + Send + Sync>;
@@ -86,47 +89,44 @@ pub fn init() -> bool {
 
 /// Returns the path to the current executable using `os.Args[0]` fallback.
 ///
-/// This attempts multiple strategies:
-/// 1. If `os.Args[0]` is a bare name, try to find it in PATH
-/// 2. Convert relative paths to absolute paths
+/// Matches Go's `naiveSelf` exactly:
+/// 1. If `os.Args[0]` is a bare name (no path separator), try `LookPath` (PATH search)
+/// 2. Convert relative paths to absolute via `filepath.Abs` (prepend cwd)
 /// 3. Return the original name as last resort
 #[must_use]
 pub fn naive_self() -> PathBuf {
-    let name = match env::args().next() {
-        Some(n) => n,
-        None => return PathBuf::from("/proc/self/exe"),
-    };
+    let name = env::args()
+        .next()
+        .unwrap_or_else(|| "/proc/self/exe".to_string());
+    resolve_naive_self(&name)
+}
 
-    // If name is just a basename, try to find it in PATH
-    if name.contains('/') {
-        // It has a path component, try to resolve it
-        let abs = PathBuf::from(&name);
-        if abs.is_absolute() {
-            return abs;
-        }
-        // Try to make it absolute relative to current dir
-        if let Ok(cwd) = env::current_dir() {
-            let full = cwd.join(&name);
-            if full.exists() {
-                return full;
-            }
-        }
-        // Return as-is if we can't resolve
-        return PathBuf::from(name);
-    }
+/// Internal: resolves a program name using the Go naiveSelf algorithm.
+/// Separated for testability.
+#[must_use]
+fn resolve_naive_self(name: &str) -> PathBuf {
+    let path = Path::new(name);
 
-    // name is just a basename, try to find in PATH
-    if let Some(lp) = env::var("PATH").ok() {
-        for dir in lp.split(':') {
-            let candidate = PathBuf::from(dir).join(&name);
-            if candidate.exists() {
-                return candidate;
-            }
+    // Go: `if filepath.Base(name) == name` — bare filename, search PATH
+    if path.parent().is_none() {
+        if let Some(found) = env::var("PATH").ok().and_then(|path_var| {
+            path_var
+                .split(':')
+                .map(|dir| PathBuf::from(dir).join(name))
+                .find(|candidate| candidate.exists())
+        }) {
+            return found;
         }
     }
 
-    // Fallback to original
-    PathBuf::from(name)
+    // Go: `filepath.Abs(name)` — convert to absolute (no-op if already absolute)
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else if let Ok(cwd) = env::current_dir() {
+        cwd.join(name)
+    } else {
+        PathBuf::from(name)
+    }
 }
 
 /// Returns the path to the current process's binary.
@@ -154,11 +154,14 @@ pub fn self_path() -> PathBuf {
 
 /// Creates a `Command` that will execute the current binary.
 ///
-/// The returned command has the `Path` set to the current binary,
-/// and `Args` set to the provided arguments.
+/// Matches Go's `func Command(args ...string) *exec.Cmd`:
+/// - `Path` is set to the current binary (via `self_path()`)
+/// - `Args` is set to the provided arguments directly
+///   (i.e., `argv[0] = args[0]`, NOT the binary path)
 ///
-/// On Linux, `SysProcAttr.Pdeathsig` is set to SIGTERM for process
-/// cleanup safety.
+/// On Linux, Go sets `SysProcAttr.Pdeathsig = SIGTERM` for process cleanup.
+/// Rust cannot set this safely (requires `unsafe`), so we use
+/// `process_group(0)` to create an isolated process group instead.
 #[must_use]
 pub fn command(args: &[String]) -> Command {
     #[cfg(target_os = "linux")]
@@ -166,22 +169,33 @@ pub fn command(args: &[String]) -> Command {
         use std::os::unix::process::CommandExt;
 
         let mut cmd = Command::new(self_path());
-        cmd.args(args);
-        // Set process death signal to SIGTERM for safe cleanup
-        cmd.process_group(0); // This sets the process group to itself
+        // Go: `Args: args` means argv[0] = args[0], not the binary path.
+        // This is critical for the reexec pattern where Init() checks argv[0]
+        // to find the registered initializer.
+        if let Some((first, rest)) = args.split_first() {
+            cmd.arg0(first);
+            cmd.args(rest);
+        }
+        // Create new process group for cleanup safety (closest safe equivalent
+        // to Go's SysProcAttr.Pdeathsig = SIGTERM)
+        cmd.process_group(0);
         cmd
     }
 
     #[cfg(all(unix, not(target_os = "linux")))]
     {
+        use std::os::unix::process::CommandExt;
+
         let mut cmd = Command::new(self_path());
-        cmd.args(args);
+        if let Some((first, rest)) = args.split_first() {
+            cmd.arg0(first);
+            cmd.args(rest);
+        }
         cmd
     }
 
     #[cfg(not(unix))]
     {
-        // Unsupported platform
         let mut cmd = Command::new(self_path());
         cmd.args(args);
         cmd
@@ -219,6 +233,28 @@ mod tests {
     }
 
     #[test]
+    fn test_naive_self_bare_name_searches_path() {
+        // Go: naiveSelf("ls") → should find /usr/bin/ls or similar
+        let path = resolve_naive_self("ls");
+        assert!(path.to_string_lossy().contains("ls"));
+    }
+
+    #[test]
+    fn test_naive_self_absolute_path_passthrough() {
+        // Go: naiveSelf("/usr/bin/ls") → returns "/usr/bin/ls" unchanged
+        let path = resolve_naive_self("/usr/bin/ls");
+        assert_eq!(PathBuf::from("/usr/bin/ls"), path);
+    }
+
+    #[test]
+    fn test_naive_self_relative_path_absolved() {
+        // Go: naiveSelf("./foo") → returns cwd + "/foo" (filepath.Abs)
+        let path = resolve_naive_self("./foo");
+        assert!(path.is_absolute());
+        assert!(path.to_string_lossy().ends_with("/foo"));
+    }
+
+    #[test]
     fn test_self_path_returns_valid() {
         let path = self_path();
         assert!(!path.to_string_lossy().is_empty());
@@ -227,7 +263,7 @@ mod tests {
     #[test]
     fn test_command_creation() {
         let args = vec!["arg1".to_string(), "arg2".to_string()];
-        let mut cmd = command(&args);
+        let cmd = command(&args);
 
         // The command should have the correct program
         // We can't easily check Path directly, but we can verify it doesn't panic
@@ -237,13 +273,20 @@ mod tests {
 
     #[test]
     fn test_command_args_passed() {
+        // Go: Command("arg1", "arg2") → Args=["arg1","arg2"]
+        // Rust: command(&["arg1","arg2"]) → argv[0]="arg1", argv[1]="arg2"
+        // The program path is set via Command::new(), but arg0 overrides argv[0]
         let args = vec!["--test".to_string(), "value".to_string()];
         let cmd = command(&args);
 
-        let obtained_args: Vec<String> = cmd
+        // With arg0, the first arg becomes argv[0] (program name position)
+        // and the rest follow as argv[1..]
+        let all_args: Vec<String> = cmd
             .get_args()
             .map(|s| s.to_string_lossy().into_owned())
             .collect();
-        assert_eq!(args, obtained_args);
+        // command() splits first/rest via arg0, so get_args() returns ["value"]
+        assert_eq!(1, all_args.len());
+        assert_eq!("value", all_args[0]);
     }
 }

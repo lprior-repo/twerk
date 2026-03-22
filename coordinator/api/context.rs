@@ -61,7 +61,7 @@ impl From<Context> for axum::response::Response<axum::body::Body> {
                         axum::response::Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body(axum::body::Body::empty())
-                            .expect("Response::builder should always produce a valid response")
+                            .unwrap()
                     })
             }
             None => axum::response::Response::builder()
@@ -72,7 +72,7 @@ impl From<Context> for axum::response::Response<axum::body::Body> {
                     axum::response::Response::builder()
                         .status(StatusCode::OK)
                         .body(axum::body::Body::empty())
-                        .expect("Response::builder should always produce a valid response")
+                        .unwrap()
                 }),
         }
     }

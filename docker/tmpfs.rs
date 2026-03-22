@@ -104,6 +104,25 @@ mod tests {
     }
 
     #[test]
+    fn test_mount_tmpfs_empty_target() {
+        let mounter = TmpfsMounter::new();
+        let mnt = Mount::new(mount_type::TMPFS, "").with_source("");
+
+        let result = mounter.mount(&mnt);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mount_tmpfs_empty_source_allowed() {
+        let mounter = TmpfsMounter::new();
+        let mnt = Mount::new(mount_type::TMPFS, "/target");
+
+        // source is None, which is fine
+        let result = mounter.mount(&mnt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_unmount_tmpfs() {
         let mounter = TmpfsMounter::new();
         let mnt = Mount::new(mount_type::TMPFS, "/target");

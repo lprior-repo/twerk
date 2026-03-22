@@ -16,6 +16,7 @@ use tork::{Role, User};
 
 /// Job input type for creating a new job
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Job {
     /// Job name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,6 +69,7 @@ pub struct Job {
 
 /// ScheduledJob input type for creating a scheduled job
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ScheduledJob {
     /// Job name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -120,6 +122,7 @@ pub struct ScheduledJob {
 
 /// Default configuration for job tasks
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct JobDefaults {
     /// Retry configuration
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -196,17 +199,6 @@ pub struct Wait {
     pub timeout: String,
 }
 
-impl Default for JobDefaults {
-    fn default() -> Self {
-        Self {
-            retry: None,
-            limits: None,
-            timeout: None,
-            queue: None,
-            priority: 0,
-        }
-    }
-}
 
 impl Job {
     /// Creates a new Job with the given name and tasks
@@ -222,7 +214,7 @@ impl Job {
     /// Returns true if the job has no tasks
     #[must_use]
     pub fn is_taskless(&self) -> bool {
-        self.tasks.as_ref().map_or(true, |t| t.is_empty())
+        self.tasks.as_ref().is_none_or(|t| t.is_empty())
     }
 
     /// Returns the task count
@@ -232,24 +224,6 @@ impl Job {
     }
 }
 
-impl Default for Job {
-    fn default() -> Self {
-        Self {
-            name: None,
-            description: None,
-            tags: None,
-            tasks: None,
-            inputs: None,
-            secrets: None,
-            output: None,
-            defaults: None,
-            webhooks: None,
-            permissions: None,
-            auto_delete: None,
-            wait: None,
-        }
-    }
-}
 
 impl ScheduledJob {
     /// Creates a new ScheduledJob with the given name, schedule, and tasks
@@ -264,24 +238,6 @@ impl ScheduledJob {
     }
 }
 
-impl Default for ScheduledJob {
-    fn default() -> Self {
-        Self {
-            name: None,
-            description: None,
-            tags: None,
-            tasks: None,
-            inputs: None,
-            secrets: None,
-            output: None,
-            defaults: None,
-            webhooks: None,
-            permissions: None,
-            auto_delete: None,
-            schedule: None,
-        }
-    }
-}
 
 impl Job {
     /// Convert to domain Job type

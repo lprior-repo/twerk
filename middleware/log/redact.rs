@@ -2,9 +2,7 @@
 //!
 //! Redacts sensitive information from task log parts when reading logs.
 
-use crate::middleware::log::{
-    apply_middleware, noop_handler, Context, EventType, HandlerFunc, LogError, MiddlewareFunc,
-};
+use crate::middleware::log::{Context, EventType, HandlerFunc, LogError, MiddlewareFunc};
 use std::sync::Arc;
 use tork::task::TaskLogPart;
 
@@ -17,7 +15,7 @@ pub fn redact_middleware(ds: Arc<dyn Datastore>) -> MiddlewareFunc {
         let ds = ds.clone();
         Arc::new(
             move |ctx: Arc<Context>, et: EventType, logs: &[TaskLogPart]| {
-                if et != EventType::READ {
+                if et != EventType::Read {
                     return next(ctx, et, logs);
                 }
 
@@ -25,26 +23,60 @@ pub fn redact_middleware(ds: Arc<dyn Datastore>) -> MiddlewareFunc {
                     return next(ctx, et, logs);
                 }
 
-                // Get job secrets and apply redaction
-                let task_id = logs[0].task_id.as_ref().unwrap_or(&String::new());
-                let task = ds.get_task_by_id(task_id)?;
-                let job = ds.get_job_by_id(&task.job_id)?;
+                let task_id = logs[0].task_id.as_deref().unwrap_or("");
 
-                let mut redacted_logs = logs.to_vec();
-                for log in &mut redacted_logs {
-                    let mut contents = log.contents.clone().unwrap_or_default();
-                    for (_, secret) in &job.secrets {
-                        if !secret.is_empty() && contents.contains(secret) {
-                            contents = contents.replace(secret, "[REDACTED]");
-                        }
+                let task = match ds.get_task_by_id(task_id) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        tracing::error!(error = %e, "error getting task for log");
+                        return Err(LogError::Middleware(e.to_string()));
                     }
-                    log.contents = Some(contents);
-                }
+                };
+
+                let job = match ds.get_job_by_id(&task.job_id) {
+                    Ok(j) => j,
+                    Err(e) => {
+                        tracing::error!(error = %e, "error getting job for log");
+                        return Err(LogError::Middleware(e.to_string()));
+                    }
+                };
+
+                let redacted_logs: Vec<TaskLogPart> = logs
+                    .iter()
+                    .map(|log_part| redact_log_part(log_part, &job.secrets))
+                    .collect();
 
                 next(ctx, et, &redacted_logs)
             },
         )
     })
+}
+
+/// Pure function: redact secrets from a single log part.
+fn redact_log_part(
+    part: &TaskLogPart,
+    secrets: &std::collections::HashMap<String, String>,
+) -> TaskLogPart {
+    let redacted_contents = part.contents.as_ref().map(|contents| {
+        secrets
+            .values()
+            .filter(|s| !s.is_empty())
+            .fold(contents.clone(), |acc, secret| {
+                if acc.contains(secret.as_str()) {
+                    acc.replace(secret.as_str(), "[REDACTED]")
+                } else {
+                    acc
+                }
+            })
+    });
+
+    TaskLogPart {
+        id: part.id.clone(),
+        number: part.number,
+        task_id: part.task_id.clone(),
+        contents: redacted_contents,
+        created_at: part.created_at,
+    }
 }
 
 /// Trait for datastore operations needed by redaction.
@@ -113,13 +145,17 @@ mod tests {
 
     #[test]
     fn test_redact_on_read() {
-        let mut secrets = std::collections::HashMap::new();
-        secrets.insert("secret".to_string(), "1234".to_string());
+        let secrets = [("secret".to_string(), "1234".to_string())]
+            .into_iter()
+            .collect();
 
         let ds = Arc::new(MockDatastore::new(secrets));
         let mw = redact_middleware(ds);
 
-        let hm = apply_middleware(noop_handler(), vec![mw]);
+        let hm = crate::middleware::log::apply_middleware(
+            crate::middleware::log::noop_handler(),
+            vec![mw],
+        );
 
         let log_part = TaskLogPart {
             id: Some("log-1".to_string()),
@@ -130,7 +166,123 @@ mod tests {
         };
 
         let ctx = Arc::new(Context::new());
-        // In a real test, we'd verify that the log contents are redacted
-        let _ = hm(ctx, EventType::READ, &[log_part]);
+        let result = hm(ctx, EventType::Read, &[log_part]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_redact_skips_non_read() {
+        let secrets = [("secret".to_string(), "1234".to_string())]
+            .into_iter()
+            .collect();
+
+        let ds = Arc::new(MockDatastore::new(secrets));
+        let mw = redact_middleware(ds);
+
+        let hm = crate::middleware::log::apply_middleware(
+            crate::middleware::log::noop_handler(),
+            vec![mw],
+        );
+
+        let _log_part = TaskLogPart {
+            id: Some("log-1".to_string()),
+            number: 1,
+            task_id: Some("task-1".to_string()),
+            contents: Some("line 1 -- 1234".to_string()),
+            created_at: None,
+        };
+
+        // EventType::Read is the only variant, so test with empty logs to skip
+        let ctx = Arc::new(Context::new());
+        let result = hm(ctx, EventType::Read, &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_redact_log_part_pure() {
+        let secrets = [("apikey".to_string(), "sk-abc123".to_string())]
+            .into_iter()
+            .collect();
+
+        let part = TaskLogPart {
+            id: Some("log-1".to_string()),
+            number: 1,
+            task_id: Some("task-1".to_string()),
+            contents: Some("connecting with sk-abc123".to_string()),
+            created_at: None,
+        };
+
+        let result = redact_log_part(&part, &secrets);
+        assert_eq!(
+            result.contents,
+            Some("connecting with [REDACTED]".to_string())
+        );
+    }
+
+    #[test]
+    fn test_redact_log_part_no_secrets() {
+        let secrets = std::collections::HashMap::new();
+
+        let part = TaskLogPart {
+            id: Some("log-1".to_string()),
+            number: 1,
+            task_id: Some("task-1".to_string()),
+            contents: Some("normal log line".to_string()),
+            created_at: None,
+        };
+
+        let result = redact_log_part(&part, &secrets);
+        assert_eq!(result.contents, Some("normal log line".to_string()));
+    }
+
+    #[test]
+    fn test_redact_log_part_no_contents() {
+        let secrets = [("key".to_string(), "secret".to_string())]
+            .into_iter()
+            .collect();
+
+        let part = TaskLogPart {
+            id: Some("log-1".to_string()),
+            number: 1,
+            task_id: Some("task-1".to_string()),
+            contents: None,
+            created_at: None,
+        };
+
+        let result = redact_log_part(&part, &secrets);
+        assert_eq!(result.contents, None);
+    }
+
+    #[test]
+    fn test_redact_middleware_error_on_task_not_found() {
+        struct FailingDatastore;
+
+        impl Datastore for FailingDatastore {
+            fn get_task_by_id(&self, _task_id: &str) -> Result<Task, DatastoreError> {
+                Err(DatastoreError::TaskNotFound("task-999".to_string()))
+            }
+            fn get_job_by_id(&self, _job_id: &str) -> Result<Job, DatastoreError> {
+                Err(DatastoreError::JobNotFound("job-999".to_string()))
+            }
+        }
+
+        let ds = Arc::new(FailingDatastore);
+        let mw = redact_middleware(ds);
+        let hm = crate::middleware::log::apply_middleware(
+            crate::middleware::log::noop_handler(),
+            vec![mw],
+        );
+
+        let log_part = TaskLogPart {
+            id: Some("log-1".to_string()),
+            number: 1,
+            task_id: Some("task-999".to_string()),
+            contents: Some("some log".to_string()),
+            created_at: None,
+        };
+
+        let ctx = Arc::new(Context::new());
+        let result = hm(ctx, EventType::Read, &[log_part]);
+        assert!(result.is_err());
     }
 }

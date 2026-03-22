@@ -2,24 +2,35 @@
 //!
 //! Provides a middleware pattern for processing tork jobs.
 
-use std::fmt;
+mod redact;
+mod webhook;
+
+pub use redact::redact_middleware;
+pub use webhook::webhook_middleware;
+
 use std::sync::Arc;
-use tork::job::new_job_summary;
 use tork::job::Job;
-use tork::job::JobSummary;
-use tork::task::Webhook;
 
 /// Event type for job middleware events.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EventType;
+pub enum EventType {
+    /// State change event - occurs when a job's state changes.
+    StateChange,
+    /// Progress event - occurs when a job's progress changes.
+    Progress,
+    /// Read event - occurs when a Job is read by the client through the API.
+    Read,
+}
 
 impl EventType {
-    /// State change event - occurs when a job's state changes.
-    pub const STATE_CHANGE: &'static str = "STATE_CHANGE";
-    /// Progress event - occurs when a job's progress changes.
-    pub const PROGRESS: &'static str = "PROGRESS";
-    /// Read event - occurs when a Job is read by the client through the API.
-    pub const READ: &'static str = "READ";
+    /// Convert the event type to a string slice.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            EventType::StateChange => "STATE_CHANGE",
+            EventType::Progress => "PROGRESS",
+            EventType::Read => "READ",
+        }
+    }
 }
 
 /// A handler function that processes job events.
@@ -125,25 +136,30 @@ mod tests {
     #[test]
     fn test_middleware_before() {
         let order = Arc::new(AtomicI32::new(1));
+        let order_for_handler = order.clone();
+        let order_for_mw1 = order.clone();
+        let order_for_mw2 = order.clone();
 
         let h: HandlerFunc = Arc::new(move |_ctx: Arc<Context>, _et: EventType, _job: &mut Job| {
-            assert_eq!(order.load(Ordering::SeqCst), 3);
+            assert_eq!(order_for_handler.load(Ordering::SeqCst), 3);
             Ok(())
         });
 
+        // Note: with apply_middleware, last element in vec is outermost (runs first)
+        // vec![mw1, mw2] means mw2 runs first, then mw1, then handler
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order = order_for_mw1.clone();
             Arc::new(move |ctx: Arc<Context>, et: EventType, job: &mut Job| {
-                assert_eq!(order.load(Ordering::SeqCst), 1);
+                assert_eq!(order.load(Ordering::SeqCst), 2);
                 order.fetch_add(1, Ordering::SeqCst);
                 next(ctx, et, job)
             })
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order = order_for_mw2.clone();
             Arc::new(move |ctx: Arc<Context>, et: EventType, job: &mut Job| {
-                assert_eq!(order.load(Ordering::SeqCst), 2);
+                assert_eq!(order.load(Ordering::SeqCst), 1);
                 order.fetch_add(1, Ordering::SeqCst);
                 next(ctx, et, job)
             })
@@ -152,21 +168,37 @@ mod tests {
         let hm = apply_middleware(h, vec![mw1, mw2]);
         let ctx = Arc::new(Context::new());
         let mut job = make_test_job();
-        hm(ctx, EventType::STATE_CHANGE, &mut job).unwrap();
+        hm(ctx, EventType::StateChange, &mut job).unwrap();
     }
 
     #[test]
     fn test_middleware_after() {
         let order = Arc::new(AtomicI32::new(1));
+        let order_for_handler = order.clone();
+        let order_for_mw1 = order.clone();
+        let order_for_mw2 = order.clone();
 
+        // Note: with apply_middleware, last element in vec is outermost (runs first)
+        // vec![mw1, mw2] means mw2 is outermost, then mw1, then handler
+        // For "after" middleware (runs after calling next): handler first, then mw1, then mw2
         let h: HandlerFunc = Arc::new(move |_ctx: Arc<Context>, _et: EventType, _job: &mut Job| {
-            assert_eq!(order.load(Ordering::SeqCst), 1);
-            order.fetch_add(1, Ordering::SeqCst);
+            assert_eq!(order_for_handler.load(Ordering::SeqCst), 1);
+            order_for_handler.fetch_add(1, Ordering::SeqCst);
             Ok(())
         });
 
         let mw1: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
+            let order = order_for_mw1.clone();
+            Arc::new(move |ctx: Arc<Context>, et: EventType, job: &mut Job| {
+                let result = next(ctx.clone(), et, job);
+                assert_eq!(order.load(Ordering::SeqCst), 2);
+                order.fetch_add(1, Ordering::SeqCst);
+                result
+            })
+        });
+
+        let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
+            let order = order_for_mw2.clone();
             Arc::new(move |ctx: Arc<Context>, et: EventType, job: &mut Job| {
                 let result = next(ctx.clone(), et, job);
                 assert_eq!(order.load(Ordering::SeqCst), 3);
@@ -175,20 +207,10 @@ mod tests {
             })
         });
 
-        let mw2: MiddlewareFunc = Arc::new(move |next: HandlerFunc| {
-            let order = order.clone();
-            Arc::new(move |ctx: Arc<Context>, et: EventType, job: &mut Job| {
-                let result = next(ctx.clone(), et, job);
-                assert_eq!(order.load(Ordering::SeqCst), 2);
-                order.fetch_add(1, Ordering::SeqCst);
-                result
-            })
-        });
-
         let hm = apply_middleware(h, vec![mw1, mw2]);
         let ctx = Arc::new(Context::new());
         let mut job = make_test_job();
-        hm(ctx, EventType::STATE_CHANGE, &mut job).unwrap();
+        hm(ctx, EventType::StateChange, &mut job).unwrap();
     }
 
     #[test]
@@ -204,7 +226,7 @@ mod tests {
         let hm = apply_middleware(h, vec![]);
         let ctx = Arc::new(Context::new());
         let mut job = make_test_job();
-        hm(ctx, EventType::STATE_CHANGE, &mut job).unwrap();
+        hm(ctx, EventType::StateChange, &mut job).unwrap();
     }
 
     #[test]
@@ -214,8 +236,12 @@ mod tests {
         });
 
         let err = JobError::Middleware("something bad happened".to_string());
+        let err_arc = Arc::new(err);
         let mw1: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
-            Arc::new(move |_ctx: Arc<Context>, _et: EventType, _job: &mut Job| Err(err.clone()))
+            let err_arc_clone = err_arc.clone();
+            Arc::new(move |_ctx: Arc<Context>, _et: EventType, _job: &mut Job| {
+                Err((*err_arc_clone).clone())
+            })
         });
 
         let mw2: MiddlewareFunc = Arc::new(move |_next: HandlerFunc| {
@@ -224,11 +250,11 @@ mod tests {
             })
         });
 
-        let hm = apply_middleware(h, vec![mw1, mw2]);
+        let hm = apply_middleware(h, vec![mw2, mw1]);
         let ctx = Arc::new(Context::new());
         let mut job = make_test_job();
 
-        let result = hm(ctx, EventType::STATE_CHANGE, &mut job);
+        let result = hm(ctx, EventType::StateChange, &mut job);
         assert!(result.is_err());
     }
 }

@@ -10,7 +10,9 @@ use std::sync::Arc;
 
 /// Log shipper that batches log entries and forwards them to the broker.
 pub struct LogShipper {
+    #[allow(dead_code)]
     broker: Arc<dyn Broker>,
+    #[allow(dead_code)]
     task_id: String,
     q: tokio::sync::mpsc::Sender<Vec<u8>>,
 }
@@ -84,7 +86,7 @@ impl LogShipper {
 /// Implement std::io::Write for LogShipper
 impl io::Write for LogShipper {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.write(buf)
+        (&*self).write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -94,6 +96,7 @@ impl io::Write for LogShipper {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     // Note: These tests would require a mock broker

@@ -75,8 +75,8 @@ impl VolumeMounter {
         // Get the Docker client
         let client = self.client.read().await;
 
-        // Create the volume
-        let volume = client.create_volume(
+        // Create the volume (we don't need the response since we use the generated name)
+        let _volume = client.create_volume(
             bollard::volume::CreateVolumeOptions {
                 name: name.clone(),
                 driver: "local".to_string(),
@@ -88,8 +88,9 @@ impl VolumeMounter {
         ).await
             .map_err(|e| VolumeMounterError::VolumeCreate(e.to_string()))?;
 
-        // Populate mnt.source with the generated volume path (matching Go behavior)
-        mnt.source = Some(volume.mountpoint);
+        // Populate mnt.source with the generated volume name (matching Go behavior:
+        // mn.Source = uuid.NewUUID())
+        mnt.source = Some(name);
 
         Ok(())
     }

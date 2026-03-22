@@ -13,13 +13,13 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::RwLock;
 
 use serde::Deserialize;
 use thiserror::Error;
 
-// Global config state using OnceLock for thread-safe lazy initialization
-static CONFIG: OnceLock<ConfigState> = OnceLock::new();
+// Global config state using RwLock for thread-safe lazy initialization and updates
+static CONFIG: RwLock<Option<ConfigState>> = RwLock::new(None);
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -51,12 +51,14 @@ pub enum ConfigError {
     UnmarshalError(String),
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Default, Deserialize)]
 struct TomlValue {
     #[serde(flatten)]
     extra: HashMap<String, toml::Value>,
 }
 
+#[allow(dead_code)]
 impl TomlValue {
     fn get_str(&self, key: &str) -> Option<&str> {
         self.extra.get(key).and_then(|v| v.as_str())
@@ -91,10 +93,12 @@ struct ConfigState {
 }
 
 impl ConfigState {
+    #[allow(dead_code)]
     fn new() -> Self {
         Self::default()
     }
 
+    #[allow(dead_code)]
     fn insert(&mut self, key: String, value: toml::Value) {
         self.values.insert(key, value);
     }
@@ -119,38 +123,119 @@ impl ConfigState {
         self.values.get(key).and_then(|v| v.as_table())
     }
 
+    /// Build a table from flat keys with the given prefix.
+    /// For example, if key="main" and we have "main.str1", "main.bool1",
+    /// this returns a Table with str1 and bool1 entries.
+    fn build_table_from_flat(&self, key: &str) -> toml::value::Table {
+        let prefix = format!("{}.", key);
+        let mut table = toml::value::Table::new();
+        for (k, v) in &self.values {
+            if let Some(stripped) = k.strip_prefix(&prefix) {
+                let sub_key = stripped;
+                // Handle nested keys (e.g., main.nested.key -> nested = { key = ... })
+                let parts: Vec<&str> = sub_key.split('.').collect();
+                if parts.len() == 1 {
+                    table.insert(parts[0].to_string(), v.clone());
+                } else {
+                    // For nested keys, build intermediate structure
+                    self.insert_nested(&mut table, &parts, v.clone());
+                }
+            }
+        }
+        table
+    }
+
+    fn insert_nested(&self, table: &mut toml::value::Table, parts: &[&str], value: toml::Value) {
+        if parts.is_empty() {
+            return;
+        }
+        if parts.len() == 1 {
+            table.insert(parts[0].to_string(), value);
+        } else {
+            let key = parts[0].to_string();
+            let nested = table
+                .entry(key.clone())
+                .or_insert_with(|| toml::Value::Table(toml::value::Table::new()));
+            if let toml::Value::Table(ref mut t) = nested {
+                self.insert_nested(t, &parts[1..], value);
+            }
+        }
+    }
+
     fn contains_key(&self, key: &str) -> bool {
         self.values.contains_key(key)
     }
 
     fn string_map_for_key(&self, key: &str) -> HashMap<String, String> {
-        self.get_table(key)
-            .map(|t| {
-                t.iter()
-                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                    .collect()
+        // First try to get as a nested table
+        if let Some(table) = self.get_table(key) {
+            return table
+                .iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect();
+        }
+        // Fall back to flat keys with the prefix
+        let prefix = format!("{}.", key);
+        self.values
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix))
+            .filter_map(|(k, v)| {
+                let sub_key = k.strip_prefix(&prefix)?.to_string();
+                v.as_str().map(|s| (sub_key, s.to_string()))
             })
-            .unwrap_or_default()
+            .collect()
     }
 
     fn int_map_for_key(&self, key: &str) -> HashMap<String, i64> {
-        self.get_table(key)
-            .map(|t| {
-                t.iter()
-                    .filter_map(|(k, v)| v.as_integer().map(|i| (k.clone(), i)))
-                    .collect()
+        // First try to get as a nested table
+        if let Some(table) = self.get_table(key) {
+            return table
+                .iter()
+                .filter_map(|(k, v)| v.as_integer().map(|i| (k.clone(), i)))
+                .collect();
+        }
+        // Fall back to flat keys with the prefix
+        let prefix = format!("{}.", key);
+        self.values
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix))
+            .filter_map(|(k, v)| {
+                let sub_key = k.strip_prefix(&prefix)?.to_string();
+                // Try integer first, then try parsing string as integer
+                v.as_integer()
+                    .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+                    .map(|i| (sub_key, i))
             })
-            .unwrap_or_default()
+            .collect()
     }
 
     fn bool_map_for_key(&self, key: &str) -> HashMap<String, bool> {
-        self.get_table(key)
-            .map(|t| {
-                t.iter()
-                    .filter_map(|(k, v)| v.as_bool().map(|b| (k.clone(), b)))
-                    .collect()
+        // First try to get as a nested table
+        if let Some(table) = self.get_table(key) {
+            return table
+                .iter()
+                .filter_map(|(k, v)| v.as_bool().map(|b| (k.clone(), b)))
+                .collect();
+        }
+        // Fall back to flat keys with the prefix
+        let prefix = format!("{}.", key);
+        self.values
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix))
+            .filter_map(|(k, v)| {
+                let sub_key = k.strip_prefix(&prefix)?.to_string();
+                // Try boolean first, then try parsing string as boolean
+                v.as_bool()
+                    .or_else(|| {
+                        v.as_str().and_then(|s| match s.to_lowercase().as_str() {
+                            "true" => Some(true),
+                            "false" => Some(false),
+                            _ => None,
+                        })
+                    })
+                    .map(|b| (sub_key, b))
             })
-            .unwrap_or_default()
+            .collect()
     }
 
     fn strings_for_key(&self, key: &str) -> Vec<String> {
@@ -271,7 +356,7 @@ pub fn load_config() -> Result<(), ConfigError> {
     // Try loading from each path
     let mut file_values: HashMap<String, toml::Value> = HashMap::new();
     let mut loaded = false;
-    let mut last_not_found: Option<String> = None;
+    let _last_not_found: Option<String> = None;
 
     for path in &paths {
         match parse_toml_file(path) {
@@ -284,8 +369,7 @@ pub fn load_config() -> Result<(), ConfigError> {
             Ok(_) => {
                 // TOML file parsed but root is not a table - shouldn't happen
             }
-            Err(ConfigError::NotFound(ref p)) => {
-                last_not_found = Some(p.clone());
+            Err(ConfigError::NotFound(ref _p)) => {
                 continue;
             }
             Err(e) => {
@@ -295,8 +379,8 @@ pub fn load_config() -> Result<(), ConfigError> {
     }
 
     if !loaded {
-        if user_config.is_some() {
-            return Err(ConfigError::UserConfigNotFound(user_config.unwrap()));
+        if let Some(config) = user_config {
+            return Err(ConfigError::UserConfigNotFound(config));
         }
         // Even if no file loaded, continue with empty config
     }
@@ -309,14 +393,21 @@ pub fn load_config() -> Result<(), ConfigError> {
 
     let state = ConfigState { values: all_values };
 
-    let _ = CONFIG.set(state);
+    let mut guard = CONFIG
+        .write()
+        .map_err(|_| ConfigError::KeyNotFound("config poisoned".to_string()))?;
+    *guard = Some(state);
 
     Ok(())
 }
 
-fn get_config() -> Result<&'static ConfigState, ConfigError> {
-    CONFIG
-        .get()
+fn get_config() -> Result<ConfigState, ConfigError> {
+    let guard = CONFIG
+        .read()
+        .map_err(|_| ConfigError::KeyNotFound("config poisoned".to_string()))?;
+    guard
+        .as_ref()
+        .map(|cs| cs.clone())
         .ok_or_else(|| ConfigError::KeyNotFound("config not loaded".to_string()))
 }
 
@@ -437,12 +528,12 @@ fn parse_duration(s: &str) -> Option<time::Duration> {
         s.trim_end_matches("us")
             .parse::<u64>()
             .ok()
-            .map(time::Duration::microseconds)
+            .map(|n| time::Duration::microseconds(n as i64))
     } else if s.ends_with("ms") {
         s.trim_end_matches("ms")
             .parse::<u64>()
             .ok()
-            .map(time::Duration::milliseconds)
+            .map(|n| time::Duration::milliseconds(n as i64))
     } else if s.ends_with('s') && !s.ends_with("ms") {
         s.trim_end_matches('s')
             .parse::<f64>()
@@ -477,20 +568,27 @@ pub fn unmarshal<T: for<'de> Deserialize<'de>>(key: &str) -> Result<T, ConfigErr
             c.get_table(key)
                 .map(|t| {
                     toml::Value::Table(t.clone())
-                        .try_into()
+                        .try_into::<T>()
                         .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
                 })
                 .unwrap_or_else(|| {
+                    // Try flat keys with the prefix
+                    let table = c.build_table_from_flat(key);
+                    if !table.is_empty() {
+                        return toml::Value::Table(table).try_into::<T>().map_err(
+                            |e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()),
+                        );
+                    }
                     c.get_str(key)
                         .map(|s| {
-                            toml::Value::String(s.to_string()).try_into().map_err(
+                            toml::Value::String(s.to_string()).try_into::<T>().map_err(
                                 |e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()),
                             )
                         })
                         .unwrap_or_else(|| {
                             c.get_array(key)
                                 .map(|a: &toml::value::Array| {
-                                    toml::Value::Array(a.clone()).try_into().map_err(
+                                    toml::Value::Array(a.clone()).try_into::<T>().map_err(
                                         |e: toml::de::Error| {
                                             ConfigError::UnmarshalError(e.to_string())
                                         },
@@ -504,87 +602,133 @@ pub fn unmarshal<T: for<'de> Deserialize<'de>>(key: &str) -> Result<T, ConfigErr
                         })
                 })
         })
-        .and_then(|r| r)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Once;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Mutex;
 
-    static INIT: Once = Once::new();
+    static TEST_SEMAPHORE: Mutex<bool> = Mutex::new(true);
+    static TEST_CONDVAR: std::sync::Condvar = std::sync::Condvar::new();
+    static TEST_ID: AtomicU32 = AtomicU32::new(0);
 
-    fn setup() {
-        INIT.call_once(|| {
-            // Create test config file
-            let config = r#"
-[main]
-key1 = "value1"
-enabled = true
-map.key1 = 1
-map.key2 = 2
-strings = ["a", "b"]
-duration = "5m"
-"#;
-            fs::write("config.toml", config).ok();
-        });
+    fn next_test_id() -> u32 {
+        TEST_ID.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn temp_dir() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "tork_test_{}_{}",
+            std::process::id(),
+            next_test_id()
+        ))
     }
 
     fn cleanup() {
+        // Signal that we're done - allows next test to run
+        if let Ok(mut guard) = TEST_SEMAPHORE.lock() {
+            *guard = true;
+            TEST_CONDVAR.notify_one();
+        }
+        // Remove any config files we created
         let _ = fs::remove_file("config.toml");
         let _ = fs::remove_file("config_strings.toml");
         let _ = fs::remove_file("config_with_override.toml");
         let _ = fs::remove_file("myconfig.toml");
-        env::remove_var("TORK_CONFIG");
-        env::remove_var("TORK_MAIN_STRINGS_KEYS");
-        env::remove_var("TORK_BOOLMAP_KEY1");
-        env::remove_var("TORK_BOOLMAP_KEY2");
-        env::remove_var("TORK_MAIN_KEY1");
-        env::remove_var("TORK_HELLO");
+        // Clear TORK_* env vars that tests set - essential for isolation
+        for (k, _) in env::vars() {
+            if k.starts_with("TORK_") {
+                env::remove_var(&k);
+            }
+        }
     }
 
     fn reset_config() {
-        let _ = CONFIG.set(ConfigState::new());
+        if let Ok(mut guard) = CONFIG.write() {
+            *guard = Some(ConfigState::new());
+        }
+    }
+
+    fn setup() {
+        // Wait for our turn - serialize test execution
+        let mut guard = TEST_SEMAPHORE.lock().unwrap();
+        while !*guard {
+            guard = TEST_CONDVAR.wait(guard).unwrap();
+        }
+        *guard = false; // Mark as taken
+        drop(guard); // Release semaphore lock, but tests are serialized by condvar
+
+        // Clear TORK_* env vars first - ensures isolated state from shell or previous tests
+        for (k, _) in env::vars() {
+            if k.starts_with("TORK_") {
+                env::remove_var(&k);
+            }
+        }
+        // Clean up any config files from previous tests
+        let _ = fs::remove_file("config.toml");
+        let _ = fs::remove_file("config_strings.toml");
+        let _ = fs::remove_file("config_with_override.toml");
+        let _ = fs::remove_file("myconfig.toml");
+        // Reset config to empty state for this test
+        reset_config();
+    }
+
+    fn write_config(path: &std::path::Path, contents: &str) {
+        fs::write(path, contents).ok();
     }
 
     #[test]
     fn test_load_config_not_exist() {
-        reset_config();
+        setup();
         let result = load_config();
+        cleanup();
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_load_config_not_exist_user_defined() {
-        reset_config();
-        env::set_var("TORK_CONFIG", "no.such.thing");
+        setup();
+        let path = temp_dir().join("no.such.thing");
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         let result = load_config();
+        cleanup();
         assert!(result.is_err());
-        if let Err(ConfigError::UserConfigNotFound(path)) = result {
-            assert_eq!(path, "no.such.thing");
+        if let Err(ConfigError::UserConfigNotFound(p)) = result {
+            assert_eq!(p, path.to_string_lossy());
         } else {
             panic!("expected UserConfigNotFound error");
         }
-        cleanup();
     }
 
     #[test]
     fn test_load_config_bad_contents() {
-        reset_config();
-        fs::write("config.toml", "xyz").ok();
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(&path, "xyz");
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         let result = load_config();
-        assert!(result.is_err());
         cleanup();
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_string() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 key1 = "value1"
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
         assert_eq!("value1", string("main.key1"));
         cleanup();
@@ -592,13 +736,18 @@ key1 = "value1"
 
     #[test]
     fn test_strings() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config_strings.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 keys = ["value1"]
-"#;
-        fs::write("config_strings.toml", config).ok();
-        env::set_var("TORK_CONFIG", "config_strings.toml");
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
         assert_eq!(vec!["value1"], strings("main.keys"));
         cleanup();
@@ -606,7 +755,7 @@ keys = ["value1"]
 
     #[test]
     fn test_strings_env() {
-        reset_config();
+        setup();
         env::set_var("TORK_MAIN_STRINGS_KEYS", "a,b,c");
         load_config().ok();
         assert_eq!(vec!["a", "b", "c"], strings("main.strings.keys"));
@@ -615,65 +764,95 @@ keys = ["value1"]
 
     #[test]
     fn test_string_default() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 key1 = "value1"
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
-        assert_eq!("v2", string_default("main.key2", "v2"));
         cleanup();
+        assert_eq!("v2", string_default("main.key2", "v2"));
     }
 
     #[test]
     fn test_int_map() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 map.key1 = 1
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
         let result = int_map("main.map");
-        assert_eq!(1, result.get("key1").copied().unwrap_or(0));
         cleanup();
+        assert_eq!(1, result.get("key1").copied().unwrap_or(0));
     }
 
     #[test]
     fn test_bool_true() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 enabled = true
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
-        assert!(bool("main.enabled"));
         cleanup();
+        assert!(bool("main.enabled"));
     }
 
     #[test]
     fn test_bool_false() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 enabled = false
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
-        assert!(!bool("main.enabled"));
         cleanup();
+        assert!(!bool("main.enabled"));
     }
 
     #[test]
     fn test_bool_default() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 enabled = false
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
         assert!(!bool_default("main.enabled", true));
         assert!(!bool_default("main.enabled", false));
@@ -683,12 +862,18 @@ enabled = false
 
     #[test]
     fn test_duration_default() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 some.duration = "5m"
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
         assert_eq!(
             time::Duration::minutes(5),
@@ -703,19 +888,19 @@ some.duration = "5m"
 
     #[test]
     fn test_bool_map() {
-        reset_config();
+        setup();
         env::set_var("TORK_BOOLMAP_KEY1", "false");
         env::set_var("TORK_BOOLMAP_KEY2", "true");
         load_config().ok();
         let m = bool_map("boolmap");
+        cleanup();
         assert_eq!(false, m.get("key1").copied().unwrap_or(true));
         assert_eq!(true, m.get("key2").copied().unwrap_or(false));
-        cleanup();
     }
 
     #[test]
     fn test_load_config_env() {
-        reset_config();
+        setup();
         env::set_var("TORK_HELLO", "world");
         load_config().ok();
         assert_eq!("world", string("hello"));
@@ -724,14 +909,19 @@ some.duration = "5m"
 
     #[test]
     fn test_load_config_with_overriding_env() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config_with_override.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 key1 = "value1"
 key3 = "value3"
-"#;
-        fs::write("config_with_override.toml", config).ok();
-        env::set_var("TORK_CONFIG", "config_with_override.toml");
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         env::set_var("TORK_MAIN_KEY1", "value2");
         load_config().ok();
         assert_eq!("value2", string("main.key1"));
@@ -741,14 +931,20 @@ key3 = "value3"
 
     #[test]
     fn test_unmarshal() {
-        reset_config();
-        let config = r#"
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
 [main]
 str1 = "value1"
 bool1 = true
 sarr1 = ["a","b"]
-"#;
-        fs::write("config.toml", config).ok();
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
         load_config().ok();
 
         #[derive(Debug, Deserialize, PartialEq)]
@@ -764,12 +960,12 @@ sarr1 = ["a","b"]
         }
 
         let result: Result<MyConfig, _> = unmarshal("main");
+        cleanup();
         assert!(result.is_ok());
         let c = result.unwrap();
         assert_eq!("value1", c.str1);
         assert_eq!("", c.str2);
         assert!(c.bool1);
         assert_eq!(vec!["a", "b"], c.sarr1);
-        cleanup();
     }
 }

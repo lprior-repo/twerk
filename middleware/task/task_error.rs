@@ -44,6 +44,10 @@ pub enum TaskMiddlewareError {
     /// Invalid configuration.
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
+
+    /// A generic middleware error.
+    #[error("middleware error: {0}")]
+    Middleware(String),
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for TaskMiddlewareError {

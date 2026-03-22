@@ -46,7 +46,13 @@ pub trait Datastore: Send + Sync {
     /// Creates a task log part
     fn create_task_log_part(&self, part: TaskLogPart) -> BoxedFuture<()>;
     /// Gets task log parts with pagination
-    fn get_task_log_parts(&self, task_id: String, q: String, page: i64, size: i64) -> BoxedFuture<Page<TaskLogPart>>;
+    fn get_task_log_parts(
+        &self,
+        task_id: String,
+        q: String,
+        page: i64,
+        size: i64,
+    ) -> BoxedFuture<Page<TaskLogPart>>;
 
     // Node operations
     /// Creates a new node
@@ -66,9 +72,21 @@ pub trait Datastore: Send + Sync {
     /// Gets a job by ID
     fn get_job_by_id(&self, id: String) -> BoxedFuture<Option<Job>>;
     /// Gets job log parts with pagination
-    fn get_job_log_parts(&self, job_id: String, q: String, page: i64, size: i64) -> BoxedFuture<Page<TaskLogPart>>;
+    fn get_job_log_parts(
+        &self,
+        job_id: String,
+        q: String,
+        page: i64,
+        size: i64,
+    ) -> BoxedFuture<Page<TaskLogPart>>;
     /// Gets jobs with pagination
-    fn get_jobs(&self, current_user: String, q: String, page: i64, size: i64) -> BoxedFuture<Page<JobSummary>>;
+    fn get_jobs(
+        &self,
+        current_user: String,
+        q: String,
+        page: i64,
+        size: i64,
+    ) -> BoxedFuture<Page<JobSummary>>;
 
     // Scheduled job operations
     /// Creates a scheduled job
@@ -76,7 +94,12 @@ pub trait Datastore: Send + Sync {
     /// Gets all active scheduled jobs
     fn get_active_scheduled_jobs(&self) -> BoxedFuture<Vec<ScheduledJob>>;
     /// Gets scheduled jobs with pagination
-    fn get_scheduled_jobs(&self, current_user: String, page: i64, size: i64) -> BoxedFuture<Page<ScheduledJobSummary>>;
+    fn get_scheduled_jobs(
+        &self,
+        current_user: String,
+        page: i64,
+        size: i64,
+    ) -> BoxedFuture<Page<ScheduledJobSummary>>;
     /// Gets a scheduled job by ID
     fn get_scheduled_job_by_id(&self, id: String) -> BoxedFuture<Option<ScheduledJob>>;
     /// Updates a scheduled job
@@ -97,6 +120,15 @@ pub trait Datastore: Send + Sync {
     fn get_role(&self, id: String) -> BoxedFuture<Option<Role>>;
     /// Gets all roles
     fn get_roles(&self) -> BoxedFuture<Vec<Role>>;
+
+    /// Gets roles assigned to a user
+    fn get_user_roles(&self, user_id: String) -> BoxedFuture<Vec<Role>>;
+
+    /// Assigns a role to a user
+    fn assign_role(&self, user_id: String, role_id: String) -> BoxedFuture<()>;
+
+    /// Unassigns a role from a user
+    fn unassign_role(&self, user_id: String, role_id: String) -> BoxedFuture<()>;
 
     // Metrics
     /// Gets system metrics

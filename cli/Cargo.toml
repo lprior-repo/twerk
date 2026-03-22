@@ -34,6 +34,15 @@ serde_json = "1.0"
 # Configuration
 config = "0.14"
 
+# Engine (for run command)
+tork-engine = { path = "../engine" }
+
+# Datastore (for migrate command)
+datastore = { path = "../datastore" }
+
+# Time (for datastore Options)
+time = { version = "0.3" }
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockito = "1.0"

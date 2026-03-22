@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["tork", "locker", "engine", "cli", "health", "input", "datastore", "coordinator"]
+members = ["tork", "locker", "engine", "cli", "health", "input", "datastore", "coordinator", "cache"]
 
 [dependencies]
 # Local tork crate
@@ -16,6 +16,9 @@ tork-cli = { path = "./cli" }
 # Health and input crates
 tork-health = { path = "./health" }
 tork-input = { path = "./input" }
+
+# Cache
+tork-cache = { path = "./cache" }
 
 # CLI argument parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -40,7 +43,7 @@ anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
@@ -72,6 +75,9 @@ tempfile = "3.14"
 dirs = "5.0"
 bollard = "0.18"
 bytes = "1.9"
+
+# Unix syscalls (setuid/setgid)
+libc = "0.2"
 
 # Security
 bcrypt = "0.17"

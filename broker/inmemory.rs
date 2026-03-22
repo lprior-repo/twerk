@@ -10,8 +10,10 @@ use crate::broker::{
 use tork::task::TaskLogPart;
 use crate::wildcard::match_pattern;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::broadcast::error::RecvError as BroadcastRecvError;
 
 /// Default queue size for in-memory channels
 const DEFAULT_QUEUE_SIZE: usize = 1000;
@@ -35,14 +37,24 @@ struct QSub {
 /// Internal queue structure
 struct Queue {
     name: String,
-    tx: mpsc::Sender<Arc<dyn Message + Send + Sync>>,
+    tx: broadcast::Sender<Arc<dyn Message + Send + Sync>>,
+    /// Keep a receiver alive to ensure send() doesn't fail
+    _rx: broadcast::Receiver<Arc<dyn Message + Send + Sync>>,
     subs: Mutex<Vec<QSub>>,
+    /// Number of messages currently being processed by subscribers (unacked)
+    unacked: Arc<AtomicUsize>,
 }
 
 impl Queue {
-    fn new(name: String) -> (Self, mpsc::Receiver<Arc<dyn Message + Send + Sync>>) {
-        let (tx, rx) = mpsc::channel(DEFAULT_QUEUE_SIZE);
-        (Self { name, tx, subs: Mutex::new(Vec::new()) }, rx)
+    fn new(name: String) -> Self {
+        let (tx, rx) = broadcast::channel(DEFAULT_QUEUE_SIZE);
+        Self {
+            name,
+            tx,
+            _rx: rx,
+            subs: Mutex::new(Vec::new()),
+            unacked: Arc::new(AtomicUsize::new(0)),
+        }
     }
 
     /// Add a subscription and return the terminate/terminated channels
@@ -51,11 +63,12 @@ impl Queue {
         let (terminate_tx, mut terminate_rx) = mpsc::channel::<()>(1);
         let (terminated_tx, terminated_rx) = mpsc::channel::<()>(1);
 
-        let tx = self.tx.clone();
+        // Create the receiver BEFORE spawning the task
+        let mut rx = self.tx.subscribe();
         let name = self.name.clone();
+        let unacked = self.unacked.clone();
 
         tokio::spawn(async move {
-            let mut rx = tx.subscribe();
             loop {
                 tokio::select! {
                     _ = terminate_rx.recv() => {
@@ -65,13 +78,18 @@ impl Queue {
                     }
                     msg = rx.recv() => {
                         match msg {
-                            Some(m) => {
-                                handler(m.as_any()).await;
+                            Ok(m) => {
+                                unacked.fetch_add(1, Ordering::SeqCst);
+                                handler(m.clone().as_any()).await;
+                                unacked.fetch_sub(1, Ordering::SeqCst);
                             }
-                            None => {
+                            Err(BroadcastRecvError::Closed) => {
                                 tracing::debug!("queue {} channel closed", name);
                                 let _ = terminated_tx.send(()).await;
                                 return;
+                            }
+                            Err(BroadcastRecvError::Lagged(_)) => {
+                                // Subscriber lagged, continue
                             }
                         }
                     }
@@ -84,81 +102,59 @@ impl Queue {
 
     /// Close the queue and wait for coordinator subscriptions to terminate
     fn close(&self) {
-        for sub in self.subs.lock().unwrap().iter() {
-            let _ = sub.terminate.try_send(());
-        }
-        // Wait for coordinator queue subscriptions to terminate
-        if is_coordinator_queue(&self.name) {
-            for sub in self.subs.lock().unwrap().iter() {
-                let _ = sub.terminated.try_recv();
+        let mut subs = self.subs.lock().map_err(|_| "mutex poisoned").ok();
+        if let Some(ref mut subs) = subs {
+            for sub in subs.iter_mut() {
+                let _ = sub.terminate.try_send(());
+            }
+            // Wait for coordinator queue subscriptions to terminate
+            if is_coordinator_queue(&self.name) {
+                for sub in subs.iter_mut() {
+                    let _ = sub.terminated.try_recv();
+                }
             }
         }
     }
 }
 
 /// Internal topic structure for pub/sub
+///
+/// Uses broadcast channels to deliver events to all subscribers.
+/// When the Topic is dropped (e.g., on broker shutdown), the broadcast
+/// sender is dropped, causing all subscriber receivers to get `Closed`
+/// and their spawned tasks to exit cleanly.
 struct Topic {
+    #[allow(dead_code)]
     name: String,
-    tx: mpsc::Sender<Arc<dyn Message + Send + Sync>>,
-    /// Channel to signal termination
-    terminate: mpsc::Sender<()>,
-    /// Channel that's closed when terminated
-    terminated: mpsc::Receiver<()>,
+    tx: broadcast::Sender<Arc<dyn Message + Send + Sync>>,
+    /// Keep a receiver alive to ensure send() doesn't fail
+    _rx: broadcast::Receiver<Arc<dyn Message + Send + Sync>>,
 }
 
 impl Topic {
-    fn new(name: String) -> (Self, mpsc::Receiver<Arc<dyn Message + Send + Sync>>) {
-        let (tx, rx) = mpsc::channel(DEFAULT_QUEUE_SIZE);
-        let (terminate_tx, terminate_rx) = mpsc::channel::<()>(1);
-        let (terminated_tx, terminated_rx) = mpsc::channel::<()>(1);
-
-        let name_clone = name.clone();
-        tokio::spawn(async move {
-            let mut rx = rx;
-            let mut terminate_rx = terminate_rx;
-            loop {
-                tokio::select! {
-                    _ = terminate_rx.recv() => {
-                        tracing::debug!("topic {} terminated", name_clone);
-                        let _ = terminated_tx.send(()).await;
-                        return;
-                    }
-                    msg = rx.recv() => {
-                        match msg {
-                            Some(m) => {
-                                let _ = tx.send(m).await;
-                            }
-                            None => {
-                                tracing::debug!("topic {} channel closed", name_clone);
-                                let _ = terminated_tx.send(()).await;
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        (Self { name, tx, terminate: terminate_tx, terminated: terminated_rx }, rx)
+    fn new(name: String) -> Self {
+        let (tx, rx) = broadcast::channel(DEFAULT_QUEUE_SIZE);
+        Self { name, tx, _rx: rx }
     }
 
-    /// Close the topic and wait for termination
-    fn close(&mut self) {
-        let _ = self.terminate.try_send(());
-        // Dropping tx will close all subscriptions so subscribers receive None
-        drop(&self.tx);
-        let _ = self.terminated.try_recv();
+    /// Close the topic. Subscribers are cleaned up when the Topic is dropped
+    /// (which drops tx, causing all broadcast receivers to get Closed).
+    #[allow(dead_code)]
+    fn close(&self) {
+        // Intentionally a no-op. The actual cleanup happens when the Topic
+        // is dropped from the HashMap during shutdown, which drops tx and
+        // causes all subscriber receivers to receive RecvError::Closed.
     }
 }
 
 /// Trait for message envelope
 trait Message: Send + Sync {
-    fn as_any(&self) -> Arc<dyn std::any::Any + Send + Sync>;
+    fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync>;
 }
 
-impl<T: Send + Sync + 'static> Message for T {
-    fn as_any(&self) -> Arc<dyn std::any::Any + Send + Sync> {
-        Arc::new(self.clone())
+impl<T: Clone + Send + Sync + 'static> Message for T {
+    fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
+        Arc::new((*self).clone())
     }
 }
 
@@ -179,12 +175,12 @@ impl InMemoryBroker {
         let tx = if let Some(q) = queues.get(qname) {
             q.tx.clone()
         } else {
-            let (q, _rx) = Queue::new(qname.to_string());
+            let q = Queue::new(qname.to_string());
             let tx = q.tx.clone();
             queues.insert(qname.to_string(), q);
             tx
         };
-        tx.send(msg).await.map_err(|_| anyhow::anyhow!("queue closed"))?;
+        tx.send(msg).map_err(|_| anyhow::anyhow!("queue closed"))?;
         Ok(())
     }
 
@@ -195,16 +191,17 @@ impl InMemoryBroker {
         handler: Arc<dyn Fn(Arc<dyn std::any::Any + Send + Sync>) -> BoxedHandlerFuture + Send + Sync + 'static>,
     ) -> Result<(), anyhow::Error> {
         let mut queues = self.queues.write().await;
-        let queue = if let Some(q) = queues.get(qname) {
-            q
-        } else {
-            let (q, _rx) = Queue::new(qname.to_string());
-            queues.insert(qname.to_string(), q);
-            queues.get(qname).unwrap()
-        };
+        let queue = queues.entry(qname.to_string()).or_insert_with(|| {
+            Queue::new(qname.to_string())
+        });
 
         let (terminate_tx, terminated_rx) = queue.subscribe(handler);
-        queue.subs.lock().unwrap().push(QSub { terminate: terminate_tx, terminated: terminated_rx });
+        if let Ok(mut subs) = queue.subs.lock() {
+            subs.push(QSub {
+                terminate: terminate_tx,
+                terminated: terminated_rx,
+            });
+        }
 
         Ok(())
     }
@@ -212,22 +209,24 @@ impl InMemoryBroker {
 
 impl Broker for InMemoryBroker {
     fn publish_task(&self, qname: String, task: &tork::task::Task) -> BoxedFuture<()> {
+        let broker = self.clone();
         let task = task.deep_clone();
         let qname = qname.clone();
         Box::pin(async move {
-            self.publish_to_queue(&qname, Arc::new(task)).await?;
+            broker.publish_to_queue(&qname, Arc::new(task)).await?;
             Ok(())
         })
     }
 
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
+        let broker = self.clone();
         let qname = qname.clone();
         Box::pin(async move {
-            self.subscribe_to_queue(&qname, Arc::new(move |msg| {
+            broker.subscribe_to_queue(&qname, Arc::new(move |msg| {
                 let handler = handler.clone();
                 Box::pin(async move {
                     if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
-                        handler(task.deep_clone()).await;
+                        handler(Arc::new(task.deep_clone())).await;
                     }
                 })
             }))
@@ -237,16 +236,18 @@ impl Broker for InMemoryBroker {
     }
 
     fn publish_task_progress(&self, task: &tork::task::Task) -> BoxedFuture<()> {
+        let broker = self.clone();
         let task = task.deep_clone();
         Box::pin(async move {
-            self.publish_to_queue(queue::QUEUE_PROGRESS, Arc::new(task)).await?;
+            broker.publish_to_queue(queue::QUEUE_PROGRESS, Arc::new(task)).await?;
             Ok(())
         })
     }
 
     fn subscribe_for_task_progress(&self, handler: TaskProgressHandler) -> BoxedFuture<()> {
+        let broker = self.clone();
         Box::pin(async move {
-            self.subscribe_to_queue(queue::QUEUE_PROGRESS, Arc::new(move |msg| {
+            broker.subscribe_to_queue(queue::QUEUE_PROGRESS, Arc::new(move |msg| {
                 let handler = handler.clone();
                 Box::pin(async move {
                     if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
@@ -260,16 +261,18 @@ impl Broker for InMemoryBroker {
     }
 
     fn publish_heartbeat(&self, node: tork::node::Node) -> BoxedFuture<()> {
+        let broker = self.clone();
         let node = node.deep_clone();
         Box::pin(async move {
-            self.publish_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(node)).await?;
+            broker.publish_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(node)).await?;
             Ok(())
         })
     }
 
     fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()> {
+        let broker = self.clone();
         Box::pin(async move {
-            self.subscribe_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(move |msg| {
+            broker.subscribe_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(move |msg| {
                 let handler = handler.clone();
                 Box::pin(async move {
                     if let Some(node) = msg.downcast_ref::<tork::node::Node>() {
@@ -283,16 +286,18 @@ impl Broker for InMemoryBroker {
     }
 
     fn publish_job(&self, job: &tork::job::Job) -> BoxedFuture<()> {
+        let broker = self.clone();
         let job = job.deep_clone();
         Box::pin(async move {
-            self.publish_to_queue(queue::QUEUE_JOBS, Arc::new(job)).await?;
+            broker.publish_to_queue(queue::QUEUE_JOBS, Arc::new(job)).await?;
             Ok(())
         })
     }
 
     fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()> {
+        let broker = self.clone();
         Box::pin(async move {
-            self.subscribe_to_queue(queue::QUEUE_JOBS, Arc::new(move |msg| {
+            broker.subscribe_to_queue(queue::QUEUE_JOBS, Arc::new(move |msg| {
                 let handler = handler.clone();
                 Box::pin(async move {
                     if let Some(job) = msg.downcast_ref::<tork::job::Job>() {
@@ -306,13 +311,14 @@ impl Broker for InMemoryBroker {
     }
 
     fn publish_event(&self, topic: String, event: serde_json::Value) -> BoxedFuture<()> {
+        let topics = self.topics.clone();
         let topic_name = topic.clone();
         Box::pin(async move {
-            let topics = self.topics.read().await;
+            let topics = topics.read().await;
             // Publish to all matching topics
             for (name, topic) in topics.iter() {
                 if match_pattern(name, &topic_name) {
-                    let _ = topic.tx.send(Arc::new(event.clone())).await;
+                    let _ = topic.tx.send(Arc::new(event.clone()));
                 }
             }
             Ok(())
@@ -327,17 +333,22 @@ impl Broker for InMemoryBroker {
                 if let Some(t) = topics_guard.get(&pattern) {
                     t.tx.clone()
                 } else {
-                    let (t, _rx) = Topic::new(pattern.clone());
+                    let t = Topic::new(pattern.clone());
                     let tx = t.tx.clone();
                     topics_guard.insert(pattern, t);
                     tx
                 }
             };
 
+            // Create the broadcast receiver BEFORE spawning the task.
+            // This ensures the receiver is registered at the current tail
+            // position, so any subsequent sends will be received.
+            let mut rx = tx.subscribe();
+
             tokio::spawn(async move {
-                let mut rx = tx.subscribe();
-                while let Some(msg) = rx.recv().await {
-                    handler(msg.as_any().downcast::<serde_json::Value>().unwrap_or_else(|_| Arc::new(serde_json::Value::Null))).await;
+                while let Ok(msg) = rx.recv().await {
+                    let value = msg.clone().as_any().downcast::<serde_json::Value>().unwrap_or_else(|_| Arc::new(serde_json::Value::Null));
+                    handler((*value).clone()).await;
                 }
             });
 
@@ -346,16 +357,18 @@ impl Broker for InMemoryBroker {
     }
 
     fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()> {
+        let broker = self.clone();
         let part = part.clone();
         Box::pin(async move {
-            self.publish_to_queue(queue::QUEUE_LOGS, Arc::new(part)).await?;
+            broker.publish_to_queue(queue::QUEUE_LOGS, Arc::new(part)).await?;
             Ok(())
         })
     }
 
     fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()> {
+        let broker = self.clone();
         Box::pin(async move {
-            self.subscribe_to_queue(queue::QUEUE_LOGS, Arc::new(move |msg| {
+            broker.subscribe_to_queue(queue::QUEUE_LOGS, Arc::new(move |msg| {
                 let handler = handler.clone();
                 Box::pin(async move {
                     if let Some(part) = msg.downcast_ref::<TaskLogPart>() {
@@ -369,15 +382,20 @@ impl Broker for InMemoryBroker {
     }
 
     fn queues(&self) -> BoxedFuture<Vec<QueueInfo>> {
+        let queues = self.queues.clone();
         Box::pin(async move {
-            let queues = self.queues.read().await;
+            let queues = queues.read().await;
             let result: Vec<QueueInfo> = queues
                 .iter()
-                .map(|(name, q)| QueueInfo {
-                    name: name.clone(),
-                    size: q.tx.capacity() as i64,
-                    subscribers: 0,
-                    unacked: 0,
+                .map(|(name, q)| {
+                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
+                    let unacked = q.unacked.load(Ordering::SeqCst) as i64;
+                    QueueInfo {
+                        name: name.clone(),
+                        size: 0,
+                        subscribers: sub_count,
+                        unacked,
+                    }
                 })
                 .collect();
             Ok(result)
@@ -385,31 +403,39 @@ impl Broker for InMemoryBroker {
     }
 
     fn queue_info(&self, qname: String) -> BoxedFuture<QueueInfo> {
+        let queues = self.queues.clone();
         Box::pin(async move {
-            let queues = self.queues.read().await;
+            let queues = queues.read().await;
+            let qname_for_error = qname.clone();
             queues
                 .get(&qname)
-                .map(|q| QueueInfo {
-                    name: qname,
-                    size: q.tx.capacity() as i64,
-                    subscribers: 0,
-                    unacked: 0,
+                .map(|q| {
+                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
+                    let unacked = q.unacked.load(Ordering::SeqCst) as i64;
+                    QueueInfo {
+                        name: qname,
+                        size: 0,
+                        subscribers: sub_count,
+                        unacked,
+                    }
                 })
-                .ok_or_else(|| anyhow::anyhow!("queue {} not found", qname))
+                .ok_or_else(|| anyhow::anyhow!("queue {} not found", qname_for_error))
         })
     }
 
     fn delete_queue(&self, qname: String) -> BoxedFuture<()> {
+        let queues = self.queues.clone();
         Box::pin(async move {
-            let mut queues = self.queues.write().await;
+            let mut queues = queues.write().await;
             queues.remove(&qname);
             Ok(())
         })
     }
 
     fn health_check(&self) -> BoxedFuture<()> {
+        let terminated = self.terminated.clone();
         Box::pin(async move {
-            if self.terminated.load(std::sync::atomic::Ordering::SeqCst) {
+            if terminated.load(std::sync::atomic::Ordering::SeqCst) {
                 Err(anyhow::anyhow!("broker is terminated"))
             } else {
                 Ok(())
@@ -420,30 +446,32 @@ impl Broker for InMemoryBroker {
     fn shutdown(&self) -> BoxedFuture<()> {
         let queues = self.queues.clone();
         let topics = self.topics.clone();
+        let terminated = self.terminated.clone();
         Box::pin(async move {
-            if !self.terminated.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_ok() {
+            if !terminated.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_ok() {
                 return Ok(());
             }
 
             // Close all queues with proper termination signaling
             {
                 let mut queues_guard = queues.write().await;
-                for (_name, queue) in queues_guard.iter_mut() {
+                for (_name, queue) in queues_guard.iter() {
                     tracing::debug!("shutting down queue {}", queue.name);
                     queue.close();
                 }
                 queues_guard.clear();
             }
 
-            // Close all topics with proper termination signaling
+            // Close all topics - dropping them closes broadcast senders,
+            // causing all subscriber receivers to get Closed
             {
-                let mut topics_guard = topics.write().await;
-                for (_name, topic) in topics_guard.iter_mut() {
-                    tracing::debug!("shutting down topic {}", topic.name);
-                    topic.close();
+                let topics_guard = topics.read().await;
+                for (name, _topic) in topics_guard.iter() {
+                    tracing::debug!("shutting down topic {}", name);
                 }
-                topics_guard.clear();
             }
+            // Drop all topics to close broadcast senders
+            topics.write().await.clear();
 
             Ok(())
         })
@@ -495,6 +523,27 @@ mod tests {
         let queues = broker.queues().await.unwrap();
         assert_eq!(1, queues.len());
         assert_eq!(qname, queues[0].name);
+        assert_eq!(0, queues[0].subscribers);
+
+        // Subscribe 10 concurrent subscribers (mirrors Go's TestInMemoryGetQueues)
+        let mut handles = Vec::new();
+        for _ in 0..10 {
+            let broker_clone = broker.clone();
+            let qname_clone = qname.clone();
+            handles.push(tokio::spawn(async move {
+                let handler: TaskHandler = Arc::new(move |_task| {
+                    Box::pin(async move {})
+                });
+                broker_clone.subscribe_for_tasks(qname_clone, handler).await
+            }));
+        }
+        for handle in handles {
+            handle.await.expect("subscribe task should not panic").expect("subscribe should succeed");
+        }
+
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(1, queues.len());
+        assert_eq!(10, queues[0].subscribers);
     }
 
     #[tokio::test]
@@ -531,7 +580,16 @@ mod tests {
 
         let node = tork::node::Node {
             id: Some(new_uuid()),
-            ..Default::default()
+            name: None,
+            started_at: time::OffsetDateTime::UNIX_EPOCH,
+            cpu_percent: 0.0,
+            last_heartbeat_at: time::OffsetDateTime::UNIX_EPOCH,
+            queue: None,
+            status: tork::node::NodeStatus::from("TEST"),
+            hostname: None,
+            port: 0,
+            task_count: 0,
+            version: String::new(),
         };
 
         broker.publish_heartbeat(node).await.unwrap();
@@ -603,5 +661,338 @@ mod tests {
         broker.shutdown().await.unwrap();
 
         broker.health_check().await.expect_err("should fail after shutdown");
+    }
+
+    /// Mirrors Go's TestInMemoryGetQueuesUnacked:
+    /// Verifies that the unacked counter tracks messages currently being processed.
+    #[tokio::test]
+    async fn test_get_queues_unacked() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        // Publish a task (no subscribers yet)
+        let task = tork::task::Task::default();
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(1, queues.len());
+        assert_eq!(0, queues[0].subscribers);
+        assert_eq!(0, queues[0].unacked);
+
+        // Subscribe with a handler that blocks until signaled
+        let started = Arc::new(tokio::sync::Notify::new());
+        let started_clone = started.clone();
+        let release = Arc::new(tokio::sync::Notify::new());
+        let release_clone = release.clone();
+
+        let handler: TaskHandler = Arc::new(move |_task| {
+            let started = started_clone.clone();
+            let release = release_clone.clone();
+            Box::pin(async move {
+                started.notify_one();
+                release.notified().await;
+            })
+        });
+
+        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+
+        // Publish a task that the handler will pick up and block on
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+
+        // Wait for handler to start processing
+        started.notified().await;
+
+        // While handler is running, unacked should be 1
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(1, queues[0].unacked);
+        assert_eq!(1, queues[0].subscribers);
+
+        // Release the handler
+        release.notify_one();
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // After handler completes, unacked should be 0
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(0, queues[0].unacked);
+    }
+
+    /// Mirrors Go's TestMultipleSubsSubsribeForJob:
+    /// Verifies that multiple job subscribers all receive published jobs.
+    #[tokio::test]
+    async fn test_multiple_subs_subscribe_for_job() {
+        let broker = new_in_memory_broker();
+        let processed = Arc::new(std::sync::Mutex::new(0_usize));
+        let processed_clone = processed.clone();
+
+        let handler: JobHandler = Arc::new(move |_job| {
+            let processed = processed_clone.clone();
+            Box::pin(async move {
+                let mut guard = processed.lock().expect("mutex not poisoned");
+                *guard += 1;
+            })
+        });
+
+        broker.subscribe_for_jobs(handler).await.unwrap();
+
+        let processed_clone2 = processed.clone();
+        let handler2: JobHandler = Arc::new(move |_job| {
+            let processed = processed_clone2.clone();
+            Box::pin(async move {
+                let mut guard = processed.lock().expect("mutex not poisoned");
+                *guard += 1;
+            })
+        });
+
+        broker.subscribe_for_jobs(handler2).await.unwrap();
+
+        // Publish 10 jobs
+        for _ in 0..10 {
+            let job = tork::job::Job::default();
+            broker.publish_job(&job).await.expect("publish should succeed");
+        }
+
+        // Wait for all processing (2 subscribers × 10 jobs = 20)
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+        let count = *processed.lock().expect("mutex not poisoned");
+        assert_eq!(20, count);
+    }
+
+    /// Mirrors Go's TestInMemoryShutdown:
+    /// Verifies that shutdown returns cleanly even when a subscriber is blocked,
+    /// and that publish after shutdown does not hang.
+    #[tokio::test]
+    async fn test_shutdown() {
+        let broker = new_in_memory_broker();
+        let processed = Arc::new(tokio::sync::Notify::new());
+        let processed_clone = processed.clone();
+
+        let qname1 = format!("{}test-{}", queue::QUEUE_EXCLUSIVE_PREFIX, new_uuid());
+        let qname2 = format!("{}test-{}", queue::QUEUE_EXCLUSIVE_PREFIX, new_uuid());
+
+        // Subscribe with a handler that blocks after signaling
+        let handler: TaskHandler = Arc::new(move |_task| {
+            let processed = processed_clone.clone();
+            Box::pin(async move {
+                processed.notify_one();
+                // Block forever (simulating long-running task processing)
+                std::future::pending::<()>().await;
+            })
+        });
+
+        broker.subscribe_for_tasks(qname1.clone(), handler).await.unwrap();
+
+        let task = tork::task::Task::default();
+        // Publish 10 tasks to each queue
+        for _ in 0..10 {
+            broker.publish_task(qname1.clone(), &task).await.unwrap();
+            broker.publish_task(qname2.clone(), &task).await.unwrap();
+        }
+
+        // Wait for at least one task to start processing
+        processed.notified().await;
+
+        // Shutdown should return cleanly, not block on the sleeping handler
+        broker.shutdown().await.unwrap();
+
+        // Publishing after shutdown should not hang
+        broker.publish_task(qname1.clone(), &task).await.unwrap();
+    }
+
+    /// Mirrors Go's TestInMemorSubsribeForEvent:
+    /// Verifies wildcard topic matching — "job.*" matches both
+    /// "job.completed" and "job.failed", while "job.completed" only
+    /// matches itself.
+    #[tokio::test]
+    async fn test_subscribe_for_event() {
+        let broker = new_in_memory_broker();
+        let processed1 = Arc::new(std::sync::Mutex::new(0_usize));
+        let processed2 = Arc::new(std::sync::Mutex::new(0_usize));
+
+        let processed1_clone = processed1.clone();
+        let handler1: EventHandler = Arc::new(move |_event| {
+            let processed = processed1_clone.clone();
+            Box::pin(async move {
+                let mut guard = processed.lock().expect("mutex not poisoned");
+                *guard += 1;
+            })
+        });
+
+        let processed2_clone = processed2.clone();
+        let handler2: EventHandler = Arc::new(move |_event| {
+            let processed = processed2_clone.clone();
+            Box::pin(async move {
+                let mut guard = processed.lock().expect("mutex not poisoned");
+                *guard += 1;
+            })
+        });
+
+        let topic_job = "job.*".to_string();
+        let topic_job_completed = "job.completed".to_string();
+
+        // Subscribe to "job.*" — should receive ALL job events
+        broker.subscribe_for_events(topic_job.clone(), handler1).await.unwrap();
+
+        // Subscribe to "job.completed" — should only receive completed events
+        broker.subscribe_for_events(topic_job_completed.clone(), handler2).await.unwrap();
+
+        // Publish 10 completed + 10 failed events
+        for _ in 0..10 {
+            let event = serde_json::json!({"id": new_uuid()});
+            broker.publish_event(topic_job_completed.clone(), event.clone()).await.unwrap();
+            broker.publish_event("job.failed".to_string(), event.clone()).await.unwrap();
+        }
+
+        // Wait for all events to be processed
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+        // "job.*" subscriber should have received 20 events
+        assert_eq!(20, *processed1.lock().expect("mutex not poisoned"));
+        // "job.completed" subscriber should have received 10 events
+        assert_eq!(10, *processed2.lock().expect("mutex not poisoned"));
+    }
+
+    /// Mirrors Go's TestInMemoryPublishAndSubsribeTaskProgress:
+    /// Verifies end-to-end publish/subscribe for task progress messages.
+    #[tokio::test]
+    async fn test_publish_and_subscribe_task_progress() {
+        let broker = new_in_memory_broker();
+        let processed = Arc::new(std::sync::Mutex::new(false));
+        let processed_clone = processed.clone();
+
+        let handler: TaskProgressHandler = Arc::new(move |_task| {
+            let processed = processed_clone.clone();
+            Box::pin(async move {
+                *processed.lock().expect("mutex not poisoned") = true;
+            })
+        });
+
+        broker.subscribe_for_task_progress(handler).await.unwrap();
+
+        let task = tork::task::Task {
+            id: Some(new_uuid()),
+            ..Default::default()
+        };
+
+        broker.publish_task_progress(&task).await.unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        assert!(*processed.lock().expect("mutex not poisoned"));
+    }
+
+    /// Mirrors Go's TestInMemoryPublishAndSubsribeForTask with mounts:
+    /// Verifies that a task with mounts is published and received correctly,
+    /// and that mount target data survives the serialization round-trip.
+    #[tokio::test]
+    async fn test_publish_and_subscribe_task_with_mounts() {
+        let broker = new_in_memory_broker();
+        let received_task = Arc::new(std::sync::Mutex::new(None));
+        let received_clone = received_task.clone();
+
+        let qname = format!("test-queue-{}", new_uuid());
+        let handler: TaskHandler = Arc::new(move |task| {
+            let received = received_clone.clone();
+            Box::pin(async move {
+                let mut guard = received.lock().expect("mutex not poisoned");
+                *guard = Some(task.deep_clone());
+            })
+        });
+
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        let task = tork::task::Task {
+            id: Some(new_uuid()),
+            mounts: Some(vec![tork::mount::Mount {
+                mount_type: tork::mount::MOUNT_TYPE_VOLUME.to_string(),
+                target: Some("/somevolume".to_string()),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        broker.publish_task(qname, &task).await.unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let guard = received_task.lock().expect("mutex not poisoned");
+        let received = guard
+            .as_ref()
+            .expect("should have received a task");
+        let mounts = received
+            .mounts
+            .as_ref()
+            .expect("should have mounts");
+        assert_eq!(
+            "/somevolume",
+            mounts[0]
+                .target
+                .as_ref()
+                .expect("mount should have target")
+        );
+    }
+
+    /// Mirrors Go's TestInMemoryDeleteQueue with subscribers:
+    /// Verifies that deleting a queue with subscribers removes it completely.
+    #[tokio::test]
+    async fn test_delete_queue_with_subscribers() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        // Subscribe first (creates queue)
+        let handler: TaskHandler = Arc::new(move |_task| Box::pin(async move {}));
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(1, queues.len());
+        assert_eq!(1, queues[0].subscribers);
+
+        // Delete the queue
+        broker.delete_queue(qname.clone()).await.unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert!(queues.is_empty());
+    }
+
+    /// Verifies that publishing to a deleted queue creates a fresh queue.
+    #[tokio::test]
+    async fn test_publish_after_delete_queue() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        let task = tork::task::Task::default();
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+        broker.delete_queue(qname.clone()).await.unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert!(queues.is_empty());
+
+        // Re-publish should create a new queue
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(1, queues.len());
+    }
+
+    /// Verifies that shutdown is idempotent (calling it twice doesn't error).
+    #[tokio::test]
+    async fn test_shutdown_idempotent() {
+        let broker = new_in_memory_broker();
+        broker.shutdown().await.unwrap();
+        broker.shutdown().await.unwrap();
+    }
+
+    /// Verifies that shutdown with health_check returns an error.
+    #[tokio::test]
+    async fn test_health_check_after_shutdown() {
+        let broker = new_in_memory_broker();
+        broker.shutdown().await.unwrap();
+        let result = broker.health_check().await;
+        assert!(result.is_err(), "health check should fail after shutdown");
     }
 }

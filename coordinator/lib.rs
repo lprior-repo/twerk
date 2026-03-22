@@ -13,6 +13,7 @@
 //!
 //! # Modules
 //!
+//! - [`coordinator`]: The coordinator "brain" — wires all handlers with broker subscriptions
 //! - [`api`]: HTTP API server and context
 //! - [`handlers`]: Event handlers for task and job state changes
 //! - [`scheduler`]: Task scheduling logic
@@ -25,5 +26,6 @@
 #![forbid(unsafe_code)]
 
 pub mod api;
+pub mod coordinator;
 pub mod handlers;
 pub mod scheduler;

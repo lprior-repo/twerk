@@ -1,28 +1,21 @@
 //! Network connectivity utilities
 //!
 //! Provides functionality for checking TCP connectivity.
+//! Parity with Go's `internal/netx/netx.go`: `CanConnect` uses
+//! `net.DialTimeout("tcp", address, 1s)` which resolves DNS before
+//! connecting. Rust mirrors this by resolving via `ToSocketAddrs` first.
 
-use std::net::{SocketAddr, TcpStream};
-use std::str::FromStr;
+use std::net::TcpStream;
 use std::time::Duration;
-
-/// Errors that can occur during network operations.
-#[derive(Debug, thiserror::Error)]
-pub enum NetError {
-    #[error("invalid socket address: {0}")]
-    InvalidAddress(String),
-
-    #[error("connection timeout")]
-    Timeout,
-}
 
 /// Check if a TCP connection can be established to the given address.
 ///
 /// Uses a 1-second timeout for the connection attempt.
+/// Resolves DNS hostnames before connecting, matching Go's `net.DialTimeout`.
 ///
 /// # Arguments
 ///
-/// * `address` - The address to connect to (e.g., "localhost:9999")
+/// * `address` - The address to connect to (e.g., "localhost:9999", "example.com:80")
 ///
 /// # Returns
 ///
@@ -31,17 +24,22 @@ pub enum NetError {
 pub fn can_connect(address: &str) -> bool {
     let timeout = Duration::from_secs(1);
 
-    match SocketAddr::from_str(address) {
-        Ok(addr) => match TcpStream::connect_timeout(&addr, timeout) {
+    // Resolve address (DNS + port) — matches Go's net.DialTimeout which resolves first
+    let addrs: Vec<std::net::SocketAddr> = match std::net::ToSocketAddrs::to_socket_addrs(address) {
+        Ok(a) => a.collect(),
+        Err(_) => return false,
+    };
+
+    // Try each resolved address (Go also iterates resolved addresses)
+    addrs
+        .iter()
+        .any(|addr| match TcpStream::connect_timeout(addr, timeout) {
             Ok(stream) => {
-                // Successfully connected, close the stream and return true
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 true
             }
             Err(_) => false,
-        },
-        Err(_) => false,
-    }
+        })
 }
 
 #[cfg(test)]

@@ -155,7 +155,9 @@ impl Default for Job {
 }
 
 impl Job {
-    /// Creates a clone of this job with deep copies of nested structures
+    /// Creates a clone of this job with deep copies of nested structures.
+    /// Uses `User::deep_clone()` for `created_by` to exclude password,
+    /// matching Go's `Job.Clone()` behavior.
     #[must_use]
     pub fn deep_clone(&self) -> Self {
         Self {
@@ -166,7 +168,7 @@ impl Job {
             tags: self.tags.clone(),
             state: self.state.clone(),
             created_at: self.created_at,
-            created_by: self.created_by.clone(),
+            created_by: self.created_by.as_ref().map(|u| u.deep_clone()),
             started_at: self.started_at,
             completed_at: self.completed_at,
             failed_at: self.failed_at,
@@ -270,7 +272,9 @@ impl Default for ScheduledJob {
 }
 
 impl ScheduledJob {
-    /// Creates a deep clone of this scheduled job
+    /// Creates a deep clone of this scheduled job.
+    /// Uses `User::deep_clone()` for `created_by` to exclude password,
+    /// matching Go's `ScheduledJob.Clone()` behavior.
     #[must_use]
     pub fn deep_clone(&self) -> Self {
         Self {
@@ -281,7 +285,7 @@ impl ScheduledJob {
             state: self.state.clone(),
             inputs: self.inputs.clone(),
             tasks: task::clone_tasks(&self.tasks),
-            created_by: self.created_by.clone(),
+            created_by: self.created_by.as_ref().map(|u| u.deep_clone()),
             defaults: self.defaults.clone(),
             auto_delete: self.auto_delete.clone(),
             webhooks: self.webhooks.as_ref().map(|v| task::clone_webhooks(v)),

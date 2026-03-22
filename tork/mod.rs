@@ -37,8 +37,10 @@ pub mod version;
 pub use broker::{Broker, QueueInfo};
 pub use datastore::Datastore;
 pub use job::{
-    Job, JobState, ScheduledJob, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED,
-    JOB_STATE_PENDING, JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
+    new_job_summary, new_scheduled_job_summary, Job, JobState, ScheduledJob,
+    JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
+    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE,
+    SCHEDULED_JOB_STATE_PAUSED,
 };
 pub use mount::Mount;
 pub use node::{Node, NodeStatus};
@@ -46,6 +48,7 @@ pub use runtime::Runtime;
 pub use task::{Task, TaskState, TaskSummary};
 pub use user::User;
 pub use role::Role;
+pub use version::VERSION;
 
 // Test modules (conditionally compiled)
 #[cfg(test)]
@@ -53,3 +56,6 @@ mod job_test;
 
 #[cfg(test)]
 mod task_test;
+
+#[cfg(test)]
+mod user_test;

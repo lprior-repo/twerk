@@ -1,0 +1,18 @@
+# Twerk build artifacts
+**/target/
+**/Cargo.lock
+**/.cargo-lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config overrides
+*.local
+.env

@@ -1,0 +1,104 @@
+[package]
+name = "tork-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["tork", "locker", "engine", "cli", "health", "input", "datastore", "coordinator"]
+
+[dependencies]
+# Local tork crate
+tork = { path = "./tork" }
+
+# CLI crate
+tork-cli = { path = "./cli" }
+
+# Health and input crates
+tork-health = { path = "./health" }
+tork-input = { path = "./input" }
+
+# CLI argument parsing
+clap = { version = "4.5", features = ["derive", "env"] }
+config = "0.14"
+
+# Async runtime
+tokio = { version = "1.49", features = ["full"] }
+futures-util = "0.3"
+tokio-util = { version = "0.7", features = ["codec", "compat", "io"] }
+
+# Functional programming
+itertools = "0.14"
+tap = "1.0"
+rpds = "1.2"
+
+# Concurrent map
+dashmap = "6.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+time = { version = "0.3", features = ["serde"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Process management
+portable-pty = "0.8"
+
+# UUID
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# HTTP client
+ureq = "2.0"
+
+# HTTP server
+axum = "0.8"
+tower = "0.5"
+
+# Docker module
+regex = "1.11"
+once_cell = "1.20"
+base64 = "0.22"
+tar = "0.4"
+tempfile = "3.14"
+dirs = "5.0"
+bollard = "0.18"
+bytes = "1.9"
+
+# Security
+bcrypt = "0.17"
+
+# System info
+sysinfo = "0.33"
+
+# Config
+toml = "0.8"
+
+# Expression evaluation
+evalexpr = "13.1"
+
+# Random number generation
+rand = "0.9"
+
+# Hostname
+hostname = "0.4"
+
+# AMQP / RabbitMQ
+lapin = "2.3"
+reqwest = { version = "0.12", features = ["json"] }
+url = "2.5"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.0"
+
+[lib]
+path = "lib.rs"

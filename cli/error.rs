@@ -45,3 +45,79 @@ pub enum CliError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn test_cli_error_config() {
+        let err = CliError::Config("missing key".to_string());
+        assert!(err.to_string().contains("configuration error"));
+        assert!(err.to_string().contains("missing key"));
+    }
+
+    #[test]
+    fn test_cli_error_health_failed() {
+        let err = CliError::HealthFailed { status: 503 };
+        assert!(err.to_string().contains("health check failed"));
+        assert!(err.to_string().contains("503"));
+    }
+
+    #[test]
+    fn test_cli_error_invalid_body() {
+        let err = CliError::InvalidBody("not json".to_string());
+        assert!(err.to_string().contains("invalid response body"));
+        assert!(err.to_string().contains("not json"));
+    }
+
+    #[test]
+    fn test_cli_error_missing_argument() {
+        let err = CliError::MissingArgument("mode".to_string());
+        assert!(err.to_string().contains("missing required argument"));
+        assert!(err.to_string().contains("mode"));
+    }
+
+    #[test]
+    fn test_cli_error_migration() {
+        let err = CliError::Migration("connection refused".to_string());
+        assert!(err.to_string().contains("migration error"));
+        assert!(err.to_string().contains("connection refused"));
+    }
+
+    #[test]
+    fn test_cli_error_unknown_datastore() {
+        let err = CliError::UnknownDatastore("mysql".to_string());
+        assert!(err.to_string().contains("unsupported datastore type"));
+        assert!(err.to_string().contains("mysql"));
+    }
+
+    #[test]
+    fn test_cli_error_logging() {
+        let err = CliError::Logging("invalid level".to_string());
+        assert!(err.to_string().contains("logging setup error"));
+        assert!(err.to_string().contains("invalid level"));
+    }
+
+    #[test]
+    fn test_cli_error_engine() {
+        let err = CliError::Engine("failed to start".to_string());
+        assert!(err.to_string().contains("engine error"));
+        assert!(err.to_string().contains("failed to start"));
+    }
+
+    #[test]
+    fn test_cli_error_io() {
+        let err = CliError::Io(io::Error::new(io::ErrorKind::NotFound, "file not found"));
+        assert!(err.to_string().contains("IO error"));
+        assert!(err.to_string().contains("file not found"));
+    }
+
+    #[test]
+    fn test_cli_error_debug() {
+        let err = CliError::Config("test".to_string());
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("Config"));
+    }
+}

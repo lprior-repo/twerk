@@ -73,18 +73,51 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_mode() {
+    fn test_parse_mode_standalone() {
         assert_eq!(parse_mode("standalone"), Some(Mode::Standalone));
         assert_eq!(parse_mode("Standalone"), Some(Mode::Standalone));
         assert_eq!(parse_mode("STANDALONE"), Some(Mode::Standalone));
+        assert_eq!(parse_mode("Standalone "), Some(Mode::Standalone));
+        assert_eq!(parse_mode(" standalone"), Some(Mode::Standalone));
+    }
+
+    #[test]
+    fn test_parse_mode_coordinator() {
         assert_eq!(parse_mode("coordinator"), Some(Mode::Coordinator));
+        assert_eq!(parse_mode("Coordinator"), Some(Mode::Coordinator));
+        assert_eq!(parse_mode("COORDINATOR"), Some(Mode::Coordinator));
+        assert_eq!(parse_mode("Coordinator "), Some(Mode::Coordinator));
+    }
+
+    #[test]
+    fn test_parse_mode_worker() {
         assert_eq!(parse_mode("worker"), Some(Mode::Worker));
+        assert_eq!(parse_mode("Worker"), Some(Mode::Worker));
+        assert_eq!(parse_mode("WORKER"), Some(Mode::Worker));
+        assert_eq!(parse_mode(" worker "), Some(Mode::Worker));
+    }
+
+    #[test]
+    fn test_parse_mode_invalid() {
         assert_eq!(parse_mode("bogus"), None);
+        assert_eq!(parse_mode("unknown"), None);
+        assert_eq!(parse_mode("mode123"), None);
+        assert_eq!(parse_mode("stand-alone"), None);
+        assert_eq!(parse_mode("coordinators"), None);
     }
 
     #[test]
     fn test_parse_mode_empty() {
         assert_eq!(parse_mode(""), None);
         assert_eq!(parse_mode("   "), None);
+        assert_eq!(parse_mode("\t"), None);
+        assert_eq!(parse_mode("\n"), None);
+    }
+
+    #[test]
+    fn test_parse_mode_with_whitespace() {
+        assert_eq!(parse_mode("  standalone  "), Some(Mode::Standalone));
+        assert_eq!(parse_mode("  coordinator  "), Some(Mode::Coordinator));
+        assert_eq!(parse_mode("  worker  "), Some(Mode::Worker));
     }
 }

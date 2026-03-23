@@ -144,6 +144,8 @@ mod tests {
     #[test]
     fn test_default_endpoint() {
         assert_eq!(DEFAULT_ENDPOINT, "http://localhost:8000");
+        assert!(DEFAULT_ENDPOINT.starts_with("http://"));
+        assert!(DEFAULT_ENDPOINT.contains("localhost"));
     }
 
     #[test]
@@ -154,5 +156,33 @@ mod tests {
     #[test]
     fn test_default_postgres_dsn() {
         assert!(DEFAULT_POSTGRES_DSN.contains("localhost"));
+    }
+
+    #[test]
+    fn test_version_not_empty() {
+        assert!(!VERSION.is_empty());
+    }
+
+    #[test]
+    fn test_git_commit_not_empty() {
+        let commit = GIT_COMMIT;
+        assert!(!commit.is_empty());
+        assert_eq!(commit, "unknown"); // Default placeholder
+    }
+
+    #[test]
+    fn test_get_git_commit_returns_string() {
+        let commit = get_git_commit();
+        assert!(!commit.is_empty());
+    }
+
+    #[test]
+    fn test_constants_are_static() {
+        // Verify constants are accessible without mutation
+        let _ep = DEFAULT_ENDPOINT;
+        let _dst = DEFAULT_DATASTORE_TYPE;
+        let _pg_dsn = DEFAULT_POSTGRES_DSN;
+        let _ver = VERSION;
+        let _git = GIT_COMMIT;
     }
 }

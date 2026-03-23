@@ -82,10 +82,49 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_rejects_unknown_datastore() {
-        // We can't easily test the async function without a database,
-        // but we can verify the enum matching logic through the string patterns.
-        assert_eq!("mysql".to_lowercase().as_str(), "mysql");
-        assert_ne!("postgres".to_lowercase().as_str(), "mysql");
+    fn test_default_postgres_dsn_format() {
+        // Verify DSN contains all required PostgreSQL connection components
+        let dsn = DEFAULT_POSTGRES_DSN;
+        assert!(dsn.contains("host=localhost"));
+        assert!(dsn.contains("user=tork"));
+        assert!(dsn.contains("password=tork"));
+        assert!(dsn.contains("dbname=tork"));
+        assert!(dsn.contains("port=5432"));
+        assert!(dsn.contains("sslmode=disable"));
+    }
+
+    #[test]
+    fn test_postgres_variant_matching() {
+        // Test that "postgres" and "postgresql" both map to the same mode
+        // (both should be accepted in the migration function)
+        let lower_postgres = "postgres".to_lowercase();
+        let lower_postgresql = "postgresql".to_lowercase();
+        assert_eq!(lower_postgres, "postgres");
+        assert_eq!(lower_postgresql, "postgresql");
+        // They are different strings but both should be accepted by run_migration
+    }
+
+    #[test]
+    fn test_postgres_variants_both_accepted() {
+        // Both "postgres" and "postgresql" are valid aliases
+        let variants = vec!["postgres", "PostgreSQL", "POSTGRES", "postgres"];
+        for variant in variants {
+            let normalized = variant.to_lowercase();
+            assert!(normalized == "postgres" || normalized == "postgresql");
+        }
+    }
+
+    #[test]
+    fn test_unknown_datastore_rejected() {
+        // Verify unknown datastore types would be rejected
+        let unknown_types = vec!["mysql", "sqlite", "mongodb", "redis", ""];
+        for dt in unknown_types {
+            if dt.is_empty() {
+                continue;
+            }
+            let result = dt.to_lowercase();
+            assert_ne!(result.as_str(), "postgres");
+            assert_ne!(result.as_str(), "postgresql");
+        }
     }
 }

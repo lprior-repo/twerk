@@ -106,7 +106,8 @@ CREATE TABLE jobs (
     auto_delete      bytea,
     secrets          bytea,
     progress         double precision default 0,
-    scheduled_job_id varchar(32) references scheduled_jobs(id)
+    scheduled_job_id varchar(32) references scheduled_jobs(id),
+    ts               tsvector
 );
 
 CREATE INDEX idx_jobs_state ON jobs (state);
@@ -114,6 +115,8 @@ CREATE INDEX idx_jobs_delete_at ON jobs (delete_at);
 CREATE INDEX idx_jobs_created_at ON jobs (created_at);
 
 create index jobs_tags_idx on jobs using gin (tags);
+
+create index jobs_ts_idx on jobs using gin (ts);
 
 CREATE TABLE jobs_perms (
     id      varchar(32) not null primary key,
@@ -178,11 +181,14 @@ CREATE TABLE tasks_log_parts (
     number_    bigint      not null,
     task_id    varchar(32) not null references tasks(id),
     created_at timestamptz not null,
-    contents   text        not null
+    contents   text        not null,
+    ts        tsvector
 );
 
 CREATE INDEX idx_tasks_log_parts_task_id ON tasks_log_parts (task_id);
 CREATE INDEX idx_tasks_log_parts_created_at ON tasks_log_parts (created_at);
+
+create index tasks_log_parts_ts_idx on tasks_log_parts using gin (ts);
 ";
 
 #[cfg(test)]

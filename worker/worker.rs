@@ -1514,6 +1514,7 @@ mod tests {
                     cmd
                 })),
                 broker: None,
+                mounter: None,
             };
             Self {
                 inner: Arc::new(crate::runtime::shell::ShellRuntime::new(config)),
@@ -1550,6 +1551,7 @@ mod tests {
                                 },
                                 source: m.source.clone().unwrap_or_default(),
                                 target: m.target.clone().unwrap_or_default(),
+                                opts: None,
                             })
                             .collect()
                     })

@@ -72,6 +72,7 @@ fn create_test_config() -> ShellConfig {
             cmd
         })),
         broker: None,
+        mounter: None,
     }
 }
 
@@ -192,6 +193,7 @@ async fn test_run_task_cmd_logger() {
             cmd
         })),
         broker: Some(Arc::new(broker)),
+        mounter: None,
     });
 
     let mut task = create_test_task();
@@ -318,6 +320,7 @@ async fn test_progress_reporting() {
             cmd
         })),
         broker: Some(Arc::new(broker)),
+        mounter: None,
     });
 
     // Task writes a progress value to the progress file
@@ -352,6 +355,7 @@ async fn test_error_mounts_not_supported() {
         mount_type: MountType::Volume,
         source: "/src".to_string(),
         target: "/dest".to_string(),
+        opts: None,
     });
 
     let result = rt.run(create_no_cancel(), &mut task).await;

@@ -31,11 +31,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use crate::broker::Broker;
 use crate::runtime::shell::reexec::ReexecCommand;
-use crate::runtime::Mounter;
+use crate::runtime::podman::Mounter;
+use crate::runtime::podman::Mount as PodmanMount;
 use tork::task::{Task as TorkTask, TaskLogPart};
 
 pub const DEFAULT_UID: &str = "-";
@@ -211,6 +212,20 @@ impl ShellRuntime {
             .keep();
 
         debug!("Created workdir {:?}", workdir);
+
+        // === ACTION: Mount volumes with deferred unmounting ===
+        let mut mounted_mounts: Vec<PodmanMount> = Vec::new();
+        let mounter_opt = self.mounter.as_ref();
+        if let Some(mounter) = mounter_opt {
+            for shell_mount in task.mounts.clone() {
+                let mut podman_mount: PodmanMount = shell_mount.into();
+                if let Err(e) = mounter.mount(&mut podman_mount) {
+                    error!("error mounting volume {}: {}", podman_mount.target, e);
+                    return Err(ShellError::WorkdirCreation(e.to_string()));
+                }
+                mounted_mounts.push(podman_mount);
+            }
+        }
 
         // === ACTION: Create stdout and progress files with correct permissions ===
         let stdout_path = workdir.join("stdout");
@@ -395,6 +410,15 @@ impl ShellRuntime {
             warn!("error removing workdir {:?}: {}", workdir, e);
         }
 
+        // === ACTION: Unmount all volumes (deferred cleanup) ===
+        if let Some(mounter) = mounter_opt {
+            for mount in &mounted_mounts {
+                if let Err(e) = mounter.unmount(mount) {
+                    error!("error unmounting volume {}: {}", mount.target, e);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -411,9 +435,7 @@ fn validate_task(task: &Task) -> Result<(), ShellError> {
     if task.id.is_empty() {
         return Err(ShellError::TaskIdRequired);
     }
-    if !task.mounts.is_empty() {
-        return Err(ShellError::MountsNotSupported);
-    }
+    // Note: mounts are handled via mounter in do_run if mounter is configured
     if !task.entrypoint.is_empty() {
         return Err(ShellError::EntrypointNotSupported);
     }
@@ -606,6 +628,23 @@ pub struct Mount {
     pub mount_type: MountType,
     pub source: String,
     pub target: String,
+    /// Driver options (e.g., for volume mounts: `{"type": "tmpfs"}`).
+    pub opts: Option<std::collections::HashMap<String, String>>,
+}
+
+impl From<Mount> for PodmanMount {
+    fn from(m: Mount) -> PodmanMount {
+        PodmanMount {
+            id: m.id,
+            mount_type: match m.mount_type {
+                MountType::Volume => crate::runtime::podman::MountType::Volume,
+                MountType::Bind => crate::runtime::podman::MountType::Bind,
+            },
+            source: m.source,
+            target: m.target,
+            opts: m.opts,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

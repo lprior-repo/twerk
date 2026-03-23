@@ -15,6 +15,10 @@ pub use item::Item;
 
 use tracing::{debug, instrument};
 
+/// A filter function type for use with [`Cache::list`].
+/// Matches items where the function returns `true`.
+type ListFilter<'a, V> = Box<dyn Fn(&V) -> bool + 'a>;
+
 /// A thread-safe cache with optional automatic expiration cleanup.
 ///
 /// The janitor thread runs every `cleanup_interval` duration to remove
@@ -203,6 +207,82 @@ where
             self.shutdown_flag.store(true, Ordering::Relaxed);
         }
     }
+
+    /// Sets a new expiration on an existing key.
+    ///
+    /// Returns `true` if the key existed and was not expired, `false` otherwise.
+    pub fn set_expiration(&self, key: &K, duration: Duration) -> bool {
+        let expiration = Some(std::time::Instant::now() + duration);
+        self.items.get_mut(key).map(|mut entry| {
+            entry.set_expiration(expiration);
+        }).is_some()
+    }
+
+    /// Atomically modifies the value for a key using the given function.
+    ///
+    /// The modifier `f` is called with mutable access to the value, and can
+    /// return an error to abort the modification. If the key does not exist
+    /// or is expired, returns `None`.
+    ///
+    /// Returns `Some(Ok(()))` if the modification succeeded.
+    /// Returns `Some(Err(e))` if the modifier returned an error.
+    pub fn modify<F, E>(&self, key: &K, f: F) -> Option<Result<(), E>>
+    where
+        F: FnOnce(&mut V) -> Result<(), E>,
+    {
+        let entry = self.items.get(key).filter(|e| !e.is_expired())?;
+        let mut guard = entry.get_mut()?;
+        Some(f(&mut guard))
+    }
+
+    /// Returns all non-expired items matching the given filters.
+    ///
+    /// If no filters are provided, returns all non-expired items.
+    /// Items are returned as clones and order is not guaranteed.
+    #[allow(clippy::type_complexity)]
+    pub fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
+    where
+        V: Clone,
+    {
+        let mut result = Vec::new();
+        for entry in self.items.iter() {
+            if entry.is_expired() {
+                continue;
+            }
+            if let Some(guard) = entry.get() {
+                if filters.iter().all(|f| f(&guard)) {
+                    result.push((*guard).clone());
+                }
+            }
+        }
+        result
+    }
+
+    /// Iterates over all non-expired items in the cache.
+    ///
+    /// The iterator function `f` is called for each key-value pair.
+    /// Iteration stops early if `f` returns `false`.
+    ///
+    /// Returns the number of items iterated.
+    pub fn iterate<F>(&self, mut f: F) -> usize
+    where
+        F: FnMut(&K, &V) -> bool,
+    {
+        let mut count = 0;
+        
+        for entry in self.items.iter().filter(|e| !e.is_expired()) {
+            let guard = match entry.get() {
+                Some(g) => g,
+                None => continue,
+            };
+            if !f(entry.key(), &guard) {
+                break;
+            }
+            count += 1;
+        }
+        
+        count
+    }
 }
 
 impl<K, V> Drop for Cache<K, V> {
@@ -307,5 +387,211 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(30)).await;
 
         assert_eq!(cache.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_set_expiration() {
+        let cache = Cache::new();
+
+        // Set initial item with long expiration
+        cache.insert(1, "one".to_string(), Some(Duration::from_secs(10)));
+        assert!(cache.contains(&1));
+
+        // Modify expiration to very short
+        let result = cache.set_expiration(&1, Duration::from_millis(1));
+        assert!(result);
+
+        // Item should still be there
+        assert!(cache.contains(&1));
+
+        // Wait for new expiration
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        // Item should be expired now
+        assert!(!cache.contains(&1));
+    }
+
+    #[tokio::test]
+    async fn test_set_expiration_nonexistent_key() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), None);
+
+        // Try to set expiration on non-existent key
+        let result = cache.set_expiration(&999, Duration::from_secs(10));
+        assert!(!result);
+    }
+
+    #[tokio::test]
+    async fn test_modify() {
+        let cache = Cache::new();
+
+        cache.insert(1, 10i32, None);
+
+        // Modify value
+        let result = cache.modify(&1, |v| {
+            *v *= 2;
+            Ok::<(), ()>(())
+        });
+        assert!(result.is_some());
+        assert!(result.unwrap().is_ok());
+
+        // Verify modification
+        assert_eq!(cache.get(&1), Some(20));
+    }
+
+    #[tokio::test]
+    async fn test_modify_with_error() {
+        let cache = Cache::new();
+
+        cache.insert(1, 10i32, None);
+
+        // Modify that returns error
+        let result = cache.modify(&1, |_v| {
+            Err::<(), &str>("something went wrong")
+        });
+        assert!(result.is_some());
+        let modify_result = result.unwrap();
+        assert!(modify_result.is_err());
+        assert_eq!(modify_result.unwrap_err(), "something went wrong");
+
+        // Value should be unchanged
+        assert_eq!(cache.get(&1), Some(10));
+    }
+
+    #[tokio::test]
+    async fn test_modify_nonexistent_key() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), None);
+
+        // Try to modify non-existent key
+        let result = cache.modify::<_, ()>(&999, |_v| Ok(()));
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_list_no_filters() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), None);
+        cache.insert(2, "two".to_string(), None);
+        cache.insert(3, "three".to_string(), None);
+
+        let items = cache.list(&[]);
+        assert_eq!(items.len(), 3);
+        assert!(items.contains(&"one".to_string()));
+        assert!(items.contains(&"two".to_string()));
+        assert!(items.contains(&"three".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_with_filters() {
+        let cache = Cache::new();
+
+        cache.insert(1, 10i32, None);
+        cache.insert(2, 20i32, None);
+        cache.insert(3, 30i32, None);
+        cache.insert(4, 40i32, None);
+
+        // Filter for values >= 20
+        let is_large = Box::new(|v: &i32| *v >= 20);
+        let items = cache.list(&[is_large]);
+        assert_eq!(items.len(), 3);
+        assert!(!items.contains(&10));
+        assert!(items.contains(&20));
+        assert!(items.contains(&30));
+        assert!(items.contains(&40));
+    }
+
+    #[tokio::test]
+    async fn test_list_with_multiple_filters() {
+        let cache = Cache::new();
+
+        cache.insert(1, 10i32, None);
+        cache.insert(2, 20i32, None);
+        cache.insert(3, 30i32, None);
+        cache.insert(4, 40i32, None);
+
+        // Filter for values >= 20 AND < 40
+        let is_large = Box::new(|v: &i32| *v >= 20);
+        let is_small = Box::new(|v: &i32| *v < 40);
+        let items = cache.list(&[is_large, is_small]);
+        assert_eq!(items.len(), 2);
+        assert!(items.contains(&20));
+        assert!(items.contains(&30));
+    }
+
+    #[tokio::test]
+    async fn test_list_excludes_expired() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), Some(Duration::from_millis(1)));
+        cache.insert(2, "two".to_string(), None);
+
+        // Wait for item 1 to expire
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let items = cache.list(&[]);
+        assert_eq!(items.len(), 1);
+        assert!(items.contains(&"two".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_iterate() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), None);
+        cache.insert(2, "two".to_string(), None);
+        cache.insert(3, "three".to_string(), None);
+
+        let mut sum = 0;
+        let count = cache.iterate(|_k, v: &String| {
+            sum += v.len();
+            true // continue
+        });
+        assert_eq!(count, 3);
+        assert_eq!(sum, 11); // "one" + "two" + "three" = 3 + 3 + 5
+    }
+
+    #[tokio::test]
+    async fn test_iterate_stops_early() {
+        let cache = Cache::new();
+
+        // Insert 2 items
+        cache.insert(1, "one".to_string(), None);
+        cache.insert(2, "two".to_string(), None);
+
+        // Use cell to track call count
+        use std::cell::Cell;
+        let call_count = Cell::new(0);
+        let iterated = cache.iterate(|_k, _v: &String| {
+            let c = call_count.get();
+            call_count.set(c + 1);
+            c < 1 // Return true only on first call, false after
+        });
+        
+        // callback called twice (once for each entry before break)
+        assert_eq!(call_count.get(), 2);
+        // but only 1 item was successfully iterated (first f returned true)
+        assert_eq!(iterated, 1);
+    }
+
+    #[tokio::test]
+    async fn test_iterate_excludes_expired() {
+        let cache = Cache::new();
+
+        cache.insert(1, "one".to_string(), Some(Duration::from_millis(1)));
+        cache.insert(2, "two".to_string(), None);
+
+        // Wait for item 1 to expire
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        let mut count = 0;
+        cache.iterate(|_k, _v: &String| {
+            count += 1;
+            true
+        });
+        assert_eq!(count, 1);
     }
 }

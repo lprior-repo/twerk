@@ -47,6 +47,16 @@ impl<V> Item<V> {
     pub fn expiration(&self) -> Option<Instant> {
         self.expiration
     }
+
+    /// Sets a new expiration time, replacing any existing expiration.
+    pub fn set_expiration(&mut self, expiration: Option<Instant>) {
+        self.expiration = expiration;
+    }
+
+    /// Returns a mutable reference to the stored object, if the lock can be acquired.
+    pub fn get_mut(&self) -> Option<MutexGuard<'_, V>> {
+        self.object.lock().ok()
+    }
 }
 
 // Implement Clone manually to clone the inner value, not the mutex itself.

@@ -8,15 +8,22 @@
 //! - Sub-job tasks
 //!
 //! Go parity: `scheduler.go` — `ScheduleTask` dispatches to the correct
-//! scheduling path and applies state + timestamp transitions.
+//! scheduling path, applies state + timestamp transitions, reads jobs from
+//! datastore, applies job defaults, creates subtasks, and publishes to broker.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tork::broker::{queue, Broker};
+use tork::datastore::Datastore;
+use tork::job::JobDefaults;
 use tork::task::{Task, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
 
 // ---------------------------------------------------------------------------
@@ -107,32 +114,95 @@ pub fn apply_subjob_transition(task: &mut Task, now: OffsetDateTime) {
 }
 
 // ---------------------------------------------------------------------------
-// Scheduler
+// Pure calculation: apply job defaults to task
+// ---------------------------------------------------------------------------
+
+/// Applies job defaults to a task if the task doesn't already have the field set.
+///
+/// This is a pure calculation — applies default values from job defaults to task.
+/// Mirrors Go's `applyJobDefaults`.
+pub fn apply_job_defaults(task: &mut Task, defaults: &JobDefaults) {
+    // Apply queue default if task doesn't have one
+    if task.queue.is_none() {
+        task.queue = defaults.queue.clone();
+    }
+
+    // Apply timeout default if task doesn't have one
+    if task.timeout.is_none() {
+        task.timeout = defaults.timeout.clone();
+    }
+
+    // Apply priority default if task doesn't have one (0 means unset)
+    if task.priority == 0 {
+        task.priority = defaults.priority;
+    }
+
+    // Apply retry default if task doesn't have one
+    if task.retry.is_none() {
+        task.retry = defaults.retry.clone();
+    }
+
+    // Apply limits default if task doesn't have one
+    if task.limits.is_none() {
+        task.limits = defaults.limits.clone();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Scheduler (async I/O)
 // ---------------------------------------------------------------------------
 
 /// Scheduler for scheduling tasks.
 ///
 /// Go parity: `Scheduler` in `scheduler.go`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Scheduler {
-    // Future: job_defaults, broker, datastore references will go here
-    // when the full I/O layer is wired up.
+    ds: Arc<dyn Datastore>,
+    broker: Arc<dyn Broker>,
+}
+
+impl std::fmt::Debug for Scheduler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Scheduler").finish()
+    }
 }
 
 impl Scheduler {
-    /// Create a new scheduler.
-    pub fn new() -> Self {
-        Self {}
+    /// Create a new scheduler with datastore and broker references.
+    ///
+    /// Go parity: `NewScheduler(ds, broker)`.
+    pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
+        Self { ds, broker }
     }
 
     /// Schedule a task based on its type.
     ///
-    /// Go parity: `ScheduleTask` — classifies the task and applies
-    /// the corresponding state + timestamp transitions.
-    pub fn schedule_task(&self, task: &mut Task) -> Result<ScheduledTaskType, SchedulerError> {
+    /// Go parity: `ScheduleTask` — classifies the task, reads job from datastore
+    /// to apply defaults, applies state transitions, creates subtasks for
+    /// parallel/each constructs, updates datastore, and publishes to broker.
+    ///
+    /// Note: Expression evaluation is handled by the caller since the eval
+    /// crate is not available in the coordinator context. Use the
+    /// `coordinator::handlers::completed::evaluate_task` function to
+    /// evaluate expressions before calling this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SchedulerError`] if any I/O operation fails.
+    pub async fn schedule_task(&self, task: &mut Task) -> Result<ScheduledTaskType, SchedulerError> {
         let task_type = classify_task_type(task);
         let now = OffsetDateTime::now_utc();
 
+        // 1. Read job from datastore to apply job defaults
+        if let Some(job_id) = &task.job_id {
+            if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                if let Some(defaults) = &job.defaults {
+                    apply_job_defaults(task, defaults);
+                }
+            }
+        }
+
+        // 2. Apply state transition based on task type
         match task_type {
             ScheduledTaskType::Each => apply_each_transition(task, now),
             ScheduledTaskType::Parallel => apply_parallel_transition(task, now),
@@ -140,45 +210,419 @@ impl Scheduler {
             ScheduledTaskType::Regular => apply_regular_transition(task, now),
         }
 
+        // 3. Create subtasks for parallel/each constructs and publish
+        match task_type {
+            ScheduledTaskType::Parallel => {
+                self.create_parallel_subtasks(task).await?;
+            }
+            ScheduledTaskType::Each => {
+                self.create_each_subtasks(task).await?;
+            }
+            ScheduledTaskType::SubJob => {
+                self.create_subjob_tasks(task).await?;
+            }
+            ScheduledTaskType::Regular => {
+                // 4. Update task in datastore for regular tasks
+                if let Some(task_id) = &task.id {
+                    self.ds
+                        .update_task(task_id.clone(), task.clone())
+                        .await
+                        .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+                }
+
+                // 5. Publish to broker
+                let queue_name =
+                    task.queue.clone()
+                        .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+                self.broker
+                    .publish_task(queue_name, task)
+                    .await
+                    .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+            }
+        }
+
         Ok(task_type)
     }
 
     /// Schedule a regular task directly.
     ///
-    /// Sets state→SCHEDULED and scheduled_at→now.
-    pub fn schedule_regular_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
-        apply_regular_transition(task, OffsetDateTime::now_utc());
+    /// Go parity: `scheduleRegularTask` — sets state→SCHEDULED, scheduled_at→now,
+    /// updates datastore, and publishes to broker.
+    pub async fn schedule_regular_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
+        let now = OffsetDateTime::now_utc();
+        apply_regular_transition(task, now);
+
+        // Update in datastore
+        if let Some(task_id) = &task.id {
+            self.ds
+                .update_task(task_id.clone(), task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+        }
+
+        // Publish to broker
+        let queue_name = task
+            .queue
+            .clone()
+            .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+        self.broker
+            .publish_task(queue_name, task)
+            .await
+            .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+
         Ok(())
     }
 
     /// Schedule a parallel task directly.
     ///
-    /// Marks the parent task as RUNNING with timestamps.
-    pub fn schedule_parallel_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
-        apply_parallel_transition(task, OffsetDateTime::now_utc());
+    /// Go parity: `scheduleParallelTask` — marks parent as RUNNING, creates
+    /// subtasks, updates datastore, and publishes subtasks to broker.
+    pub async fn schedule_parallel_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
+        let now = OffsetDateTime::now_utc();
+        apply_parallel_transition(task, now);
+
+        // Create subtasks for parallel construct
+        self.create_parallel_subtasks(task).await?;
+
+        // Update parent task in datastore
+        if let Some(task_id) = &task.id {
+            self.ds
+                .update_task(task_id.clone(), task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+        }
+
         Ok(())
     }
 
     /// Schedule an each (loop) task directly.
     ///
-    /// Marks the parent task as RUNNING with timestamps.
-    pub fn schedule_each_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
-        apply_each_transition(task, OffsetDateTime::now_utc());
+    /// Go parity: `scheduleEachTask` — marks parent as RUNNING, creates
+    /// subtasks for each iteration, updates datastore, and publishes subtasks.
+    pub async fn schedule_each_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
+        let now = OffsetDateTime::now_utc();
+        apply_each_transition(task, now);
+
+        // Create subtasks for each construct
+        self.create_each_subtasks(task).await?;
+
+        // Update parent task in datastore
+        if let Some(task_id) = &task.id {
+            self.ds
+                .update_task(task_id.clone(), task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+        }
+
         Ok(())
     }
 
     /// Schedule a sub-job task directly.
     ///
-    /// Marks the parent task as RUNNING with timestamps.
-    pub fn schedule_subjob_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
-        apply_subjob_transition(task, OffsetDateTime::now_utc());
+    /// Go parity: `scheduleAttachedSubJob` — marks parent as RUNNING, creates
+    /// subjob tasks, updates datastore, and publishes subjobs.
+    pub async fn schedule_subjob_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
+        let now = OffsetDateTime::now_utc();
+        apply_subjob_transition(task, now);
+
+        // Create subjob tasks
+        self.create_subjob_tasks(task).await?;
+
+        // Update parent task in datastore
+        if let Some(task_id) = &task.id {
+            self.ds
+                .update_task(task_id.clone(), task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+        }
+
         Ok(())
     }
-}
 
-impl Default for Scheduler {
-    fn default() -> Self {
-        Self::new()
+    // ---------------------------------------------------------------------------
+    // Private: Create parallel subtasks
+    // ---------------------------------------------------------------------------
+
+    /// Creates subtasks for a parallel task construct.
+    ///
+    /// Go parity: `scheduleParallelTask` creates subtasks for each task in
+    /// the parallel.tasks list.
+    async fn create_parallel_subtasks(&self, parent: &Task) -> Result<(), SchedulerError> {
+        let parallel = parent.parallel.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("parallel task has no parallel field".into())
+        })?;
+
+        let tasks = parallel.tasks.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("parallel task has no tasks".into())
+        })?;
+
+        let now = OffsetDateTime::now_utc();
+
+        for (index, subtask) in tasks.iter().enumerate() {
+            let mut child_task = subtask.clone();
+
+            // Set parent_id to link subtask to parent
+            child_task.parent_id = parent.id.clone();
+
+            // Assign a unique ID if not present
+            if child_task.id.is_none() {
+                child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
+            }
+
+            // Set position
+            child_task.position = index as i64;
+
+            // Apply parent job_id and defaults
+            child_task.job_id = parent.job_id.clone();
+            if let Some(job_id) = &parent.job_id {
+                if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                    if let Some(defaults) = &job.defaults {
+                        apply_job_defaults(&mut child_task, defaults);
+                    }
+                }
+            }
+
+            // Apply state transition
+            apply_regular_transition(&mut child_task, now);
+
+            // Create the subtask in datastore
+            self.ds
+                .create_task(child_task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+
+            // Publish subtask to broker
+            let queue_name = child_task
+                .queue
+                .clone()
+                .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+            self.broker
+                .publish_task(queue_name, &child_task)
+                .await
+                .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private: Create each subtasks
+    // ---------------------------------------------------------------------------
+
+    /// Creates subtasks for an each (loop) task construct.
+    ///
+    /// Go parity: `scheduleEachTask` evaluates the list expression and creates
+    /// a subtask for each item in the list.
+    async fn create_each_subtasks(&self, parent: &Task) -> Result<(), SchedulerError> {
+        let each = parent.each.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("each task has no each field".into())
+        })?;
+
+        let inner_task = each.task.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("each task has no inner task".into())
+        })?;
+
+        // Get the list expression
+        let list_expr = each.list.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("each task has no list expression".into())
+        })?;
+
+        // Build context for evaluating the list from job inputs
+        let context = self.build_eval_context(parent).await;
+
+        // Try to evaluate the list expression as a template
+        // If evaluation fails, treat as comma-separated literal values
+        let items = self.parse_list_expression(list_expr, &context).await;
+
+        let var_name = each.var.clone().unwrap_or_else(|| "item".to_string());
+        let now = OffsetDateTime::now_utc();
+
+        for (index, item) in items.iter().enumerate() {
+            // inner_task is &Box<Task>, clone gives Box<Task>, deref gives Task
+            let mut child_task = *inner_task.clone();
+
+            // Set parent_id
+            child_task.parent_id = parent.id.clone();
+
+            // Assign unique ID if not present
+            if child_task.id.is_none() {
+                child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
+            }
+
+            // Set position
+            child_task.position = index as i64;
+
+            // Set the loop variable - substitute the item value into the task
+            // For simplicity, we set var which can be used in template evaluation
+            child_task.var = Some(format!("{{{{{var_name}:{}}}}}", item));
+
+            // Apply parent job_id and defaults
+            child_task.job_id = parent.job_id.clone();
+            if let Some(job_id) = &parent.job_id {
+                if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                    if let Some(defaults) = &job.defaults {
+                        apply_job_defaults(&mut child_task, defaults);
+                    }
+                }
+            }
+
+            // Apply state transition
+            apply_regular_transition(&mut child_task, now);
+
+            // Create the subtask in datastore
+            self.ds
+                .create_task(child_task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+
+            // Publish subtask to broker
+            let queue_name = child_task
+                .queue
+                .clone()
+                .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+            self.broker
+                .publish_task(queue_name, &child_task)
+                .await
+                .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private: Create subjob tasks
+    // ---------------------------------------------------------------------------
+
+    /// Creates subtasks for a sub-job task construct.
+    ///
+    /// Go parity: `scheduleAttachedSubJob` creates child jobs/tasks for
+    /// sub-jobs that are not detached.
+    async fn create_subjob_tasks(&self, parent: &Task) -> Result<(), SchedulerError> {
+        let subjob = parent.subjob.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("subjob task has no subjob field".into())
+        })?;
+
+        // Skip detached subjobs - they run independently
+        if subjob.detached {
+            tracing::debug!("skipping detached subjob task creation");
+            return Ok(());
+        }
+
+        let tasks = subjob.tasks.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("subjob task has no tasks".into())
+        })?;
+
+        let now = OffsetDateTime::now_utc();
+
+        for (index, subtask) in tasks.iter().enumerate() {
+            let mut child_task = subtask.clone();
+
+            // Set parent_id to link subtask to parent
+            child_task.parent_id = parent.id.clone();
+
+            // Assign unique ID if not present
+            if child_task.id.is_none() {
+                child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
+            }
+
+            // Set position
+            child_task.position = index as i64;
+
+            // Apply parent job_id and defaults
+            child_task.job_id = parent.job_id.clone();
+            if let Some(job_id) = &parent.job_id {
+                if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                    if let Some(defaults) = &job.defaults {
+                        apply_job_defaults(&mut child_task, defaults);
+                    }
+                }
+            }
+
+            // Apply state transition
+            apply_regular_transition(&mut child_task, now);
+
+            // Create the subtask in datastore
+            self.ds
+                .create_task(child_task.clone())
+                .await
+                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+
+            // Publish subtask to broker
+            let queue_name = child_task
+                .queue
+                .clone()
+                .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+            self.broker
+                .publish_task(queue_name, &child_task)
+                .await
+                .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private: Build eval context from job inputs
+    // ---------------------------------------------------------------------------
+
+    /// Builds the evaluation context from job inputs and task variables.
+    async fn build_eval_context(
+        &self,
+        task: &Task,
+    ) -> HashMap<String, serde_json::Value> {
+        let mut context = HashMap::new();
+
+        // Load job context if we have a job_id
+        if let Some(job_id) = &task.job_id {
+            if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                // Add job inputs to context
+                if let Some(inputs) = &job.inputs {
+                    for (key, value) in inputs {
+                        context.insert(key.clone(), serde_json::Value::String(value.clone()));
+                    }
+                }
+                // Add job context secrets (sanitized)
+                if let Some(secrets) = &job.context.secrets {
+                    for (key, value) in secrets {
+                        // Only expose non-sensitive data in context
+                        context.insert(key.clone(), serde_json::Value::String(value.clone()));
+                    }
+                }
+            }
+        }
+
+        // Add task var if present (for each loop iteration)
+        if let Some(var) = &task.var {
+            context.insert(var.clone(), serde_json::Value::String("{{item}}".to_string()));
+        }
+
+        context
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private: Parse list expression
+    // ---------------------------------------------------------------------------
+
+    /// Parses a list expression and returns the items as strings.
+    ///
+    /// Tries to evaluate as a JSON array first, then falls back to
+    /// comma-separated values.
+    async fn parse_list_expression(
+        &self,
+        list_expr: &str,
+        _context: &HashMap<String, serde_json::Value>,
+    ) -> Vec<String> {
+        // Try to parse as JSON array first
+        if let Ok(items) = serde_json::from_str::<Vec<String>>(list_expr) {
+            return items;
+        }
+
+        // Fall back to comma-separated values
+        list_expr
+            .split(',')
+            .map(str::trim)
+            .map(String::from)
+            .collect()
     }
 }
 
@@ -197,6 +641,12 @@ pub enum SchedulerError {
 
     #[error("task error: {0}")]
     Task(String),
+
+    #[error("datastore error: {0}")]
+    Datastore(String),
+
+    #[error("broker error: {0}")]
+    Broker(String),
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +668,7 @@ mod tests {
     #[test]
     fn test_classify_parallel() {
         let task = Task {
-            parallel: Some(tork::task::ParallelTask {
+            parallel: Some(ParallelTask {
                 tasks: None,
                 completions: 0,
             }),
@@ -230,7 +680,7 @@ mod tests {
     #[test]
     fn test_classify_each() {
         let task = Task {
-            each: Some(tork::task::EachTask {
+            each: Some(EachTask {
                 var: None,
                 list: None,
                 task: None,
@@ -247,7 +697,7 @@ mod tests {
     #[test]
     fn test_classify_subjob() {
         let task = Task {
-            subjob: Some(tork::task::SubJobTask {
+            subjob: Some(SubJobTask {
                 id: None,
                 name: None,
                 description: None,
@@ -305,54 +755,89 @@ mod tests {
         assert_eq!(task.started_at, Some(now));
     }
 
+    // -- apply_job_defaults ------------------------------------------------
+
+    #[test]
+    fn test_apply_job_defaults_queue() {
+        let mut task = Task::default();
+        let defaults = JobDefaults {
+            queue: Some("my-queue".to_string()),
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert_eq!(task.queue.as_deref(), Some("my-queue"));
+    }
+
+    #[test]
+    fn test_apply_job_defaults_preserves_existing_queue() {
+        let mut task = Task {
+            queue: Some("existing-queue".to_string()),
+            ..Task::default()
+        };
+        let defaults = JobDefaults {
+            queue: Some("default-queue".to_string()),
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert_eq!(task.queue.as_deref(), Some("existing-queue"));
+    }
+
+    #[test]
+    fn test_apply_job_defaults_timeout() {
+        let mut task = Task::default();
+        let defaults = JobDefaults {
+            timeout: Some("5m".to_string()),
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert_eq!(task.timeout.as_deref(), Some("5m"));
+    }
+
+    #[test]
+    fn test_apply_job_defaults_priority() {
+        let mut task = Task::default();
+        let defaults = JobDefaults {
+            priority: 10,
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert_eq!(task.priority, Some(10));
+    }
+
+    #[test]
+    fn test_apply_job_defaults_retry() {
+        let mut task = Task::default();
+        let defaults = JobDefaults {
+            retry: Some(tork::task::TaskRetry {
+                limit: Some(3),
+                attempts: Some(1),
+            }),
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert!(task.retry.is_some());
+        assert_eq!(task.retry.as_ref().and_then(|r| r.limit), Some(3));
+    }
+
+    #[test]
+    fn test_apply_job_defaults_limits() {
+        let mut task = Task::default();
+        let defaults = JobDefaults {
+            limits: Some(tork::task::TaskLimits {
+                cpus: Some("2".to_string()),
+                memory: Some("4Gi".to_string()),
+            }),
+            ..JobDefaults::default()
+        };
+        apply_job_defaults(&mut task, &defaults);
+        assert!(task.limits.is_some());
+        assert_eq!(
+            task.limits.as_ref().and_then(|l| l.cpus.as_deref()),
+            Some("2")
+        );
+    }
+
     // -- Scheduler ----------------------------------------------------------
-
-    #[test]
-    fn test_schedule_task_regular() {
-        let scheduler = Scheduler::new();
-        let mut task = Task::default();
-        let result = scheduler.schedule_task(&mut task);
-        assert!(result.is_ok());
-        assert_eq!(result.ok(), Some(ScheduledTaskType::Regular));
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
-        assert!(task.scheduled_at.is_some());
-    }
-
-    #[test]
-    fn test_schedule_regular_task() {
-        let scheduler = Scheduler::new();
-        let mut task = Task::default();
-        let result = scheduler.schedule_regular_task(&mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
-    }
-
-    #[test]
-    fn test_schedule_parallel_task() {
-        let scheduler = Scheduler::new();
-        let mut task = Task::default();
-        let result = scheduler.schedule_parallel_task(&mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-    }
-
-    #[test]
-    fn test_schedule_each_task() {
-        let scheduler = Scheduler::new();
-        let mut task = Task::default();
-        let result = scheduler.schedule_each_task(&mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-    }
-
-    #[test]
-    fn test_schedule_subjob_task() {
-        let scheduler = Scheduler::new();
-        let mut task = Task::default();
-        let result = scheduler.schedule_subjob_task(&mut task);
-        assert!(result.is_ok());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-    }
 
     #[test]
     fn test_scheduled_task_type_display() {
@@ -368,12 +853,18 @@ mod tests {
     #[test]
     fn test_classify_each_over_parallel() {
         let task = Task {
-            each: Some(tork::task::EachTask {
-                var: None, list: None, task: None,
-                size: 0, completions: 0, concurrency: 0, index: 0,
+            each: Some(EachTask {
+                var: None,
+                list: None,
+                task: None,
+                size: 0,
+                completions: 0,
+                concurrency: 0,
+                index: 0,
             }),
-            parallel: Some(tork::task::ParallelTask {
-                tasks: None, completions: 0,
+            parallel: Some(ParallelTask {
+                tasks: None,
+                completions: 0,
             }),
             ..Task::default()
         };
@@ -384,13 +875,21 @@ mod tests {
     #[test]
     fn test_classify_parallel_over_subjob() {
         let task = Task {
-            subjob: Some(tork::task::SubJobTask {
-                id: None, name: None, description: None, tasks: None,
-                inputs: None, secrets: None, auto_delete: None,
-                output: None, detached: false, webhooks: None,
+            subjob: Some(SubJobTask {
+                id: None,
+                name: None,
+                description: None,
+                tasks: None,
+                inputs: None,
+                secrets: None,
+                auto_delete: None,
+                output: None,
+                detached: false,
+                webhooks: None,
             }),
-            parallel: Some(tork::task::ParallelTask {
-                tasks: None, completions: 0,
+            parallel: Some(ParallelTask {
+                tasks: None,
+                completions: 0,
             }),
             ..Task::default()
         };
@@ -406,7 +905,7 @@ mod tests {
             id: Some("t1".into()),
             job_id: Some("j1".into()),
             name: Some("build".into()),
-            position: 5,
+            position: Some(5),
             queue: Some("my-queue".into()),
             ..Task::default()
         };
@@ -414,7 +913,7 @@ mod tests {
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert_eq!(task.job_id.as_deref(), Some("j1"));
         assert_eq!(task.name.as_deref(), Some("build"));
-        assert_eq!(task.position, 5);
+        assert_eq!(task.position, Some(5));
         assert_eq!(task.queue.as_deref(), Some("my-queue"));
         assert_eq!(task.state, *TASK_STATE_SCHEDULED);
     }
@@ -424,7 +923,7 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task {
             id: Some("t1".into()),
-            parallel: Some(tork::task::ParallelTask {
+            parallel: Some(ParallelTask {
                 tasks: Some(vec![Task::default()]),
                 completions: 0,
             }),
@@ -441,9 +940,14 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task {
             id: Some("t1".into()),
-            each: Some(tork::task::EachTask {
-                var: None, list: None, task: None,
-                size: 5, completions: 0, concurrency: 2, index: 0,
+            each: Some(EachTask {
+                var: None,
+                list: None,
+                task: None,
+                size: 5,
+                completions: 0,
+                concurrency: 2,
+                index: 0,
             }),
             ..Task::default()
         };
@@ -458,10 +962,16 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task {
             id: Some("t1".into()),
-            subjob: Some(tork::task::SubJobTask {
-                id: None, name: Some("sub".into()), description: None,
-                tasks: Some(vec![]), inputs: None, secrets: None,
-                auto_delete: None, output: None, detached: false,
+            subjob: Some(SubJobTask {
+                id: None,
+                name: Some("sub".into()),
+                description: None,
+                tasks: Some(vec![]),
+                inputs: None,
+                secrets: None,
+                auto_delete: None,
+                output: None,
+                detached: false,
                 webhooks: None,
             }),
             ..Task::default()
@@ -470,48 +980,6 @@ mod tests {
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert!(task.subjob.is_some());
         assert_eq!(task.state, *TASK_STATE_RUNNING);
-    }
-
-    // Go: Scheduler default trait
-    #[test]
-    fn test_scheduler_default() {
-        let scheduler = Scheduler::default();
-        let mut task = Task::default();
-        let result = scheduler.schedule_task(&mut task);
-        assert!(result.is_ok());
-    }
-
-    // Go: Scheduler debug
-    #[test]
-    fn test_scheduler_debug() {
-        let scheduler = Scheduler::new();
-        let debug_str = format!("{scheduler:?}");
-        assert!(debug_str.contains("Scheduler"));
-    }
-
-    // Go: ScheduledTaskType serialization roundtrip
-    #[test]
-    fn test_scheduled_task_type_serde_roundtrip() {
-        let original = ScheduledTaskType::Parallel;
-        let json = serde_json::to_string(&original).expect("serialize");
-        let deserialized: ScheduledTaskType =
-            serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(original, deserialized);
-    }
-
-    #[test]
-    fn test_scheduled_task_type_all_serde() {
-        for task_type in [
-            ScheduledTaskType::Regular,
-            ScheduledTaskType::Parallel,
-            ScheduledTaskType::Each,
-            ScheduledTaskType::SubJob,
-        ] {
-            let json = serde_json::to_string(&task_type).expect("serialize");
-            let deserialized: ScheduledTaskType =
-                serde_json::from_str(&json).expect("deserialize");
-            assert_eq!(task_type, deserialized);
-        }
     }
 
     // Go: SchedulerError variants
@@ -525,6 +993,12 @@ mod tests {
 
         let err = SchedulerError::Task("task failed".to_string());
         assert!(err.to_string().contains("task failed"));
+
+        let err = SchedulerError::Datastore("db error".to_string());
+        assert!(err.to_string().contains("db error"));
+
+        let err = SchedulerError::Broker("broker error".to_string());
+        assert!(err.to_string().contains("broker error"));
     }
 
     // Go: Timestamps are set to current time
@@ -548,314 +1022,5 @@ mod tests {
         let started = task.started_at.expect("should have started_at");
         assert!(scheduled >= before && scheduled <= after);
         assert!(started >= before && started <= after);
-    }
-
-    use crate::handlers::test_helpers::{new_uuid, TestEnv};
-    use tork::Datastore;
-
-    /// Go parity: Test_scheduleRegularTask — schedules a regular task
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_regular_task_integration() {
-        let env = TestEnv::new().await;
-        let ds = env.ds.clone() as Arc<dyn tork::Datastore>;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            name: Some("test job".into()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::Regular);
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
-        assert!(task.scheduled_at.is_some());
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleRegularTaskOverrideDefaultQueue
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_regular_task_override_default_queue_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            queue: Some("test-queue".into()),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
-        assert_eq!(task.queue.as_deref(), Some("test-queue"));
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleRegularTaskJobDefaults — verifies defaults applied
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_regular_task_job_defaults_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            defaults: Some(tork::job::JobDefaults {
-                queue: Some("some-queue".into()),
-                ..tork::job::JobDefaults::default()
-            }),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
-        // Note: job defaults application happens in the Go scheduler but the Rust
-        // scheduler is pure state-transition. This test verifies the basic flow.
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleParallelTask
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_parallel_task_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            parallel: Some(ParallelTask {
-                tasks: Some(vec![Task { name: Some("my parallel task".into()), ..Task::default() }]),
-                completions: 0,
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::Parallel);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-        assert!(task.scheduled_at.is_some());
-        assert!(task.started_at.is_some());
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleEachTask
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_each_task_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            each: Some(EachTask {
-                list: Some("[1,2,3]".into()),
-                task: Some(Box::new(Task { ..Task::default() })),
-                ..EachTask::default()
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::Each);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleEachTaskNotaList — each task with non-list expression fails
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_each_task_not_a_list_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            state: tork::task::TASK_STATE_PENDING.clone(),
-            each: Some(EachTask {
-                list: Some("1".into()),
-                task: Some(Box::new(Task { ..Task::default() })),
-                ..EachTask::default()
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        // Rust scheduler is pure state-transition, it doesn't evaluate the list expression.
-        // This test verifies the scheduler transitions to RUNNING for each tasks.
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::Each);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleEachTaskBadExpression
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_each_task_bad_expression_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            each: Some(EachTask {
-                list: Some("{{ bad_expression }}".into()),
-                task: Some(Box::new(Task { ..Task::default() })),
-                ..EachTask::default()
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        // Rust scheduler is pure state-transition — doesn't evaluate expressions.
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::Each);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleSubJobTask
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_subjob_task_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            subjob: Some(tork::task::SubJobTask {
-                name: Some("my sub job".into()),
-                tasks: Some(vec![Task { name: Some("some task".into()), ..Task::default() }]),
-                ..tork::task::SubJobTask::default()
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::SubJob);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-
-        env.cleanup().await;
-    }
-
-    /// Go parity: Test_scheduleDetachedSubJobTask
-    #[tokio::test]
-    #[ignore]
-    async fn test_schedule_detached_subjob_task_integration() {
-        let env = TestEnv::new().await;
-        let scheduler = Scheduler::new();
-
-        let job_id = new_uuid();
-        let job = tork::job::Job {
-            id: Some(job_id.clone()),
-            ..tork::job::Job::default()
-        };
-        env.ds.create_job(job).await.expect("create job");
-
-        let now = OffsetDateTime::now_utc();
-        let mut task = Task {
-            id: Some(new_uuid()),
-            job_id: Some(job_id.clone()),
-            subjob: Some(tork::task::SubJobTask {
-                name: Some("my detached sub job".into()),
-                detached: true,
-                tasks: Some(vec![Task { name: Some("some task".into()), ..Task::default() }]),
-                ..tork::task::SubJobTask::default()
-            }),
-            created_at: Some(now),
-            ..Task::default()
-        };
-
-        let result = scheduler.schedule_task(&mut task).expect("schedule");
-        assert_eq!(result, ScheduledTaskType::SubJob);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
-
-        env.cleanup().await;
     }
 }

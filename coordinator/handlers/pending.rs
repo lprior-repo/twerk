@@ -7,6 +7,11 @@
 //! expression, and either skips it (state→SKIPPED, timestamps→now) or
 //! delegates to `scheduler.ScheduleTask()`.
 
+use std::sync::Arc;
+
+use tork::Broker;
+use tork::Datastore;
+
 use crate::handlers::{
     noop_task_handler, HandlerContext, HandlerError, TaskEventType, TaskHandlerFunc,
 };
@@ -84,18 +89,22 @@ impl std::fmt::Debug for PendingHandler {
 }
 
 impl PendingHandler {
-    /// Create a new pending handler with default scheduler and noop callback.
-    pub fn new() -> Self {
+    /// Create a new pending handler with datastore, broker, and noop callback.
+    pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
         Self {
-            scheduler: Scheduler::new(),
+            scheduler: Scheduler::new(ds, broker),
             handler: noop_task_handler(),
         }
     }
 
-    /// Create a pending handler with a custom handler function.
-    pub fn with_handler(handler: TaskHandlerFunc) -> Self {
+    /// Create a pending handler with datastore, broker, and custom handler function.
+    pub fn with_handler(
+        ds: Arc<dyn Datastore>,
+        broker: Arc<dyn Broker>,
+        handler: TaskHandlerFunc,
+    ) -> Self {
         Self {
-            scheduler: Scheduler::new(),
+            scheduler: Scheduler::new(ds, broker),
             handler,
         }
     }
@@ -120,7 +129,7 @@ impl PendingHandler {
     /// 2. Otherwise delegates to [`Scheduler::schedule_task`] which routes
     ///    by task type (regular / parallel / each / sub-job) and applies
     ///    the correct state transition.
-    pub fn handle(&self, ctx: HandlerContext, task: &mut Task) -> Result<(), HandlerError> {
+    pub async fn handle(&self, ctx: HandlerContext, task: &mut Task) -> Result<(), HandlerError> {
         let decision = evaluate_pending(task);
         match decision {
             PendingDecision::Skip => {
@@ -129,6 +138,7 @@ impl PendingHandler {
             PendingDecision::Schedule => {
                 self.scheduler
                     .schedule_task(task)
+                    .await
                     .map_err(|e| HandlerError::Handler(e.to_string()))?;
             }
         }
@@ -138,7 +148,8 @@ impl PendingHandler {
 
 impl Default for PendingHandler {
     fn default() -> Self {
-        Self::new()
+        // This won't work without ds and broker - panic with a clear message
+        panic!("PendingHandler::default() requires ds and broker. Use PendingHandler::new(ds, broker) instead.");
     }
 }
 

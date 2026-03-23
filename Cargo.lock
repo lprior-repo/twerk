@@ -4947,6 +4947,7 @@ name = "tork-cache"
 version = "0.1.0"
 dependencies = [
  "dashmap",
+ "itertools",
  "serde",
  "thiserror 2.0.18",
  "tokio",
@@ -4986,6 +4987,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bcrypt",
+ "bollard",
  "bytes",
  "dashmap",
  "datastore",
@@ -5001,6 +5003,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tap",
+ "tempfile",
  "thiserror 2.0.18",
  "time",
  "tokio",

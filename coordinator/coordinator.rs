@@ -369,7 +369,7 @@ impl Coordinator {
         let broker = cfg.broker.clone();
         let ds = cfg.datastore.clone();
 
-        let pending_handler = Arc::new(PendingHandler::new());
+        let pending_handler = Arc::new(PendingHandler::new(ds.clone(), broker.clone()));
         let started_handler = Arc::new(StartedHandler::new(ds.clone(), broker.clone()));
         let completed_handler = Arc::new(CompletedHandler::new(ds.clone(), broker.clone()));
         let error_handler = Arc::new(ErrorHandler::new());
@@ -628,7 +628,7 @@ impl Coordinator {
                     let handler = handler.clone();
                     Box::pin(async move {
                         let mut t = (*task).clone();
-                        if let Err(e) = handler.handle(Arc::new(()), &mut t) {
+                        if let Err(e) = handler.handle(Arc::new(()), &mut t).await {
                             error!(error = %e, "pending handler error");
                         }
                     })

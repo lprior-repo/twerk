@@ -474,7 +474,6 @@ mod tests {
 
         env.cleanup().await;
     }
-}
 
     // -- Mock broker for construction tests ----------------------------------
 

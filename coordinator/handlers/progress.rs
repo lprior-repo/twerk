@@ -418,7 +418,6 @@ mod tests {
 
         env.cleanup().await;
     }
-}
 
     // -- Mock datastore for construction tests ------------------------------
 

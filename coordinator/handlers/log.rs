@@ -148,7 +148,6 @@ mod tests {
 
         env.cleanup().await;
     }
-}
 
     /// A minimal no-op datastore for compile-time tests.
     struct NoopDs;

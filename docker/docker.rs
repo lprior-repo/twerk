@@ -1151,7 +1151,13 @@ impl Container {
         let status_code: i64 = result.status_code;
 
         if status_code != 0 {
-            let snippet = self.read_logs_tail(10).await.unwrap_or_default();
+            let snippet = match self.read_logs_tail(10).await {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::debug!(error = %e, "failed to read logs tail, using empty snippet");
+                    String::new()
+                }
+            };
             return Err(DockerError::NonZeroExit(status_code, snippet));
         }
 

@@ -42,6 +42,38 @@ fn is_none_or_empty_vec<T>(opt: &Option<Vec<T>>) -> bool {
     opt.as_ref().is_none_or(|v| v.is_empty())
 }
 
+/// Parses a timeout duration string (e.g., "5s", "1m", "1h", "500ms").
+/// Matches Go's `time.ParseDuration` behavior.
+/// Returns None if the string is empty or has invalid format.
+fn parse_timeout_duration(s: &str) -> Option<std::time::Duration> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Some(std::time::Duration::from_secs(0));
+    }
+    
+    let (num_str, unit) = if s.ends_with("ms") {
+        (&s[..s.len()-2], "ms")
+    } else if s.ends_with('s') {
+        (&s[..s.len()-1], "s")
+    } else if s.ends_with('m') {
+        (&s[..s.len()-1], "m")
+    } else if s.ends_with('h') {
+        (&s[..s.len()-1], "h")
+    } else {
+        return None; // Invalid unit
+    };
+    
+    let num: u64 = num_str.parse().ok()?;
+    
+    Some(match unit {
+        "ms" => std::time::Duration::from_millis(num),
+        "s" => std::time::Duration::from_secs(num),
+        "m" => std::time::Duration::from_secs(num * 60),
+        "h" => std::time::Duration::from_secs(num * 3600),
+        _ => return None,
+    })
+}
+
 // =============================================================================
 // Configuration helpers — local implementation matching Go conf module
 // =============================================================================
@@ -477,6 +509,12 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             return Box::pin(async { Err(anyhow!("task run script is required")) });
         }
 
+        // Parse timeout from task (Go parity: worker.doRunTask creates timeout context)
+        let timeout_duration = task
+            .timeout
+            .as_ref()
+            .and_then(|t| parse_timeout_duration(t));
+
         // Build environment
         let env_vars: HashMap<String, String> = task
             .env
@@ -543,10 +581,20 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             cmd.stderr(Stdio::piped());
 
             // Use output() to avoid deadlock (wait() before reading stdout/stderr causes deadlock)
-            let output = cmd
-                .output()
-                .await
-                .map_err(|e| anyhow!("failed to spawn shell: {}", e))?;
+            // Apply timeout if task.timeout is set (Go parity: ctx.WithTimeout in doRunTask)
+            let output = match timeout_duration {
+                Some(dur) => {
+                    tokio::time::timeout(dur, cmd.output())
+                        .await
+                        .map_err(|_| anyhow!("task timeout after {:?}", dur))?
+                        .map_err(|e| anyhow!("failed to spawn shell: {}", e))?
+                }
+                None => {
+                    cmd.output()
+                        .await
+                        .map_err(|e| anyhow!("failed to spawn shell: {}", e))?
+                }
+            };
 
             // Log stdout
             if !output.stdout.is_empty() {

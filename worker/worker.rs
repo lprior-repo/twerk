@@ -345,7 +345,18 @@ impl Worker {
             let task_for_handler = Arc::clone(&task_for_broker);
             tokio::select! {
                 result = handler(task_for_handler) => {
-                    result.map_err(|e| anyhow::anyhow!("handler error: {}", e))?
+                    // When middleware fails without calling next handler, we still need
+                    // to publish the task to QUEUE_ERROR with the error state
+                    match result.map_err(|e| anyhow::anyhow!("handler error: {}", e)) {
+                        Ok((r, t)) => (r, t),
+                        Err(e) => {
+                            let mut t = (*task_for_broker).clone();
+                            t.error = Some(e.to_string());
+                            t.failed_at = Some(time::OffsetDateTime::now_utc());
+                            t.state = TASK_STATE_FAILED;
+                            (Err(e), Arc::new(t))
+                        }
+                    }
                 }
                 _ = &mut cancel_rx => {
                     tracing::debug!("task cancelled");
@@ -370,7 +381,7 @@ impl Worker {
                     .await
                     .map_err(WorkerError::Broker)?;
             }
-            Err(e) => {
+            Err(_e) => {
                 // Task failed - final_task has error state set by handler
                 self.broker
                     .publish_task(QUEUE_ERROR.to_string(), &final_task)
@@ -1142,6 +1153,14 @@ mod tests {
     >;
     type BoxedMiddlewareFn = Box<dyn Fn(BoxedTaskFn) -> BoxedTaskFn + Send + Sync>;
 
+    // Middleware function type matching Config.middleware
+    type ConfigMiddlewareFn = Arc<
+        dyn Fn(Arc<Task>) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>,
+        > + Send + Sync,
+    >;
+    type BoxedConfigMiddleware = Box<dyn Fn(ConfigMiddlewareFn) -> ConfigMiddlewareFn + Send + Sync>;
+
     // ---- TestStart (mirrors Go TestStart) ----
     // Verifies basic start/stop lifecycle without error.
     #[tokio::test]
@@ -1357,14 +1376,14 @@ mod tests {
             .await
             .unwrap();
 
-        let mw: BoxedMiddlewareFn = Box::new(move |next: BoxedTaskFn| -> BoxedTaskFn {
+        let mw: BoxedConfigMiddleware = Box::new(move |next: ConfigMiddlewareFn| -> ConfigMiddlewareFn {
             let called = Arc::clone(&middleware_called_clone);
             Arc::new(move |task: Arc<Task>| {
                 let next = Arc::clone(&next);
                 let called = Arc::clone(&called);
                 Box::pin(async move {
                     called.store(true, std::sync::atomic::Ordering::SeqCst);
-                    next(task).await
+                    next(task).await.map(|(_inner_result, task)| (Ok(()), task))
                 })
             })
         });
@@ -1438,8 +1457,9 @@ mod tests {
             .await
             .unwrap();
 
-        let mw: BoxedMiddlewareFn =
-            Box::new(|_next: BoxedTaskFn| -> BoxedTaskFn {
+        let mw: BoxedConfigMiddleware =
+            Box::new(|_next: ConfigMiddlewareFn| -> ConfigMiddlewareFn {
+                let _ = _next; // Suppress unused warning
                 Arc::new(|_task: Arc<Task>| {
                     Box::pin(async { Err(anyhow::anyhow!("middleware failure")) })
                 })

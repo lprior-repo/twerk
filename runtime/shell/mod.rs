@@ -461,6 +461,9 @@ fn validate_task(task: &Task) -> Result<(), ShellError> {
     if !task.sidecars.is_empty() {
         return Err(ShellError::SidecarsNotSupported);
     }
+    if !task.mounts.is_empty() {
+        return Err(ShellError::MountsNotSupported);
+    }
     Ok(())
 }
 

@@ -21,6 +21,12 @@ use tork::{
 };
 use thiserror::Error;
 
+/// A marker trait for types that can be used within a transaction.
+/// This allows for dynamic dispatch of transaction callbacks.
+pub trait TransactionMarker: Send + Sync {}
+
+impl<T: Send + Sync> TransactionMarker for T {}
+
 /// Result type for datastore operations
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -1137,7 +1137,7 @@ mod tests {
     // Type aliases for middleware readability
     type BoxedTaskFn = Arc<
         dyn Fn(Arc<Task>) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>,
+            Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>,
         > + Send + Sync,
     >;
     type BoxedMiddlewareFn = Box<dyn Fn(BoxedTaskFn) -> BoxedTaskFn + Send + Sync>;

@@ -417,7 +417,7 @@ impl JobContext {
 }
 
 /// JobDefaults holds default configuration for tasks
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct JobDefaults {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry: Option<task::TaskRetry>,

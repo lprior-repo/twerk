@@ -655,6 +655,7 @@ pub enum SchedulerError {
 
 #[cfg(test)]
 mod tests {
+    use tork::task::{EachTask, ParallelTask, SubJobTask};
     use super::*;
 
     // -- classify_task_type (pure calc) ------------------------------------
@@ -801,7 +802,7 @@ mod tests {
             ..JobDefaults::default()
         };
         apply_job_defaults(&mut task, &defaults);
-        assert_eq!(task.priority, Some(10));
+        assert_eq!(task.priority, 10);
     }
 
     #[test]
@@ -809,14 +810,14 @@ mod tests {
         let mut task = Task::default();
         let defaults = JobDefaults {
             retry: Some(tork::task::TaskRetry {
-                limit: Some(3),
-                attempts: Some(1),
+                limit: 3,
+                attempts: 1,
             }),
             ..JobDefaults::default()
         };
         apply_job_defaults(&mut task, &defaults);
         assert!(task.retry.is_some());
-        assert_eq!(task.retry.as_ref().and_then(|r| r.limit), Some(3));
+        assert_eq!(task.retry.as_ref().map(|r| r.limit), Some(3));
     }
 
     #[test]
@@ -905,7 +906,7 @@ mod tests {
             id: Some("t1".into()),
             job_id: Some("j1".into()),
             name: Some("build".into()),
-            position: Some(5),
+            position: 5,
             queue: Some("my-queue".into()),
             ..Task::default()
         };
@@ -913,7 +914,7 @@ mod tests {
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert_eq!(task.job_id.as_deref(), Some("j1"));
         assert_eq!(task.name.as_deref(), Some("build"));
-        assert_eq!(task.position, Some(5));
+        assert_eq!(task.position, 5);
         assert_eq!(task.queue.as_deref(), Some("my-queue"));
         assert_eq!(task.state, *TASK_STATE_SCHEDULED);
     }

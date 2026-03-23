@@ -36,6 +36,7 @@ const HOST_NETWORK_NAME: &str = "host";
 const PROGRESS_POLL_INTERVAL: Duration = Duration::from_secs(10);
 const DEFAULT_IMAGE_TTL: Duration = Duration::from_secs(72 * 3600); // 3 days
 const PRUNE_INTERVAL: Duration = Duration::from_secs(3600); // 1 hour
+const CREATE_TIMEOUT: Duration = Duration::from_secs(30); // 30s for podman create (matches Go)
 
 // ── Error taxonomy ──────────────────────────────────────────────
 
@@ -831,9 +832,9 @@ impl PodmanRuntime {
         create_cmd.stdout(Stdio::piped());
         create_cmd.stderr(Stdio::piped());
 
-        let create_output = create_cmd
-            .output()
+        let create_output = tokio::time::timeout(CREATE_TIMEOUT, create_cmd.output())
             .await
+            .map_err(|_| PodmanError::ContainerCreation("create timed out after 30 seconds".to_string()))?
             .map_err(|e| PodmanError::ContainerCreation(e.to_string()))?;
 
         if !create_output.status.success() {

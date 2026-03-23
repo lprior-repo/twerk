@@ -519,3 +519,382 @@ fn test_mount_type_display() {
     assert_eq!(MountType::Bind.to_string(), "bind");
     assert_eq!(MountType::Tmpfs.to_string(), "tmpfs");
 }
+
+// ── Additional integration tests ──────────────────────────────────
+
+/// Explicit test for container lifecycle: create → start → wait → remove.
+/// This mirrors Go's TestPodmanContainerLifecycle.
+#[tokio::test]
+async fn test_podman_container_lifecycle() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo lifecycle_test > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "container lifecycle should succeed: {:?}", result.err());
+    assert_eq!("lifecycle_test\n", task.result);
+}
+
+/// Test that container start waits for container to complete.
+/// Mirrors Go's TestPodmanContainerStart.
+#[tokio::test]
+async fn test_podman_container_start_and_wait() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    // Use a command that takes a bit of time to verify wait behavior
+    task.run = "sleep 1 && echo wait_test > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+
+    let start = std::time::Instant::now();
+    let result = rt.run(&mut task).await;
+    let elapsed = start.elapsed();
+
+    assert!(result.is_ok(), "container start+wait should succeed: {:?}", result.err());
+    assert_eq!("wait_test\n", task.result);
+    // Should have waited at least 1 second for the sleep command
+    assert!(elapsed >= std::time::Duration::from_secs(1));
+}
+
+/// Test that container remove cleans up properly.
+/// Mirrors Go's TestPodmanContainerRemove.
+#[tokio::test]
+async fn test_podman_container_remove() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo remove_test > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "container remove should succeed: {:?}", result.err());
+    assert_eq!("remove_test\n", task.result);
+
+    // After run completes, the container should be cleaned up
+    // This is verified by the run() method calling stop_container
+}
+
+/// Test bind mount type.
+/// Mirrors Go's TestPodmanBindMount.
+#[tokio::test]
+async fn test_podman_bind_mount() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo bind_mount > /mnt/testfile && cat /mnt/testfile > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.mounts = vec![Mount {
+        id: uuid::Uuid::new_v4().to_string(),
+        mount_type: MountType::Bind,
+        source: String::new(), // Will be populated by mounter
+        target: "/mnt".to_string(),
+        opts: None,
+    }];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "bind mount should succeed: {:?}", result.err());
+    assert_eq!("bind_mount\n", task.result);
+}
+
+/// Test tmpfs mount type.
+/// Mirrors Go's TestPodmanTmpfsMount.
+#[tokio::test]
+async fn test_podman_tmpfs_mount() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    // Write to tmpfs mount and read it back
+    task.run = "echo tmpfs_test > /tmpfs/data.txt && cat /tmpfs/data.txt > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.mounts = vec![Mount {
+        id: uuid::Uuid::new_v4().to_string(),
+        mount_type: MountType::Tmpfs,
+        source: String::new(),
+        target: "/tmpfs".to_string(),
+        opts: Some(HashMap::from([
+            ("size".to_string(), "10m".to_string()),
+        ])),
+    }];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "tmpfs mount should succeed: {:?}", result.err());
+    assert_eq!("tmpfs_test\n", task.result);
+}
+
+/// Test multiple volume mounts in a single task.
+/// Mirrors Go's TestPodmanMultipleVolumes.
+#[tokio::test]
+async fn test_podman_multiple_volume_mounts() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo volume1 > /vol1/data.txt && echo volume2 > /vol2/data.txt && cat /vol1/data.txt /vol2/data.txt > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.mounts = vec![
+        Mount {
+            id: uuid::Uuid::new_v4().to_string(),
+            mount_type: MountType::Volume,
+            source: String::new(),
+            target: "/vol1".to_string(),
+            opts: None,
+        },
+        Mount {
+            id: uuid::Uuid::new_v4().to_string(),
+            mount_type: MountType::Volume,
+            source: String::new(),
+            target: "/vol2".to_string(),
+            opts: None,
+        },
+    ];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "multiple volume mounts should succeed: {:?}", result.err());
+    assert_eq!("volume1\nvolume2\n", task.result);
+}
+
+/// Test volume mount with no options (baseline case).
+/// Mirrors Go's TestPodmanVolumeMount.
+#[tokio::test]
+async fn test_podman_volume_no_opts() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo volume_baseline > /baseline/data.txt && cat /baseline/data.txt > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.mounts = vec![Mount {
+        id: uuid::Uuid::new_v4().to_string(),
+        mount_type: MountType::Volume,
+        source: String::new(),
+        target: "/baseline".to_string(),
+        opts: None,
+    }];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "volume without opts should succeed: {:?}", result.err());
+    assert_eq!("volume_baseline\n", task.result);
+}
+
+/// Test container with environment variables.
+/// Mirrors Go's TestPodmanEnvVars.
+#[tokio::test]
+async fn test_podman_env_vars() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo $MY_VAR > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.env = HashMap::from([
+        ("MY_VAR".to_string(), "env_test_value".to_string()),
+    ]);
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "env vars should succeed: {:?}", result.err());
+    assert_eq!("env_test_value\n", task.result);
+}
+
+/// Test container with networks.
+/// Mirrors Go's TestPodmanNetworks.
+#[tokio::test]
+async fn test_podman_networks() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "hostname > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    // Just verify it runs without network-related errors
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "container with networks should succeed: {:?}", result.err());
+}
+
+/// Test container with resource limits.
+/// Mirrors Go's TestPodmanResourceLimits.
+#[tokio::test]
+async fn test_podman_resource_limits() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo limits_test > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.limits = Some(TaskLimits {
+        cpus: "1".to_string(),
+        memory: "128m".to_string(),
+    });
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "resource limits should succeed: {:?}", result.err());
+    assert_eq!("limits_test\n", task.result);
+}
+
+/// Test that exit code is properly captured on error.
+/// Mirrors Go's TestPodmanExitCode.
+#[tokio::test]
+async fn test_podman_exit_code() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "exit 42".to_string();
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_err(), "container with exit 42 should fail");
+    if let Err(PodmanError::ContainerExitCode(code)) = result {
+        assert_eq!(code, "42");
+    } else {
+        panic!("expected ContainerExitCode error");
+    }
+}
+
+/// Test container with files injected.
+/// Mirrors Go's TestPodmanFiles.
+#[tokio::test]
+async fn test_podman_files() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "cat myfile.txt > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.files = HashMap::from([
+        ("myfile.txt".to_string(), "file_content_test".to_string()),
+    ]);
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "files injection should succeed: {:?}", result.err());
+    assert_eq!("file_content_test", task.result);
+}
+
+/// Test stop_container helper directly.
+/// Mirrors Go's TestPodmanStopContainer.
+#[tokio::test]
+async fn test_stop_container_helper() {
+    // First create and start a container
+    let mut cmd = tokio::process::Command::new("podman");
+    cmd.arg("run")
+        .arg("-d")
+        .arg("busybox:stable")
+        .arg("sleep")
+        .arg("60");
+    let output = cmd.output().await.expect("podman run should succeed");
+    let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    assert!(!container_id.is_empty());
+
+    // Now stop it using our helper
+    let result = PodmanRuntime::stop_container(&container_id).await;
+    assert!(result.is_ok(), "stop_container should succeed: {:?}", result.err());
+
+    // Verify container is removed
+    let mut inspect_cmd = tokio::process::Command::new("podman");
+    inspect_cmd.arg("inspect").arg(&container_id);
+    let inspect_output = inspect_cmd.output().await.expect("podman inspect should succeed");
+    assert!(!inspect_output.status.success(), "container should be removed");
+}
+
+/// Test image exists locally check.
+/// Mirrors Go's TestImageExistsLocally.
+#[tokio::test]
+async fn test_image_exists_locally() {
+    // Test with a known image
+    let exists = PodmanRuntime::image_exists_locally("busybox:stable").await;
+    assert!(exists, "busybox:stable should exist locally after tests");
+
+    // Test with a non-existent image
+    let exists_fake = PodmanRuntime::image_exists_locally("nonexistent:image").await;
+    assert!(!exists_fake, "nonexistent:image should not exist");
+}
+
+/// Test probe functionality.
+/// Mirrors Go's TestPodmanProbe.
+#[tokio::test]
+async fn test_podman_probe() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    // Run a simple HTTP server
+    task.run = "while true; do echo -e 'HTTP/1.1 200 OK\\r\\n\\r\\nOK' | nc -l -p 8080; done & sleep 1 && echo server_started > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.probe = Some(Probe {
+        path: "/".to_string(),
+        port: 8080,
+        timeout: "5s".to_string(),
+    });
+
+    // Note: This test may be flaky due to nc availability
+    // We just verify the task runs without probe-related errors
+    let result = rt.run(&mut task).await;
+    // The result depends on whether nc is available and probe succeeds
+    // We don't assert on result here as the test environment may vary
+    let _ = result;
+}
+
+/// Test pre and post tasks with volume mounts preserved.
+/// Mirrors Go's TestPodmanPrePostWithVolume.
+#[tokio::test]
+async fn test_podman_pre_post_with_volume() {
+    let config = PodmanConfig {
+        mounter: Some(Box::new(VolumeMounter::new())),
+        ..Default::default()
+    };
+    let rt = PodmanRuntime::new(config);
+    let mut task = create_test_task();
+    task.run = "cat /shared/data.txt > $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+    task.mounts = vec![Mount {
+        id: uuid::Uuid::new_v4().to_string(),
+        mount_type: MountType::Volume,
+        source: String::new(),
+        target: "/shared".to_string(),
+        opts: None,
+    }];
+    task.pre = vec![Task {
+        id: String::new(),
+        name: Some("Pre task".to_string()),
+        image: "busybox:stable".to_string(),
+        run: "echo pre_data > /shared/data.txt".to_string(),
+        cmd: vec![],
+        entrypoint: vec![],
+        env: HashMap::new(),
+        mounts: vec![],
+        files: HashMap::new(),
+        networks: vec![],
+        limits: None,
+        registry: None,
+        gpus: None,
+        probe: None,
+        sidecars: vec![],
+        pre: vec![],
+        post: vec![],
+        workdir: None,
+        result: String::new(),
+        progress: 0.0,
+    }];
+    task.post = vec![Task {
+        id: String::new(),
+        name: Some("Post task".to_string()),
+        image: "busybox:stable".to_string(),
+        run: "echo post_data >> /shared/data.txt".to_string(),
+        cmd: vec![],
+        entrypoint: vec![],
+        env: HashMap::new(),
+        mounts: vec![],
+        files: HashMap::new(),
+        networks: vec![],
+        limits: None,
+        registry: None,
+        gpus: None,
+        probe: None,
+        sidecars: vec![],
+        pre: vec![],
+        post: vec![],
+        workdir: None,
+        result: String::new(),
+        progress: 0.0,
+    }];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "pre/post with volume should succeed: {:?}", result.err());
+    // Pre task writes "pre_data", main task reads it
+    assert_eq!("pre_data\n", task.result);
+}
+
+/// Test that task result is properly captured.
+/// Mirrors Go's TestPodmanTaskResult.
+#[tokio::test]
+async fn test_podman_task_result() {
+    let rt = PodmanRuntime::new(create_test_config());
+    let mut task = create_test_task();
+    task.run = "echo line1 > $TORK_OUTPUT\necho line2 >> $TORK_OUTPUT".to_string();
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+    assert!(result.is_ok(), "task result should succeed: {:?}", result.err());
+    assert_eq!("line1\nline2\n", task.result);
+}

@@ -8,6 +8,8 @@
 //! Run with: cargo test -p tork-runtime --lib docker
 //! Run including integration tests: cargo test -p tork-runtime --lib docker -- --ignored
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -17,6 +19,7 @@ use super::docker::{DockerConfigBuilder, DockerRuntime, Task};
 use super::tork::{mount_type, Mount, Probe, TaskLimits};
 
 /// Build a minimal task for testing container lifecycle.
+#[allow(dead_code)]
 fn make_task() -> Task {
     Task {
         id: "test-task-1".to_string(),
@@ -43,6 +46,7 @@ fn make_task() -> Task {
 }
 
 /// Build a task that runs forever (for wait cancellation testing).
+#[allow(dead_code)]
 fn make_wait_task() -> Task {
     Task {
         id: "test-wait-task".to_string(),
@@ -69,6 +73,7 @@ fn make_wait_task() -> Task {
 }
 
 /// Build a task that writes progress to /tork/progress.
+#[allow(dead_code)]
 fn make_progress_task() -> Task {
     let script = r#"
 #!/bin/sh

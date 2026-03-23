@@ -35,6 +35,7 @@ use tracing::{debug, warn};
 
 use crate::broker::Broker;
 use crate::runtime::shell::reexec::ReexecCommand;
+use crate::runtime::Mounter;
 use tork::task::{Task as TorkTask, TaskLogPart};
 
 pub const DEFAULT_UID: &str = "-";
@@ -111,6 +112,7 @@ pub struct ShellConfig {
     pub gid: String,
     pub reexec: Option<ReexecCommand>,
     pub broker: Option<Arc<dyn Broker + Send + Sync>>,
+    pub mounter: Option<Box<dyn Mounter + Send + Sync>>,
 }
 
 impl std::fmt::Debug for ShellConfig {
@@ -120,6 +122,8 @@ impl std::fmt::Debug for ShellConfig {
             .field("uid", &self.uid)
             .field("gid", &self.gid)
             .field("reexec", &"<fn>")
+            .field("broker", &"<broker>")
+            .field("mounter", &"<mounter>")
             .finish()
     }
 }
@@ -132,6 +136,7 @@ impl Default for ShellConfig {
             gid: DEFAULT_GID.to_string(),
             reexec: None,
             broker: None,
+            mounter: None,
         }
     }
 }
@@ -143,6 +148,7 @@ pub struct ShellRuntime {
     gid: String,
     reexec: ReexecCommand,
     broker: Option<Arc<dyn Broker + Send + Sync>>,
+    mounter: Option<Box<dyn Mounter + Send + Sync>>,
 }
 
 impl std::fmt::Debug for ShellRuntime {
@@ -153,6 +159,7 @@ impl std::fmt::Debug for ShellRuntime {
             .field("gid", &self.gid)
             .field("reexec", &"<fn>")
             .field("broker", &"<broker>")
+            .field("mounter", &"<mounter>")
             .finish()
     }
 }
@@ -166,6 +173,7 @@ impl ShellRuntime {
             gid: config.gid,
             reexec: config.reexec.unwrap_or_else(|| Box::new(reexec_default)),
             broker: config.broker,
+            mounter: config.mounter,
         }
     }
 

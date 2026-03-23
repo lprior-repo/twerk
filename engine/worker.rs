@@ -24,7 +24,6 @@ use tork::mount::Mount;
 use tork::runtime::Runtime as RuntimeTrait;
 use tork::runtime::mount::{MountError, Mounter};
 use tork::runtime::multi::MultiMounter;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use tracing::{debug, warn};
@@ -455,11 +454,22 @@ impl RuntimeTrait for ShellRuntimeAdapter {
                 .await
                 .map_err(|e| anyhow!("failed to write script: {}", e))?;
 
-            // Build the command
-            let mut cmd = Command::new(&shell_cmd[0]);
-            if shell_cmd.len() > 1 {
-                cmd.args(&shell_cmd[1..]);
+            // Make script executable (required for bash to run it)
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = tokio::fs::metadata(&script_path)
+                    .await
+                    .map_err(|e| anyhow!("failed to get script permissions: {}", e))?
+                    .permissions();
+                perms.set_mode(0o755);
+                tokio::fs::set_permissions(&script_path, perms)
+                    .await
+                    .map_err(|e| anyhow!("failed to set script permissions: {}", e))?;
             }
+
+            // Build the command - run script directly (not via -c) so shebang works
+            let mut cmd = Command::new(&shell_cmd[0]);
             cmd.arg(script_path.to_string_lossy().as_ref());
             
             // Set environment
@@ -485,46 +495,31 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
 
-            // Spawn and wait
-            let mut child = cmd
-                .spawn()
+            // Use output() to avoid deadlock (wait() before reading stdout/stderr causes deadlock)
+            let output = cmd
+                .output()
+                .await
                 .map_err(|e| anyhow!("failed to spawn shell: {}", e))?;
 
-            // Read output
-            let stdout = child.stdout.take();
-            let stderr = child.stderr.take();
-
-            let status = child
-                .wait()
-                .await
-                .map_err(|e| anyhow!("failed to wait for shell: {}", e))?;
-
-            // Read stdout if available
-            if let Some(stdout) = stdout {
-                let mut reader = BufReader::new(stdout);
-                let mut line = String::new();
-                while let Ok(n) = reader.read_line(&mut line).await {
-                    if n == 0 {
-                        break;
-                    }
-                    debug!("[shell] {}", line.trim_end());
-                    line.clear();
+            // Log stdout
+            if !output.stdout.is_empty() {
+                let stdout_str = std::str::from_utf8(&output.stdout)
+                    .unwrap_or_default();
+                for line in stdout_str.lines() {
+                    debug!("[shell] {}", line);
                 }
             }
 
-            // Read stderr if available
-            if let Some(stderr) = stderr {
-                let mut reader = BufReader::new(stderr);
-                let mut line = String::new();
-                while let Ok(n) = reader.read_line(&mut line).await {
-                    if n == 0 {
-                        break;
-                    }
-                    warn!("[shell stderr] {}", line.trim_end());
-                    line.clear();
+            // Log stderr
+            if !output.stderr.is_empty() {
+                let stderr_str = std::str::from_utf8(&output.stderr)
+                    .unwrap_or_default();
+                for line in stderr_str.lines() {
+                    warn!("[shell stderr] {}", line);
                 }
             }
 
+            let status = output.status;
             if !status.success() {
                 return Err(anyhow!(
                     "shell command failed with exit code: {:?}",
@@ -1425,8 +1420,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_shell_runtime_adapter_valid_task() {
+        // Use just ["bash"] - bash reads file directly, bash -c expects command string
         let adapter = ShellRuntimeAdapter::new(
-            vec!["bash".to_string(), "-c".to_string()],
+            vec!["bash".to_string()],
             "-".to_string(),
             "-".to_string(),
         );
@@ -1513,3 +1509,6 @@ mod tests {
         assert!(result.is_ok());
     }
 }
+
+#[cfg(test)]
+mod worker_test;

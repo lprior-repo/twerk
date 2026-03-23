@@ -780,3 +780,604 @@ async fn test_disable_endpoint() {
 
     env.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------
+// Tests: GET /tasks/{id}/log
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_getTaskLog
+#[tokio::test]
+async fn test_get_task_log() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    // Create a job and task
+    let job_id = new_uuid();
+    let job = Job {
+        id: Some(job_id.clone()),
+        name: Some("test job".to_string()),
+        state: JOB_STATE_PENDING.to_string(),
+        ..Default::default()
+    };
+    env.ds.create_job(job).await.expect("create job");
+
+    let task_id = new_uuid();
+    let task = Task {
+        id: Some(task_id.clone()),
+        name: Some("test task".to_string()),
+        created_at: Some(OffsetDateTime::now_utc()),
+        job_id: Some(job_id.clone()),
+        state: TASK_STATE_PENDING.clone(),
+        ..Default::default()
+    };
+    env.ds.create_task(task).await.expect("create task");
+
+    // Add log parts
+    let log_part = tork::job::JobLogPart {
+        id: Some(new_uuid()),
+        job_id: Some(job_id.clone()),
+        task_id: Some(task_id.clone()),
+        part: 1,
+        content: "log line 1".to_string(),
+        created_at: Some(OffsetDateTime::now_utc()),
+        ..Default::default()
+    };
+    env.ds
+        .append_task_log_part(log_part)
+        .await
+        .expect("append log part");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) =
+        make_request(&router, Method::GET, &format!("/tasks/{}/log", task_id), None).await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_getTaskLogUnknownTask
+#[tokio::test]
+async fn test_get_task_log_unknown_task() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) =
+        make_request(&router, Method::GET, "/tasks/unknown-id/log", None).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: GET /jobs/{id}/log
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_getJobLog
+#[tokio::test]
+async fn test_get_job_log() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let job_id = new_uuid();
+    let job = Job {
+        id: Some(job_id.clone()),
+        name: Some("test job".to_string()),
+        state: JOB_STATE_PENDING.to_string(),
+        ..Default::default()
+    };
+    env.ds.create_job(job).await.expect("create job");
+
+    // Add log parts
+    let log_part = tork::job::JobLogPart {
+        id: Some(new_uuid()),
+        job_id: Some(job_id.clone()),
+        task_id: None,
+        part: 1,
+        content: "job log line".to_string(),
+        created_at: Some(OffsetDateTime::now_utc()),
+        ..Default::default()
+    };
+    env.ds
+        .append_job_log_part(log_part)
+        .await
+        .expect("append log part");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) =
+        make_request(&router, Method::GET, &format!("/jobs/{}/log", job_id), None).await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_getJobLogUnknownJob
+#[tokio::test]
+async fn test_get_job_log_unknown_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) =
+        make_request(&router, Method::GET, "/jobs/unknown-id/log", None).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: POST /scheduled-jobs
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_createScheduledJob
+#[tokio::test]
+async fn test_create_scheduled_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker.clone());
+    let router = create_router(state);
+
+    let json_body = json!({
+        "name": "test scheduled job",
+        "cron": "0 * * * *",
+        "tasks": [{
+            "name": "test task",
+            "image": "some:image"
+        }]
+    });
+
+    let (status, body) =
+        make_json_request(&router, "/scheduled-jobs", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let result: serde_json::Value = serde_json::from_slice(&body).expect("parse response");
+    assert_eq!(result["state"], "ACTIVE");
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_createScheduledJobInvalidCron
+#[tokio::test]
+async fn test_create_scheduled_job_invalid_cron() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker.clone());
+    let router = create_router(state);
+
+    let json_body = json!({
+        "name": "test scheduled job",
+        "cron": "not-a-cron",
+        "tasks": [{
+            "name": "test task",
+            "image": "some:image"
+        }]
+    });
+
+    let (status, _body) =
+        make_json_request(&router, "/scheduled-jobs", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: GET /scheduled-jobs
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_listScheduledJobs
+#[tokio::test]
+async fn test_list_scheduled_jobs() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    // Create scheduled jobs
+    for i in 0..5 {
+        let sj = tork::job::ScheduledJob {
+            id: Some(new_uuid()),
+            name: Some(format!("scheduled-job-{}", i)),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            created_at: OffsetDateTime::now_utc(),
+            ..Default::default()
+        };
+        env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+    }
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) = make_request(&router, Method::GET, "/scheduled-jobs", None).await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    #[derive(Debug, Deserialize)]
+    struct Page<T> {
+        size: i64,
+        total_pages: i64,
+        number: i64,
+    }
+    let page: Page<tork::job::ScheduledJob> =
+        serde_json::from_slice(&body).expect("parse page");
+    assert_eq!(page.size, 10);
+    assert_eq!(page.number, 1);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: GET /scheduled-jobs/{id}
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_getScheduledJob
+#[tokio::test]
+async fn test_get_scheduled_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let sj_id = new_uuid();
+    let sj = tork::job::ScheduledJob {
+        id: Some(sj_id.clone()),
+        name: Some("test scheduled job".to_string()),
+        state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        created_at: OffsetDateTime::now_utc(),
+        ..Default::default()
+    };
+    env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) =
+        make_request(&router, Method::GET, &format!("/scheduled-jobs/{}", sj_id), None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let returned: tork::job::ScheduledJob =
+        serde_json::from_slice(&body).expect("parse scheduled job");
+    assert_eq!(returned.id.as_deref(), Some(&sj_id));
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_getUnknownScheduledJob
+#[tokio::test]
+async fn test_get_unknown_scheduled_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) =
+        make_request(&router, Method::GET, "/scheduled-jobs/unknown-id", None).await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: PUT /scheduled-jobs/{id}/pause
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_pauseScheduledJob
+#[tokio::test]
+async fn test_pause_scheduled_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let sj_id = new_uuid();
+    let sj = tork::job::ScheduledJob {
+        id: Some(sj_id.clone()),
+        name: Some("test scheduled job".to_string()),
+        state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        created_at: OffsetDateTime::now_utc(),
+        ..Default::default()
+    };
+    env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) =
+        make_json_put_request(&router, &format!("/scheduled-jobs/{}/pause", sj_id), None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let body_str = String::from_utf8(body).expect("invalid UTF-8");
+    assert_eq!(body_str, "{\"status\":\"OK\"}");
+
+    // Verify state changed to PAUSED
+    let sj = env
+        .ds
+        .get_scheduled_job_by_id(sj_id)
+        .await
+        .expect("get scheduled job");
+    assert_eq!(sj.unwrap().state, tork::job::SCHEDULED_JOB_STATE_PAUSED.to_string());
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_pauseNonActiveScheduledJob (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_pause_non_active_scheduled_job_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let sj_id = new_uuid();
+    let sj = tork::job::ScheduledJob {
+        id: Some(sj_id.clone()),
+        name: Some("test scheduled job".to_string()),
+        state: tork::job::SCHEDULED_JOB_STATE_PAUSED.to_string(),
+        created_at: OffsetDateTime::now_utc(),
+        ..Default::default()
+    };
+    env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) =
+        make_json_put_request(&router, &format!("/scheduled-jobs/{}/pause", sj_id), None).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: PUT /scheduled-jobs/{id}/resume
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_resumeScheduledJob
+#[tokio::test]
+async fn test_resume_scheduled_job() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let sj_id = new_uuid();
+    let sj = tork::job::ScheduledJob {
+        id: Some(sj_id.clone()),
+        name: Some("test scheduled job".to_string()),
+        state: tork::job::SCHEDULED_JOB_STATE_PAUSED.to_string(),
+        created_at: OffsetDateTime::now_utc(),
+        ..Default::default()
+    };
+    env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) =
+        make_json_put_request(&router, &format!("/scheduled-jobs/{}/resume", sj_id), None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let body_str = String::from_utf8(body).expect("invalid UTF-8");
+    assert_eq!(body_str, "{\"status\":\"OK\"}");
+
+    // Verify state changed to ACTIVE
+    let sj = env
+        .ds
+        .get_scheduled_job_by_id(sj_id)
+        .await
+        .expect("get scheduled job");
+    assert_eq!(
+        sj.unwrap().state,
+        tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string()
+    );
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_resumeNonPausedScheduledJob (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_resume_non_paused_scheduled_job_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let sj_id = new_uuid();
+    let sj = tork::job::ScheduledJob {
+        id: Some(sj_id.clone()),
+        name: Some("test scheduled job".to_string()),
+        state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        created_at: OffsetDateTime::now_utc(),
+        ..Default::default()
+    };
+    env.ds.create_scheduled_job(sj).await.expect("create scheduled job");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) =
+        make_json_put_request(&router, &format!("/scheduled-jobs/{}/resume", sj_id), None).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: DELETE /queues/{name}
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_deleteTaskQueue
+#[tokio::test]
+async fn test_delete_task_queue() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    // Subscribe to a queue to create it (task queues start with "tasks.")
+    let qname = "tasks.some-queue".to_string();
+    let handler: tork::broker::TaskHandler = Arc::new(|_task| Box::pin(async {}));
+    broker
+        .subscribe_for_tasks(qname.clone(), handler)
+        .await
+        .expect("subscribe");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) = make_delete_request(&router, &format!("/queues/{}", qname)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let body_str = String::from_utf8(body).expect("invalid UTF-8");
+    assert_eq!(body_str, "");
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_deleteNonTaskQueue (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_delete_non_task_queue_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    // Subscribe to a non-task queue (doesn't start with "tasks.")
+    let qname = "coordinator.events".to_string();
+    let handler: tork::broker::TaskHandler = Arc::new(|_task| Box::pin(async {}));
+    broker
+        .subscribe_for_tasks(qname.clone(), handler)
+        .await
+        .expect("subscribe");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, _body) = make_delete_request(&router, &format!("/queues/{}", qname)).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: GET /metrics
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_getMetrics
+#[tokio::test]
+async fn test_get_metrics() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let (status, body) = make_request(&router, Method::GET, "/metrics", None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let metrics: serde_json::Value = serde_json::from_slice(&body).expect("parse metrics");
+    // Should have numeric fields
+    assert!(metrics.get("jobs_total").is_some());
+
+    env.cleanup().await;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: POST /users
+// ---------------------------------------------------------------------------
+
+/// Go parity: Test_createUser
+#[tokio::test]
+async fn test_create_user() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let json_body = json!({
+        "username": "testuser",
+        "password": "testpassword"
+    });
+
+    let (status, body) = make_json_request(&router, "/users", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let body_str = String::from_utf8(body).expect("invalid UTF-8");
+    assert_eq!(body_str, "");
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_createDuplicateUser (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_create_duplicate_user_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    // Create first user
+    let user = tork::User {
+        username: Some("testuser".to_string()),
+        password_hash: Some("$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYIq8z diagnost".to_string()),
+        created_at: Some(OffsetDateTime::now_utc()),
+        ..Default::default()
+    };
+    env.ds.create_user(user).await.expect("create user");
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let json_body = json!({
+        "username": "testuser",
+        "password": "anotherpassword"
+    });
+
+    let (status, _body) = make_json_request(&router, "/users", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_createUserMissingUsername (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_create_user_missing_username_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let json_body = json!({
+        "password": "somepassword"
+    });
+
+    let (status, _body) = make_json_request(&router, "/users", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}
+
+/// Go parity: Test_createUserMissingPassword (expects BAD_REQUEST)
+#[tokio::test]
+async fn test_create_user_missing_password_error() {
+    let env = TestEnv::new().await;
+    let broker: Arc<dyn Broker> = Arc::new(new_in_memory_broker());
+
+    let state = create_test_state(env.ds.clone(), broker);
+    let router = create_router(state);
+
+    let json_body = json!({
+        "username": "testuser"
+    });
+
+    let (status, _body) = make_json_request(&router, "/users", &json_body.to_string()).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    env.cleanup().await;
+}

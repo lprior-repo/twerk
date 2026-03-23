@@ -830,11 +830,58 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
             return Box::pin(async { Err(anyhow!("task image is required")) });
         }
 
+        // Clone task data for async block to avoid lifetime issues
+        let cmd_clone = task.cmd.clone();
+        let workdir_clone = task.workdir.clone();
+        let env_clone = task.env.clone();
+
         Box::pin(async move {
             debug!(
                 "[podman-runtime] running task {} image={} (privileged={}, host_network={})",
                 task_id, image, privileged, host_network
             );
+
+            // Build podman command
+            let mut cmd = tokio::process::Command::new("podman");
+            cmd.arg("run");
+
+            if privileged {
+                cmd.arg("--privileged");
+            }
+
+            if host_network {
+                cmd.arg("--network").arg("host");
+            }
+
+            cmd.arg(&image);
+
+            if let Some(ref c) = cmd_clone {
+                for a in c {
+                    cmd.arg(a);
+                }
+            }
+
+            if let Some(ref wd) = workdir_clone {
+                cmd.arg("--workdir").arg(wd);
+            }
+
+            if let Some(ref e) = env_clone {
+                for (k, v) in e {
+                    cmd.env(k, v);
+                }
+            }
+
+            let output = cmd
+                .output()
+                .await
+                .map_err(|e| anyhow!("podman failed: {}", e))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow!("podman run failed: {}", stderr));
+            }
+
+            debug!("[podman-runtime] task {} completed successfully", task_id);
             Ok(())
         })
     }

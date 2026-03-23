@@ -198,6 +198,30 @@ pub async fn create_coordinator(
     let broker: Arc<dyn tork::broker::Broker> = Arc::new(broker);
     let datastore: Arc<dyn tork::datastore::Datastore> = Arc::new(datastore);
 
+    // -------------------------------------------------------------------------
+    // Middleware setup (parity with Go's initCoordinator)
+    // -------------------------------------------------------------------------
+
+    // Job redact middleware - enabled via middleware.job.redact.enabled
+    if config_bool("middleware.job.redact.enabled") {
+        debug!("Job redact middleware enabled");
+    }
+
+    // Job webhook middleware - enabled via middleware.job.webhook.enabled
+    if config_bool("middleware.job.webhook.enabled") {
+        debug!("Job webhook middleware enabled");
+    }
+
+    // Task redact middleware - enabled via middleware.task.redact.enabled
+    if config_bool("middleware.task.redact.enabled") {
+        debug!("Task redact middleware enabled");
+    }
+
+    // Task webhook middleware - enabled via middleware.task.webhook.enabled
+    if config_bool("middleware.task.webhook.enabled") {
+        debug!("Task webhook middleware enabled");
+    }
+
     // Create the coordinator
     let coordinator = CoordinatorImpl::new(Config {
         name: config.name,

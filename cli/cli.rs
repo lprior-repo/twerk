@@ -64,7 +64,7 @@ pub fn setup_logging() -> Result<(), CliError> {
 
 /// Get banner mode from configuration
 fn get_banner_mode() -> BannerMode {
-    get_config_string("cli.banner_mode")
+    get_config_string("cli.banner.mode")
         .map(|s| BannerMode::from_str(&s))
         .unwrap_or_default()
 }

@@ -1760,6 +1760,110 @@ async fn delete_jobs_cascade(
         Ok(result.rows_affected().cast_signed())
 }
 
+impl crate::Datastore for PostgresDatastore {
+    fn create_task(&self, task: &Task) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_task not yet implemented".to_string())
+    }
+    fn update_task(&self, _id: &str, _modify: impl Fn(&mut Task) -> crate::Result<()>) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync update_task not yet implemented".to_string())
+    }
+    fn get_task_by_id(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_task_by_id not yet implemented".to_string())
+    }
+    fn get_active_tasks(&self, _job_id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_active_tasks not yet implemented".to_string())
+    }
+    fn get_next_task(&self, _parent_task_id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_next_task not yet implemented".to_string())
+    }
+    fn create_task_log_part(&self, _part: &TaskLogPart) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_task_log_part not yet implemented".to_string())
+    }
+    fn get_task_log_parts(&self, _task_id: &str, _q: &str, _page: i64, _size: i64) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_task_log_parts not yet implemented".to_string())
+    }
+    fn create_node(&self, _node: &Node) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_node not yet implemented".to_string())
+    }
+    fn update_node(&self, _id: &str, _modify: impl Fn(&mut Node) -> crate::Result<()>) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync update_node not yet implemented".to_string())
+    }
+    fn get_node_by_id(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_node_by_id not yet implemented".to_string())
+    }
+    fn get_active_nodes(&self) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_active_nodes not yet implemented".to_string())
+    }
+    fn create_job(&self, _job: &Job) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_job not yet implemented".to_string())
+    }
+    fn update_job(&self, _id: &str, _modify: impl Fn(&mut Job) -> crate::Result<()>) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync update_job not yet implemented".to_string())
+    }
+    fn get_job_by_id(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_job_by_id not yet implemented".to_string())
+    }
+    fn get_job_log_parts(&self, _job_id: &str, _q: &str, _page: i64, _size: i64) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_job_log_parts not yet implemented".to_string())
+    }
+    fn get_jobs(&self, _current_user: &str, _q: &str, _page: i64, _size: i64) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_jobs not yet implemented".to_string())
+    }
+    fn create_scheduled_job(&self, _sj: &ScheduledJob) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_scheduled_job not yet implemented".to_string())
+    }
+    fn get_active_scheduled_jobs(&self) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_active_scheduled_jobs not yet implemented".to_string())
+    }
+    fn get_scheduled_jobs(&self, _current_user: &str, _page: i64, _size: i64) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_scheduled_jobs not yet implemented".to_string())
+    }
+    fn get_scheduled_job_by_id(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_scheduled_job_by_id not yet implemented".to_string())
+    }
+    fn update_scheduled_job(&self, _id: &str, _modify: impl Fn(&mut ScheduledJob) -> crate::Result<()>) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync update_scheduled_job not yet implemented".to_string())
+    }
+    fn delete_scheduled_job(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync delete_scheduled_job not yet implemented".to_string())
+    }
+    fn create_user(&self, _user: &User) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_user not yet implemented".to_string())
+    }
+    fn get_user(&self, _username: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_user not yet implemented".to_string())
+    }
+    fn create_role(&self, _role: &Role) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync create_role not yet implemented".to_string())
+    }
+    fn get_role(&self, _id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_role not yet implemented".to_string())
+    }
+    fn get_roles(&self) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_roles not yet implemented".to_string())
+    }
+    fn get_user_roles(&self, _user_id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_user_roles not yet implemented".to_string())
+    }
+    fn assign_role(&self, _user_id: &str, _role_id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync assign_role not yet implemented".to_string())
+    }
+    fn unassign_role(&self, _user_id: &str, _role_id: &str) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync unassign_role not yet implemented".to_string())
+    }
+    fn get_metrics(&self) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync get_metrics not yet implemented".to_string())
+    }
+    fn health_check(&self) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync health_check not yet implemented".to_string())
+    }
+    fn with_tx(
+        &self,
+        _f: impl FnOnce(&dyn crate::Datastore) -> crate::Result<()>,
+    ) -> impl std::error::Error + Send + Sync + 'static {
+        crate::Error::Transaction("sync with_tx not yet implemented".to_string())
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -145,4 +145,14 @@ pub trait Datastore: Send + Sync {
 
     // Health check
     fn health_check(&self) -> impl StdError + Send + Sync + '_;
+
+    // Transaction operations
+    /// Execute a callback within a transaction.
+    ///
+    /// The callback receives a datastore reference that operates within the transaction.
+    /// On success the transaction is committed; on error it is rolled back.
+    fn with_tx(
+        &self,
+        f: impl FnOnce(&dyn Datastore) -> Result<()>,
+    ) -> impl StdError + Send + Sync + '_;
 }

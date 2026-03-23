@@ -871,6 +871,53 @@ mod tests {
         worker.stop().await.unwrap();
     }
 
+    // ---- Test_sendHeartbeat_unhealthy (mirrors Go — runtime unhealthy) ----
+    // Verifies that when the runtime is unhealthy, the heartbeat reports DOWN status.
+    #[tokio::test]
+    async fn test_send_heartbeat_unhealthy() {
+        let broker = new_in_memory_broker();
+        let heartbeat_received = Arc::new(tokio::sync::Notify::new());
+        let heartbeat_received_clone = Arc::clone(&heartbeat_received);
+        let received_status = Arc::new(std::sync::Mutex::new(String::new()));
+        let received_status_clone = Arc::clone(&received_status);
+
+        let broker_arc: Arc<dyn Broker> = Arc::new(broker.clone());
+        broker_arc
+            .subscribe_for_heartbeats(Arc::new(move |node: tork::node::Node| {
+                let notify = Arc::clone(&heartbeat_received_clone);
+                let st = Arc::clone(&received_status_clone);
+                Box::pin(async move {
+                    if let Ok(mut guard) = st.lock() {
+                        *guard = node.status.clone();
+                    }
+                    notify.notify_one();
+                })
+            }))
+            .await
+            .unwrap();
+
+        let cfg = Config {
+            name: None,
+            address: Some(":0".to_string()),
+            broker: Some(Arc::new(broker)),
+            runtime: Some(Arc::new(TestRuntime::unhealthy())),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+
+        let mut worker = Worker::new(cfg).unwrap();
+        worker.start().await.unwrap();
+
+        // Wait for at least one heartbeat
+        heartbeat_received.notified().await;
+
+        let status = received_status.lock().map(|g| g.clone()).unwrap_or_default();
+        assert_eq!(status, NODE_STATUS_DOWN, "unhealthy runtime should report DOWN");
+
+        worker.stop().await.unwrap();
+    }
+
     // ---- Test_handleTaskCancel (mirrors Go Test_handleTaskCancel) ----
     #[tokio::test]
     async fn test_handle_task_cancel() {
@@ -969,6 +1016,121 @@ mod tests {
 
         let result = worker.cancel_task("nonexistent").await;
         assert!(result.is_ok());
+    }
+
+    // ---- Limits struct tests ----
+    #[test]
+    fn test_limits_default() {
+        let limits = Limits::default();
+        assert!(limits.default_cpus_limit.is_none());
+        assert!(limits.default_memory_limit.is_none());
+        assert!(limits.default_timeout.is_none());
+    }
+
+    #[test]
+    fn test_limits_clone() {
+        let limits = Limits {
+            default_cpus_limit: Some("4.0".to_string()),
+            default_memory_limit: Some("8g".to_string()),
+            default_timeout: Some("30s".to_string()),
+        };
+        let cloned = limits.clone();
+        assert_eq!(cloned.default_cpus_limit, limits.default_cpus_limit);
+        assert_eq!(cloned.default_memory_limit, limits.default_memory_limit);
+        assert_eq!(cloned.default_timeout, limits.default_timeout);
+    }
+
+    #[test]
+    fn test_limits_debug() {
+        let limits = Limits {
+            default_cpus_limit: Some("2.0".to_string()),
+            default_memory_limit: Some("4g".to_string()),
+            default_timeout: Some("10s".to_string()),
+        };
+        let debug_str = format!("{:?}", limits);
+        assert!(debug_str.contains("2.0"));
+        assert!(debug_str.contains("4g"));
+        assert!(debug_str.contains("10s"));
+    }
+
+    // ---- Config Debug and Clone tests ----
+    #[test]
+    fn test_config_debug() {
+        let cfg = Config {
+            name: Some("test-worker".to_string()),
+            address: Some(":8080".to_string()),
+            broker: None,
+            runtime: None,
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+        let debug_str = format!("{:?}", cfg);
+        assert!(debug_str.contains("test-worker"));
+        assert!(debug_str.contains(":8080"));
+    }
+
+    #[test]
+    fn test_config_clone() {
+        let queues = Arc::new(DashMap::new());
+        let queues_clone = Arc::clone(&queues);
+        let middleware = Arc::new(Vec::new());
+        let middleware_clone = Arc::clone(&middleware);
+
+        let cfg = Config {
+            name: Some("clone-test".to_string()),
+            address: Some(":9000".to_string()),
+            broker: None,
+            runtime: None,
+            queues: queues_clone,
+            limits: Limits::default(),
+            middleware: middleware_clone,
+        };
+        let cloned = cfg.clone();
+        assert_eq!(cloned.name, cfg.name);
+        assert_eq!(cloned.address, cfg.address);
+        // Arc clones should point to same data
+        assert_eq!(cloned.queues.len(), cfg.queues.len());
+        assert_eq!(cloned.middleware.len(), cfg.middleware.len());
+    }
+
+    // ---- WorkerError tests ----
+    #[test]
+    fn test_worker_error_display() {
+        assert_eq!(
+            WorkerError::BrokerRequired.to_string(),
+            "must provide broker"
+        );
+        assert_eq!(
+            WorkerError::RuntimeRequired.to_string(),
+            "must provide runtime"
+        );
+        assert_eq!(
+            WorkerError::UnexpectedState("running".to_string(), "task-1".to_string()).to_string(),
+            "unexpected state running for task task-1"
+        );
+        assert_eq!(
+            WorkerError::InvalidTimeout("invalid".to_string()).to_string(),
+            "invalid timeout duration: invalid"
+        );
+    }
+
+    // ---- Worker Debug and ID tests ----
+    #[test]
+    fn test_worker_id_non_empty() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg).unwrap();
+        assert!(!worker.id().is_empty());
+    }
+
+    #[test]
+    fn test_worker_debug() {
+        let cfg = test_config(TestRuntime::new());
+        let worker = Worker::new(cfg).unwrap();
+        let debug_str = format!("{:?}", worker);
+        // Should contain id and other debug fields
+        assert!(debug_str.contains("Worker"));
+        assert!(debug_str.contains("id"));
     }
 
     // Type aliases for middleware readability

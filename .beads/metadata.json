@@ -2,6 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "seshat",
-  "project_id": "bdd37d89-e60c-45ed-bf8b-197e950e512b"
+  "dolt_database": "twerk",
+  "project_id": "79ab1d64-eba8-4c98-8737-98fef53b9cbc"
 }

@@ -10,13 +10,16 @@
 //!    dispatches next batch, completes parent when done
 //! 4. **completeParallelTask**: tracks completions, completes parent when done
 //! 5. **completeTopLevelTask**: updates job progress, creates next task,
-//!    marks job as completed when all tasks are done
+//!    evaluates it with job context, marks job as completed when all tasks are done
+//!
+//! # Task Evaluation
+//!
+//! After creating the next task, [`evaluate_task`] is called to interpolate
+//! template expressions like `{{tasks.result}}` using the job context.
+//! If evaluation fails, the task is marked as FAILED.
 //!
 //! # Known Limitations
 //!
-//! - Task evaluation (`eval.EvaluateTask`) is not available in the coordinator
-//!   crate. Tasks are created without template interpolation. This matches
-//!   the structure but skips runtime evaluation.
 //! - The Go `ds.WithTx` transaction pattern is not supported by the current
 //!   Rust `Datastore` trait. Operations are performed sequentially with
 //!   read-modify-write patterns.
@@ -25,15 +28,338 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value as EvalValue};
+use regex::Regex;
 use tork::broker::queue;
 use tork::job::{Job, JobContext, JOB_STATE_COMPLETED};
 use tork::task::{
-    EachTask, ParallelTask, Task, TASK_STATE_COMPLETED, TASK_STATE_PENDING,
+    EachTask, ParallelTask, Task, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_PENDING,
     TASK_STATE_RUNNING, TASK_STATE_SCHEDULED, TASK_STATE_SKIPPED,
 };
 use tork::{Broker, Datastore};
 
 use crate::handlers::HandlerError;
+
+/// Regex to match `{{ expr }}` template patterns.
+#[allow(clippy::expect_used)]
+static TEMPLATE_REGEX: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\{\{\s*(.+?)\s*\}\}").expect("invalid template regex"));
+
+// ---------------------------------------------------------------------------
+// Eval helpers (parity with Go eval.EvaluateTask)
+// ---------------------------------------------------------------------------
+
+/// Converts a [`serde_json::Value`] to an [`evalexpr::Value`].
+fn json_to_eval_value(json: &serde_json::Value) -> Result<EvalValue, String> {
+    match json {
+        serde_json::Value::Null => Ok(EvalValue::Empty),
+        serde_json::Value::Bool(b) => Ok(EvalValue::Boolean(*b)),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Ok(EvalValue::Int(i))
+            } else if let Some(f) = n.as_f64() {
+                Ok(EvalValue::Float(f))
+            } else {
+                Err("unsupported number type".into())
+            }
+        }
+        serde_json::Value::String(s) => Ok(EvalValue::String(s.clone())),
+        serde_json::Value::Array(arr) => {
+            let values: Result<Vec<EvalValue>, String> =
+                arr.iter().map(json_to_eval_value).collect();
+            Ok(EvalValue::Tuple(values?))
+        }
+        serde_json::Value::Object(obj) => {
+            let pairs: Result<Vec<EvalValue>, String> = obj
+                .iter()
+                .map(|(k, v)| {
+                    let val = json_to_eval_value(v)?;
+                    Ok(EvalValue::Tuple(vec![EvalValue::String(k.clone()), val]))
+                })
+                .collect();
+            Ok(EvalValue::Tuple(pairs?))
+        }
+    }
+}
+
+/// Creates an evalexpr context from a serde_json context map.
+fn create_eval_context(
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<HashMapContext, String> {
+    let mut ctx = HashMapContext::new();
+    for (key, value) in context {
+        let eval_value = json_to_eval_value(value).unwrap_or(EvalValue::Empty);
+        ctx.set_value(key.clone(), eval_value)
+            .map_err(|e| format!("{key}: {e}"))?;
+    }
+    Ok(ctx)
+}
+
+/// Recursively flatten a JSON value into dot-separated key-value pairs.
+fn flatten_json_value(
+    prefix: &str,
+    value: &serde_json::Value,
+) -> Vec<(String, EvalValue)> {
+    match value {
+        serde_json::Value::Object(map) => map
+            .iter()
+            .flat_map(|(k, v)| {
+                let key = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
+                flatten_json_value(&key, v)
+            })
+            .collect(),
+        other => {
+            let eval_val = json_to_eval_value(other).unwrap_or(EvalValue::Empty);
+            vec![(prefix.to_string(), eval_val)]
+        }
+    }
+}
+
+/// Evaluates a single expression string with the given context.
+fn evaluate_expr(
+    expr_str: &str,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<String, String> {
+    let sanitized = expr_str.trim();
+    if sanitized.is_empty() {
+        return Ok(String::new());
+    }
+    let ctx = create_eval_context(context)?;
+    let result = eval_with_context(sanitized, &ctx)
+        .map_err(|e| format!("error evaluating '{sanitized}': {e}"))?;
+    Ok(match &result {
+        EvalValue::String(s) => s.clone(),
+        other => other.to_string(),
+    })
+}
+
+/// Evaluates a template string, replacing all `{{ expression }}` patterns.
+fn evaluate_template(
+    template: &str,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<String, String> {
+    if template.is_empty() {
+        return Ok(String::new());
+    }
+
+    let matches: Vec<_> = TEMPLATE_REGEX.find_iter(template).collect();
+
+    if matches.is_empty() {
+        return Ok(template.to_string());
+    }
+
+    let (result, last_end) = matches.iter().try_fold(
+        (String::new(), 0usize),
+        |(buf, loc), m| {
+            let start_tag = m.start();
+            let prefix = if loc < start_tag {
+                template[loc..start_tag].to_string()
+            } else {
+                String::new()
+            };
+            let caps = TEMPLATE_REGEX
+                .captures(m.as_str())
+                .ok_or_else(|| format!("no capture in match: {}", m.as_str()))?;
+            let expr_str = &caps[1];
+            let replacement = evaluate_expr(expr_str, context)?;
+            Ok::<(String, usize), String>((buf + &prefix + &replacement, m.end()))
+        },
+    )?;
+
+    let tail = &template[last_end..];
+    Ok(result + tail)
+}
+
+/// Evaluate an optional string field through the template engine.
+fn eval_field(
+    field: &Option<String>,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<Option<String>, String> {
+    field
+        .as_ref()
+        .map_or(Ok(None), |s| evaluate_template(s, context).map(Some))
+}
+
+/// Evaluate a map of string → string through the template engine.
+fn eval_map(
+    map: &Option<HashMap<String, String>>,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<HashMap<String, String>, String> {
+    match map.as_ref() {
+        Some(m) => m
+            .iter()
+            .map(|(k, v)| {
+                let result = evaluate_template(v, context)?;
+                Ok((k.clone(), result))
+            })
+            .collect(),
+        None => Ok(HashMap::new()),
+    }
+}
+
+/// Recursively evaluate a list of tasks.
+fn eval_tasks(
+    tasks: &Option<Vec<Task>>,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<Option<Vec<Task>>, String> {
+    tasks
+        .as_ref()
+        .map(|ts| {
+            ts.iter()
+                .map(|t| evaluate_task(t, context))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()
+}
+
+/// Evaluates all template expressions in a task's fields.
+///
+/// Returns a new `Task` with all evaluated values.
+/// Parity with Go `EvaluateTask(t *Task, c map[string]any) error`.
+#[allow(clippy::too_many_lines)]
+fn evaluate_task(
+    task: &Task,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<Task, String> {
+    let name = eval_field(&task.name, context)?;
+    let var = eval_field(&task.var, context)?;
+    let image = eval_field(&task.image, context)?;
+    let run = eval_field(&task.run, context)?;
+    let queue = eval_field(&task.queue, context)?;
+    let r#if = eval_field(&task.r#if, context)?;
+    let description = eval_field(&task.description, context)?;
+    let workdir = eval_field(&task.workdir, context)?;
+    let timeout = eval_field(&task.timeout, context)?;
+    let gpus = eval_field(&task.gpus, context)?;
+
+    let env = eval_map(&task.env, context)?;
+    let files = eval_map(&task.files, context)?;
+
+    let pre = eval_tasks(&task.pre, context)?;
+    let post = eval_tasks(&task.post, context)?;
+    let sidecars = eval_tasks(&task.sidecars, context)?;
+
+    // Evaluate cmd array
+    let cmd = task
+        .cmd
+        .as_ref()
+        .map(|cmds| {
+            cmds.iter()
+                .map(|s| evaluate_template(s, context))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
+
+    // Evaluate entrypoint array
+    let entrypoint = task
+        .entrypoint
+        .as_ref()
+        .map(|eps| {
+            eps.iter()
+                .map(|s| evaluate_template(s, context))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
+
+    // Evaluate parallel tasks
+    let parallel = task.parallel.as_ref().map(|par| {
+        let tasks = eval_tasks(&par.tasks, context)?;
+        Ok::<tork::task::ParallelTask, String>(tork::task::ParallelTask {
+            tasks,
+            completions: par.completions,
+        })
+    }).transpose()?;
+
+    // Evaluate each tasks
+    let each = task.each.as_ref().map(|each| {
+        let var = eval_field(&each.var, context)?;
+        let list = eval_field(&each.list, context)?;
+        let inner_task = each
+            .task
+            .as_ref()
+            .map(|t| evaluate_task(t, context))
+            .transpose()?;
+        Ok::<tork::task::EachTask, String>(tork::task::EachTask {
+            var,
+            list,
+            task: inner_task.map(Box::new),
+            size: each.size,
+            completions: each.completions,
+            concurrency: each.concurrency,
+            index: each.index,
+        })
+    }).transpose()?;
+
+    // Evaluate subjob tasks
+    let subjob = task.subjob.as_ref().map(|sj| {
+        let subjob_name = eval_field(&sj.name, context)?;
+        let inputs = eval_map(&sj.inputs, context)?;
+        let secrets = eval_map(&sj.secrets, context)?;
+        let subjob_tasks = eval_tasks(&sj.tasks, context)?;
+        Ok::<tork::task::SubJobTask, String>(tork::task::SubJobTask {
+            id: sj.id.clone(),
+            name: subjob_name,
+            description: sj.description.clone(),
+            tasks: subjob_tasks,
+            inputs: if inputs.is_empty() { None } else { Some(inputs) },
+            secrets: if secrets.is_empty() { None } else { Some(secrets) },
+            auto_delete: sj.auto_delete.clone(),
+            output: sj.output.clone(),
+            detached: sj.detached,
+            webhooks: sj.webhooks.clone(),
+        })
+    }).transpose()?;
+
+    Ok(Task {
+        id: task.id.clone(),
+        job_id: task.job_id.clone(),
+        parent_id: task.parent_id.clone(),
+        position: task.position,
+        name,
+        description,
+        state: task.state.clone(),
+        created_at: task.created_at,
+        scheduled_at: task.scheduled_at,
+        started_at: task.started_at,
+        completed_at: task.completed_at,
+        failed_at: task.failed_at,
+        cmd,
+        entrypoint,
+        run,
+        image,
+        registry: task.registry.clone(),
+        env: if env.is_empty() { None } else { Some(env) },
+        files: if files.is_empty() { None } else { Some(files) },
+        queue,
+        redelivered: task.redelivered,
+        error: task.error.clone(),
+        pre,
+        post,
+        sidecars,
+        mounts: task.mounts.clone(),
+        networks: task.networks.clone(),
+        node_id: task.node_id.clone(),
+        retry: task.retry.clone(),
+        limits: task.limits.clone(),
+        timeout,
+        result: task.result.clone(),
+        var,
+        r#if,
+        parallel,
+        each,
+        subjob,
+        gpus,
+        tags: task.tags.clone(),
+        workdir,
+        priority: task.priority,
+        progress: task.progress,
+        probe: task.probe.clone(),
+    })
+}
 
 // ---------------------------------------------------------------------------
 // Pure Calculations (Data → Calc)
@@ -615,12 +941,27 @@ impl CompletedHandler {
             let now = time::OffsetDateTime::now_utc();
             let next_task = create_next_task(task_def, &updated_job, new_position, now);
 
+            // Go: `if err := eval.EvaluateTask(next, j.Context.AsMap()); err != nil { ... }`
+            // Evaluate template expressions in the task against job context.
+            // If evaluation fails, mark the task as FAILED.
+            let ctx_map = updated_job.context.as_map();
+            let evaluated_task = match evaluate_task(&next_task, &ctx_map) {
+                Ok(t) => t,
+                Err(eval_err) => {
+                    let mut failed = next_task;
+                    failed.error = Some(eval_err);
+                    failed.state = TASK_STATE_FAILED.clone();
+                    failed.failed_at = Some(now);
+                    failed
+                }
+            };
+
             self.ds
-                .create_task(next_task.clone())
+                .create_task(evaluated_task.clone())
                 .await
                 .map_err(|e| HandlerError::Datastore(e.to_string()))?;
             self.broker
-                .publish_task(queue::QUEUE_PENDING.to_string(), &next_task)
+                .publish_task(queue::QUEUE_PENDING.to_string(), &evaluated_task)
                 .await
                 .map_err(|e| HandlerError::Broker(e.to_string()))?;
         } else {

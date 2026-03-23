@@ -397,9 +397,10 @@ impl Broker for InMemoryBroker {
                 .map(|(name, q)| {
                     let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
                     let unacked = q.unacked.load(Ordering::SeqCst) as i64;
+                    let size = q.size.load(Ordering::SeqCst) as i64;
                     QueueInfo {
                         name: name.clone(),
-                        size: 0,
+                        size,
                         subscribers: sub_count,
                         unacked,
                     }
@@ -419,9 +420,10 @@ impl Broker for InMemoryBroker {
                 .map(|q| {
                     let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
                     let unacked = q.unacked.load(Ordering::SeqCst) as i64;
+                    let size = q.size.load(Ordering::SeqCst) as i64;
                     QueueInfo {
                         name: qname,
-                        size: 0,
+                        size,
                         subscribers: sub_count,
                         unacked,
                     }

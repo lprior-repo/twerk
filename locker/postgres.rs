@@ -26,8 +26,10 @@
 #![warn(clippy::pedantic)]
 
 use std::pin::Pin;
-use std::sync::Mutex;
+use std::sync::Arc;
+use std::time::Instant;
 
+use parking_lot::Mutex;
 use postgres::Client as PgClient;
 use sha2::{Digest, Sha256};
 
@@ -39,7 +41,7 @@ use crate::{Lock, Locker};
 /// Uses `PostgreSQL` advisory locks (`pg_try_advisory_xact_lock`) for
 /// distributed locking across multiple processes or machines.
 pub struct PostgresLocker {
-    dsn: String,
+    pool: Arc<SyncPostgresPool>,
 }
 
 /// Inner lock type for `PostgreSQL` advisory locking.
@@ -74,18 +76,208 @@ pub fn hash_key(key: &str) -> i64 {
     ])
 }
 
+// ── Pool (data) ──────────────────────────────────────────────
+
+/// A synchronous PostgreSQL connection pool that respects pool options.
+///
+/// Manages a collection of reusable connections according to the
+/// configured pool options.
+struct SyncPostgresPool {
+    /// Connection string.
+    dsn: String,
+    /// Maximum total open connections.
+    max_open: u32,
+    /// Maximum idle connections in pool.
+    max_idle: Option<u32>,
+    /// Maximum lifetime for connections.
+    conn_max_lifetime: Option<std::time::Duration>,
+    /// Maximum idle time for connections.
+    conn_max_idle_time: Option<std::time::Duration>,
+    /// Connection timeout.
+    connect_timeout: std::time::Duration,
+    /// Pool of idle connections.
+    idle: Mutex<Vec<IdleConnection>>,
+    /// Number of currently open connections.
+    open_count: Mutex<u32>,
+}
+
+/// An idle connection with metadata.
+struct IdleConnection {
+    /// The PostgreSQL client.
+    client: PgClient,
+    /// When the connection was created.
+    created_at: Instant,
+    /// When the connection was last returned to the pool.
+    last_used: Instant,
+}
+
+impl SyncPostgresPool {
+    /// Create a new pool with the given options.
+    #[must_use]
+    fn new(dsn: &str, opts: &PostgresLockerOptions) -> Self {
+        Self {
+            dsn: dsn.to_string(),
+            max_open: opts.max_open_conns.unwrap_or(100),
+            max_idle: opts.max_idle_conns,
+            conn_max_lifetime: opts.conn_max_lifetime,
+            conn_max_idle_time: opts.conn_max_idle_time,
+            connect_timeout: opts
+                .connect_timeout
+                .unwrap_or(std::time::Duration::from_secs(30)),
+            idle: Mutex::new(Vec::new()),
+            open_count: Mutex::new(0),
+        }
+    }
+
+    /// Get a connection from the pool, creating a new one if necessary.
+    fn get(&self) -> Result<PooledClient, LockError> {
+        // Try to get a valid idle connection
+        {
+            let mut idle = self.idle.lock();
+
+            while let Some(pooled) = idle.pop() {
+                // Check if connection has exceeded max idle time
+                if let Some(max_idle_time) = self.conn_max_idle_time {
+                    if pooled.last_used.elapsed() > max_idle_time {
+                        let _ = pooled.client.close();
+                        let mut count = self.open_count.lock();
+                        *count = count.saturating_sub(1);
+                        continue;
+                    }
+                }
+
+                // Check if connection has exceeded max lifetime
+                if let Some(max_lifetime) = self.conn_max_lifetime {
+                    if pooled.created_at.elapsed() > max_lifetime {
+                        let _ = pooled.client.close();
+                        let mut count = self.open_count.lock();
+                        *count = count.saturating_sub(1);
+                        continue;
+                    }
+                }
+
+                // Valid connection found
+                return Ok(PooledClient {
+                    pool: Arc::new(()),
+                    client: Some(pooled.client),
+                    created_at: pooled.created_at,
+                    pool_ptr: self as *const SyncPostgresPool,
+                });
+            }
+        }
+
+        // No valid idle connection, check if we can open a new one
+        {
+            let mut count = self.open_count.lock();
+            if *count >= self.max_open {
+                return Err(LockError::Connection(
+                    format!("pool exhausted: max_open_conns={} reached", self.max_open)
+                ));
+            }
+            *count += 1;
+        }
+
+        // Create new connection with timeout
+        let client = self.connect_with_timeout()?;
+
+        Ok(PooledClient {
+            pool: Arc::new(()),
+            client: Some(client),
+            created_at: Instant::now(),
+            pool_ptr: self as *const SyncPostgresPool,
+        })
+    }
+
+    /// Connect with timeout.
+    fn connect_with_timeout(&self) -> Result<PgClient, LockError> {
+        let dsn = self.dsn.clone();
+        let timeout = self.connect_timeout;
+
+        let handle = std::thread::spawn(move || {
+            PgClient::connect(&dsn, postgres::NoTls)
+        });
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| LockError::Connection(format!("failed to create runtime: {e}")))?;
+
+        let result = rt.block_on(async {
+            tokio::time::timeout(
+                timeout,
+                tokio::task::spawn_blocking(move || handle.join()),
+            )
+            .await
+        });
+
+        // result is Result<Result<Result<PgClient, Error>, JoinError>, Elapsed>
+        match result {
+            Ok(Ok(Ok(Ok(client)))) => Ok(client),
+            Ok(Ok(Ok(Err(e)))) => Err(LockError::Connection(e.to_string())),
+            Ok(Ok(Err(_panic))) => Err(LockError::Connection("connect thread panicked".to_string())),
+            Ok(Err(_join_err)) => Err(LockError::Connection("spawn failed".to_string())),
+            Err(_) => Err(LockError::Connection(format!(
+                "connection timed out after {timeout:?}"
+            ))),
+        }
+    }
+
+    /// Return a connection to the pool.
+    fn put(&self, client: PgClient, created_at: Instant) {
+        let mut idle = self.idle.lock();
+
+        if let Some(max_idle) = self.max_idle {
+            if idle.len() >= max_idle as usize {
+                let _ = client.close();
+                let mut count = self.open_count.lock();
+                *count = count.saturating_sub(1);
+                return;
+            }
+        }
+
+        idle.push(IdleConnection {
+            client,
+            created_at,
+            last_used: Instant::now(),
+        });
+    }
+}
+
+/// A checked-out connection that is returned to the pool on drop.
+struct PooledClient {
+    #[allow(dead_code)]
+    pool: Arc<()>,
+    client: Option<PgClient>,
+    created_at: Instant,
+    pool_ptr: *const SyncPostgresPool,
+}
+
+impl PooledClient {
+    #[allow(clippy::unwrap_used)]
+    fn into_inner(mut self) -> PgClient {
+        self.client.take().unwrap()
+    }
+}
+
+impl Drop for PooledClient {
+    fn drop(&mut self) {
+        if let Some(client) = self.client.take() {
+            unsafe {
+                let pool = &*self.pool_ptr;
+                pool.put(client, self.created_at);
+            }
+        }
+    }
+}
+
 // ── Options (data) ───────────────────────────────────────────
 
 /// Options for configuring the [`PostgresLocker`].
 #[derive(Debug, Clone, Default)]
 pub struct PostgresLockerOptions {
-    #[allow(dead_code)]
     max_open_conns: Option<u32>,
-    #[allow(dead_code)]
     max_idle_conns: Option<u32>,
-    #[allow(dead_code)]
     conn_max_lifetime: Option<std::time::Duration>,
-    #[allow(dead_code)]
     conn_max_idle_time: Option<std::time::Duration>,
     connect_timeout: Option<std::time::Duration>,
 }
@@ -145,14 +337,9 @@ impl Lock for PostgresLock {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
         let PostgresLock { client, .. } = *Pin::into_inner(self);
 
-        // Rollback on a separate OS thread (see with_options comment),
-        // then drop the client. Sending ROLLBACK ensures the advisory
-        // lock is released immediately rather than waiting for TCP
-        // keepalive timeout.
         let handle = std::thread::spawn(move || {
-            if let Ok(mut c) = client.lock() {
-                let _ = c.simple_query("ROLLBACK");
-            }
+            let mut guard = client.lock();
+            let _ = guard.simple_query("ROLLBACK");
         });
 
         Box::pin(async move {
@@ -186,15 +373,13 @@ impl PostgresLocker {
         dsn: &str,
         opts: PostgresLockerOptions,
     ) -> Result<Self, InitError> {
-        let timeout = opts.connect_timeout.unwrap_or(std::time::Duration::from_secs(30));
+        let pool = Arc::new(SyncPostgresPool::new(dsn, &opts));
+
+        let timeout = opts
+            .connect_timeout
+            .unwrap_or(std::time::Duration::from_secs(30));
         let dsn_owned = dsn.to_string();
 
-        // Use std::thread::spawn to escape tokio's runtime context.
-        // The postgres crate's Client::connect creates its own tokio
-        // runtime internally, and Client::drop calls close_inner which
-        // also creates one. Both must run on a thread with no context.
-        // We connect, verify, and drop on this thread — the client is
-        // not needed after construction (each lock opens its own conn).
         let handle = std::thread::spawn(move || {
             PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ())
         });
@@ -206,9 +391,7 @@ impl PostgresLocker {
         .await;
 
         match connect_result {
-            Ok(Ok(Ok(Ok(())))) => Ok(Self {
-                dsn: dsn.to_string(),
-            }),
+            Ok(Ok(Ok(Ok(())))) => Ok(Self { pool }),
             Ok(Ok(Ok(Err(e)))) => Err(InitError::Connection(e.to_string())),
             Ok(Ok(Err(_panic))) => Err(InitError::Ping("connect thread panicked".to_string())),
             Ok(Err(_join_err)) => Err(InitError::Ping("spawn failed".to_string())),
@@ -232,18 +415,14 @@ impl Locker for PostgresLocker {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>>
     {
         let key = key.to_string();
-        let dsn = self.dsn.clone();
+        let pool = Arc::clone(&self.pool);
 
-        // Run all SQL on a completely separate OS thread — the synchronous
-        // postgres crate creates its own tokio runtime internally, which
-        // conflicts with tokio 1.x's context propagation on spawn_blocking
-        // threads.
         let handle = std::thread::spawn(move || {
             let key_hash = hash_key(&key);
 
-            // Open a dedicated connection — this is our "session" that holds the lock.
-            let client = PgClient::connect(&dsn, postgres::NoTls)
-                .map_err(|e| LockError::Connection(e.to_string()))?;
+            let pooled = pool.get()?;
+
+            let client = pooled.into_inner();
 
             acquire_advisory_lock(key, key_hash, client)
         });
@@ -277,7 +456,6 @@ fn acquire_advisory_lock(
     key_hash: i64,
     mut client: PgClient,
 ) -> Result<Pin<Box<dyn Lock>>, LockError> {
-    // Begin a transaction on this connection.
     client
         .simple_query("BEGIN")
         .map_err(|e| LockError::Transaction {
@@ -285,7 +463,6 @@ fn acquire_advisory_lock(
             source: Box::new(e),
         })?;
 
-    // Attempt to acquire the advisory lock within the transaction.
     let row = client
         .query_one("SELECT pg_try_advisory_xact_lock($1)", &[&key_hash])
         .map_err(|e| LockError::Transaction {
@@ -296,14 +473,10 @@ fn acquire_advisory_lock(
     let lock_acquired: bool = row.get(0);
 
     if !lock_acquired {
-        // Lock not obtained — roll back the transaction.
         let _ = client.simple_query("ROLLBACK");
         return Err(LockError::AlreadyLocked { key });
     }
 
-    // Lock acquired — store the connection (with its open transaction).
-    // The advisory lock is held as long as the transaction remains open.
-    // It will be released when release_lock() rolls back the transaction.
     let lock: Pin<Box<dyn Lock>> = Box::pin(PostgresLock {
         key,
         client: Mutex::new(client),
@@ -321,7 +494,6 @@ mod tests {
     fn test_hash_key() {
         let key = "2c7eb7e1951343468ce360c906003a22";
         let hash = hash_key(key);
-        // Go reference: int64(-414568140838410356)
         let expected = i64::from_be_bytes([250, 63, 40, 120, 238, 33, 231, 140]);
         assert_eq!(hash, expected);
     }
@@ -354,17 +526,14 @@ mod tests {
         let locker = PostgresLocker::new(dsn).await.expect("locker should be created");
         let key = "test_key";
 
-        // First acquisition should succeed
         let lock = locker
             .acquire_lock(key)
             .await
             .expect("first acquire should succeed");
 
-        // Second acquisition for same key should fail (lock held by first)
         let result = locker.acquire_lock(key).await;
         assert!(result.is_err());
 
-        // Release and reacquire should work
         lock.release_lock().await.expect("release should succeed");
 
         let lock2 = locker

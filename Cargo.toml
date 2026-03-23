@@ -81,6 +81,9 @@ libc = "0.2"
 
 # Security
 bcrypt = "0.17"
+aes-gcm = "0.10"
+sha2 = "0.10"
+generic-array = "0.14"
 
 # System info
 sysinfo = "0.33"
@@ -93,6 +96,7 @@ evalexpr = "13.1"
 
 # Random number generation
 rand = "0.9"
+rand_core = "0.9"
 
 # Hostname
 hostname = "0.4"

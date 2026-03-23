@@ -11,7 +11,7 @@
 //! ```
 
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
+    aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -69,15 +69,19 @@ pub fn encrypt(plaintext: &str, key: &str) -> Result<String, EncryptError> {
     let key_bytes = derive_key(key);
     let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|_| EncryptError::CipherError)?;
 
-    let mut nonce_bytes = [0u8; NONCE_LEN];
-    OsRng.fill(&mut nonce_bytes);
+    let nonce_bytes: [u8; NONCE_LEN] = rand::random();
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     let ciphertext = cipher
         .encrypt(nonce, plaintext.as_bytes())
         .map_err(|_| EncryptError::EncryptionError)?;
 
-    Ok(STANDARD.encode(&ciphertext))
+    // Prepend nonce to ciphertext for storage/transmission
+    let mut result = Vec::with_capacity(NONCE_LEN + ciphertext.len());
+    result.extend_from_slice(&nonce_bytes);
+    result.extend_from_slice(&ciphertext);
+
+    Ok(STANDARD.encode(&result))
 }
 
 /// Decrypts a base64-encoded ciphertext using AES-256-GCM.
@@ -104,10 +108,15 @@ pub fn decrypt(ciphertext: &str, key: &str) -> Result<String, EncryptError> {
         return Err(EncryptError::InvalidCiphertext);
     }
 
-    let (nonce, ciphertext_bytes) = data.split_at(nonce_size);
+    let (nonce_bytes, ciphertext_bytes) = data.split_at(nonce_size);
 
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let payload = Payload {
+        msg: ciphertext_bytes,
+        aad: &[],
+    };
     let plaintext = gcm
-        .open(ciphertext_bytes, nonce)
+        .decrypt(nonce, payload)
         .map_err(|_| EncryptError::DecryptionError)?;
 
     String::from_utf8(plaintext).map_err(|_| EncryptError::DecryptionError)

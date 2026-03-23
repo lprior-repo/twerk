@@ -2,6 +2,7 @@
 pub mod broker;
 pub mod conf;
 pub mod docker;
+pub mod encrypt;
 pub mod eval;
 pub mod fns;
 pub mod hash;

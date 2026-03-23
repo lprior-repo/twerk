@@ -5047,6 +5047,7 @@ dependencies = [
 name = "tork-runtime"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "axum",
  "base64 0.22.1",
@@ -5060,6 +5061,7 @@ dependencies = [
  "dirs",
  "evalexpr",
  "futures-util",
+ "generic-array",
  "hostname",
  "itertools",
  "lapin",
@@ -5068,11 +5070,13 @@ dependencies = [
  "once_cell",
  "portable-pty",
  "rand 0.9.2",
+ "rand_core 0.9.5",
  "regex",
  "reqwest",
  "rpds",
  "serde",
  "serde_json",
+ "sha2",
  "sysinfo",
  "tap",
  "tar",

@@ -80,6 +80,8 @@ pub struct DockerConfig {
     pub image_verify: bool,
     /// Broker for log shipping and progress.
     pub broker: Option<Arc<dyn tork::broker::Broker>>,
+    /// Whether to allow host network mode for containers.
+    pub host_network: bool,
 }
 
 impl Default for DockerConfig {
@@ -91,6 +93,7 @@ impl Default for DockerConfig {
             image_ttl: DEFAULT_IMAGE_TTL,
             image_verify: false,
             broker: None,
+            host_network: false,
         }
     }
 }
@@ -104,6 +107,7 @@ pub struct DockerConfigBuilder {
     image_ttl: Duration,
     image_verify: bool,
     broker: Option<Arc<dyn tork::broker::Broker>>,
+    host_network: bool,
 }
 
 impl DockerConfigBuilder {
@@ -144,6 +148,12 @@ impl DockerConfigBuilder {
     }
 
     #[must_use]
+    pub fn with_host_network(mut self, enabled: bool) -> Self {
+        self.host_network = enabled;
+        self
+    }
+
+    #[must_use]
     pub fn build(self) -> DockerConfig {
         DockerConfig {
             config_file: self.config_file,
@@ -152,6 +162,7 @@ impl DockerConfigBuilder {
             image_ttl: self.image_ttl,
             image_verify: self.image_verify,
             broker: self.broker,
+            host_network: self.host_network,
         }
     }
 }
@@ -252,6 +263,9 @@ pub enum DockerError {
 
     #[error("error parsing GPU options: {0}")]
     InvalidGpuOptions(String),
+
+    #[error("host networking is not enabled")]
+    HostNetworkDisabled,
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -958,8 +972,17 @@ impl DockerRuntime {
             .map(|gpu_str| Self::parse_gpu_options(gpu_str))
             .transpose()?;
 
+        // Host network mode detection (Go parity: `network == hostNetworkName`)
+        let host_network_mode = task.networks.iter().any(|n| n == "host");
+        
+        // Validate host network usage
+        if host_network_mode && !self.config.host_network {
+            return Err(DockerError::HostNetworkDisabled);
+        }
+
         // Networking config with aliases (Go parity: `slug.Make(t.Name)`)
-        let networking_config = if task.networks.is_empty() {
+        // Note: Network aliases are not supported with host networking
+        let networking_config = if task.networks.is_empty() || host_network_mode {
             None
         } else {
             let mut endpoints = HashMap::new();
@@ -988,6 +1011,7 @@ impl DockerRuntime {
                 privileged: Some(self.config.privileged),
                 device_requests,
                 port_bindings: if port_bindings.is_empty() { None } else { Some(port_bindings) },
+                network_mode: if host_network_mode { Some("host".to_string()) } else { None },
                 ..Default::default()
             }),
             networking_config,

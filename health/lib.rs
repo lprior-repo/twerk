@@ -213,4 +213,89 @@ mod tests {
         let result = HealthCheckResult::new(STATUS_UP);
         assert_eq!(result.version, VERSION);
     }
+
+    #[test]
+    fn test_health_check_result_serde() {
+        let result = HealthCheckResult::new(STATUS_UP);
+        let serialized = serde_json::to_string(&result).expect("should serialize");
+        assert!(serialized.contains("UP"));
+        assert!(serialized.contains("version"));
+        let deserialized: HealthCheckResult =
+            serde_json::from_str(&serialized).expect("should deserialize");
+        assert_eq!(deserialized.status, STATUS_UP);
+        assert_eq!(deserialized.version, VERSION);
+    }
+
+    #[test]
+    fn test_health_check_whitespace_name() {
+        // Whitespace-only names should fail
+        let ind: HealthIndicator = Box::new(|| Ok(()));
+        let result = HealthCheck::new().with_indicator("   ", ind);
+        assert!(result.is_err());
+        // Whitespace-padded names should work (they get trimmed)
+        let ind2: HealthIndicator = Box::new(|| Ok(()));
+        let health = HealthCheck::new()
+            .with_indicator("  datastore  ", ind2)
+            .expect("should allow whitespace-padded names");
+        assert_eq!(health.len(), 1);
+    }
+
+    #[test]
+    fn test_health_check_len_and_empty() {
+        let health = HealthCheck::new();
+        assert!(health.is_empty());
+        assert_eq!(health.len(), 0);
+
+        let ind: HealthIndicator = Box::new(|| Ok(()));
+        let health = health
+            .with_indicator("datastore", ind)
+            .expect("should add indicator");
+        assert!(!health.is_empty());
+        assert_eq!(health.len(), 1);
+    }
+
+    #[test]
+    fn test_health_check_result_down_status() {
+        let result = HealthCheckResult::new(STATUS_DOWN);
+        assert!(!result.is_up());
+        assert_eq!(result.status, STATUS_DOWN);
+    }
+
+    #[test]
+    fn test_health_check_result_custom_status() {
+        let result = HealthCheckResult::new("DEGRADED");
+        assert!(!result.is_up());
+        assert_eq!(result.status, "DEGRADED");
+    }
+
+    #[test]
+    fn test_health_check_health_error_display() {
+        let err = HealthError::CheckFailed("test error".to_string());
+        assert!(err.to_string().contains("test error"));
+        let timeout = HealthError::Timeout;
+        assert!(timeout.to_string().contains("timed"));
+    }
+
+    #[test]
+    fn test_health_check_all_indicators_fail() {
+        let ind1: HealthIndicator =
+            Box::new(|| Err(HealthError::CheckFailed("datastore down".to_string())));
+        let ind2: HealthIndicator =
+            Box::new(|| Err(HealthError::CheckFailed("broker down".to_string())));
+        let result = HealthCheck::new()
+            .with_indicator_panic("datastore", ind1)
+            .with_indicator_panic("broker", ind2)
+            .do_check();
+        assert_eq!(result.status, STATUS_DOWN);
+    }
+
+    #[test]
+    fn test_health_check_timeout_error() {
+        let ind: HealthIndicator = Box::new(|| Err(HealthError::Timeout));
+        let result = HealthCheck::new()
+            .with_indicator_panic("test", ind)
+            .do_check();
+        assert_eq!(result.status, STATUS_DOWN);
+        assert!(!result.is_up());
+    }
 }

@@ -110,6 +110,84 @@ pub enum CoordinatorError {
 }
 
 // ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
+
+/// Broker-level task handler type.
+///
+/// This is the handler signature expected by the broker's `subscribe_for_tasks`.
+type BrokerTaskHandler = TaskHandler;
+
+/// Broker-level job handler type.
+type BrokerJobHandler = JobHandler;
+
+/// Broker-level node handler type.
+type BrokerNodeHandler = HeartbeatHandler;
+
+/// Broker-level log handler type.
+type BrokerLogHandler = TaskLogPartHandler;
+
+/// Middleware chains for handler types.
+///
+/// Go parity: `coordinator.Middleware`
+///
+/// Each field holds a vector of middleware functions that wrap the corresponding
+/// broker handler. Middleware is applied in order using a left fold, so
+/// `vec![mw1, mw2]` produces: mw1 → mw2 → handler.
+///
+/// # Handler Signatures
+///
+/// The middleware functions take a broker handler and return a wrapped version:
+/// - Task: `Arc<dyn Fn(Arc<Task>) -> Box<dyn Future<Output = ()> + Send>>`
+/// - Job: `Arc<dyn Fn(Job) -> Box<dyn Future<Output = ()> + Send>>`
+/// - Node: `Arc<dyn Fn(Node) -> Box<dyn Future<Output = ()> + Send>>`
+/// - Log: `Arc<dyn Fn(TaskLogPart) -> Box<dyn Future<Output = ()> + Send>>`
+#[derive(Clone, Default)]
+pub struct Middleware {
+    /// Middleware for job handlers (applied to `subscribe_for_jobs`)
+    pub job: Vec<Arc<dyn Fn(BrokerJobHandler) -> BrokerJobHandler + Send + Sync>>,
+    /// Middleware for task handlers (applied to `subscribe_for_tasks`)
+    pub task: Vec<Arc<dyn Fn(BrokerTaskHandler) -> BrokerTaskHandler + Send + Sync>>,
+    /// Middleware for node handlers (applied to `subscribe_for_heartbeats`)
+    pub node: Vec<Arc<dyn Fn(BrokerNodeHandler) -> BrokerNodeHandler + Send + Sync>>,
+    /// Middleware for log handlers (applied to `subscribe_for_task_log_part`)
+    pub log: Vec<Arc<dyn Fn(BrokerLogHandler) -> BrokerLogHandler + Send + Sync>>,
+}
+
+impl std::fmt::Debug for Middleware {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Middleware")
+            .field("job", &format!("[{} middleware fns]", self.job.len()))
+            .field("task", &format!("[{} middleware fns]", self.task.len()))
+            .field("node", &format!("[{} middleware fns]", self.node.len()))
+            .field("log", &format!("[{} middleware fns]", self.log.len()))
+            .finish()
+    }
+}
+
+impl Middleware {
+    /// Apply the job middleware chain to a handler.
+    fn apply_job(&self, handler: BrokerJobHandler) -> BrokerJobHandler {
+        self.job.iter().fold(handler, |h, mw| mw(h))
+    }
+
+    /// Apply the task middleware chain to a handler.
+    fn apply_task(&self, handler: BrokerTaskHandler) -> BrokerTaskHandler {
+        self.task.iter().fold(handler, |h, mw| mw(h))
+    }
+
+    /// Apply the node middleware chain to a handler.
+    fn apply_node(&self, handler: BrokerNodeHandler) -> BrokerNodeHandler {
+        self.node.iter().fold(handler, |h, mw| mw(h))
+    }
+
+    /// Apply the log middleware chain to a handler.
+    fn apply_log(&self, handler: BrokerLogHandler) -> BrokerLogHandler {
+        self.log.iter().fold(handler, |h, mw| mw(h))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
@@ -131,6 +209,10 @@ pub struct Config {
     pub queues: HashMap<String, i64>,
     /// Enabled API endpoints
     pub enabled: HashMap<String, bool>,
+    /// Middleware chains for handlers
+    ///
+    /// Go parity: `cfg.Middleware`
+    pub middleware: Middleware,
 }
 
 impl std::fmt::Debug for Config {
@@ -157,6 +239,7 @@ impl Clone for Config {
             address: self.address.clone(),
             queues: self.queues.clone(),
             enabled: self.enabled.clone(),
+            middleware: self.middleware.clone(),
         }
     }
 }
@@ -218,6 +301,8 @@ pub struct Coordinator {
     queues: HashMap<String, i64>,
     /// API listen address
     address: String,
+    /// Middleware chains for handlers
+    middleware: Middleware,
 
     // Handler instances (wrapped in Arc for shared use in closures)
     pending_handler: Arc<PendingHandler>,
@@ -244,6 +329,7 @@ impl std::fmt::Debug for Coordinator {
             .field("name", &self.name)
             .field("start_time", &self.start_time)
             .field("queues", &self.queues)
+            .field("middleware", &self.middleware)
             .finish()
     }
 }
@@ -317,6 +403,7 @@ impl Coordinator {
             datastore: ds,
             queues,
             address: cfg.address,
+            middleware: cfg.middleware,
             pending_handler,
             started_handler,
             completed_handler,
@@ -532,11 +619,12 @@ impl Coordinator {
     /// Subscribe to a single queue based on its name.
     ///
     /// Go parity: the `switch qname { case ... }` block in `Start()`.
+    /// Handlers are wrapped through the middleware chain before subscription.
     async fn subscribe_to_queue(&self, qname: &str) -> Result<(), CoordinatorError> {
         match qname {
             queue::QUEUE_PENDING => {
                 let handler = self.pending_handler.clone();
-                let task_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
+                let base_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
                     let handler = handler.clone();
                     Box::pin(async move {
                         let mut t = (*task).clone();
@@ -545,6 +633,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let task_handler = self.middleware.apply_task(base_handler);
                 self.broker
                     .subscribe_for_tasks(qname.to_string(), task_handler)
                     .await
@@ -555,7 +644,7 @@ impl Coordinator {
                 let broker = self.broker.clone();
                 let ds = self.datastore.clone();
                 let error_handler = self.error_handler.clone();
-                let task_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
+                let base_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
                     let handler = handler.clone();
                     let broker = broker.clone();
                     let ds = ds.clone();
@@ -570,6 +659,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let task_handler = self.middleware.apply_task(base_handler);
                 self.broker
                     .subscribe_for_tasks(qname.to_string(), task_handler)
                     .await
@@ -580,7 +670,7 @@ impl Coordinator {
                 let broker = self.broker.clone();
                 let ds = self.datastore.clone();
                 let error_handler = self.error_handler.clone();
-                let task_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
+                let base_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
                     let handler = handler.clone();
                     let broker = broker.clone();
                     let ds = ds.clone();
@@ -595,6 +685,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let task_handler = self.middleware.apply_task(base_handler);
                 self.broker
                     .subscribe_for_tasks(qname.to_string(), task_handler)
                     .await
@@ -602,7 +693,7 @@ impl Coordinator {
             }
             queue::QUEUE_ERROR => {
                 let handler = self.error_handler.clone();
-                let task_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
+                let base_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
                     let handler = handler.clone();
                     Box::pin(async move {
                         let mut t = (*task).clone();
@@ -611,6 +702,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let task_handler = self.middleware.apply_task(base_handler);
                 self.broker
                     .subscribe_for_tasks(qname.to_string(), task_handler)
                     .await
@@ -618,7 +710,7 @@ impl Coordinator {
             }
             queue::QUEUE_HEARTBEAT => {
                 let handler = self.heartbeat_handler.clone();
-                let node_handler: HeartbeatHandler = Arc::new(move |node: Node| {
+                let base_handler: HeartbeatHandler = Arc::new(move |node: Node| {
                     let handler = handler.clone();
                     Box::pin(async move {
                         if let Err(e) = handler.handle(&node).await {
@@ -626,6 +718,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let node_handler = self.middleware.apply_node(base_handler);
                 self.broker
                     .subscribe_for_heartbeats(node_handler)
                     .await
@@ -636,7 +729,7 @@ impl Coordinator {
                 let broker = self.broker.clone();
                 let ds = self.datastore.clone();
                 let error_handler = self.error_handler.clone();
-                let job_handler_closure: JobHandler = Arc::new(move |job: Job| {
+                let base_handler: JobHandler = Arc::new(move |job: Job| {
                     let handler = handler.clone();
                     let broker = broker.clone();
                     let ds = ds.clone();
@@ -652,14 +745,15 @@ impl Coordinator {
                         }
                     })
                 });
+                let job_handler = self.middleware.apply_job(base_handler);
                 self.broker
-                    .subscribe_for_jobs(job_handler_closure)
+                    .subscribe_for_jobs(job_handler)
                     .await
                     .map_err(|e| CoordinatorError::Broker(format!("subscribe to {qname}: {e}")))?;
             }
             queue::QUEUE_LOGS => {
                 let handler = self.log_handler.clone();
-                let log_handler: TaskLogPartHandler = Arc::new(move |part: tork::task::TaskLogPart| {
+                let base_handler: TaskLogPartHandler = Arc::new(move |part: tork::task::TaskLogPart| {
                     let handler = handler.clone();
                     Box::pin(async move {
                         if let Err(e) = handler.handle(&part).await {
@@ -667,12 +761,14 @@ impl Coordinator {
                         }
                     })
                 });
+                let log_handler = self.middleware.apply_log(base_handler);
                 self.broker
                     .subscribe_for_task_log_part(log_handler)
                     .await
                     .map_err(|e| CoordinatorError::Broker(format!("subscribe to {qname}: {e}")))?;
             }
             queue::QUEUE_PROGRESS => {
+                // Progress handler is not wrapped in task middleware (no middleware defined for progress)
                 let handler = self.progress_handler.clone();
                 let broker = self.broker.clone();
                 let progress_handler: TaskProgressHandler = Arc::new(move |task: Task| {
@@ -703,7 +799,7 @@ impl Coordinator {
             }
             queue::QUEUE_REDELIVERIES => {
                 let handler = self.redelivered_handler.clone();
-                let task_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
+                let base_handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
                     let handler = handler.clone();
                     Box::pin(async move {
                         if let Err(e) = handler.handle(&task).await {
@@ -711,6 +807,7 @@ impl Coordinator {
                         }
                     })
                 });
+                let task_handler = self.middleware.apply_task(base_handler);
                 self.broker
                     .subscribe_for_tasks(qname.to_string(), task_handler)
                     .await

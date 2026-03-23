@@ -19,8 +19,8 @@ use bollard::container::{
 };
 use bollard::image::CreateImageOptions;
 use bollard::secret::{
-    DeviceRequest, EndpointSettings, HostConfig, Mount as BollardMount, MountTypeEnum,
-    PortBinding,
+    DeviceRequest, EndpointSettings, HealthConfig, HostConfig, Mount as BollardMount,
+    MountTypeEnum, PortBinding,
 };
 use bollard::network::CreateNetworkOptions;
 use bollard::Docker;
@@ -857,6 +857,7 @@ impl DockerRuntime {
         // Probe port configuration (Go parity: exposed ports + port bindings)
         let mut exposed_ports: HashMap<String, HashMap<(), ()>> = HashMap::new();
         let mut port_bindings: HashMap<String, Option<Vec<PortBinding>>> = HashMap::new();
+        let mut healthcheck: Option<HealthConfig> = None;
 
         if let Some(ref probe) = task.probe {
             if let Some(port) = probe.port {
@@ -866,6 +867,28 @@ impl DockerRuntime {
                     host_ip: Some("127.0.0.1".to_string()),
                     host_port: Some("0".to_string()),
                 }]));
+
+                // Build Docker HEALTHCHECK for native container health monitoring
+                let probe_path = probe.path.as_deref().unwrap_or(DEFAULT_PROBE_PATH);
+                let timeout_str = probe.timeout.as_deref().unwrap_or(DEFAULT_PROBE_TIMEOUT);
+                let timeout = parse_go_duration(timeout_str)
+                    .unwrap_or(Duration::from_secs(60));
+                let interval = Duration::from_secs(30);
+
+                healthcheck = Some(HealthConfig {
+                    test: Some(vec![
+                        "CMD".to_string(),
+                        "curl".to_string(),
+                        "-f".to_string(),
+                        "-s".to_string(),
+                        format!("http://localhost:{}{}", port, probe_path),
+                    ]),
+                    interval: Some(interval.as_nanos() as i64),
+                    timeout: Some(timeout.as_nanos() as i64),
+                    retries: Some(3),
+                    start_period: Some(0),
+                    start_interval: Some(0),
+                });
             }
         }
 
@@ -907,6 +930,7 @@ impl DockerRuntime {
                 ..Default::default()
             }),
             networking_config,
+            healthcheck,
             ..Default::default()
         };
 

@@ -70,6 +70,8 @@ const RUN_ENTRYPOINT: &[&str] = &["sh", "-c"];
 pub struct DockerConfig {
     /// Docker config file path for registry credentials.
     pub config_file: Option<String>,
+    /// Docker config path for registry credentials (alternative to config_file).
+    pub config_path: Option<String>,
     /// Whether to run containers in privileged mode.
     pub privileged: bool,
     /// Image TTL for pruning.
@@ -84,6 +86,7 @@ impl Default for DockerConfig {
     fn default() -> Self {
         Self {
             config_file: None,
+            config_path: None,
             privileged: false,
             image_ttl: DEFAULT_IMAGE_TTL,
             image_verify: false,
@@ -96,6 +99,7 @@ impl Default for DockerConfig {
 #[derive(Default)]
 pub struct DockerConfigBuilder {
     config_file: Option<String>,
+    config_path: Option<String>,
     privileged: bool,
     image_ttl: Duration,
     image_verify: bool,
@@ -106,6 +110,12 @@ impl DockerConfigBuilder {
     #[must_use]
     pub fn with_config_file(mut self, path: &str) -> Self {
         self.config_file = Some(path.to_string());
+        self
+    }
+
+    #[must_use]
+    pub fn with_config_path(mut self, path: &str) -> Self {
+        self.config_path = Some(path.to_string());
         self
     }
 
@@ -137,6 +147,7 @@ impl DockerConfigBuilder {
     pub fn build(self) -> DockerConfig {
         DockerConfig {
             config_file: self.config_file,
+            config_path: self.config_path,
             privileged: self.privileged,
             image_ttl: self.image_ttl,
             image_verify: self.image_verify,

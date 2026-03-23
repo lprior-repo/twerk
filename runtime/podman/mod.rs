@@ -1248,15 +1248,24 @@ impl PodmanRuntime {
         debug!("Attempting to stop and remove container {}", container_id);
         let mut cmd = Command::new("podman");
         cmd.arg("rm").arg("-f").arg("-t").arg("0").arg(container_id);
-        cmd.stdout(Stdio::null());
-        cmd.stderr(Stdio::null());
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
 
-        cmd.output()
+        let output = cmd
+            .output()
             .await
             .map_err(|e| PodmanError::ContainerCreation(format!(
                 "failed to remove container {}: {}",
                 container_id, e
             )))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(PodmanError::ContainerCreation(format!(
+                "failed to stop container {}: {}",
+                container_id, stderr
+            )));
+        }
         Ok(())
     }
 

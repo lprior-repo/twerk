@@ -1321,53 +1321,310 @@ mod tests {
         worker.stop().await.unwrap();
     }
 
+    // ---- ShellRuntimeBridge: adapts ShellRuntime to the Runtime trait ----
+
+    /// Bridge adapter that wraps [`crate::runtime::shell::ShellRuntime`]
+    /// and implements the [`Runtime`] trait required by the worker.
+    ///
+    /// Converts between `tork::task::Task` (with `Option<>` fields) and
+    /// `crate::runtime::shell::Task` (concrete fields) on each `run` call.
+    ///
+    /// NOTE: Due to the `'static` lifetime requirement on `BoxedFuture`,
+    /// we cannot capture `&mut Task` across the async boundary. The result
+    /// is instead stored in `last_result` and can be read after awaiting.
+    struct ShellRuntimeBridge {
+        inner: Arc<crate::runtime::shell::ShellRuntime>,
+        /// Stores the result from the most recent run (keyed by task ID).
+        last_result: Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
+    }
+
+    impl ShellRuntimeBridge {
+        fn new() -> Self {
+            use tokio::process::Command;
+            let config = crate::runtime::shell::ShellConfig {
+                cmd: vec!["bash".to_string(), "-c".to_string()],
+                uid: crate::runtime::shell::DEFAULT_UID.to_string(),
+                gid: crate::runtime::shell::DEFAULT_GID.to_string(),
+                reexec: Some(Box::new(|args: &[String]| {
+                    let mut cmd = Command::new(&args[5]);
+                    cmd.args(&args[6..]);
+                    cmd
+                })),
+                broker: None,
+            };
+            Self {
+                inner: Arc::new(crate::runtime::shell::ShellRuntime::new(config)),
+                last_result: Arc::new(std::sync::Mutex::new(
+                    std::collections::HashMap::new(),
+                )),
+            }
+        }
+
+        /// Converts a `tork::task::Task` into a `shell::Task`.
+        fn to_shell_task(task: &tork::task::Task) -> crate::runtime::shell::Task {
+            use crate::runtime::shell::Mount as ShellMount;
+            use crate::runtime::shell::MountType;
+
+            crate::runtime::shell::Task {
+                id: task.id.clone().unwrap_or_default(),
+                name: task.name.clone(),
+                image: task.image.clone().unwrap_or_default(),
+                run: task.run.clone().unwrap_or_default(),
+                cmd: task.cmd.clone().unwrap_or_default(),
+                entrypoint: task.entrypoint.clone().unwrap_or_default(),
+                env: task.env.clone().unwrap_or_default(),
+                mounts: task
+                    .mounts
+                    .as_ref()
+                    .map(|ms| {
+                        ms.iter()
+                            .map(|m| ShellMount {
+                                id: m.id.clone().unwrap_or_default(),
+                                mount_type: if m.mount_type == "bind" {
+                                    MountType::Bind
+                                } else {
+                                    MountType::Volume
+                                },
+                                source: m.source.clone().unwrap_or_default(),
+                                target: m.target.clone().unwrap_or_default(),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                files: task.files.clone().unwrap_or_default(),
+                networks: task.networks.clone().unwrap_or_default(),
+                limits: task.limits.as_ref().map(|l| {
+                    crate::runtime::shell::TaskLimits {
+                        cpus: l.cpus.clone().unwrap_or_default(),
+                        memory: l.memory.clone().unwrap_or_default(),
+                    }
+                }),
+                registry: None, // ShellRuntime doesn't use registry
+                sidecars: task
+                    .sidecars
+                    .as_ref()
+                    .map(|ss| ss.iter().map(Self::to_shell_task).collect())
+                    .unwrap_or_default(),
+                pre: task
+                    .pre
+                    .as_ref()
+                    .map(|ps| ps.iter().map(Self::to_shell_task).collect())
+                    .unwrap_or_default(),
+                post: task
+                    .post
+                    .as_ref()
+                    .map(|ps| ps.iter().map(Self::to_shell_task).collect())
+                    .unwrap_or_default(),
+                workdir: task.workdir.clone(),
+                result: task.result.clone().unwrap_or_default(),
+                progress: task.progress,
+            }
+        }
+
+        /// Retrieves the stored result for a given task ID.
+        fn get_result(&self, task_id: &str) -> Option<String> {
+            self.last_result
+                .lock()
+                .expect("result lock poisoned")
+                .get(task_id)
+                .cloned()
+        }
+    }
+
+    impl Runtime for ShellRuntimeBridge {
+        fn run(
+            &self,
+            _ctx: std::sync::Arc<tokio::sync::RwLock<()>>,
+            task: &mut tork::task::Task,
+        ) -> tork::runtime::BoxedFuture<()> {
+            let shell_task = Self::to_shell_task(task);
+            let inner = Arc::clone(&self.inner);
+            let results: Arc<std::sync::Mutex<std::collections::HashMap<String, String>>> =
+                Arc::clone(&self.last_result);
+            let task_id = task.id.clone().unwrap_or_default();
+            Box::pin(async move {
+                let cancel = Arc::new(AtomicBool::new(false));
+                let mut st = shell_task;
+                inner.run(cancel, &mut st).await?;
+                if !st.result.is_empty() {
+                    results
+                        .lock()
+                        .expect("result lock poisoned")
+                        .insert(task_id, st.result);
+                }
+                Ok(())
+            })
+        }
+
+        fn health_check(&self) -> tork::runtime::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
     // ---- Test_handleTaskRunOutput (mirrors Go Test_handleTaskRunOutput) ----
-    // Integration test: requires a runtime that supports $TORK_OUTPUT capture.
-    // This test is #[ignore] because no mock runtime currently supports output
-    // capture. When a production runtime (Docker/Podman/Shell) implements
-    // tork::Runtime, this test should be updated to use it.
-    //
-    // The Go test verifies that `echo -n hello world > $TORK_OUTPUT` results
-    // in `task.Result == "hello world"`.
-    //
-    // To run: cargo test test_handle_task_run_output -- --ignored
+    // Integration test: verifies that a shell task writing to $REEXEC_TORK_OUTPUT
+    // captures the output into the runtime's result store, matching Go's
+    // Test_handleTaskRunOutput which checks `echo -n hello world > $TORK_OUTPUT`
+    // → `t1.Result == "hello world"`.
     #[tokio::test]
-    #[ignore]
     async fn test_handle_task_run_output() {
-        // Requires production runtime with $TORK_OUTPUT support.
-        // See Go Test_handleTaskRunOutput for expected behavior.
-        let broker = new_in_memory_broker();
-        let runtime = crate::runtime::shell::ShellRuntime::new(
-            crate::runtime::shell::ShellConfig::default(),
+        let bridge = Arc::new(ShellRuntimeBridge::new());
+        let broker = Arc::new(new_in_memory_broker());
+
+        // Subscribe for completion event (mirrors Go pattern)
+        let completed = Arc::new(tokio::sync::Notify::new());
+        let completed_clone = Arc::clone(&completed);
+        let completed_handler: tork::broker::TaskHandler = Arc::new(move |_task: Arc<Task>| {
+            let notify = Arc::clone(&completed_clone);
+            Box::pin(async move {
+                notify.notify_one();
+            })
+        });
+        broker
+            .subscribe_for_tasks(
+                tork::broker::queue::QUEUE_COMPLETED.to_string(),
+                completed_handler,
+            )
+            .await
+            .expect("subscribe should succeed");
+
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(broker),
+            runtime: Some(bridge.clone()),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+
+        let w = Worker::new(cfg).expect("worker creation should succeed");
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let t1 = Arc::new(Task {
+            id: Some(task_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            run: Some("echo -n hello world > $REEXEC_TORK_OUTPUT".to_string()),
+            ..Default::default()
+        });
+
+        let result = w.handle_task(t1).await;
+        assert!(result.is_ok(), "handle_task should succeed: {:?}", result.err());
+
+        // Wait for completion event
+        tokio::time::timeout(Duration::from_secs(2), completed.notified())
+            .await
+            .expect("should receive completion event within timeout");
+
+        // Verify output was captured in the bridge's result store
+        let captured = bridge.get_result(&task_id);
+        assert_eq!(
+            captured.as_deref(),
+            Some("hello world"),
+            "task result should be 'hello world'"
         );
-        // NOTE: ShellRuntime does not yet implement tork::Runtime.
-        // This test will compile once that bridge is implemented.
-        let _ = (broker, runtime);
     }
 
     // ---- Test_handleTaskRunWithPrePost (mirrors Go Test_handleTaskRunWithPrePost) ----
-    // Integration test: requires a runtime that supports pre/post tasks with
-    // shared volume mounts. This test is #[ignore] because no mock runtime
-    // currently supports pre/post execution.
+    // Integration test: verifies that pre-tasks execute before the main task,
+    // post-tasks execute after, and the main task result captures pre-task output.
     //
-    // The Go test verifies that:
-    // - Pre-tasks execute before the main task (shared volume)
-    // - Post-tasks execute after the main task
-    // - Main task result captures pre-task output
-    //
-    // To run: cargo test test_handle_task_run_with_pre_post -- --ignored
+    // Since ShellRuntime doesn't support mounts, we use a shared temp file
+    // (analogous to the Go test's shared volume) for pre → main data flow.
     #[tokio::test]
-    #[ignore]
     async fn test_handle_task_run_with_pre_post() {
-        // Requires production runtime with pre/post task support.
-        // See Go Test_handleTaskRunWithPrePost for expected behavior.
-        let broker = new_in_memory_broker();
-        let runtime = crate::runtime::shell::ShellRuntime::new(
-            crate::runtime::shell::ShellConfig::default(),
+        let shared_file = format!("/tmp/tork_test_pre_{}", uuid::Uuid::new_v4());
+        let shared_file_main = shared_file.clone();
+
+        // Subscribe for completion event
+        let bridge = Arc::new(ShellRuntimeBridge::new());
+        let broker = Arc::new(new_in_memory_broker());
+        let completed = Arc::new(tokio::sync::Notify::new());
+        let completed_clone = Arc::clone(&completed);
+        let completed_handler: tork::broker::TaskHandler = Arc::new(move |_task: Arc<Task>| {
+            let notify = Arc::clone(&completed_clone);
+            Box::pin(async move {
+                notify.notify_one();
+            })
+        });
+        broker
+            .subscribe_for_tasks(
+                tork::broker::queue::QUEUE_COMPLETED.to_string(),
+                completed_handler,
+            )
+            .await
+            .expect("subscribe should succeed");
+
+        // Pre-task writes "prestuff" to the shared file
+        let pre_task = Task {
+            id: Some(uuid::Uuid::new_v4().to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            run: Some(format!("echo -n prestuff > {}", shared_file)),
+            ..Default::default()
+        };
+
+        // Post-task creates a marker file to prove it ran
+        let post_marker = format!("/tmp/tork_test_post_{}", uuid::Uuid::new_v4());
+        let post_marker_run = post_marker.clone();
+        let post_task = Task {
+            id: Some(uuid::Uuid::new_v4().to_string()),
+            state: TASK_STATE_RUNNING.clone(),
+            run: Some(format!("touch {}", post_marker_run)),
+            ..Default::default()
+        };
+
+        // Main task reads from the shared file into TORK_OUTPUT
+        let main_run = format!("cat {} > $REEXEC_TORK_OUTPUT", shared_file_main);
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let t1 = Arc::new(Task {
+            id: Some(task_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            run: Some(main_run),
+            pre: Some(vec![pre_task]),
+            post: Some(vec![post_task]),
+            ..Default::default()
+        });
+
+        let cfg = Config {
+            name: None,
+            address: None,
+            broker: Some(broker),
+            runtime: Some(bridge.clone()),
+            queues: Arc::new(DashMap::new()),
+            limits: Limits::default(),
+            middleware: Arc::new(Vec::new()),
+        };
+
+        let w = Worker::new(cfg).expect("worker creation should succeed");
+        let result = w.handle_task(t1).await;
+        assert!(
+            result.is_ok(),
+            "handle_task with pre/post should succeed: {:?}",
+            result.err()
         );
-        // NOTE: ShellRuntime does not yet implement tork::Runtime.
-        // This test will compile once that bridge is implemented.
-        let _ = (broker, runtime);
+
+        // Wait for completion event
+        tokio::time::timeout(Duration::from_secs(2), completed.notified())
+            .await
+            .expect("should receive completion event within timeout");
+
+        // Verify pre-task output was captured as main task result
+        let captured = bridge.get_result(&task_id);
+        assert_eq!(
+            captured.as_deref(),
+            Some("prestuff"),
+            "main task result should be 'prestuff' from pre-task"
+        );
+
+        // Verify post-task ran (marker file exists)
+        assert!(
+            std::path::Path::new(&post_marker).exists(),
+            "post-task marker file should exist, proving post-task executed"
+        );
+
+        // Clean up temp files
+        let _ = std::fs::remove_file(&shared_file);
+        let _ = std::fs::remove_file(&post_marker);
     }
 
     // ---- parse_go_duration ----

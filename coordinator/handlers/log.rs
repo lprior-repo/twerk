@@ -121,14 +121,34 @@ mod tests {
         assert_eq!(debug_str, "LogHandler");
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
 
-    /// Go parity: Test_handleLog
+    /// Go parity: Test_handleLog — persists a TaskLogPart to the datastore
     #[tokio::test]
     #[ignore]
     async fn test_handle_log_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = LogHandler::new(env.ds.clone());
+
+        let task_id = new_uuid();
+        let part = tork::task::TaskLogPart {
+            id: Some(new_uuid()),
+            task_id: Some(task_id.clone()),
+            number: 1,
+            contents: Some("hello world".to_string()),
+            created_at: Some(time::OffsetDateTime::now_utc()),
+        };
+
+        handler.handle(&part).await.expect("handle log");
+
+        // Verify the log was persisted by querying it back
+        let page = env.ds.get_task_log_parts(task_id, String::new(), 1, 10).await.expect("get log parts");
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].contents.as_deref(), Some("hello world"));
+
+        env.cleanup().await;
     }
+}
 
     /// A minimal no-op datastore for compile-time tests.
     struct NoopDs;

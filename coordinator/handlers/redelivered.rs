@@ -455,14 +455,26 @@ mod tests {
         assert_eq!(MAX_REDELIVERIES, 5);
     }
 
-    // -- Integration tests (require real broker) -----------------------------
+    use crate::handlers::test_helpers::TestEnv;
 
-    /// Go parity: Test_handleRedeliveredTask
+    /// Go parity: Test_handleRedeliveredTask — requeues task below max, fails at max
     #[tokio::test]
     #[ignore]
     async fn test_handle_redelivered_task_integration() {
-        todo!("requires broker integration");
+        let env = TestEnv::new().await;
+        let handler = RedeliveredHandler::new(env.broker.clone());
+
+        // Below max — should requeue
+        let task = make_task(3);
+        handler.handle(&task).await.expect("handle requeue");
+
+        // At max — should fail
+        let fail_task = make_task(5);
+        handler.handle(&fail_task).await.expect("handle fail");
+
+        env.cleanup().await;
     }
+}
 
     // -- Mock broker for construction tests ----------------------------------
 

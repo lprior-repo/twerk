@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["tork", "locker", "engine", "cli", "health", "input", "datastore", "coordinator", "cache"]
+members = ["tork", "locker", "engine", "cli", "health", "input", "datastore", "cache", "coordinator"]
 
 [dependencies]
 # Local tork crate

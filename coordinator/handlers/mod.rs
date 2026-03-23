@@ -30,6 +30,9 @@ pub mod redelivered;
 pub mod schedule;
 pub mod started;
 
+#[cfg(test)]
+pub mod test_helpers;
+
 // Re-export handler constructor functions
 pub use cancel::CancelHandler;
 pub use completed::CompletedHandler;

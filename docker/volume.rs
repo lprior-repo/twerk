@@ -144,7 +144,6 @@ mod tests {
     // They are marked as ignored by default
 
     #[tokio::test]
-    #[ignore]
     async fn test_create_volume() {
         let mounter = VolumeMounter::new().await.expect("should create mounter");
 

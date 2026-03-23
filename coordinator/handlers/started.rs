@@ -599,19 +599,100 @@ mod tests {
         }
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
 
     /// Go parity: Test_handleStartedTask
     #[tokio::test]
     #[ignore]
     async fn test_handle_started_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = StartedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_SCHEDULED.to_string(),
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_SCHEDULED.clone(),
+            started_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        handler.handle(&t1).await.expect("handle started");
+
+        let t2 = env.ds.get_task_by_id(t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(t2.state, *TASK_STATE_RUNNING);
+        assert_eq!(t2.node_id, t1.node_id);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.state, *JOB_STATE_RUNNING);
+
+        env.cleanup().await;
     }
 
     /// Go parity: Test_handleStartedTaskOfFailedJob
     #[tokio::test]
     #[ignore]
     async fn test_handle_started_task_of_failed_job_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = StartedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_FAILED.to_string(),
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let node_id = new_uuid();
+        let queue_name = new_uuid();
+        let n1 = tork::node::Node {
+            id: Some(node_id.clone()),
+            queue: Some(queue_name.clone()),
+            started_at: now,
+            last_heartbeat_at: now,
+            cpu_percent: 0.0,
+            status: tork::node::NODE_STATUS_UP.to_string(),
+            hostname: Some("localhost".into()),
+            port: 8080,
+            task_count: 0,
+            name: None,
+            version: String::new(),
+        };
+        env.ds.create_node(n1).await.expect("create node");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_SCHEDULED.clone(),
+            started_at: Some(now),
+            job_id: Some(job_id.clone()),
+            node_id: Some(node_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        handler.handle(&t1).await.expect("handle started");
+
+        // Allow time for broker message
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let t2 = env.ds.get_task_by_id(t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        // Task should NOT have been updated to RUNNING since job is FAILED
+        assert_eq!(t2.state, *TASK_STATE_SCHEDULED);
+
+        env.cleanup().await;
     }
 }

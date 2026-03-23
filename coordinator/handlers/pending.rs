@@ -464,19 +464,64 @@ mod tests {
         assert_eq!(task.completed_at, Some(now));
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
+    use tork::task::TASK_STATE_SCHEDULED;
+    use tork::Datastore;
 
     /// Go parity: Test_handlePendingTask
     #[tokio::test]
     #[ignore]
     async fn test_handle_pending_task_integration() {
-        todo!("requires broker and datastore integration");
+        let env = TestEnv::new().await;
+        let ds = env.ds.clone() as Arc<dyn tork::Datastore>;
+        let scheduler = Scheduler::new();
+        let handler = PendingHandler::with_scheduler(scheduler);
+        let ctx = Arc::new(());
+
+        let job_id = new_uuid();
+        let job = tork::job::Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_SCHEDULED.to_string(),
+            ..tork::job::Job::default()
+        };
+        env.ds.create_job(job).await.expect("create job");
+
+        let mut task = Task {
+            id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            name: Some("echo-hello".into()),
+            run: Some("echo hello".into()),
+            ..Task::default()
+        };
+
+        handler.handle(ctx, &mut task).expect("handle pending");
+        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
+        assert!(task.scheduled_at.is_some());
+
+        env.cleanup().await;
     }
 
-    /// Go parity: Test_handleConditionalTask
+    /// Go parity: Test_handleConditionalTask — task with if="false" gets skipped
     #[tokio::test]
     #[ignore]
     async fn test_handle_conditional_task_integration() {
-        todo!("requires broker and datastore integration");
+        let env = TestEnv::new().await;
+        let scheduler = Scheduler::new();
+        let handler = PendingHandler::with_scheduler(scheduler);
+        let ctx = Arc::new(());
+
+        let mut task = Task {
+            id: Some(new_uuid()),
+            r#if: Some("false".to_string()),
+            ..Task::default()
+        };
+
+        handler.handle(ctx, &mut task).expect("handle conditional");
+        assert_eq!(task.state, *TASK_STATE_SKIPPED);
+        assert!(task.scheduled_at.is_some());
+        assert!(task.started_at.is_some());
+        assert!(task.completed_at.is_some());
+
+        env.cleanup().await;
     }
 }

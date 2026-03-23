@@ -1476,56 +1476,486 @@ mod tests {
 
     // -- Integration tests (require real datastore, ignored by default) -----
 
-    /// Go parity: Test_handleCompletedLastTask
-    /// Requires postgres database. Run with: cargo test -p coordinator -- --ignored
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
+
+    /// Go parity: Test_handleCompletedLastTask — last task completes → 100% progress
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_last_task_integration() {
-        // This test requires a real datastore and broker (Go parity with
-        // Test_handleCompletedLastTask). The pure-calc variants above
-        // cover the decision logic.
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 2,
+            task_count: 2,
+            tasks: vec![
+                Task { name: Some("task-1".into()), ..Task::default() },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            created_at: Some(now),
+            job_id: Some(job_id.clone()),
+            position: 2,
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle completed");
+
+        let t2 = env.ds.get_task_by_id(completed_t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(t2.state, *TASK_STATE_COMPLETED);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.progress, 100.0);
+
+        env.cleanup().await;
     }
 
-    /// Go parity: Test_handleCompletedFirstTask
+    /// Go parity: Test_handleCompletedFirstTask — first task → 50% progress, job stays RUNNING
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_first_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 2,
+            tasks: vec![
+                Task { name: Some("task-1".into()), ..Task::default() },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            created_at: Some(now),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle completed");
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let t2 = env.ds.get_task_by_id(completed_t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(t2.state, *TASK_STATE_COMPLETED);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.state, tork::job::JOB_STATE_RUNNING);
+        assert_eq!(j2.progress, 50.0);
+
+        env.cleanup().await;
     }
 
-    /// Go parity: Test_handleSkippedTask
+    /// Go parity: Test_handleSkippedTask — skipped task counts as completed
     #[tokio::test]
-    #[ignore]
     async fn test_handle_skipped_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 2,
+            task_count: 2,
+            tasks: vec![
+                Task { name: Some("task-1".into()), ..Task::default() },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_SKIPPED.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            created_at: Some(now),
+            job_id: Some(job_id.clone()),
+            position: 2,
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        let mut skipped_t1 = Task { state: TASK_STATE_SKIPPED.clone(), ..t1 };
+        handler.handle(&skipped_t1).await.expect("handle skipped");
+
+        let t2 = env.ds.get_task_by_id(skipped_t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(t2.state, *TASK_STATE_SKIPPED);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.progress, 100.0);
+
+        env.cleanup().await;
     }
 
-    /// Go parity: Test_handleCompletedLastSubJobTask
+    /// Go parity: Test_handleCompletedLastSubJobTask — sub-job last task completion
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_last_subjob_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let parent_job_id = new_uuid();
+        let parent_job = Job {
+            id: Some(parent_job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 1,
+            tasks: vec![Task { name: Some("task-1".into()), ..Task::default() }],
+            ..Job::default()
+        };
+        env.ds.create_job(parent_job).await.expect("create parent job");
+
+        let parent_task_id = new_uuid();
+        let parent_task = Task {
+            id: Some(parent_task_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(parent_job_id.clone()),
+            position: 2,
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(parent_task).await.expect("create parent task");
+
+        let sub_job_id = new_uuid();
+        let sub_job = Job {
+            id: Some(sub_job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 1,
+            parent_id: Some(parent_task_id.clone()),
+            tasks: vec![Task { name: Some("sub-task-1".into()), run: Some("echo hello".into()), ..Task::default() }],
+            ..Job::default()
+        };
+        env.ds.create_job(sub_job).await.expect("create sub job");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(sub_job_id.clone()),
+            position: 2,
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle completed");
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let t2 = env.ds.get_task_by_id(completed_t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(t2.state, *TASK_STATE_COMPLETED);
+
+        let j2 = env.ds.get_job_by_id(sub_job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.state, tork::job::JOB_STATE_COMPLETED);
+
+        env.cleanup().await;
     }
 
     /// Go parity: Test_handleCompletedParallelTask
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_parallel_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 2,
+            tasks: vec![
+                Task {
+                    name: Some("task-1".into()),
+                    parallel: Some(ParallelTask {
+                        tasks: Some(vec![
+                            Task { name: Some("parallel-task-1".into()), ..Task::default() },
+                            Task { name: Some("parallel-task-2".into()), ..Task::default() },
+                        ]),
+                        completions: 0,
+                    }),
+                    ..Task::default()
+                },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let pt_id = new_uuid();
+        let pt = Task {
+            id: Some(pt_id.clone()),
+            job_id: Some(job_id.clone()),
+            parallel: Some(ParallelTask {
+                tasks: Some(vec![
+                    Task { name: Some("parallel-task-1".into()), ..Task::default() },
+                    Task { name: Some("parallel-task-2".into()), ..Task::default() },
+                ]),
+                completions: 0,
+            }),
+            state: TASK_STATE_RUNNING.clone(),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(pt).await.expect("create parent parallel task");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        let t5 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_SCHEDULED.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task t1");
+        env.ds.create_task(t5.clone()).await.expect("create task t5");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle t1");
+
+        let mut completed_t5 = Task { state: TASK_STATE_COMPLETED.clone(), ..t5 };
+        handler.handle(&completed_t5).await.expect("handle t5");
+
+        let pt1 = env.ds.get_task_by_id(pt_id).await.expect("get parent").expect("parent exists");
+        assert_eq!(pt1.state, *TASK_STATE_COMPLETED);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.state, tork::job::JOB_STATE_RUNNING);
+
+        env.cleanup().await;
     }
 
     /// Go parity: Test_handleCompletedEachTask
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_each_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 2,
+            tasks: vec![
+                Task {
+                    name: Some("task-1".into()),
+                    each: Some(EachTask {
+                        size: 2,
+                        list: Some("some expression".into()),
+                        task: Some(Box::new(Task { name: Some("some task".into()), ..Task::default() })),
+                        ..EachTask::default()
+                    }),
+                    ..Task::default()
+                },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let pt_id = new_uuid();
+        let pt = Task {
+            id: Some(pt_id.clone()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            name: Some("parent task".into()),
+            each: Some(EachTask {
+                size: 2,
+                list: Some("some expression".into()),
+                task: Some(Box::new(Task { name: Some("some task".into()), ..Task::default() })),
+                ..EachTask::default()
+            }),
+            state: TASK_STATE_RUNNING.clone(),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(pt).await.expect("create parent each task");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        let t5 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_SCHEDULED.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task t1");
+        env.ds.create_task(t5.clone()).await.expect("create task t5");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle t1");
+
+        let mut completed_t5 = Task { state: TASK_STATE_COMPLETED.clone(), ..t5 };
+        handler.handle(&completed_t5).await.expect("handle t5");
+
+        let pt1 = env.ds.get_task_by_id(pt_id).await.expect("get parent").expect("parent exists");
+        assert_eq!(pt1.state, *TASK_STATE_COMPLETED);
+
+        let j2 = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        assert_eq!(j2.state, tork::job::JOB_STATE_RUNNING);
+
+        env.cleanup().await;
     }
 
     /// Go parity: Test_handleCompletedEachTaskWithNextTask
     #[tokio::test]
-    #[ignore]
     async fn test_handle_completed_each_task_with_next_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CompletedHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+        let now = time::OffsetDateTime::now_utc();
+
+        let job_id = new_uuid();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            state: tork::job::JOB_STATE_RUNNING.to_string(),
+            position: 1,
+            task_count: 2,
+            tasks: vec![
+                Task {
+                    name: Some("task-1".into()),
+                    each: Some(EachTask {
+                        size: 3,
+                        concurrency: 1,
+                        list: Some("some expression".into()),
+                        task: Some(Box::new(Task { name: Some("some task".into()), ..Task::default() })),
+                        ..EachTask::default()
+                    }),
+                    ..Task::default()
+                },
+                Task { name: Some("task-2".into()), ..Task::default() },
+            ],
+            ..Job::default()
+        };
+        env.ds.create_job(j1).await.expect("create job");
+
+        let pt_id = new_uuid();
+        let pt = Task {
+            id: Some(pt_id.clone()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            name: Some("parent task".into()),
+            each: Some(EachTask {
+                size: 3,
+                concurrency: 1,
+                list: Some("some expression".into()),
+                task: Some(Box::new(Task { name: Some("some task".into()), ..Task::default() })),
+                ..EachTask::default()
+            }),
+            state: TASK_STATE_RUNNING.clone(),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(pt).await.expect("create parent each task");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            state: TASK_STATE_RUNNING.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        let t6 = Task {
+            id: Some(new_uuid()),
+            state: tork::task::TASK_STATE_CREATED.clone(),
+            started_at: Some(now),
+            completed_at: Some(now),
+            node_id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            position: 1,
+            parent_id: Some(pt_id.clone()),
+            created_at: Some(now),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task t1");
+        env.ds.create_task(t6.clone()).await.expect("create task t6");
+
+        let mut completed_t1 = Task { state: TASK_STATE_COMPLETED.clone(), ..t1 };
+        handler.handle(&completed_t1).await.expect("handle t1");
+
+        let t3 = env.ds.get_task_by_id(t6.id.clone().unwrap()).await.expect("get t6").expect("t6 exists");
+        assert_eq!(t3.state, *TASK_STATE_PENDING);
+
+        let pt1 = env.ds.get_task_by_id(pt_id).await.expect("get parent").expect("parent exists");
+        assert_eq!(pt1.state, *TASK_STATE_RUNNING);
+
+        env.cleanup().await;
     }
 }

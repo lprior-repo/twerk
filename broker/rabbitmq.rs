@@ -986,7 +986,6 @@ mod tests {
 
     /// Connect and health check.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_connect() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1002,7 +1001,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryPublishAndSubsribeForTask — publish/subscribe task.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_publish_subscribe_task() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1043,7 +1041,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryPublishAndSubsribeForJob — publish/subscribe job.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_publish_subscribe_job() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1077,7 +1074,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryPublishAndSubsribeForHeartbeat.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_publish_subscribe_heartbeat() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1124,7 +1120,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryGetQueues.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_get_queues() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1148,7 +1143,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryDeleteQueue.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_delete_queue() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1173,7 +1167,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryShutdown.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_shutdown() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,
@@ -1190,7 +1183,6 @@ mod tests {
 
     /// Mirrors Go's TestInMemoryHealthCheck.
     #[tokio::test]
-    #[ignore]
     async fn test_rabbitmq_health_check() {
         let broker = match RabbitMQBroker::new(&broker_url()).await {
             Ok(b) => b,

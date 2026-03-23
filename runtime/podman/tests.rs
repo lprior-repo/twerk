@@ -2,26 +2,25 @@
 //!
 //! # Go Test Mapping
 //!
-//! | Go Test                               | Rust Test                                | `#[ignore]` |
-//! |---------------------------------------|------------------------------------------|-------------|
-//! | TestPodmanRunTaskCMD                   | test_podman_run_task_cmd                  | ✓           |
-//! | TestPodmanRunTaskRun                   | test_podman_run_task_run                  | ✓           |
-//! | TestPodmanCustomEntrypoint             | test_podman_custom_entrypoint             | ✓           |
-//! | TestPodmanRunPrePost                   | test_podman_run_pre_post                  | ✓           |
-//! | TestPodmanRunTaskWithVolume            | test_podman_run_task_with_volume          | ✓           |
-//! | TestPodmanRunTaskWithVolumeAndCustomWorkdir | test_podman_run_volume_custom_workdir  | ✓           |
-//! | TestPodmanRunTaskWithVolumeAndWorkdir  | test_podman_run_volume_and_workdir        | ✓           |
-//! | TestPodmanRunTaskInitWorkdir           | test_podman_run_task_init_workdir         | ✓           |
-//! | TestPodmanRunTaskInitWorkdirLs         | test_podman_run_task_init_workdir_ls      | ✓           |
-//! | TestPodmanRunTaskWithTimeout           | test_podman_run_task_with_timeout         | ✓           |
-//! | TestPodmanRunTaskWithError             | test_podman_run_task_with_error           | ✓           |
-//! | TestPodmanHealthCheck                  | test_podman_health_check                  | ✓           |
-//! | TestPodmanHealthCheckFailed            | test_podman_health_check_failed           | ✗           |
-//! | TestRunTaskWithPrivilegedModeOn        | test_run_task_privileged_on               | ✓           |
-//! | TestRunTaskWithPrivilegedModeOff       | test_run_task_privileged_off              | ✓           |
+//! | Go Test                               | Rust Test                                |
+//! |---------------------------------------|------------------------------------------|
+//! | TestPodmanRunTaskCMD                   | test_podman_run_task_cmd                  |
+//! | TestPodmanRunTaskRun                   | test_podman_run_task_run                  |
+//! | TestPodmanCustomEntrypoint             | test_podman_custom_entrypoint             |
+//! | TestPodmanRunPrePost                   | test_podman_run_pre_post                  |
+//! | TestPodmanRunTaskWithVolume            | test_podman_run_task_with_volume          |
+//! | TestPodmanRunTaskWithVolumeAndCustomWorkdir | test_podman_run_volume_custom_workdir  |
+//! | TestPodmanRunTaskWithVolumeAndWorkdir  | test_podman_run_volume_and_workdir        |
+//! | TestPodmanRunTaskInitWorkdir           | test_podman_run_task_init_workdir         |
+//! | TestPodmanRunTaskInitWorkdirLs         | test_podman_run_task_init_workdir_ls      |
+//! | TestPodmanRunTaskWithTimeout           | test_podman_run_task_with_timeout         |
+//! | TestPodmanRunTaskWithError             | test_podman_run_task_with_error           |
+//! | TestPodmanHealthCheck                  | test_podman_health_check                  |
+//! | TestPodmanHealthCheckFailed            | test_podman_health_check_failed           |
+//! | TestRunTaskWithPrivilegedModeOn        | test_run_task_privileged_on               |
+//! | TestRunTaskWithPrivilegedModeOff       | test_run_task_privileged_off              |
 //!
-//! All tests requiring podman are `#[ignore]`. Run with:
-//!   cargo test 'runtime::podman::tests' -- --ignored
+//! All tests run automatically. Requires podman to be installed and running.
 
 use std::collections::HashMap;
 
@@ -125,7 +124,6 @@ async fn test_podman_host_network_disabled() {
 
 /// Mirrors Go's TestPodmanRunTaskCMD.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_cmd() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -136,7 +134,6 @@ async fn test_podman_run_task_cmd() {
 
 /// Mirrors Go's TestPodmanRunTaskRun.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_run() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -150,7 +147,6 @@ async fn test_podman_run_task_run() {
 
 /// Mirrors Go's TestPodmanCustomEntrypoint.
 #[tokio::test]
-#[ignore]
 async fn test_podman_custom_entrypoint() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -165,7 +161,6 @@ async fn test_podman_custom_entrypoint() {
 
 /// Mirrors Go's TestPodmanRunPrePost.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_pre_post() {
     let config = PodmanConfig {
         mounter: Some(Box::new(VolumeMounter::new())),
@@ -234,7 +229,6 @@ async fn test_podman_run_pre_post() {
 
 /// Mirrors Go's TestPodmanRunTaskWithVolume.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_with_volume() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -254,7 +248,6 @@ async fn test_podman_run_task_with_volume() {
 
 /// Mirrors Go's TestPodmanRunTaskWithVolumeAndCustomWorkdir.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_volume_custom_workdir() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -276,7 +269,6 @@ async fn test_podman_run_volume_custom_workdir() {
 
 /// Mirrors Go's TestPodmanRunTaskWithVolumeAndWorkdir.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_volume_and_workdir() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -297,7 +289,6 @@ async fn test_podman_run_volume_and_workdir() {
 
 /// Mirrors Go's TestPodmanRunTaskInitWorkdir.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_init_workdir() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -316,7 +307,6 @@ async fn test_podman_run_task_init_workdir() {
 
 /// Mirrors Go's TestPodmanRunTaskInitWorkdirLs.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_init_workdir_ls() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -335,7 +325,6 @@ async fn test_podman_run_task_init_workdir_ls() {
 
 /// Mirrors Go's TestPodmanRunTaskWithTimeout.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_with_timeout() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -349,7 +338,6 @@ async fn test_podman_run_task_with_timeout() {
 
 /// Mirrors Go's TestPodmanRunTaskWithError.
 #[tokio::test]
-#[ignore]
 async fn test_podman_run_task_with_error() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
@@ -362,7 +350,6 @@ async fn test_podman_run_task_with_error() {
 
 /// Mirrors Go's TestPodmanHealthCheck.
 #[tokio::test]
-#[ignore]
 async fn test_podman_health_check() {
     let rt = PodmanRuntime::new(create_test_config());
     let result = rt.health_check().await;
@@ -384,7 +371,6 @@ async fn test_podman_health_check_failed() {
 
 /// Mirrors Go's TestRunTaskWithPrivilegedModeOn.
 #[tokio::test]
-#[ignore]
 async fn test_run_task_privileged_on() {
     let config = PodmanConfig {
         privileged: true,
@@ -402,7 +388,6 @@ async fn test_run_task_privileged_on() {
 
 /// Mirrors Go's TestRunTaskWithPrivilegedModeOff.
 #[tokio::test]
-#[ignore]
 async fn test_run_task_privileged_off() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();

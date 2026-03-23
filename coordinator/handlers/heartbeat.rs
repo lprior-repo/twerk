@@ -447,12 +447,53 @@ mod tests {
         }
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
 
-    /// Go parity: Test_handleHeartbeat
+    /// Go parity: Test_handleHeartbeat — first heartbeat creates node, subsequent updates
     #[tokio::test]
     #[ignore]
     async fn test_handle_heartbeat_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = HeartbeatHandler::new(env.ds.clone());
+
+        let now = time::OffsetDateTime::now_utc();
+        let node_id = new_uuid();
+        let node = Node {
+            id: Some(node_id.clone()),
+            name: Some("worker-1".into()),
+            started_at: now - Duration::hours(1),
+            cpu_percent: 75.0,
+            last_heartbeat_at: now,
+            queue: Some("default".into()),
+            status: NODE_STATUS_UP.into(),
+            hostname: Some("host-1".into()),
+            port: 8080,
+            task_count: 3,
+            version: "1.0.0".into(),
+        };
+
+        // First heartbeat — creates node
+        handler.handle(&node).await.expect("first heartbeat");
+
+        let stored = env.ds.get_node_by_id(node_id.clone()).await.expect("get node").expect("node exists");
+        assert_eq!(stored.cpu_percent, 75.0);
+        assert_eq!(stored.task_count, 3);
+
+        // Second heartbeat — updates node
+        let node2 = Node {
+            id: Some(node_id.clone()),
+            cpu_percent: 50.0,
+            last_heartbeat_at: now + Duration::seconds(10),
+            task_count: 5,
+            status: "UP".into(),
+            ..Node::default()
+        };
+        handler.handle(&node2).await.expect("second heartbeat");
+
+        let updated = env.ds.get_node_by_id(node_id).await.expect("get node").expect("node exists");
+        assert_eq!(updated.cpu_percent, 50.0);
+        assert_eq!(updated.task_count, 5);
+
+        env.cleanup().await;
     }
 }

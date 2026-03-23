@@ -497,6 +497,9 @@ impl PodmanRuntime {
     async fn run_inner(&self, task: &mut Task, mounts: &[Mount]) -> Result<(), PodmanError> {
         let task_mounts = mounts.to_vec();
 
+        // Update main task mounts with properly mounted sources
+        task.mounts = task_mounts.clone();
+
         // Execute pre-tasks
         for pre in task.pre.iter_mut() {
             pre.id = uuid::Uuid::new_v4().to_string();
@@ -569,6 +572,14 @@ impl PodmanRuntime {
         tokio::fs::write(&entrypoint_path, &run_script)
             .await
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
+
+        // Make entrypoint executable (needed when custom entrypoint uses -c)
+        tokio::fs::set_permissions(
+            &entrypoint_path,
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .await
+        .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
 
         // Pull image with optional registry credentials
         let registry = task.registry.as_ref().and_then(|r| {
@@ -803,25 +814,22 @@ impl PodmanRuntime {
             .await
             .insert(task.id.clone(), container_id.clone());
 
-        // Ensure container is removed after execution
-        let tasks_ref = Arc::clone(&self.tasks);
-        let cleanup_id = container_id.clone();
-        let workdir_ref = workdir.clone();
-        tokio::spawn(async move {
-            let _ = Self::stop_container(&cleanup_id).await;
-            tasks_ref.write().await.remove(&cleanup_id);
-            if let Err(e) = tokio::fs::remove_dir_all(&workdir_ref).await {
-                warn!("error removing workdir {:?}: {}", workdir_ref, e);
-            }
-        });
-
         // Start container
         let mut start_cmd = Command::new("podman");
         start_cmd.arg("start").arg(&container_id);
-        start_cmd
+        start_cmd.stdout(Stdio::piped());
+        start_cmd.stderr(Stdio::piped());
+
+        let start_output = start_cmd
             .output()
             .await
             .map_err(|e| PodmanError::ContainerStart(e.to_string()))?;
+
+        if !start_output.status.success() {
+            return Err(PodmanError::ContainerStart(
+                String::from_utf8_lossy(&start_output.stderr).to_string(),
+            ));
+        }
 
         // Probe container if probe is configured
         if let Some(ref probe) = task.probe {
@@ -912,6 +920,12 @@ impl PodmanRuntime {
             .await
             .map_err(|e| PodmanError::OutputRead(e.to_string()))?;
         task.result = output;
+
+        // Cleanup: stop container and remove task mapping
+        if let Err(e) = Self::stop_container(&container_id).await {
+            warn!("error stopping container {}: {}", container_id, e);
+        }
+        self.tasks.write().await.remove(&container_id);
 
         // Cleanup workdir
         if let Err(e) = tokio::fs::remove_dir_all(&workdir).await {

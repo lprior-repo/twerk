@@ -838,19 +838,90 @@ mod tests {
         assert!(task.failed_at.is_none());
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
+    use tork::Datastore;
 
     /// Go parity: Test_handleFailedTask
     #[tokio::test]
     #[ignore]
     async fn test_handle_failed_task_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = ErrorHandler::new();
+        let ctx = Arc::new(());
+
+        let job_id = new_uuid();
+        let mut job = Job {
+            id: Some(job_id.clone()),
+            state: JOB_STATE_RUNNING.to_string(),
+            created_at: OffsetDateTime::now_utc(),
+            context: JobContext::default(),
+            task_count: 1,
+            ..Job::default()
+        };
+        env.ds.create_job(job.clone()).await.expect("create job");
+
+        let task_id = new_uuid();
+        let mut task = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            error: Some("something went wrong".to_string()),
+            created_at: Some(OffsetDateTime::now_utc()),
+            ..Task::default()
+        };
+        env.ds.create_task(task.clone()).await.expect("create task");
+
+        let outcome = handler.handle_with_job(ctx, &mut task, &mut job).expect("handle");
+        assert!(matches!(outcome, Ok(ErrorOutcome::FailJob)));
+        assert_eq!(task.state, *TASK_STATE_FAILED);
+        assert!(task.failed_at.is_some());
+        assert_eq!(job.state, JOB_STATE_FAILED);
+
+        env.cleanup().await;
     }
 
     /// Go parity: Test_handleFailedTaskRetry
     #[tokio::test]
     #[ignore]
     async fn test_handle_failed_task_retry_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = ErrorHandler::new();
+        let ctx = Arc::new(());
+
+        let job_id = new_uuid();
+        let mut job = Job {
+            id: Some(job_id.clone()),
+            state: JOB_STATE_RUNNING.to_string(),
+            created_at: OffsetDateTime::now_utc(),
+            context: JobContext::default(),
+            task_count: 1,
+            ..Job::default()
+        };
+        env.ds.create_job(job.clone()).await.expect("create job");
+
+        let task_id = new_uuid();
+        let mut task = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            error: Some("transient error".to_string()),
+            retry: Some(TaskRetry { limit: 3, attempts: 0 }),
+            created_at: Some(OffsetDateTime::now_utc()),
+            ..Task::default()
+        };
+        env.ds.create_task(task.clone()).await.expect("create task");
+
+        let outcome = handler.handle_with_job(ctx, &mut task, &mut job).expect("handle");
+        match outcome {
+            Ok(ErrorOutcome::Retry { task: retry_task }) => {
+                assert_eq!(retry_task.state, *TASK_STATE_PENDING);
+                assert_eq!(retry_task.retry.as_ref().map(|r| r.attempts), Some(1));
+                assert!(retry_task.error.is_none());
+            }
+            other => panic!("expected Retry, got: {other:?}"),
+        }
+        assert_eq!(job.state, JOB_STATE_RUNNING);
+
+        env.cleanup().await;
     }
 }

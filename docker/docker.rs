@@ -2083,21 +2083,18 @@ mod tests {
     // =========================================================================
 
     #[tokio::test]
-    #[ignore]
     async fn test_health_check() {
         let runtime = DockerRuntime::default_runtime().await.unwrap();
         assert!(runtime.health_check().await.is_ok());
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_default_runtime_creation() {
         let runtime = DockerRuntime::default_runtime().await;
         assert!(runtime.is_ok(), "default_runtime should succeed with Docker daemon: {:?}", runtime.err());
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_health_check_failed_with_cancelled_context() {
         let runtime = DockerRuntime::default_runtime().await.unwrap();
         // We can't easily cancel the ping, but verify health_check is reachable

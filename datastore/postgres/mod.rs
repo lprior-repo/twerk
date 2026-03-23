@@ -160,28 +160,44 @@ impl PostgresDatastore {
     ///
     /// Returns a `DatastoreError::Database` if the script execution fails.
     pub async fn exec_script(&self, script: &str) -> DatastoreResult<()> {
-        sqlx::query(script)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DatastoreError::Database(format!("exec script failed: {e}")))?;
+        // sqlx::query does not support multi-statement scripts, so we split and execute each.
+        for stmt in script.split(';') {
+            let trimmed = stmt.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            sqlx::query(trimmed)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("exec script failed: {e}")))?;
+        }
         Ok(())
+    }
+
+    /// Returns a reference to the underlying connection pool.
+    ///
+    /// This is useful for running raw SQL queries (e.g., in test cleanup).
+    #[must_use]
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
     }
 
     /// Creates a new test datastore with a fresh schema.
     #[cfg(test)]
     pub async fn new_test() -> DatastoreResult<Self> {
         let schema_name = format!("tork{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        // Use the PostgreSQL options parameter to set search_path for every connection
         let dsn = format!(
-            "host=localhost user=tork password=tork dbname=tork search_path={} sslmode=disable",
-            schema_name
+            "postgres://tork:tork@localhost:5432/tork?sslmode=disable&options=-csearch_path={schema_name}"
         );
         
         let ds = Self::new(&dsn, Options { disable_cleanup: true, ..Options::default() }).await?;
         
-        sqlx::query(&format!("create schema {}", schema_name))
+        // Create the isolated test schema
+        sqlx::query(&format!("CREATE SCHEMA \"{schema_name}\""))
             .execute(&ds.pool)
             .await
-            .map_err(|e| DatastoreError::Database(format!("create schema failed: {}", e)))?;
+            .map_err(|e| DatastoreError::Database(format!("create schema failed: {e}")))?;
         
         ds.exec_script(SCHEMA).await?;
         
@@ -1924,19 +1940,131 @@ mod tests {
 
     // ── Integration tests (require PostgreSQL) ─────────────────────────
 
-    #[test]
-    #[ignore = "requires a running PostgreSQL instance at localhost:5432 with user=tork password=tork dbname=tork"]
-    fn integration_create_and_get_task() {
-        // This test requires tokio runtime; kept as #[ignore] placeholder.
-        // Run with: cargo test --lib integration_create_and_get_task -- --ignored
-        // when a PostgreSQL instance is available.
+    /// Helper: create a datastore connected to the shared tork database.
+    #[cfg(test)]
+    async fn setup_test_ds() -> PostgresDatastore {
+        let dsn = "postgres://tork:tork@localhost:5432/tork?sslmode=disable";
+        PostgresDatastore::new(dsn, Options { disable_cleanup: true, ..Options::default() })
+            .await
+            .unwrap()
     }
 
-    #[test]
-    #[ignore = "requires a running PostgreSQL instance at localhost:5432 with user=tork password=tork dbname=tork"]
-    fn integration_create_and_get_node() {
-        // This test requires tokio runtime; kept as #[ignore] placeholder.
-        // Run with: cargo test --lib integration_create_and_get_node -- --ignored
-        // when a PostgreSQL instance is available.
+    #[tokio::test]
+    async fn integration_create_and_get_task() {
+        use tork::task::Registry;
+
+        let ds = setup_test_ds().await;
+
+        // Create a user (required by create_job for created_by)
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("inttest_task_{}", uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string())),
+            name: Some("Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        // Create a job (required by create_task for job_id)
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let job = Job {
+            id: Some(job_id.clone()),
+            created_at: now,
+            created_by: Some(user),
+            ..Job::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
+        // Create a task with various fields populated
+        let task_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let task = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id.clone()),
+            created_at: Some(now),
+            description: Some("some description".to_string()),
+            networks: Some(vec!["some-network".to_string()]),
+            files: Some(HashMap::from([("myfile".to_string(), "hello world".to_string())])),
+            registry: Some(Registry {
+                username: Some("me".to_string()),
+                password: Some("secret".to_string()),
+            }),
+            gpus: Some("all".to_string()),
+            r#if: Some("true".to_string()),
+            tags: Some(vec!["tag1".to_string(), "tag2".to_string()]),
+            workdir: Some("/some/dir".to_string()),
+            priority: 2,
+            ..Task::default()
+        };
+        ds.create_task(&task).await.unwrap();
+
+        // Get the task back and verify fields
+        let retrieved = ds.get_task_by_id(&task_id).await.unwrap();
+        assert_eq!(task.id, retrieved.id);
+        assert_eq!(task.description, retrieved.description);
+        assert_eq!(task.networks, retrieved.networks);
+        assert_eq!(task.files, retrieved.files);
+        assert_eq!(
+            task.registry.as_ref().unwrap().username,
+            retrieved.registry.as_ref().unwrap().username
+        );
+        assert_eq!(
+            task.registry.as_ref().unwrap().password,
+            retrieved.registry.as_ref().unwrap().password
+        );
+        assert_eq!(task.gpus, retrieved.gpus);
+        assert_eq!(task.r#if, retrieved.r#if);
+        assert!(retrieved.parallel.is_none());
+        assert_eq!(task.tags, retrieved.tags);
+        assert_eq!(task.workdir, retrieved.workdir);
+        assert_eq!(task.priority, retrieved.priority);
+
+        // Cleanup
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn integration_create_and_get_node() {
+        let ds = setup_test_ds().await;
+
+        // Create a node
+        let node_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let node = Node {
+            id: Some(node_id.clone()),
+            name: Some("some node".to_string()),
+            hostname: Some("some-name".to_string()),
+            port: 1234,
+            version: "1.0.0".to_string(),
+            queue: Some("default".to_string()),
+            ..Node::new()
+        };
+        ds.create_node(&node).await.unwrap();
+
+        // Get the node back and verify fields
+        let retrieved = ds.get_node_by_id(&node_id).await.unwrap();
+        assert_eq!(node.id, retrieved.id);
+        assert_eq!(node.hostname, retrieved.hostname);
+        assert_eq!(node.port, retrieved.port);
+        assert_eq!(node.version, retrieved.version);
+        assert_eq!(node.name, retrieved.name);
+
+        // Cleanup
+        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1")
+            .bind(&node_id)
+            .execute(&ds.pool)
+            .await;
     }
 }

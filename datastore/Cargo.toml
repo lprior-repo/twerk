@@ -11,7 +11,7 @@ path = "mod.rs"
 tork = { path = "../tork" }
 
 # Async runtime
-tokio = { version = "1.0", features = ["sync", "time", "rt"] }
+tokio = { version = "1.0", features = ["sync", "time", "rt", "macros"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

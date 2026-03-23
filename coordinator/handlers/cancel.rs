@@ -857,12 +857,59 @@ mod tests {
         }
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
 
     /// Go parity: Test_cancelActiveTasks
     #[tokio::test]
     #[ignore]
     async fn test_cancel_active_tasks_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = CancelHandler::new(env.ds.clone() as Arc<dyn tork::Datastore>, env.broker.clone());
+
+        let job_id = new_uuid();
+        let job = Job {
+            id: Some(job_id.clone()),
+            state: JOB_STATE_RUNNING.to_string(),
+            ..Job::default()
+        };
+        env.ds.create_job(job).await.expect("create job");
+
+        let node_id = new_uuid();
+        let queue_name = new_uuid();
+        let n1 = tork::node::Node {
+            id: Some(node_id.clone()),
+            queue: Some(queue_name.clone()),
+            started_at: time::OffsetDateTime::now_utc(),
+            last_heartbeat_at: time::OffsetDateTime::now_utc(),
+            cpu_percent: 0.0,
+            status: tork::node::NODE_STATUS_UP.to_string(),
+            hostname: Some("localhost".into()),
+            port: 8080,
+            task_count: 0,
+            name: None,
+            version: String::new(),
+        };
+        env.ds.create_node(n1).await.expect("create node");
+
+        let t1 = Task {
+            id: Some(new_uuid()),
+            job_id: Some(job_id.clone()),
+            state: TASK_STATE_RUNNING.clone(),
+            node_id: Some(node_id.clone()),
+            ..Task::default()
+        };
+        env.ds.create_task(t1.clone()).await.expect("create task");
+
+        let cancel_job = Job {
+            id: Some(job_id.clone()),
+            state: JOB_STATE_RUNNING.to_string(),
+            ..Job::default()
+        };
+        handler.handle(&cancel_job).await.expect("handle cancel");
+
+        let cancelled_task = env.ds.get_task_by_id(t1.id.clone().unwrap()).await.expect("get task").expect("task exists");
+        assert_eq!(cancelled_task.state, *TASK_STATE_CANCELLED);
+
+        env.cleanup().await;
     }
 }

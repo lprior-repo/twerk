@@ -1,18 +1,6 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: twerk-postgres
-    environment:
-      POSTGRES_USER: tork
-      POSTGRES_PASSWORD: tork
-      POSTGRES_DB: tork
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tork -d tork"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+  # PostgreSQL runs on the host (port 5432), not in Docker.
+  # User/db: tork/tork created manually.
 
   rabbitmq:
     image: rabbitmq:3-management-alpine

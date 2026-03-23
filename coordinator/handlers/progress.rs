@@ -378,14 +378,47 @@ mod tests {
         assert_eq!(result, expected);
     }
 
-    // -- Integration tests (require real datastore) --------------------------
+    use crate::handlers::test_helpers::{new_uuid, TestEnv};
 
-    /// Go parity: Test_handleProgress
+    /// Go parity: Test_handleProgress — updates task and job progress
     #[tokio::test]
     #[ignore]
     async fn test_handle_progress_integration() {
-        todo!("requires postgres datastore integration");
+        let env = TestEnv::new().await;
+        let handler = ProgressHandler::new(
+            env.ds.clone() as Arc<dyn Datastore>,
+            noop_job_handler(),
+        );
+
+        let job_id = new_uuid();
+        let job = Job {
+            id: Some(job_id.clone()),
+            position: 1,
+            task_count: 2,
+            ..Job::default()
+        };
+        env.ds.create_job(job).await.expect("create job");
+
+        let task_id = new_uuid();
+        let task = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id.clone()),
+            progress: 50.0,
+            ..Task::default()
+        };
+
+        handler.handle(&task).await.expect("handle progress");
+
+        let updated_task = env.ds.get_task_by_id(task_id).await.expect("get task").expect("task exists");
+        assert_eq!(updated_task.progress, 50.0);
+
+        let updated_job = env.ds.get_job_by_id(job_id).await.expect("get job").expect("job exists");
+        // Position 1 of 2, progress 50 → (0 + 50/100) / 2 * 100 = 25
+        assert_eq!(updated_job.progress, 25.0);
+
+        env.cleanup().await;
     }
+}
 
     // -- Mock datastore for construction tests ------------------------------
 

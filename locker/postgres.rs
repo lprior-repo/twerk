@@ -145,17 +145,21 @@ impl Lock for PostgresLock {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
         let PostgresLock { client, .. } = *Pin::into_inner(self);
 
-        // Rollback on the blocking thread, then drop the client.
-        // Sending ROLLBACK ensures the advisory lock is released
-        // immediately rather than waiting for TCP keepalive timeout.
-        let handle = tokio::task::spawn_blocking(move || {
+        // Rollback on a separate OS thread (see with_options comment),
+        // then drop the client. Sending ROLLBACK ensures the advisory
+        // lock is released immediately rather than waiting for TCP
+        // keepalive timeout.
+        let handle = std::thread::spawn(move || {
             if let Ok(mut c) = client.lock() {
                 let _ = c.simple_query("ROLLBACK");
             }
         });
 
         Box::pin(async move {
-            let _ = handle.await;
+            let _ = tokio::task::spawn_blocking(move || {
+                let _ = handle.join();
+            })
+            .await;
             Ok(())
         })
     }
@@ -185,19 +189,28 @@ impl PostgresLocker {
         let timeout = opts.connect_timeout.unwrap_or(std::time::Duration::from_secs(30));
         let dsn_owned = dsn.to_string();
 
+        // Use std::thread::spawn to escape tokio's runtime context.
+        // The postgres crate's Client::connect creates its own tokio
+        // runtime internally, and Client::drop calls close_inner which
+        // also creates one. Both must run on a thread with no context.
+        // We connect, verify, and drop on this thread — the client is
+        // not needed after construction (each lock opens its own conn).
+        let handle = std::thread::spawn(move || {
+            PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ())
+        });
+
         let connect_result = tokio::time::timeout(
             timeout,
-            tokio::task::spawn_blocking(move || {
-                PgClient::connect(&dsn_owned, postgres::NoTls)
-            }),
+            tokio::task::spawn_blocking(move || handle.join()),
         )
         .await;
 
         match connect_result {
-            Ok(Ok(Ok(_client))) => Ok(Self {
+            Ok(Ok(Ok(Ok(())))) => Ok(Self {
                 dsn: dsn.to_string(),
             }),
-            Ok(Ok(Err(e))) => Err(InitError::Connection(e.to_string())),
+            Ok(Ok(Ok(Err(e)))) => Err(InitError::Connection(e.to_string())),
+            Ok(Ok(Err(_panic))) => Err(InitError::Ping("connect thread panicked".to_string())),
             Ok(Err(_join_err)) => Err(InitError::Ping("spawn failed".to_string())),
             Err(_) => Err(InitError::Connection(format!(
                 "connection timed out after {timeout:?}"
@@ -221,9 +234,11 @@ impl Locker for PostgresLocker {
         let key = key.to_string();
         let dsn = self.dsn.clone();
 
-        // Run all SQL on the blocking thread pool — the synchronous
-        // postgres crate has no Executor HRTB issues.
-        let handle = tokio::task::spawn_blocking(move || {
+        // Run all SQL on a completely separate OS thread — the synchronous
+        // postgres crate creates its own tokio runtime internally, which
+        // conflicts with tokio 1.x's context propagation on spawn_blocking
+        // threads.
+        let handle = std::thread::spawn(move || {
             let key_hash = hash_key(&key);
 
             // Open a dedicated connection — this is our "session" that holds the lock.
@@ -234,9 +249,20 @@ impl Locker for PostgresLocker {
         });
 
         Box::pin(async move {
-            handle
-                .await
-                .unwrap_or_else(|e| Err(LockError::Connection(e.to_string())))
+            match tokio::task::spawn_blocking(move || handle.join()).await {
+                Ok(Ok(lock)) => lock,
+                Ok(Err(panic_payload)) => {
+                    let msg = if let Some(s) = panic_payload.downcast_ref::<String>() {
+                        s.clone()
+                    } else if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                        (*s).to_string()
+                    } else {
+                        "thread panicked".to_string()
+                    };
+                    Err(LockError::Connection(msg))
+                }
+                Err(e) => Err(LockError::Connection(format!("spawn failed: {e}"))),
+            }
         })
     }
 }
@@ -316,7 +342,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires a running PostgreSQL instance
     async fn test_postgres_locker_new() {
         let dsn = "postgres://tork:tork@localhost:5432/tork";
         let locker = PostgresLocker::new(dsn).await;
@@ -324,7 +349,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires a running PostgreSQL instance
     async fn test_postgres_locker_acquire_lock() {
         let dsn = "postgres://tork:tork@localhost:5432/tork";
         let locker = PostgresLocker::new(dsn).await.expect("locker should be created");

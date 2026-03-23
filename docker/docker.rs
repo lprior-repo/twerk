@@ -33,7 +33,7 @@ use crate::docker::archive::Archive;
 use crate::docker::auth::{config_path, Config as AuthConfig};
 use crate::docker::reference::parse as parse_reference;
 use crate::docker::tork::{mount_type, Mount, Probe, Registry, TaskLimits};
-use crate::docker::bind::BindMounter;
+use crate::docker::bind::{BindConfig, BindMounter};
 use crate::docker::tmpfs::TmpfsMounter;
 use crate::docker::volume::VolumeMounter;
 use tork::task::TaskLogPart;
@@ -330,6 +330,58 @@ impl Mounter for TmpfsMounter {
     }
 }
 
+/// Composite mounter that dispatches to the appropriate mounter based on mount type.
+///
+/// This ensures bind, tmpfs, and volume mounts are handled by their respective mounters.
+pub struct CompositeMounter {
+    volume_mounter: Arc<VolumeMounter>,
+    bind_mounter: Arc<BindMounter>,
+    tmpfs_mounter: Arc<TmpfsMounter>,
+}
+
+impl CompositeMounter {
+    /// Creates a new composite mounter with all mounters initialized.
+    pub fn new(client: bollard::Docker) -> Self {
+        Self {
+            volume_mounter: Arc::new(VolumeMounter::with_client(client)),
+            bind_mounter: Arc::new(BindMounter::new(BindConfig {
+                allowed: true,
+                sources: Vec::new(),
+            })),
+            tmpfs_mounter: Arc::new(TmpfsMounter::new()),
+        }
+    }
+
+    fn mounter_for(&self, mount_type: &str) -> Arc<dyn Mounter> {
+        match mount_type {
+            mount_type::BIND => self.bind_mounter.clone(),
+            mount_type::TMPFS => self.tmpfs_mounter.clone(),
+            // Default to volume for mount_type::VOLUME or unknown types
+            _ => self.volume_mounter.clone(),
+        }
+    }
+}
+
+impl Mounter for CompositeMounter {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+        let mnt = mnt.clone();
+        let mounter = self.mounter_for(&mnt.mount_type);
+        Box::pin(async move { mounter.mount(&mnt).await })
+    }
+
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+        let mnt = mnt.clone();
+        let mounter = self.mounter_for(&mnt.mount_type);
+        Box::pin(async move { mounter.unmount(&mnt).await })
+    }
+}
+
 // ----------------------------------------------------------------------------
 // Runtime State
 // ----------------------------------------------------------------------------
@@ -422,9 +474,8 @@ impl DockerRuntime {
             }
         });
 
-        // Create default volume mounter
-        let volume_mounter = VolumeMounter::with_client(client.clone());
-        let mounter: Arc<dyn Mounter> = Arc::new(volume_mounter);
+        // Create composite mounter for bind, tmpfs, and volume mounts
+        let mounter: Arc<dyn Mounter> = Arc::new(CompositeMounter::new(client.clone()));
 
         Ok(Self {
             client,

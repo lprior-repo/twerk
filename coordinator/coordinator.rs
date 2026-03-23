@@ -384,7 +384,7 @@ impl Coordinator {
 
         // Go: onScheduledJob, err := handlers.NewJobSchedulerHandler(cfg.DataStore, cfg.Broker, cfg.Locker)
         let schedule_handler = Arc::new(
-            ScheduleHandler::new(ds.clone(), broker.clone())
+            ScheduleHandler::new(ds.clone(), broker.clone(), cfg.locker.clone())
                 .await
                 .map_err(|e| CoordinatorError::Handler(format!("error initializing job scheduler: {e}")))?,
         );

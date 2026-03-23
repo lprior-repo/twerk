@@ -1,0 +1,744 @@
+//! Job domain types for the tork runtime.
+//!
+//! This module contains core job scheduling and execution types.
+
+pub mod helpers;
+pub mod schedule;
+pub mod state;
+pub mod types;
+
+pub use helpers::{new_job_summary, new_scheduled_job_summary};
+pub use schedule::{
+    AutoDelete, Job, JobContext, JobDefaults, JobSchedule, JobSummary, Permission,
+    ScheduledJob, ScheduledJobSummary, Webhook,
+};
+pub use state::{
+    JobState, ScheduledJobState, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED,
+    JOB_STATE_PENDING, JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
+    SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
+};
+pub use types::{
+    EachTask, Mount, ParallelTask, Probe, Registry, Role, SubJobTask, Task, TaskLimits,
+    TaskRetry, User, MOUNT_TYPE_BIND, MOUNT_TYPE_TMPFS, MOUNT_TYPE_VOLUME,
+};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use time::OffsetDateTime;
+
+    #[test]
+    fn test_job_state_constants() {
+        assert_eq!(JOB_STATE_PENDING, "PENDING");
+        assert_eq!(JOB_STATE_SCHEDULED, "SCHEDULED");
+        assert_eq!(JOB_STATE_RUNNING, "RUNNING");
+        assert_eq!(JOB_STATE_CANCELLED, "CANCELLED");
+        assert_eq!(JOB_STATE_COMPLETED, "COMPLETED");
+        assert_eq!(JOB_STATE_FAILED, "FAILED");
+        assert_eq!(JOB_STATE_RESTART, "RESTART");
+    }
+
+    #[test]
+    fn test_scheduled_job_state_constants() {
+        assert_eq!(SCHEDULED_JOB_STATE_ACTIVE, "ACTIVE");
+        assert_eq!(SCHEDULED_JOB_STATE_PAUSED, "PAUSED");
+    }
+
+    #[test]
+    fn test_job_clone() {
+        let job = Job {
+            id: Some(String::from("job-1")),
+            parent_id: Some(String::from("parent-1")),
+            name: Some(String::from("Test Job")),
+            description: Some(String::from("A test job")),
+            tags: Some(vec![String::from("tag1"), String::from("tag2")]),
+            state: Some(JOB_STATE_RUNNING.to_string()),
+            created_at: Some(OffsetDateTime::now_utc()),
+            created_by: Some(Box::new(User {
+                id: Some(String::from("user-1")),
+                name: Some(String::from("Test User")),
+                username: Some(String::from("testuser")),
+                password_hash: None,
+                password: None,
+                created_at: None,
+                disabled: false,
+            })),
+            started_at: Some(OffsetDateTime::now_utc()),
+            completed_at: None,
+            failed_at: None,
+            tasks: vec![],
+            execution: vec![],
+            position: 1,
+            inputs: Some(HashMap::from([(
+                String::from("key"),
+                String::from("value"),
+            )])),
+            context: None,
+            task_count: Some(5),
+            output: None,
+            result: None,
+            error: None,
+            defaults: None,
+            webhooks: vec![],
+            permissions: vec![],
+            auto_delete: Some(Box::new(AutoDelete {
+                after: Some(String::from("1h")),
+            })),
+            delete_at: None,
+            secrets: None,
+            progress: Some(0.5),
+            schedule: None,
+        };
+
+        let cloned = job.clone();
+        assert_eq!(job.id, cloned.id);
+        assert_eq!(job.parent_id, cloned.parent_id);
+        assert_eq!(job.name, cloned.name);
+        assert_eq!(job.state, cloned.state);
+        assert!(cloned.created_by.is_some());
+        assert!(cloned.auto_delete.is_some());
+        assert_eq!(
+            cloned.inputs.as_ref().unwrap().get("key"),
+            Some(&String::from("value"))
+        );
+    }
+
+    #[test]
+    fn test_scheduled_job_clone() {
+        let sj = ScheduledJob {
+            id: Some(String::from("sj-1")),
+            name: Some(String::from("Scheduled Job")),
+            description: Some(String::from("A scheduled job")),
+            cron: Some(String::from("0 * * * *")),
+            state: Some(SCHEDULED_JOB_STATE_ACTIVE.to_string()),
+            inputs: Some(HashMap::new()),
+            tasks: vec![],
+            created_by: None,
+            defaults: None,
+            auto_delete: None,
+            webhooks: vec![],
+            permissions: vec![],
+            created_at: Some(OffsetDateTime::now_utc()),
+            tags: Some(vec![String::from("scheduled")]),
+            secrets: None,
+            output: None,
+        };
+
+        let cloned = sj.clone();
+        assert_eq!(sj.id, cloned.id);
+        assert_eq!(sj.cron, cloned.cron);
+        assert_eq!(sj.state, cloned.state);
+    }
+
+    #[test]
+    fn test_job_schedule_clone() {
+        let schedule = JobSchedule {
+            id: Some(String::from("sched-1")),
+            cron: Some(String::from("0 0 * * *")),
+        };
+        let cloned = schedule.clone();
+        assert_eq!(schedule.id, cloned.id);
+        assert_eq!(schedule.cron, cloned.cron);
+    }
+
+    #[test]
+    fn test_webhook_clone() {
+        let webhook = Webhook {
+            url: Some(String::from("https://example.com/hook")),
+            headers: Some(HashMap::from([(
+                String::from("Authorization"),
+                String::from("Bearer token"),
+            )])),
+            event: Some(String::from("job.completed")),
+            r#if: Some(String::from("state == 'completed'")),
+        };
+        let cloned = webhook.clone();
+        assert_eq!(webhook.url, cloned.url);
+        assert_eq!(webhook.event, cloned.event);
+        assert!(cloned.headers.is_some());
+    }
+
+    #[test]
+    fn test_permission_clone_role() {
+        let perm = Permission {
+            role: Some(Box::new(Role {
+                id: Some(String::from("role-1")),
+                slug: Some(String::from("admin")),
+                name: Some(String::from("Administrator")),
+                created_at: None,
+            })),
+            user: None,
+        };
+        let cloned = perm.clone();
+        assert!(cloned.role.is_some());
+        assert!(cloned.user.is_none());
+    }
+
+    #[test]
+    fn test_permission_clone_user() {
+        let perm = Permission {
+            role: None,
+            user: Some(Box::new(User {
+                id: Some(String::from("user-1")),
+                name: Some(String::from("Test User")),
+                username: Some(String::from("testuser")),
+                password_hash: None,
+                password: None,
+                created_at: None,
+                disabled: false,
+            })),
+        };
+        let cloned = perm.clone();
+        assert!(cloned.role.is_none());
+        assert!(cloned.user.is_some());
+    }
+
+    #[test]
+    fn test_auto_delete_clone() {
+        let ad = AutoDelete {
+            after: Some(String::from("24h")),
+        };
+        let cloned = ad.clone();
+        assert_eq!(ad.after, cloned.after);
+    }
+
+    #[test]
+    fn test_job_context_clone_and_as_map() {
+        let ctx = JobContext {
+            job: Some(HashMap::from([(
+                String::from("key1"),
+                String::from("val1"),
+            )])),
+            inputs: Some(HashMap::from([(
+                String::from("input1"),
+                String::from("val2"),
+            )])),
+            secrets: Some(HashMap::from([(
+                String::from("secret1"),
+                String::from("val3"),
+            )])),
+            tasks: Some(HashMap::from([(
+                String::from("task1"),
+                String::from("val4"),
+            )])),
+        };
+        let cloned = ctx.clone();
+        assert_eq!(
+            cloned.inputs.as_ref().unwrap().get("input1"),
+            Some(&String::from("val2"))
+        );
+
+        let map = ctx.as_map();
+        assert!(map.contains_key("inputs"));
+        assert!(map.contains_key("secrets"));
+        assert!(map.contains_key("tasks"));
+        assert!(map.contains_key("job"));
+    }
+
+    #[test]
+    fn test_job_defaults_clone() {
+        let defaults = JobDefaults {
+            retry: Some(Box::new(TaskRetry {
+                limit: Some(3),
+                attempts: Some(1),
+            })),
+            limits: Some(Box::new(TaskLimits {
+                cpus: Some(String::from("2")),
+                memory: Some(String::from("1Gi")),
+            })),
+            timeout: Some(String::from("1h")),
+            queue: Some(String::from("default")),
+            priority: Some(10),
+        };
+        let cloned = defaults.clone();
+        assert!(cloned.retry.is_some());
+        assert!(cloned.limits.is_some());
+        assert_eq!(cloned.timeout, Some(String::from("1h")));
+        assert_eq!(cloned.queue, Some(String::from("default")));
+        assert_eq!(cloned.priority, Some(10));
+    }
+
+    #[test]
+    fn test_new_job_summary() {
+        let job = Job {
+            id: Some(String::from("job-1")),
+            parent_id: Some(String::from("parent-1")),
+            name: Some(String::from("Test Job")),
+            description: Some(String::from("A test job")),
+            tags: Some(vec![String::from("tag1")]),
+            state: Some(JOB_STATE_COMPLETED.to_string()),
+            created_at: Some(OffsetDateTime::now_utc()),
+            created_by: None,
+            started_at: Some(OffsetDateTime::now_utc()),
+            completed_at: Some(OffsetDateTime::now_utc()),
+            failed_at: None,
+            tasks: vec![],
+            execution: vec![],
+            position: 0,
+            inputs: Some(HashMap::from([(
+                String::from("key"),
+                String::from("value"),
+            )])),
+            context: None,
+            task_count: Some(10),
+            output: None,
+            result: Some(String::from("success")),
+            error: None,
+            defaults: None,
+            webhooks: vec![],
+            permissions: vec![],
+            auto_delete: None,
+            delete_at: None,
+            secrets: None,
+            progress: Some(1.0),
+            schedule: None,
+        };
+
+        let summary = new_job_summary(&job);
+        assert_eq!(summary.id, job.id);
+        assert_eq!(summary.name, job.name);
+        assert_eq!(summary.state, job.state);
+        assert_eq!(summary.task_count, job.task_count);
+        assert_eq!(summary.result, job.result);
+    }
+
+    #[test]
+    fn test_new_scheduled_job_summary() {
+        let sj = ScheduledJob {
+            id: Some(String::from("sj-1")),
+            name: Some(String::from("Scheduled Job")),
+            description: Some(String::from("A scheduled job")),
+            cron: Some(String::from("0 * * * *")),
+            state: Some(SCHEDULED_JOB_STATE_ACTIVE.to_string()),
+            inputs: Some(HashMap::from([(
+                String::from("key"),
+                String::from("value"),
+            )])),
+            tasks: vec![],
+            created_by: None,
+            defaults: None,
+            auto_delete: None,
+            webhooks: vec![],
+            permissions: vec![],
+            created_at: Some(OffsetDateTime::now_utc()),
+            tags: Some(vec![String::from("scheduled")]),
+            secrets: None,
+            output: None,
+        };
+
+        let summary = new_scheduled_job_summary(&sj);
+        assert_eq!(summary.id, sj.id);
+        assert_eq!(summary.name, sj.name);
+        assert_eq!(summary.cron, sj.cron);
+        assert_eq!(summary.state, sj.state);
+    }
+
+    #[test]
+    fn test_clone_webhooks() {
+        let webhooks = vec![
+            Webhook {
+                url: Some(String::from("https://example.com/1")),
+                headers: None,
+                event: Some(String::from("start")),
+                r#if: None,
+            },
+            Webhook {
+                url: Some(String::from("https://example.com/2")),
+                headers: None,
+                event: Some(String::from("end")),
+                r#if: None,
+            },
+        ];
+        let cloned: Vec<Webhook> = webhooks.iter().map(Webhook::clone).collect();
+        assert_eq!(cloned.len(), 2);
+        assert_eq!(cloned[0].url, Some(String::from("https://example.com/1")));
+        assert_eq!(cloned[1].url, Some(String::from("https://example.com/2")));
+    }
+
+    #[test]
+    fn test_clone_permissions() {
+        let perms = vec![
+            Permission {
+                role: Some(Box::new(Role {
+                    id: Some(String::from("r1")),
+                    slug: Some(String::from("admin")),
+                    name: Some(String::from("Admin")),
+                    created_at: None,
+                })),
+                user: None,
+            },
+            Permission {
+                role: None,
+                user: Some(Box::new(User {
+                    id: Some(String::from("u1")),
+                    name: Some(String::from("User")),
+                    username: Some(String::from("user")),
+                    password_hash: None,
+                    password: None,
+                    created_at: None,
+                    disabled: false,
+                })),
+            },
+        ];
+        let cloned: Vec<Permission> = perms.iter().map(Permission::clone).collect();
+        assert_eq!(cloned.len(), 2);
+        assert!(cloned[0].role.is_some());
+        assert!(cloned[1].user.is_some());
+    }
+
+    #[test]
+    fn test_job_serde() {
+        let job = Job {
+            id: Some(String::from("job-1")),
+            parent_id: None,
+            name: Some(String::from("Test Job")),
+            description: None,
+            tags: Some(vec![String::from("tag1")]),
+            state: Some(JOB_STATE_PENDING.to_string()),
+            created_at: Some(OffsetDateTime::now_utc()),
+            created_by: None,
+            started_at: None,
+            completed_at: None,
+            failed_at: None,
+            tasks: vec![],
+            execution: vec![],
+            position: 0,
+            inputs: None,
+            context: None,
+            task_count: None,
+            output: None,
+            result: None,
+            error: None,
+            defaults: None,
+            webhooks: vec![],
+            permissions: vec![],
+            auto_delete: None,
+            delete_at: None,
+            secrets: None,
+            progress: None,
+            schedule: None,
+        };
+
+        let json = serde_json::to_string(&job).expect("serialization should succeed");
+        assert!(json.contains("\"id\":\"job-1\""));
+        assert!(json.contains("\"name\":\"Test Job\""));
+        assert!(json.contains("\"state\":\"PENDING\""));
+    }
+
+    #[test]
+    fn test_job_deser() {
+        let json = r#"{"id":"job-1","name":"Test Job","state":"RUNNING","position":5}"#;
+        let job: Job = serde_json::from_str(json).expect("deserialization should succeed");
+        assert_eq!(job.id, Some(String::from("job-1")));
+        assert_eq!(job.name, Some(String::from("Test Job")));
+        assert_eq!(job.state, Some(String::from("RUNNING")));
+        assert_eq!(job.position, 5);
+    }
+
+    #[test]
+    fn test_task_clone() {
+        let task = Task {
+            id: Some(String::from("task-1")),
+            job_id: Some(String::from("job-1")),
+            parent_id: None,
+            position: 0,
+            name: Some(String::from("Test Task")),
+            description: Some(String::from("A test task")),
+            state: Some(String::from("PENDING")),
+            created_at: Some(OffsetDateTime::now_utc()),
+            scheduled_at: None,
+            started_at: None,
+            completed_at: None,
+            failed_at: None,
+            cmd: vec![String::from("echo"), String::from("hello")],
+            entrypoint: vec![],
+            run: None,
+            image: Some(String::from("alpine")),
+            registry: None,
+            env: Some(HashMap::from([(String::from("FOO"), String::from("bar"))])),
+            files: None,
+            queue: None,
+            redelivered: 0,
+            error: None,
+            pre: vec![],
+            post: vec![],
+            sidecars: vec![],
+            mounts: vec![],
+            networks: vec![],
+            node_id: None,
+            retry: Some(Box::new(TaskRetry {
+                limit: Some(3),
+                attempts: Some(0),
+            })),
+            limits: Some(Box::new(TaskLimits {
+                cpus: Some(String::from("1")),
+                memory: Some(String::from("512Mi")),
+            })),
+            timeout: None,
+            result: None,
+            var: None,
+            r#if: None,
+            parallel: None,
+            each: None,
+            subjob: None,
+            gpus: None,
+            tags: Some(vec![String::from("test")]),
+            workdir: None,
+            priority: 0,
+            progress: None,
+            probe: None,
+        };
+
+        let cloned = task.clone();
+        assert_eq!(task.id, cloned.id);
+        assert_eq!(task.name, cloned.name);
+        assert_eq!(task.cmd, cloned.cmd);
+        assert!(cloned.retry.is_some());
+        assert!(cloned.limits.is_some());
+        assert_eq!(
+            cloned.env.as_ref().unwrap().get("FOO"),
+            Some(&String::from("bar"))
+        );
+    }
+
+    #[test]
+    fn test_user_clone() {
+        let user = User {
+            id: Some(String::from("user-1")),
+            name: Some(String::from("Test User")),
+            username: Some(String::from("testuser")),
+            password_hash: Some(String::from("hash")),
+            password: Some(String::from("secret")),
+            created_at: Some(OffsetDateTime::now_utc()),
+            disabled: false,
+        };
+
+        let cloned = user.clone();
+        assert_eq!(user.id, cloned.id);
+        assert_eq!(user.username, cloned.username);
+        assert_eq!(user.password_hash, cloned.password_hash);
+    }
+
+    #[test]
+    fn test_role_clone() {
+        let role = Role {
+            id: Some(String::from("role-1")),
+            slug: Some(String::from("admin")),
+            name: Some(String::from("Administrator")),
+            created_at: Some(OffsetDateTime::now_utc()),
+        };
+
+        let cloned = role.clone();
+        assert_eq!(role.id, cloned.id);
+        assert_eq!(role.slug, cloned.slug);
+    }
+
+    #[test]
+    fn test_subjob_task_clone() {
+        let subjob = SubJobTask {
+            id: Some(String::from("subjob-1")),
+            name: Some(String::from("SubJob")),
+            description: Some(String::from("A subjob")),
+            tasks: vec![],
+            inputs: Some(HashMap::from([(
+                String::from("key"),
+                String::from("value"),
+            )])),
+            secrets: Some(HashMap::from([(
+                String::from("SECRET"),
+                String::from("shh"),
+            )])),
+            auto_delete: Some(Box::new(AutoDelete {
+                after: Some(String::from("1h")),
+            })),
+            output: None,
+            detached: true,
+            webhooks: vec![],
+        };
+
+        let cloned = subjob.clone();
+        assert_eq!(subjob.id, cloned.id);
+        assert_eq!(subjob.detached, cloned.detached);
+        assert!(cloned.auto_delete.is_some());
+        assert!(cloned.inputs.is_some());
+    }
+
+    #[test]
+    fn test_parallel_task_clone() {
+        let parallel = ParallelTask {
+            tasks: vec![Task {
+                id: Some(String::from("task-1")),
+                job_id: None,
+                parent_id: None,
+                position: 0,
+                name: Some(String::from("Task 1")),
+                description: None,
+                state: None,
+                created_at: None,
+                scheduled_at: None,
+                started_at: None,
+                completed_at: None,
+                failed_at: None,
+                cmd: vec![],
+                entrypoint: vec![],
+                run: None,
+                image: None,
+                registry: None,
+                env: None,
+                files: None,
+                queue: None,
+                redelivered: 0,
+                error: None,
+                pre: vec![],
+                post: vec![],
+                sidecars: vec![],
+                mounts: vec![],
+                networks: vec![],
+                node_id: None,
+                retry: None,
+                limits: None,
+                timeout: None,
+                result: None,
+                var: None,
+                r#if: None,
+                parallel: None,
+                each: None,
+                subjob: None,
+                gpus: None,
+                tags: None,
+                workdir: None,
+                priority: 0,
+                progress: None,
+                probe: None,
+            }],
+            completions: 3,
+        };
+
+        let cloned = parallel.clone();
+        assert_eq!(cloned.completions, 3);
+        assert_eq!(cloned.tasks.len(), 1);
+    }
+
+    #[test]
+    fn test_each_task_clone() {
+        let each = EachTask {
+            var: Some(String::from("item")),
+            list: Some(String::from("{{inputs.items}}")),
+            task: Some(Box::new(Task {
+                id: Some(String::from("task-1")),
+                job_id: None,
+                parent_id: None,
+                position: 0,
+                name: Some(String::from("Loop Task")),
+                description: None,
+                state: None,
+                created_at: None,
+                scheduled_at: None,
+                started_at: None,
+                completed_at: None,
+                failed_at: None,
+                cmd: vec![String::from("echo"), String::from("{{item}}")],
+                entrypoint: vec![],
+                run: None,
+                image: Some(String::from("alpine")),
+                registry: None,
+                env: None,
+                files: None,
+                queue: None,
+                redelivered: 0,
+                error: None,
+                pre: vec![],
+                post: vec![],
+                sidecars: vec![],
+                mounts: vec![],
+                networks: vec![],
+                node_id: None,
+                retry: None,
+                limits: None,
+                timeout: None,
+                result: None,
+                var: None,
+                r#if: None,
+                parallel: None,
+                each: None,
+                subjob: None,
+                gpus: None,
+                tags: None,
+                workdir: None,
+                priority: 0,
+                progress: None,
+                probe: None,
+            })),
+            size: 10,
+            completions: 5,
+            concurrency: 2,
+            index: 0,
+        };
+
+        let cloned = each.clone();
+        assert_eq!(cloned.var, Some(String::from("item")));
+        assert_eq!(cloned.size, 10);
+        assert!(cloned.task.is_some());
+    }
+
+    #[test]
+    fn test_registry_clone() {
+        let reg = Registry {
+            username: Some(String::from("user")),
+            password: Some(String::from("pass")),
+        };
+        let cloned = reg.clone();
+        assert_eq!(reg.username, cloned.username);
+        assert_eq!(reg.password, cloned.password);
+    }
+
+    #[test]
+    fn test_mount_clone() {
+        let mount = Mount {
+            source: Some(String::from("/data")),
+            target: Some(String::from("/mnt")),
+            read_only: Some(true),
+            mount_type: None,
+            opts: None,
+        };
+        let cloned = mount.clone();
+        assert_eq!(mount.source, cloned.source);
+        assert_eq!(mount.target, cloned.target);
+        assert_eq!(mount.read_only, cloned.read_only);
+    }
+
+    #[test]
+    fn test_probe_clone() {
+        let probe = Probe {
+            path: Some(String::from("/health")),
+            port: 8080,
+            timeout: Some(String::from("5s")),
+        };
+        let cloned = probe.clone();
+        assert_eq!(probe.path, cloned.path);
+        assert_eq!(probe.port, cloned.port);
+    }
+
+    #[test]
+    fn test_task_retry_clone() {
+        let retry = TaskRetry {
+            limit: Some(3),
+            attempts: Some(1),
+        };
+        let cloned = retry.clone();
+        assert_eq!(retry.limit, cloned.limit);
+        assert_eq!(retry.attempts, cloned.attempts);
+    }
+
+    #[test]
+    fn test_task_limits_clone() {
+        let limits = TaskLimits {
+            cpus: Some(String::from("4")),
+            memory: Some(String::from("2Gi")),
+        };
+        let cloned = limits.clone();
+        assert_eq!(limits.cpus, cloned.cpus);
+        assert_eq!(limits.memory, cloned.memory);
+    }
+}

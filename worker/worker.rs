@@ -266,27 +266,30 @@ impl Worker {
             },
         );
 
+        // Clone for broker publish and final result (after runtime modifications)
         let task_for_broker = task_arc.clone();
-
-        // Publish task started event
-        let broker = Arc::clone(&self.broker);
-        let task_started = Arc::clone(&task_for_broker);
-        if let Err(e) = broker
-            .publish_task(QUEUE_STARTED.to_string(), &task_started)
-            .await
-        {
-            tracing::warn!(error = %e, "failed to publish task started event");
-        }
 
         // Create the actual task handler with timeout support
         // (mirrors Go's doRunTask: parse timeout, create timeout context, run)
+        // QUEUE_STARTED is published inside the handler after middleware starts but before runtime
         let runtime = Arc::clone(&self.runtime);
+        let broker = Arc::clone(&self.broker);
         let timeout_str = task.timeout.clone();
-        let task_handler: Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> =
+        let task_handler: Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> =
             Arc::new(move |task: Arc<Task>| {
                 let runtime = Arc::clone(&runtime);
+                let broker = Arc::clone(&broker);
                 let timeout_str = timeout_str.clone();
                 Box::pin(async move {
+                    // Publish QUEUE_STARTED after middleware starts but before runtime
+                    let task_started = Arc::clone(&task);
+                    if let Err(e) = broker
+                        .publish_task(QUEUE_STARTED.to_string(), &task_started)
+                        .await
+                    {
+                        tracing::warn!(error = %e, "failed to publish task started event");
+                    }
+
                     let mut t = (*task).clone();
                     let ctx = std::sync::Arc::new(tokio::sync::RwLock::new(()));
 
@@ -304,10 +307,10 @@ impl Worker {
                                 ));
                                 t.failed_at = Some(now);
                                 t.state = TASK_STATE_FAILED;
-                                return Err(anyhow::anyhow!(
+                                return Ok((Err(anyhow::anyhow!(
                                     "context deadline exceeded: {}",
                                     ts
-                                ));
+                                )), Arc::new(t)));
                             }
                         }
                     } else {
@@ -319,14 +322,14 @@ impl Worker {
                         t.error = Some(e.to_string());
                         t.failed_at = Some(now);
                         t.state = TASK_STATE_FAILED;
-                        Err(e)
+                        Ok((Err(e), Arc::new(t)))
                     } else {
                         let now = time::OffsetDateTime::now_utc();
                         t.completed_at = Some(now);
                         t.state = TASK_STATE_COMPLETED;
-                        Ok(())
+                        Ok((Ok(()), Arc::new(t)))
                     }
-                }) as std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>>
+                }) as std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>>
             });
 
         // Apply middleware chain
@@ -337,15 +340,19 @@ impl Worker {
         }
 
         // Run the task with cancellation support
-        let result = {
+        let (result, final_task) = {
             let task_for_handler = Arc::clone(&task_for_broker);
             tokio::select! {
                 result = handler(task_for_handler) => {
-                    result
+                    result.map_err(|e| anyhow::anyhow!("handler error: {}", e))?
                 }
                 _ = &mut cancel_rx => {
                     tracing::debug!("task cancelled");
-                    Err(anyhow::anyhow!("task cancelled"))
+                    let mut t = (*task_for_broker).clone();
+                    t.error = Some("task cancelled".to_string());
+                    t.failed_at = Some(time::OffsetDateTime::now_utc());
+                    t.state = TASK_STATE_FAILED;
+                    (Err(anyhow::anyhow!("task cancelled")), Arc::new(t))
                 }
             }
         };
@@ -356,21 +363,14 @@ impl Worker {
 
         match result {
             Ok(()) => {
-                // Task completed successfully
-                let mut final_task = (*task_for_broker).clone();
-                final_task.state = TASK_STATE_COMPLETED;
-                final_task.completed_at = Some(time::OffsetDateTime::now_utc());
+                // Task completed successfully - final_task has runtime modifications
                 self.broker
                     .publish_task(QUEUE_COMPLETED.to_string(), &final_task)
                     .await
                     .map_err(WorkerError::Broker)?;
             }
             Err(e) => {
-                // Task failed
-                let mut final_task = (*task_for_broker).clone();
-                final_task.state = TASK_STATE_FAILED;
-                final_task.error = Some(e.to_string());
-                final_task.failed_at = Some(time::OffsetDateTime::now_utc());
+                // Task failed - final_task has error state set by handler
                 self.broker
                     .publish_task(QUEUE_ERROR.to_string(), &final_task)
                     .await

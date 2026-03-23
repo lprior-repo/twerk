@@ -102,6 +102,10 @@ mod tests {
     use std::time::Duration;
     use tork::task::TaskLogPart;
 
+    // Re-export for use in buffer full test
+    #[allow(unused_imports)]
+    use tokio::sync::mpsc::error::TrySendError;
+
     /// Test that a timeout triggers forwarding of buffered data.
     /// Mirrors Go's TestForwardTimeout.
     #[tokio::test]
@@ -192,17 +196,13 @@ mod tests {
     /// Mirrors Go's TestLogShipperWriteBufferFull.
     #[tokio::test]
     async fn test_log_shipper_write_buffer_full() {
-        let broker = Arc::new(new_in_memory_broker());
-
-        // Create a LogShipper with a small internal channel for testing backpressure.
-        // We test directly against the sender to avoid the async context issues.
+        // Create a channel with small buffer for testing backpressure
         let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(5); // Very small buffer
 
         // Spawn a task that slowly consumes from the channel (very long interval)
-        let handle = tokio::spawn(async move {
+        let _handle = tokio::spawn(async move {
             let mut buffer = Vec::new();
             let mut interval = tokio::time::interval(Duration::from_secs(3600)); // Long interval
-            let mut part_num = 0i64;
 
             loop {
                 tokio::select! {
@@ -211,8 +211,6 @@ mod tests {
                     }
                     _ = interval.tick() => {
                         if !buffer.is_empty() {
-                            part_num += 1;
-                            let _contents = String::from_utf8(buffer.clone()).unwrap_or_default();
                             // Don't publish - we just want to test backpressure
                             buffer.clear();
                         }
@@ -221,14 +219,15 @@ mod tests {
             }
         });
 
-        // Drop handle to keep the task alive but not process anything
-
         // Try to fill the channel past its capacity
         let mut error_count = 0;
         for _ in 0..10 {
             match tx.try_send(vec![b'x'; 100]) {
                 Ok(_) => {}
-                Err(_) => {
+                Err(TrySendError::Full(_)) => {
+                    error_count += 1;
+                }
+                Err(TrySendError::Closed(_)) => {
                     error_count += 1;
                 }
             }

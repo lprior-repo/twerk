@@ -657,7 +657,7 @@ mod engine {
 
             // Take the runtime out, will be replaced after worker creation
             let runtime = self.runtime.take();
-            let worker = create_worker(self.broker.clone(), runtime).await?;
+            let worker = create_worker(self, self.broker.clone(), runtime).await?;
             worker.start().await?;
             *self.worker.write().await = Some(worker);
 
@@ -722,7 +722,7 @@ mod engine {
 
             // Take the runtime out, will be replaced after worker creation
             let runtime = self.runtime.take();
-            let worker = create_worker(self.broker.clone(), runtime).await?;
+            let worker = create_worker(self, self.broker.clone(), runtime).await?;
             worker.start().await?;
             *self.worker.write().await = Some(worker);
 

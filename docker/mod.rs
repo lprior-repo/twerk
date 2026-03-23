@@ -23,6 +23,7 @@ pub mod auth;
 pub mod bind;
 pub mod credential_helper;
 pub mod docker;
+pub mod docker_integration_tests;
 pub mod reference;
 pub mod tmpfs;
 pub mod tork;

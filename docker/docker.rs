@@ -327,7 +327,7 @@ impl Mounter for TmpfsMounter {
 #[allow(dead_code)] // fields used in future Go-parity features (image cache, pruning)
 pub struct DockerRuntime {
     /// Docker client.
-    client: Docker,
+    pub client: Docker,
     /// Configuration.
     config: DockerConfig,
     /// Image cache with timestamps.
@@ -753,7 +753,8 @@ impl DockerRuntime {
     /// Go parity: `createTaskContainer` — full lifecycle setup including
     /// image pull, env, mounts, limits, GPU, probe ports, networking aliases,
     /// workdir, and file initialization.
-    async fn create_container(&self, task: &Task) -> Result<Container, DockerError> {
+    #[allow(dead_code)] // used in integration tests
+    pub async fn create_container(&self, task: &Task) -> Result<Container, DockerError> {
         if task.id.is_empty() {
             return Err(DockerError::TaskIdRequired);
         }
@@ -1094,9 +1095,13 @@ impl Default for Task {
 // Container
 // =============================================================================
 
-struct Container {
-    id: String,
-    client: Docker,
+/// Container represents a running Docker container.
+#[allow(dead_code)] // used in integration tests
+pub struct Container {
+    /// Container ID.
+    pub id: String,
+    /// Docker client for API operations.
+    pub client: Docker,
     torkdir_source: Option<String>,
     task_id: String,
     probe: Option<Probe>,
@@ -1107,7 +1112,8 @@ impl Container {
     /// Start the container, then probe if configured.
     ///
     /// Go parity: `tcontainer.Start` → `probeContainer`.
-    async fn start(&self) -> Result<(), DockerError> {
+    #[allow(dead_code)] // used in integration tests
+    pub async fn start(&self) -> Result<(), DockerError> {
         tracing::debug!(container_id = %self.id, "Starting container");
         self.client.start_container::<String>(&self.id, None).await
             .map_err(|e| DockerError::ContainerStart(format!("{}: {}", self.id, e)))?;
@@ -1120,7 +1126,8 @@ impl Container {
     ///
     /// Go parity: `tcontainer.Wait` — streams logs, reports progress,
     /// reads /tork/stdout on success, tails logs on failure.
-    async fn wait(&self) -> Result<String, DockerError> {
+    #[allow(dead_code)] // used in integration tests
+    pub async fn wait(&self) -> Result<String, DockerError> {
         // Spawn progress reporting
         let progress_client = self.client.clone();
         let progress_id = self.id.clone();

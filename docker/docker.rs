@@ -561,26 +561,26 @@ impl DockerRuntime {
         task.mounts = mounted_mounts.clone();
 
         // Execute pre-tasks
-        for pre in &task.pre {
-            let mut pre_task = pre.clone();
+        let pre_tasks: Vec<Task> = task.pre.iter().cloned().collect();
+        for mut pre_task in pre_tasks {
             pre_task.id = uuid::Uuid::new_v4().to_string();
             pre_task.mounts = mounted_mounts.clone();
             pre_task.networks = task.networks.clone();
             pre_task.limits = task.limits.clone();
-            self.run_task(&pre_task).await?;
+            self.run_task(&mut pre_task).await?;
         }
 
         // Run the actual task
         self.run_task(task).await?;
 
         // Execute post-tasks
-        for post in &task.post {
-            let mut post_task = post.clone();
+        let post_tasks: Vec<Task> = task.post.iter().cloned().collect();
+        for mut post_task in post_tasks {
             post_task.id = uuid::Uuid::new_v4().to_string();
             post_task.mounts = mounted_mounts.clone();
             post_task.networks = task.networks.clone();
             post_task.limits = task.limits.clone();
-            self.run_task(&post_task).await?;
+            self.run_task(&mut post_task).await?;
         }
 
         // Clean up mounts
@@ -599,7 +599,7 @@ impl DockerRuntime {
     }
 
     /// Runs a single task (main, pre, or post).
-    async fn run_task(&self, task: &Task) -> Result<(), DockerError> {
+    async fn run_task(&self, task: &mut Task) -> Result<(), DockerError> {
         let container = self.create_container(task).await?;
 
         let container_id = container.id.clone();
@@ -637,8 +637,8 @@ impl DockerRuntime {
             // Start main container (includes probe if configured)
             container.start().await?;
 
-            // Wait for completion
-            container.wait().await?;
+            // Wait for completion and capture result
+            task.result = Some(container.wait().await?);
             Ok(())
         }.await;
 

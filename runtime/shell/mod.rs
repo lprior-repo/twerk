@@ -537,11 +537,27 @@ fn read_progress_sync(progress_path: &std::path::Path) -> Result<f64, ShellError
 
 // ── Default reexec function ────────────────────────────────────────────
 
-/// Default reexec function that runs the shell command directly,
-/// applying UID/GID via `CommandExt` on Unix.
+/// Default reexec function for shell runtime.
+///
+/// The args layout is: ["shell", "-uid", UID, "-gid", GID, <shell>, <shell_args...>]
+/// where:
+/// - args[0] = "shell" (mode indicator, not an actual binary)
+/// - args[1] = "-uid", args[2] = UID value
+/// - args[3] = "-gid", args[4] = GID value
+/// - args[5] = actual shell binary (e.g., "bash")
+/// - args[6..] = shell arguments (e.g., ["-c", "entrypoint"])
+///
+/// This function extracts the actual shell binary and arguments, and applies
+/// UID/GID via `CommandExt` on Unix.
 fn reexec_default(args: &[String]) -> Command {
-    let mut cmd = Command::new(&args[0]);
-    cmd.args(&args[1..]);
+    // Shell mode args: ["shell", "-uid", UID, "-gid", GID, shell, shell_args...]
+    // args[5] is the actual shell binary, args[6..] are shell arguments
+    let shell_program = if args.len() > 5 { &args[5] } else { &args[0] };
+    let shell_args = if args.len() > 6 { &args[6..] } else { &[] };
+
+    let mut cmd = Command::new(shell_program);
+    cmd.args(shell_args);
+
     #[cfg(unix)]
     {
         if args.len() > 2 && args[2] != DEFAULT_UID {

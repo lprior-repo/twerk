@@ -6,10 +6,12 @@
 //! - **Calc**: Pure tar header/entry construction
 //! - **Actions**: File I/O at boundary
 
-use std::fs::File;
+use std::fs::{self, File};
+use std::os::unix::fs::MetadataExt;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
 
+use libc::S_IFMT;
 use tar::{Builder as TarBuilder, Header};
 use tempfile::NamedTempFile;
 
@@ -158,6 +160,15 @@ impl Read for Archive {
             .ok_or_else(|| io::Error::other("reader not initialized"))?
             .read(buf)
     }
+}
+
+/// Returns the file type bits for the given path.
+///
+/// This is equivalent to Go's `FileType` function which uses `os.Lstat`.
+#[must_use]
+pub fn file_type(path: &Path) -> Result<u32, ArchiveError> {
+    let meta = fs::symlink_metadata(path).map_err(ArchiveError::Io)?;
+    Ok(meta.mode() & S_IFMT as u32)
 }
 
 /// Builder for creating archive entries.

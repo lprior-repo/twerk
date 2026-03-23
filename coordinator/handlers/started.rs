@@ -203,6 +203,7 @@ impl StartedHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tork::Job;
 
     #[test]
     fn test_calculate_started_action_running() {

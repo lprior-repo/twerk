@@ -472,7 +472,6 @@ mod tests {
     }
 
     use crate::handlers::test_helpers::{new_uuid, TestEnv};
-
     /// Go parity: Test_handlePendingTask
     #[tokio::test]
     #[ignore]

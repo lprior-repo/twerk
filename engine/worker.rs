@@ -87,6 +87,53 @@ fn config_strings(key: &str) -> Vec<String> {
 }
 
 // =============================================================================
+// =============================================================================
+// Limits configuration
+// =============================================================================
+
+/// Limits for task execution resources.
+///
+/// Go parity: `type Limits struct { Cpus string; Memory string; Timeout string }`
+/// with constants `DefaultCPUsLimit`, `DefaultMemoryLimit`, `DefaultTimeout`.
+#[derive(Debug, Clone, Default)]
+pub struct Limits {
+    /// CPU limit (e.g., "1", "2", "0.5")
+    pub cpus: String,
+    /// Memory limit (e.g., "512m", "1g")
+    pub memory: String,
+    /// Timeout duration (e.g., "5m", "1h")
+    pub timeout: String,
+}
+
+/// Default CPU limit — matches Go's `DefaultCPUsLimit`.
+pub const DEFAULT_CPUS_LIMIT: &str = "1";
+
+/// Default memory limit — matches Go's `DefaultMemoryLimit`.
+pub const DEFAULT_MEMORY_LIMIT: &str = "512m";
+
+/// Default timeout — matches Go's `DefaultTimeout`.
+pub const DEFAULT_TIMEOUT: &str = "5m";
+
+/// Read limits from environment variables.
+///
+/// Go parity: reads `TORK_WORKER_LIMITS_CPUS`, `TORK_WORKER_LIMITS_MEMORY`, `TORK_WORKER_LIMITS_TIMEOUT`.
+#[must_use]
+pub fn read_limits() -> Limits {
+    let cpus = std::env::var("TORK_WORKER_LIMITS_CPUS")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_CPUS_LIMIT.to_string());
+    let memory = std::env::var("TORK_WORKER_LIMITS_MEMORY")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_MEMORY_LIMIT.to_string());
+    let timeout = std::env::var("TORK_WORKER_LIMITS_TIMEOUT")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_TIMEOUT.to_string());
+    Limits { cpus, memory, timeout }
+}
+
 // Boxed future type
 // =============================================================================
 
@@ -1158,17 +1205,13 @@ pub async fn create_worker(
             m
         });
 
-    // Get default limits from environment
-    // Go: conf.String("worker.limits.cpus"), conf.String("worker.limits.memory"), conf.String("worker.limits.timeout")
-    let _default_cpus = std::env::var("TORK_WORKER_LIMITS_CPUS")
-        .ok()
-        .filter(|s| !s.is_empty());
-    let _default_memory = std::env::var("TORK_WORKER_LIMITS_MEMORY")
-        .ok()
-        .filter(|s| !s.is_empty());
-    let _default_timeout = std::env::var("TORK_WORKER_LIMITS_TIMEOUT")
-        .ok()
-        .filter(|s| !s.is_empty());
+    // Get default limits from environment using Limits struct
+    // Go parity: reads conf.String("worker.limits.cpus"), conf.String("worker.limits.memory"), conf.String("worker.limits.timeout")
+    let limits = read_limits();
+    debug!(
+        "Worker limits: cpus={}, memory={}, timeout={}",
+        limits.cpus, limits.memory, limits.timeout
+    );
 
     // Return a placeholder worker
     // Full implementation would create a real Worker from tork_runtime
@@ -1348,6 +1391,45 @@ mod tests {
         let result = mounter.mount(dummy_ctx, &mnt).await;
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_read_limits_default() {
+        // Clear any existing env vars
+        std::env::remove_var("TORK_WORKER_LIMITS_CPUS");
+        std::env::remove_var("TORK_WORKER_LIMITS_MEMORY");
+        std::env::remove_var("TORK_WORKER_LIMITS_TIMEOUT");
+        
+        let limits = read_limits();
+        assert_eq!(limits.cpus, DEFAULT_CPUS_LIMIT);
+        assert_eq!(limits.memory, DEFAULT_MEMORY_LIMIT);
+        assert_eq!(limits.timeout, DEFAULT_TIMEOUT);
+    }
+
+    #[test]
+    fn test_read_limits_from_env() {
+        std::env::set_var("TORK_WORKER_LIMITS_CPUS", "4");
+        std::env::set_var("TORK_WORKER_LIMITS_MEMORY", "2g");
+        std::env::set_var("TORK_WORKER_LIMITS_TIMEOUT", "10m");
+        
+        let limits = read_limits();
+        assert_eq!(limits.cpus, "4");
+        assert_eq!(limits.memory, "2g");
+        assert_eq!(limits.timeout, "10m");
+        
+        // Cleanup
+        std::env::remove_var("TORK_WORKER_LIMITS_CPUS");
+        std::env::remove_var("TORK_WORKER_LIMITS_MEMORY");
+        std::env::remove_var("TORK_WORKER_LIMITS_TIMEOUT");
+    }
+
+    #[test]
+    fn test_limits_defaults() {
+        let limits = Limits::default();
+        assert!(limits.cpus.is_empty());
+        assert!(limits.memory.is_empty());
+        assert!(limits.timeout.is_empty());
+    }
+
 
     #[test]
     fn test_runtime_config_default() {

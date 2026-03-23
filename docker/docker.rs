@@ -1550,8 +1550,37 @@ impl Container {
         archive.remove().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         Ok(())
     }
-}
 
+    /// Remove the container and unmount torkdir volume.
+    ///
+    /// Go parity: `tcontainer.Remove` — force removes container,
+    /// then unmounts the torkdir volume.
+    #[allow(dead_code)] // used in integration tests
+    pub async fn remove(&self) {
+        tracing::debug!(container_id = %self.id, "Removing container");
+
+        // Remove container with force (kills it if running)
+        let _ = self.client
+            .remove_container(
+                &self.id,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
+
+        // Unmount torkdir volume
+        if let Some(ref source) = self.torkdir_source {
+            let _ = self.client
+                .remove_volume(
+                    source,
+                    Some(bollard::volume::RemoveVolumeOptions { force: true }),
+                )
+                .await;
+        }
+    }
+}
 // =============================================================================
 // Pure helpers
 // =============================================================================

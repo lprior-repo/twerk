@@ -198,6 +198,52 @@ impl std::fmt::Debug for PodmanRuntime {
     }
 }
 
+/// Guard that ensures container cleanup on function exit (success or error).
+/// This mimics Go's defer pattern for guaranteed cleanup.
+/// The guard is disarmed via `disarm()` once cleanup is done normally.
+struct ContainerGuard {
+    container_id: String,
+    tasks: Arc<RwLock<HashMap<String, String>>>,
+    disarmed: bool,
+}
+
+impl ContainerGuard {
+    fn new(
+        container_id: String,
+        tasks: Arc<RwLock<HashMap<String, String>>>,
+    ) -> Self {
+        Self {
+            container_id,
+            tasks,
+            disarmed: false,
+        }
+    }
+
+    /// Disarm the guard to prevent double cleanup.
+    /// Call this after normal cleanup completes.
+    fn disarm(&mut self) {
+        self.disarmed = true;
+    }
+}
+
+impl Drop for ContainerGuard {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+        let cid = self.container_id.clone();
+        let tasks = self.tasks.clone();
+        // Spawn cleanup task since Drop cannot be async
+        tokio::spawn(async move {
+            if let Err(e) = PodmanRuntime::stop_container_static(&cid).await {
+                warn!("error stopping container {} in guard drop: {}", cid, e);
+            }
+            // Remove from tasks map if present
+            let _ = tasks.write().await.remove(&cid);
+        });
+    }
+}
+
 impl PodmanRuntime {
     pub fn new(config: PodmanConfig) -> Self {
         let (tx, rx) = mpsc::channel::<PullRequest>(100);
@@ -814,6 +860,9 @@ impl PodmanRuntime {
             .await
             .insert(task.id.clone(), container_id.clone());
 
+        // Guard ensures container cleanup on early return (mimics Go's defer)
+        let mut guard = ContainerGuard::new(container_id.clone(), self.tasks.clone());
+
         // Start container
         let mut start_cmd = Command::new("podman");
         start_cmd.arg("start").arg(&container_id);
@@ -921,11 +970,12 @@ impl PodmanRuntime {
             .map_err(|e| PodmanError::OutputRead(e.to_string()))?;
         task.result = output;
 
-        // Cleanup: stop container and remove task mapping
+        // Cleanup: stop container and remove task mapping (via guard for early-returns)
         if let Err(e) = Self::stop_container(&container_id).await {
             warn!("error stopping container {}: {}", container_id, e);
         }
         self.tasks.write().await.remove(&container_id);
+        guard.disarm(); // Prevent guard drop from running cleanup again
 
         // Cleanup workdir
         if let Err(e) = tokio::fs::remove_dir_all(&workdir).await {
@@ -1191,6 +1241,10 @@ impl PodmanRuntime {
     // ── Container lifecycle ──────────────────────────────────────
 
     async fn stop_container(container_id: &str) -> Result<(), PodmanError> {
+        Self::stop_container_static(container_id).await
+    }
+
+    async fn stop_container_static(container_id: &str) -> Result<(), PodmanError> {
         debug!("Attempting to stop and remove container {}", container_id);
         let mut cmd = Command::new("podman");
         cmd.arg("rm").arg("-f").arg("-t").arg("0").arg(container_id);

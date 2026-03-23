@@ -1509,6 +1509,3 @@ mod tests {
         assert!(result.is_ok());
     }
 }
-
-#[cfg(test)]
-mod worker_test;

@@ -132,3 +132,7 @@ fn env_duration_default(key: &str, default: Duration) -> Duration {
             .unwrap_or(default)
     }
 }
+
+#[cfg(test)]
+mod locker_test;
+

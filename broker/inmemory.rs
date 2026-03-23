@@ -1004,4 +1004,230 @@ mod tests {
         let result = broker.health_check().await;
         assert!(result.is_err(), "health check should fail after shutdown");
     }
+
+    /// Tests queue_info for a specific queue.
+    #[tokio::test]
+    async fn test_queue_info() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        let task = tork::task::Task::default();
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+
+        let info = broker.queue_info(qname.clone()).await.unwrap();
+        assert_eq!(qname, info.name);
+        assert_eq!(1, info.size);
+        assert_eq!(0, info.subscribers);
+        assert_eq!(0, info.unacked);
+    }
+
+    /// Tests queue_info returns error for non-existent queue.
+    #[tokio::test]
+    async fn test_queue_info_not_found() {
+        let broker = new_in_memory_broker();
+        let result = broker.queue_info("nonexistent-queue".to_string()).await;
+        assert!(result.is_err(), "queue_info should error for non-existent queue");
+    }
+
+    /// Tests that queues() returns all queues including empty ones.
+    #[tokio::test]
+    async fn test_queues_includes_empty() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        // Create queue by subscribing (no messages)
+        let handler: TaskHandler = Arc::new(move |_task| Box::pin(async move {}));
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert!(queues.iter().any(|q| q.name == qname && q.size == 0));
+    }
+
+    /// Tests multiple concurrent publishers to the same queue.
+    #[tokio::test]
+    async fn test_concurrent_publish() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+        let received = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let received_clone = received.clone();
+
+        let handler: TaskHandler = Arc::new(move |_task| {
+            let received = received_clone.clone();
+            Box::pin(async move {
+                received.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            })
+        });
+
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        // Publish 100 tasks concurrently
+        let mut handles = Vec::new();
+        for _ in 0..100 {
+            let broker_clone = broker.clone();
+            let qname_clone = qname.clone();
+            handles.push(tokio::spawn(async move {
+                let task = tork::task::Task::default();
+                broker_clone
+                    .publish_task(qname_clone, &task)
+                    .await
+                    .expect("publish should succeed");
+            }));
+        }
+        for handle in handles {
+            handle.await.expect("task should not panic");
+        }
+
+        // Wait for processing
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        assert_eq!(100, received.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    /// Tests that queue size decrements after message is consumed.
+    #[tokio::test]
+    async fn test_queue_size_decrement_on_consume() {
+        let broker = new_in_memory_broker();
+        let qname = format!("test-queue-{}", new_uuid());
+
+        let task = tork::task::Task::default();
+        broker.publish_task(qname.clone(), &task).await.unwrap();
+
+        let info = broker.queue_info(qname.clone()).await.unwrap();
+        assert_eq!(1, info.size);
+
+        // Subscribe and consume
+        let done = Arc::new(tokio::sync::Notify::new());
+        let done_clone = done.clone();
+
+        let handler: TaskHandler = Arc::new(move |_task| {
+            let done = done_clone.clone();
+            Box::pin(async move {
+                done.notify_one();
+            })
+        });
+
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        // Wait for message to be consumed
+        done.notified().await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let info = broker.queue_info(qname.clone()).await.unwrap();
+        assert_eq!(0, info.size);
+    }
+
+    /// Tests that delete_queue on non-existent queue succeeds (idempotent).
+    #[tokio::test]
+    async fn test_delete_nonexistent_queue() {
+        let broker = new_in_memory_broker();
+        let result = broker.delete_queue("nonexistent-queue".to_string()).await;
+        assert!(result.is_ok(), "delete should succeed on non-existent queue");
+    }
+
+    /// Tests that multiple queues with different names are tracked separately.
+    #[tokio::test]
+    async fn test_multiple_queues() {
+        let broker = new_in_memory_broker();
+        let qname1 = format!("test-queue-1-{}", new_uuid());
+        let qname2 = format!("test-queue-2-{}", new_uuid());
+
+        let task = tork::task::Task::default();
+        broker.publish_task(qname1.clone(), &task).await.unwrap();
+        broker.publish_task(qname1.clone(), &task).await.unwrap();
+        broker.publish_task(qname2.clone(), &task).await.unwrap();
+
+        let queues = broker.queues().await.unwrap();
+        assert_eq!(2, queues.len());
+
+        let info1 = broker.queue_info(qname1.clone()).await.unwrap();
+        let info2 = broker.queue_info(qname2.clone()).await.unwrap();
+
+        assert_eq!(2, info1.size);
+        assert_eq!(1, info2.size);
+    }
+
+    /// Tests event subscription with exact topic match (no wildcard).
+    #[tokio::test]
+    async fn test_subscribe_for_event_exact_topic() {
+        let broker = new_in_memory_broker();
+        let processed = Arc::new(std::sync::Mutex::new(0_usize));
+        let processed_clone = processed.clone();
+
+        let handler: EventHandler = Arc::new(move |_event| {
+            let processed = processed_clone.clone();
+            Box::pin(async move {
+                let mut guard = processed.lock().expect("mutex not poisoned");
+                *guard += 1;
+            })
+        });
+
+        let topic = "task.started".to_string();
+        broker.subscribe_for_events(topic.clone(), handler).await.unwrap();
+
+        // Publish to exact topic
+        for _ in 0..5 {
+            let event = serde_json::json!({"id": new_uuid()});
+            broker
+                .publish_event(topic.clone(), event)
+                .await
+                .unwrap();
+        }
+
+        // Publish to different topic - should NOT be received
+        broker
+            .publish_event("task.stopped".to_string(), serde_json::json!({}))
+            .await
+            .unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        assert_eq!(5, *processed.lock().expect("mutex not poisoned"));
+    }
+
+    /// Tests that tasks with priority are published and received correctly.
+    #[tokio::test]
+    async fn test_publish_task_with_priority() {
+        let broker = new_in_memory_broker();
+        let received = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let received_clone = received.clone();
+
+        let qname = format!("test-queue-{}", new_uuid());
+        let handler: TaskHandler = Arc::new(move |task| {
+            let received = received_clone.clone();
+            Box::pin(async move {
+                let mut guard = received.lock().expect("mutex not poisoned");
+                guard.push(task.priority);
+            })
+        });
+
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
+
+        // Publish tasks with different priorities
+        for p in [5_i64, 3, 9, 1, 7] {
+            let task = tork::task::Task {
+                id: Some(new_uuid()),
+                priority: p,
+                ..Default::default()
+            };
+            broker.publish_task(qname.clone(), &task).await.unwrap();
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let mut priorities = received.lock().expect("mutex not poisoned");
+        priorities.sort();
+        assert_eq!(vec![1, 3, 5, 7, 9], *priorities);
+    }
 }

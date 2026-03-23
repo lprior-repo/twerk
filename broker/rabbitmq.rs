@@ -40,7 +40,6 @@ const MSG_TYPE_NODE: &str = "*tork.Node";
 const MSG_TYPE_TASK_LOG_PART: &str = "*tork.TaskLogPart";
 const MSG_TYPE_EVENT: &str = "*tork.Event";
 const MSG_TYPE_TASK_PROGRESS: &str = "*tork.TaskProgress";
-const MSG_TYPE_SCHEDULED_JOB: &str = "*tork.ScheduledJob";
 
 /// Subscription tracking with cancel and done channels
 struct Subscription {

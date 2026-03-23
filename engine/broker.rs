@@ -9,7 +9,7 @@
 //! Matches `engine/broker.go`:
 //! - [`BrokerProxy`] delegates every `Broker` method with init-check
 //! - `create_broker()` dispatches on type (inmemory / rabbitmq)
-//! - RabbitMQ broker with full config (URL, consumer timeout, management URL,
+//! - `RabbitMQ` broker with full config (URL, consumer timeout, management URL,
 //!   durable queues, queue type)
 
 use std::env;
@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use lapin::{
-    options::*,
+    options::{BasicPublishOptions, QueueDeclareOptions},
     types::FieldTable,
     BasicProperties, Connection, ConnectionProperties,
 };
@@ -37,16 +37,15 @@ use tork::task::Task;
 pub enum BrokerType {
     /// In-memory broker
     InMemory,
-    /// RabbitMQ broker
+    /// `RabbitMQ` broker
     RabbitMQ,
 }
 
 impl BrokerType {
     /// Parse broker type from string.
     #[must_use]
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "inmemory" => Self::InMemory,
             "rabbitmq" => Self::RabbitMQ,
             _ => Self::InMemory,
         }
@@ -67,6 +66,7 @@ pub struct BrokerProxy {
 
 impl BrokerProxy {
     /// Creates a new empty broker proxy.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(None)),
@@ -78,6 +78,10 @@ impl BrokerProxy {
     /// Matches Go `initBroker()`:
     /// - Reads config for the given type
     /// - Delegates to `create_broker()`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying broker creation fails.
     pub async fn init(&self, broker_type: &str) -> Result<()> {
         let broker = create_broker(broker_type).await?;
         *self.inner.write().await = Some(broker);
@@ -90,6 +94,7 @@ impl BrokerProxy {
     }
 
     /// Clones the inner Arc for sharing.
+    #[must_use]
     pub fn clone_inner(&self) -> BrokerProxy {
         BrokerProxy {
             inner: self.inner.clone(),
@@ -97,6 +102,10 @@ impl BrokerProxy {
     }
 
     /// Checks if the broker is initialized (matches Go `checkInit`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the broker has not been initialized.
     pub async fn check_init(&self) -> Result<()> {
         if self.inner.read().await.is_none() {
             return Err(anyhow!(
@@ -248,7 +257,7 @@ fn env_bool(key: &str, default: bool) -> bool {
 
 // ── Broker factory ─────────────────────────────────────────────
 
-/// Default RabbitMQ URL (matches Go default).
+/// Default `RabbitMQ` URL (matches Go default).
 const DEFAULT_RABBITMQ_URL: &str = "amqp://guest:guest@localhost:5672/";
 
 /// Default consumer timeout in milliseconds.
@@ -268,9 +277,9 @@ const QUEUE_TYPE_QUORUM: &str = "quorum";
 /// # Errors
 ///
 /// Returns an error if:
-/// - The RabbitMQ connection cannot be established
+/// - The `RabbitMQ` connection cannot be established
 pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>> {
-    match BrokerType::from_str(btype) {
+    match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
         BrokerType::RabbitMQ => {
             let url = env_string_default(
@@ -300,7 +309,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
                 },
             )
             .await
-            .map_err(|e| anyhow!("unable to connect to RabbitMQ: {}", e))?;
+            .map_err(|e| anyhow!("unable to connect to RabbitMQ: {e}"))?;
 
             Ok(Box::new(broker))
         }
@@ -314,7 +323,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
 /// Matches Go's `broker.With*` option pattern.
 #[derive(Debug, Clone)]
 pub struct RabbitMQOptions {
-    /// RabbitMQ Management API URL (e.g., `http://localhost:15672`).
+    /// `RabbitMQ` Management API URL (e.g., `http://localhost:15672`).
     pub management_url: Option<String>,
     /// Whether queues should be durable.
     pub durable_queues: bool,
@@ -336,7 +345,7 @@ impl Default for RabbitMQOptions {
 
 /// RabbitMQ-backed broker implementation using `lapin`.
 ///
-/// Connects to a RabbitMQ server and implements the [`Broker`] trait
+/// Connects to a `RabbitMQ` server and implements the [`Broker`] trait
 /// using AMQP. Matches Go's `broker.NewRabbitMQBroker()`.
 pub struct RabbitMQBroker {
     conn: Arc<Connection>,
@@ -347,7 +356,7 @@ pub struct RabbitMQBroker {
 }
 
 impl RabbitMQBroker {
-    /// Create a new RabbitMQ broker with the given URL and options.
+    /// Create a new `RabbitMQ` broker with the given URL and options.
     ///
     /// # Errors
     ///
@@ -355,7 +364,7 @@ impl RabbitMQBroker {
     pub async fn new(url: &str, opts: RabbitMQOptions) -> Result<Self> {
         let conn = Connection::connect(url, ConnectionProperties::default())
             .await
-            .map_err(|e| anyhow!("RabbitMQ connection failed: {}", e))?;
+            .map_err(|e| anyhow!("RabbitMQ connection failed: {e}"))?;
 
         Ok(Self {
             conn: Arc::new(conn),
@@ -385,7 +394,7 @@ impl Broker for RabbitMQBroker {
         let args = self.queue_args();
         let data = match serde_json::to_vec(task) {
             Ok(d) => d,
-            Err(e) => return Box::pin(async move { Err(anyhow!("serialize task: {}", e)) }),
+            Err(e) => return Box::pin(async move { Err(anyhow!("serialize task: {e}")) }),
         };
         Box::pin(async move {
             let ch = conn.create_channel().await?;
@@ -402,7 +411,7 @@ impl Broker for RabbitMQBroker {
                 BasicProperties::default(),
             )
             .await
-            .map_err(|e| anyhow!("publish task to queue: {}", e))?;
+            .map_err(|e| anyhow!("publish task to queue: {e}"))?;
             Ok(())
         })
     }

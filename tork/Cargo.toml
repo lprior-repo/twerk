@@ -30,3 +30,9 @@ rpds = "1.0"
 
 # Regex for expression parsing
 regex = "1.11"
+
+# HTTP client (synchronous, matches Go's net/http)
+ureq = "2.0"
+
+# Logging
+tracing = "0.1"

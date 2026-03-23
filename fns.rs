@@ -186,29 +186,46 @@ fn go_format(format: &str, args: &[&dyn std::fmt::Display]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
     use std::io::Cursor;
 
     struct MockCloser {
-        closed: bool,
+        should_error: bool,
+        closed: Cell<bool>,
     }
 
     impl MockCloser {
-        fn new() -> Self {
-            Self { closed: false }
+        fn new(should_error: bool) -> Self {
+            Self {
+                should_error,
+                closed: Cell::new(false),
+            }
         }
     }
 
     impl Close for MockCloser {
         fn close(&self) -> io::Result<()> {
-            Ok(())
+            self.closed.set(true);
+            if self.should_error {
+                Err(io::Error::new(io::ErrorKind::Other, "mock error"))
+            } else {
+                Ok(())
+            }
         }
     }
 
     #[test]
-    fn test_close_ignore_does_not_panic() {
-        let closer = MockCloser::new();
+    fn test_close_ignore_without_error() {
+        let closer = MockCloser::new(false);
         close_ignore(&closer);
-        // Just verify it doesn't panic
+        assert!(closer.closed.get());
+    }
+
+    #[test]
+    fn test_close_ignore_with_error() {
+        let closer = MockCloser::new(true);
+        close_ignore(&closer);
+        assert!(closer.closed.get());
     }
 
     #[test]

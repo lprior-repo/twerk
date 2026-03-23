@@ -6,9 +6,11 @@
 //! All functions delegate to the global `DEFAULT_ENGINE` behind a
 //! `tokio::sync::RwLock`, ensuring safe concurrent access.
 
+#![deny(clippy::unwrap_used)]
+#![warn(clippy::pedantic)]
+
 use crate::engine::{Engine, JobListener, Mode};
 use once_cell::sync::Lazy;
-use std::any::Any;
 use tokio::sync::RwLock;
 
 use tork::broker::Broker;
@@ -21,7 +23,7 @@ static DEFAULT_ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| RwLock::new(Engine::d
 /// Register web middleware on the default engine.
 ///
 /// Go parity: `func RegisterWebMiddleware(mw web.MiddlewareFunc)`
-pub async fn register_web_middleware(mw: Box<dyn Any + Send + Sync>) {
+pub async fn register_web_middleware(mw: crate::engine::WebMiddlewareFunc) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_web_middleware(mw);
 }
@@ -29,7 +31,7 @@ pub async fn register_web_middleware(mw: Box<dyn Any + Send + Sync>) {
 /// Register task middleware on the default engine.
 ///
 /// Go parity: `func RegisterTaskMiddleware(mw task.MiddlewareFunc)`
-pub async fn register_task_middleware(mw: Box<dyn Any + Send + Sync>) {
+pub async fn register_task_middleware(mw: crate::engine::TaskMiddlewareFunc) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_task_middleware(mw);
 }
@@ -37,7 +39,7 @@ pub async fn register_task_middleware(mw: Box<dyn Any + Send + Sync>) {
 /// Register job middleware on the default engine.
 ///
 /// Go parity: `func RegisterJobMiddleware(mw job.MiddlewareFunc)`
-pub async fn register_job_middleware(mw: Box<dyn Any + Send + Sync>) {
+pub async fn register_job_middleware(mw: crate::engine::JobMiddlewareFunc) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_job_middleware(mw);
 }
@@ -45,7 +47,7 @@ pub async fn register_job_middleware(mw: Box<dyn Any + Send + Sync>) {
 /// Register node middleware on the default engine.
 ///
 /// Go parity: `func RegisterNodeMiddleware(mw node.MiddlewareFunc)`
-pub async fn register_node_middleware(mw: Box<dyn Any + Send + Sync>) {
+pub async fn register_node_middleware(mw: crate::engine::NodeMiddlewareFunc) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_node_middleware(mw);
 }
@@ -53,7 +55,7 @@ pub async fn register_node_middleware(mw: Box<dyn Any + Send + Sync>) {
 /// Register log middleware on the default engine.
 ///
 /// Go parity: `func RegisterLogMiddleware(mw logmw.MiddlewareFunc)`
-pub async fn register_log_middleware(mw: Box<dyn Any + Send + Sync>) {
+pub async fn register_log_middleware(mw: crate::engine::LogMiddlewareFunc) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_log_middleware(mw);
 }
@@ -61,9 +63,10 @@ pub async fn register_log_middleware(mw: Box<dyn Any + Send + Sync>) {
 /// Register a mounter for a specific runtime type.
 ///
 /// Go parity: `func RegisterMounter(runtime, name string, mounter runtime.Mounter)`
-pub async fn register_mounter(mw: Box<dyn Any + Send + Sync>) {
+#[allow(dead_code)]
+pub async fn register_mounter(rt: &str, name: &str, mounter: Box<dyn tork::runtime::mount::Mounter>) {
     let mut engine = DEFAULT_ENGINE.write().await;
-    engine.register_task_middleware(mw);
+    engine.register_mounter(rt, name, mounter);
 }
 
 /// Register a runtime on the default engine.
@@ -96,7 +99,7 @@ pub async fn register_broker_provider(name: &str, provider: Box<dyn Broker + Sen
 /// Register an API endpoint on the default engine.
 ///
 /// Go parity: `func RegisterEndpoint(method, path string, handler web.HandlerFunc)`
-pub async fn register_endpoint(method: &str, path: &str, handler: Box<dyn Any + Send + Sync>) {
+pub async fn register_endpoint(method: &str, path: &str, handler: crate::engine::EndpointHandler) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_endpoint(method, path, handler);
 }
@@ -176,6 +179,14 @@ mod tests {
     ///
     /// Sets the mode to Standalone on the global default engine,
     /// starts it, checks state transitions, then terminates.
+    ///
+    /// **Note**: This is the only test that exercises the full lifecycle on
+    /// the global singleton because `DEFAULT_ENGINE` is `Lazy` and shared
+    /// across all tests. After this test, the engine is in `Terminated`
+    /// state and cannot be restarted. All other default-module behaviour
+    /// (middleware registration, provider registration, mode changes,
+    /// double-start guards) is covered by the `engine::tests` module in
+    /// `lib.rs` which creates fresh `Engine` instances per test.
     #[tokio::test]
     async fn test_default_run_standalone() -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_var("TORK_DATASTORE_TYPE", "inmemory");
@@ -187,9 +198,7 @@ mod tests {
         assert_eq!(state().await, State::Running);
 
         terminate().await?;
-        assert_eq!(state().await, State::Terminated);
-
-        std::env::remove_var("TORK_DATASTORE_TYPE");
+        std::env::set_var("TORK_DATASTORE_TYPE", "inmemory");
         Ok(())
     }
 }

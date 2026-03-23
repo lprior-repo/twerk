@@ -3,6 +3,9 @@
 //! This crate provides the core Engine struct that coordinates
 //! between broker, datastore, locker, worker, and coordinator components.
 
+#![deny(clippy::unwrap_used)]
+#![warn(clippy::pedantic)]
+
 pub mod broker;
 pub mod coordinator;
 pub mod datastore;
@@ -13,7 +16,12 @@ pub mod worker;
 // Re-export commonly used types
 pub use broker::BrokerProxy;
 pub use datastore::DatastoreProxy;
-pub use engine::{Config, Engine, Mode, State, Middleware, JobListener};
+pub use engine::{
+    Config, Engine, Mode, State, Middleware, JobListener,
+    TaskMiddlewareFunc, JobMiddlewareFunc, LogMiddlewareFunc,
+    NodeMiddlewareFunc, WebMiddlewareFunc, EndpointHandler,
+    TaskEventType, JobEventType,
+};
 
 /// Topic constant for job events
 pub const TOPIC_JOB: &str = "job.*";
@@ -36,6 +44,8 @@ mod engine {
     use tork::datastore::Datastore;
     use anyhow::{anyhow, Result};
     use std::collections::HashMap;
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::Arc;
     use tokio::sync::{broadcast, RwLock};
     use tracing::{debug, error};
@@ -44,8 +54,7 @@ mod engine {
     pub type JobListener = Arc<dyn Fn(tork::job::Job) + Send + Sync>;
 
     /// Engine execution mode
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    #[derive(Default)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub enum Mode {
         Coordinator,
         Worker,
@@ -53,11 +62,8 @@ mod engine {
         Standalone,
     }
 
-    
-
     /// Engine state
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    #[derive(Default)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub enum State {
         #[default]
         Idle,
@@ -66,25 +72,152 @@ mod engine {
         Terminated,
     }
 
-    
+    /// Typed task middleware function.
+    ///
+    /// Follows the same pattern as `middleware::task::MiddlewareFunc`:
+    /// wraps a [`TaskHandlerFunc`] and returns a wrapped handler.
+    pub type TaskMiddlewareFunc = Arc<dyn Fn(TaskHandlerFunc) -> TaskHandlerFunc + Send + Sync>;
 
-    /// Middleware configuration - using boxed types for flexibility
-    #[derive(Debug, Default)]
-    pub struct Middleware {
-        pub web: Vec<Box<dyn std::any::Any + Send + Sync>>,
-        pub task: Vec<Box<dyn std::any::Any + Send + Sync>>,
-        pub job: Vec<Box<dyn std::any::Any + Send + Sync>>,
-        pub node: Vec<Box<dyn std::any::Any + Send + Sync>>,
-        pub log: Vec<Box<dyn std::any::Any + Send + Sync>>,
+    /// Typed job middleware function.
+    pub type JobMiddlewareFunc = Arc<dyn Fn(JobHandlerFunc) -> JobHandlerFunc + Send + Sync>;
+
+    /// Typed log middleware function.
+    pub type LogMiddlewareFunc = Arc<dyn Fn(LogHandlerFunc) -> LogHandlerFunc + Send + Sync>;
+
+    /// Typed node middleware function.
+    pub type NodeMiddlewareFunc = Arc<dyn Fn(NodeHandlerFunc) -> NodeHandlerFunc + Send + Sync>;
+
+    /// Typed web (axum) middleware function.
+    ///
+    /// Wraps an axum `Next` and returns a pinned future yielding an HTTP
+    /// response, matching the axum middleware signature.
+    pub type WebMiddlewareFunc = Arc<
+        dyn Fn(
+                axum::http::Request<axum::body::Body>,
+                axum::middleware::Next,
+            ) -> Pin<Box<dyn Future<Output = axum::response::Response> + Send>>
+            + Send
+            + Sync,
+    >;
+
+    /// Typed API endpoint handler.
+    ///
+    /// An `Arc`-wrapped async function that receives an axum request parts
+    /// reference and the request body bytes, returning a response.
+    pub type EndpointHandler = Arc<
+        dyn Fn(
+                axum::http::request::Parts,
+                bytes::Bytes,
+            ) -> Pin<Box<dyn Future<Output = axum::response::Response> + Send>>
+            + Send
+            + Sync,
+    >;
+
+    // ── Handler function types ────────────────────────────────────
+    //
+    // These match the signatures used by the coordinator's middleware
+    // modules so that engine-registered middleware can be directly
+    // forwarded without type-erasing through `Box<dyn Any>`.
+
+    /// Task event type for middleware handlers.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum TaskEventType {
+        Started,
+        StateChange,
+        Redelivered,
+        Progress,
     }
 
-    /// Engine configuration
-    #[derive(Debug)]
+    /// Task handler function (mirrors `coordinator::handlers::TaskHandlerFunc`).
+    pub type TaskHandlerFunc = Arc<
+        dyn Fn(Arc<()>, TaskEventType, &mut tork::task::Task) -> Result<(), TaskHandlerError>
+            + Send
+            + Sync,
+    >;
+
+    /// Job handler function.
+    pub type JobHandlerFunc = Arc<
+        dyn Fn(Arc<()>, JobEventType, &mut tork::job::Job) -> Result<(), JobHandlerError> + Send + Sync,
+    >;
+
+    /// Log handler function.
+    pub type LogHandlerFunc = Arc<
+        dyn Fn(Arc<()>, &[tork::task::TaskLogPart]) -> Result<(), LogHandlerError> + Send + Sync,
+    >;
+
+    /// Node handler function.
+    pub type NodeHandlerFunc = Arc<
+        dyn Fn(Arc<()>, &mut tork::node::Node) -> Result<(), NodeHandlerError> + Send + Sync,
+    >;
+
+    /// Job event type for middleware handlers.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum JobEventType {
+        StateChange,
+        Progress,
+        Read,
+    }
+
+    // ── Handler errors (per-category, thiserror) ──────────────────
+
+    /// Error returned by task middleware/handlers.
+    #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+    pub enum TaskHandlerError {
+        #[error("task handler error: {0}")]
+        Handler(String),
+        #[error("task datastore error: {0}")]
+        Datastore(String),
+    }
+
+    /// Error returned by job middleware/handlers.
+    #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+    pub enum JobHandlerError {
+        #[error("job handler error: {0}")]
+        Handler(String),
+        #[error("job datastore error: {0}")]
+        Datastore(String),
+    }
+
+    /// Error returned by log middleware/handlers.
+    #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+    pub enum LogHandlerError {
+        #[error("log handler error: {0}")]
+        Handler(String),
+        #[error("log middleware error: {0}")]
+        Middleware(String),
+    }
+
+    /// Error returned by node middleware/handlers.
+    #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+    pub enum NodeHandlerError {
+        #[error("node handler error: {0}")]
+        Handler(String),
+        #[error("node datastore error: {0}")]
+        Datastore(String),
+    }
+
+    /// Middleware configuration — fully typed, zero `dyn Any`.
+    ///
+    /// Note: does not derive `Debug` because the inner `dyn Fn` trait
+    /// objects do not implement `Debug`.
+    #[derive(Default, Clone)]
+    pub struct Middleware {
+        pub web: Vec<WebMiddlewareFunc>,
+        pub task: Vec<TaskMiddlewareFunc>,
+        pub job: Vec<JobMiddlewareFunc>,
+        pub node: Vec<NodeMiddlewareFunc>,
+        pub log: Vec<LogMiddlewareFunc>,
+    }
+
+    /// Engine configuration.
+    ///
+    /// Note: does not derive `Debug` because `Middleware` and
+    /// `EndpointHandler` (`dyn Fn`) do not implement `Debug`.
     #[derive(Default)]
     pub struct Config {
         pub mode: Mode,
         pub middleware: Middleware,
-        pub endpoints: HashMap<String, Box<dyn std::any::Any + Send + Sync>>,
+        pub endpoints: HashMap<String, EndpointHandler>,
     }
 
     
@@ -104,7 +237,7 @@ mod engine {
         terminated_tx: Arc<RwLock<Option<broadcast::Sender<()>>>>,
         locker: Arc<RwLock<Option<Box<dyn Locker + Send + Sync>>>>,
         middleware: Middleware,
-        endpoints: HashMap<String, Box<dyn std::any::Any + Send + Sync>>,
+        endpoints: HashMap<String, EndpointHandler>,
         mounters: HashMap<String, MultiMounter>,
         ds_providers: HashMap<String, Box<dyn Datastore + Send + Sync>>,
         broker_providers: HashMap<String, Box<dyn Broker + Send + Sync>>,
@@ -247,7 +380,7 @@ mod engine {
         }
 
         /// Register web middleware
-        pub fn register_web_middleware(&mut self, mw: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_web_middleware(&mut self, mw: WebMiddlewareFunc) {
             if self.state != State::Idle {
                 return;
             }
@@ -255,7 +388,7 @@ mod engine {
         }
 
         /// Register task middleware
-        pub fn register_task_middleware(&mut self, mw: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_task_middleware(&mut self, mw: TaskMiddlewareFunc) {
             if self.state != State::Idle {
                 return;
             }
@@ -263,7 +396,7 @@ mod engine {
         }
 
         /// Register job middleware
-        pub fn register_job_middleware(&mut self, mw: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_job_middleware(&mut self, mw: JobMiddlewareFunc) {
             if self.state != State::Idle {
                 return;
             }
@@ -271,7 +404,7 @@ mod engine {
         }
 
         /// Register node middleware
-        pub fn register_node_middleware(&mut self, mw: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_node_middleware(&mut self, mw: NodeMiddlewareFunc) {
             if self.state != State::Idle {
                 return;
             }
@@ -279,7 +412,7 @@ mod engine {
         }
 
         /// Register log middleware
-        pub fn register_log_middleware(&mut self, mw: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_log_middleware(&mut self, mw: LogMiddlewareFunc) {
             if self.state != State::Idle {
                 return;
             }
@@ -287,7 +420,7 @@ mod engine {
         }
 
         /// Register an API endpoint
-        pub fn register_endpoint(&mut self, method: &str, path: &str, handler: Box<dyn std::any::Any + Send + Sync>) {
+        pub fn register_endpoint(&mut self, method: &str, path: &str, handler: EndpointHandler) {
             if self.state != State::Idle {
                 return;
             }
@@ -834,7 +967,11 @@ mod engine {
             ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config::default());
 
-            let mw: Box<dyn std::any::Any + Send + Sync> = Box::new(());
+            let mw: WebMiddlewareFunc = Arc::new(|req, next| {
+                Box::pin(async move {
+                    next.run(req).await
+                })
+            });
             engine.register_web_middleware(mw);
 
             engine.start().await?;
@@ -1029,6 +1166,174 @@ mod engine {
 
             let result = engine.datastore().health_check().await;
             assert!(result.is_ok());
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Endpoint registration ─────────────────────────────────
+
+        /// Go parity: Tests that `register_endpoint` stores a handler
+        /// in the engine when idle, matching Go's `RegisterEndpoint`.
+        #[tokio::test]
+        async fn test_register_endpoint_when_idle() {
+            let mut engine = Engine::new(Config::default());
+            let handler: EndpointHandler = Arc::new(|_parts, _body| {
+                Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
+            });
+            engine.register_endpoint("GET", "/health", handler);
+            assert!(
+                engine.endpoints.contains_key("GET /health"),
+                "expected endpoints to contain 'GET /health'"
+            );
+        }
+
+        /// Go parity: Tests that `register_endpoint` is silently
+        /// ignored when the engine is not idle.
+        #[tokio::test]
+        async fn test_register_endpoint_rejected_when_not_idle() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config::default());
+            engine.start().await?;
+
+            let handler: EndpointHandler = Arc::new(|_parts, _body| {
+                Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
+            });
+            engine.register_endpoint("GET", "/test", handler);
+            assert!(
+                !engine.endpoints.contains_key("GET /test"),
+                "expected endpoint registration to be ignored when running"
+            );
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Middleware registration when NOT idle ──────────────────
+
+        /// Go parity: In Go, calling Register*Middleware after Start()
+        /// is silently ignored. Verify all five middleware types.
+        #[tokio::test]
+        async fn test_middleware_registration_rejected_when_running() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config::default());
+            engine.start().await?;
+
+            let pre_web = engine.middleware.web.len();
+            let pre_task = engine.middleware.task.len();
+            let pre_job = engine.middleware.job.len();
+            let pre_node = engine.middleware.node.len();
+            let pre_log = engine.middleware.log.len();
+
+            let web_mw: WebMiddlewareFunc = Arc::new(|req, next| {
+                Box::pin(async move { next.run(req).await })
+            });
+            engine.register_web_middleware(web_mw);
+
+            let task_mw: TaskMiddlewareFunc = Arc::new(|h| h);
+            engine.register_task_middleware(task_mw);
+
+            let job_mw: JobMiddlewareFunc = Arc::new(|h| h);
+            engine.register_job_middleware(job_mw);
+
+            let node_mw: NodeMiddlewareFunc = Arc::new(|h| h);
+            engine.register_node_middleware(node_mw);
+
+            let log_mw: LogMiddlewareFunc = Arc::new(|h| h);
+            engine.register_log_middleware(log_mw);
+
+            assert_eq!(engine.middleware.web.len(), pre_web);
+            assert_eq!(engine.middleware.task.len(), pre_task);
+            assert_eq!(engine.middleware.job.len(), pre_job);
+            assert_eq!(engine.middleware.node.len(), pre_node);
+            assert_eq!(engine.middleware.log.len(), pre_log);
+
+            engine.terminate().await?;
+            clear_datastore_env();
+            Ok(())
+        }
+
+        // ── Datastore provider registration ───────────────────────
+
+        /// Go parity: Tests `RegisterDatastoreProvider` stores the provider
+        /// so it can be looked up on engine start.
+        #[tokio::test]
+        async fn test_register_datastore_provider() {
+            let mut engine = Engine::new(Config::default());
+            engine.register_datastore_provider("custom", crate::datastore::new_inmemory_datastore());
+            assert!(
+                engine.ds_providers.contains_key("custom"),
+                "expected ds_providers to contain 'custom'"
+            );
+        }
+
+        /// Go parity: Duplicate datastore provider names are silently ignored.
+        #[tokio::test]
+        async fn test_register_datastore_provider_duplicate_ignored() {
+            let mut engine = Engine::new(Config::default());
+            engine.register_datastore_provider("pg", crate::datastore::new_inmemory_datastore());
+            engine.register_datastore_provider("pg", crate::datastore::new_inmemory_datastore());
+            assert_eq!(engine.ds_providers.len(), 1);
+        }
+
+        // ── Broker provider registration ──────────────────────────
+
+        /// Go parity: Tests `RegisterBrokerProvider` stores the provider.
+        #[tokio::test]
+        async fn test_register_broker_provider() {
+            let mut engine = Engine::new(Config::default());
+            engine.register_broker_provider("custom", Box::new(
+                crate::broker::InMemoryBroker::new(),
+            ));
+            assert!(
+                engine.broker_providers.contains_key("custom"),
+                "expected broker_providers to contain 'custom'"
+            );
+        }
+
+        /// Go parity: Duplicate broker provider names are silently ignored.
+        #[tokio::test]
+        async fn test_register_broker_provider_duplicate_ignored() {
+            let mut engine = Engine::new(Config::default());
+            engine.register_broker_provider("rmq", Box::new(
+                crate::broker::InMemoryBroker::new(),
+            ));
+            engine.register_broker_provider("rmq", Box::new(
+                crate::broker::InMemoryBroker::new(),
+            ));
+            assert_eq!(engine.broker_providers.len(), 1);
+        }
+
+        // ── Runtime registration: duplicate ignored ───────────────
+
+        /// Go parity: In Go, calling `RegisterRuntime` twice only keeps
+        /// the first runtime. The second call is silently ignored.
+        #[tokio::test]
+        async fn test_register_runtime_duplicate_ignored() {
+            let mut engine = Engine::new(Config::default());
+            engine.register_runtime(Box::new(MockRuntime));
+            engine.register_runtime(Box::new(MockRuntime));
+            assert!(engine.runtime.is_some(), "expected runtime to be set");
+        }
+
+        // ── set_mode when running is ignored ──────────────────────
+
+        /// Go parity: Verifies that set_mode is a no-op when the engine
+        /// is in Running state.
+        #[tokio::test]
+        async fn test_set_mode_when_running() -> Result<(), Box<dyn std::error::Error>> {
+            ensure_inmemory_datastore_env();
+            let mut engine = Engine::new(Config {
+                mode: Mode::Standalone,
+                ..Default::default()
+            });
+            engine.start().await?;
+            assert_eq!(engine.mode(), Mode::Standalone);
+
+            engine.set_mode(Mode::Coordinator);
+            assert_eq!(engine.mode(), Mode::Standalone);
 
             engine.terminate().await?;
             clear_datastore_env();

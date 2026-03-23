@@ -32,6 +32,7 @@ pub mod stats;
 pub mod task;
 pub mod user;
 pub mod version;
+pub mod webhook;
 
 // Re-export commonly used types
 pub use broker::{Broker, QueueInfo};

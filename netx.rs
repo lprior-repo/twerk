@@ -5,6 +5,8 @@
 //! `net.DialTimeout("tcp", address, 1s)` which resolves DNS before
 //! connecting. Rust mirrors this by resolving via `ToSocketAddrs` first.
 
+#![deny(clippy::unwrap_used)]
+
 use std::net::TcpStream;
 use std::time::Duration;
 
@@ -43,15 +45,17 @@ pub fn can_connect(address: &str) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::net::TcpListener;
     use std::sync::mpsc;
     use std::time::Duration;
 
+    /// Parity with Go `TestCanConnect`: verifies `CanConnect("localhost:9999")`
+    /// returns true when a listener is bound on that port.
     #[test]
     fn test_can_connect_when_listening() {
-        // Create a listener on a random available port
         let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
         let port = listener
             .local_addr()
@@ -59,36 +63,28 @@ mod tests {
             .port();
         let addr = format!("127.0.0.1:{port}");
 
-        // Channel to signal when listener thread is ready to accept
         let (tx, rx) = mpsc::channel();
 
-        // Spawn a thread to accept a connection (blocking)
         let handle = std::thread::spawn(move || {
-            // Signal that we're about to accept
             let _ = tx.send(());
-            // This will block until a connection is made
             let _ = listener.accept();
         });
 
-        // Wait for the thread to be ready to accept
         let _ = rx.recv_timeout(Duration::from_secs(1));
-
-        // Small delay to ensure the accept call is actually executing
         std::thread::sleep(Duration::from_millis(10));
 
-        // Now we should be able to connect
         assert!(
             can_connect(&addr),
             "should be able to connect to listening port"
         );
 
-        // Wait for the accept thread
         let _ = handle.join();
     }
 
+    /// Parity with Go `TestCanConnect`: verifies `CanConnect("localhost:8888")`
+    /// returns false when nothing is listening on that port.
     #[test]
     fn test_cannot_connect_when_not_listening() {
-        // Use a port that's unlikely to be in use
         assert!(
             !can_connect("localhost:19888"),
             "should not be able to connect to non-listening port"

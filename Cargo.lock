@@ -4934,6 +4934,8 @@ dependencies = [
  "thiserror 1.0.69",
  "time",
  "tokio",
+ "tracing",
+ "ureq",
  "uuid",
 ]
 
@@ -4981,6 +4983,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bcrypt",
+ "bytes",
  "dashmap",
  "datastore",
  "futures-util",

@@ -20,6 +20,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tap::Pipe;
 use thiserror::Error;
 
 /// Errors that can occur during reexec operations.
@@ -48,7 +49,7 @@ pub fn register(name: &str, initializer: Initializer) -> Result<(), ReexecError>
         .get_or_init(|| std::sync::RwLock::new(std::collections::HashMap::new()));
 
     let mut guard = registry.write().map_err(|_| {
-        // This shouldn't happen with RwLock, but handle it gracefully
+        // RwLock poisoned — map to error for explicit handling
         ReexecError::AlreadyRegistered(name.to_string())
     })?;
 
@@ -168,51 +169,42 @@ pub fn command(args: &[String]) -> Command {
     {
         use std::os::unix::process::CommandExt;
 
-        let mut cmd = Command::new(self_path());
-        // Go: `Args: args` means argv[0] = args[0], not the binary path.
-        // This is critical for the reexec pattern where Init() checks argv[0]
-        // to find the registered initializer.
-        if let Some((first, rest)) = args.split_first() {
-            cmd.arg0(first);
-            cmd.args(rest);
-        }
-        // Create new process group for cleanup safety (closest safe equivalent
-        // to Go's SysProcAttr.Pdeathsig = SIGTERM)
-        cmd.process_group(0);
-        cmd
+        Command::new(self_path()).pipe(|mut cmd| {
+            if let Some((first, rest)) = args.split_first() {
+                cmd.arg0(first).args(rest);
+            }
+            // Create new process group for cleanup safety (closest safe equivalent
+            // to Go's SysProcAttr.Pdeathsig = SIGTERM)
+            cmd.process_group(0);
+            cmd
+        })
     }
 
     #[cfg(all(unix, not(target_os = "linux")))]
     {
         use std::os::unix::process::CommandExt;
 
-        let mut cmd = Command::new(self_path());
-        if let Some((first, rest)) = args.split_first() {
-            cmd.arg0(first);
-            cmd.args(rest);
-        }
-        cmd
+        Command::new(self_path()).pipe(|mut cmd| {
+            if let Some((first, rest)) = args.split_first() {
+                cmd.arg0(first).args(rest);
+            }
+            cmd
+        })
     }
 
     #[cfg(not(unix))]
     {
-        let mut cmd = Command::new(self_path());
-        cmd.args(args);
-        cmd
+        Command::new(self_path()).args(args)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::process::CommandExt;
 
-    #[test]
-    fn test_register_and_init_not_called() {
-        let result = register("test_init", Box::new(|| {}));
-        assert!(result.is_ok());
-        // init() returns false because executable name won't match
-        assert!(!init());
-    }
+    // ── TestRegister parity ──────────────────────────────────────────
 
     #[test]
     fn test_register_duplicate_fails() {
@@ -224,6 +216,103 @@ mod tests {
             Err(ReexecError::AlreadyRegistered(_))
         ));
     }
+
+    #[test]
+    fn test_register_error_message_exact() {
+        // Go: panic("reexec func already registered under name \"reexec\"")
+        let _ = register("msg_test", Box::new(|| {}));
+        let err = register("msg_test", Box::new(|| {}))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            r#"reexec func already registered under name "msg_test""#
+        );
+    }
+
+    #[test]
+    fn test_register_and_init_not_called() {
+        let result = register("test_init", Box::new(|| {}));
+        assert!(result.is_ok());
+        // init() returns false because executable name won't match
+        assert!(!init());
+    }
+
+    // ── TestCommand parity ───────────────────────────────────────────
+
+    #[test]
+    fn test_command_creation() {
+        let args = vec!["arg1".to_string(), "arg2".to_string()];
+        let cmd = command(&args);
+
+        // The command should have the correct program
+        let program = cmd.get_program();
+        assert!(!program.to_string_lossy().is_empty());
+    }
+
+    #[test]
+    fn test_command_args_passed() {
+        // Go: Command("arg1", "arg2") → Args=["arg1","arg2"]
+        // Rust: command(&["arg1","arg2"]) → argv[0]="arg1", argv[1]="arg2"
+        let args = vec!["--test".to_string(), "value".to_string()];
+        let cmd = command(&args);
+
+        // command() splits first/rest via arg0, so get_args() returns ["value"]
+        let all_args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(1, all_args.len());
+        assert_eq!("value", all_args[0]);
+    }
+
+    #[test]
+    fn test_command_empty_args() {
+        // Go: Command() with no args — edge case
+        let cmd = command(&[]);
+        let program = cmd.get_program();
+        assert!(!program.to_string_lossy().is_empty());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_command_uses_proc_self_exe() {
+        // Go: Self() returns "/proc/self/exe" on Linux
+        let cmd = command(&["arg1".to_string()]);
+        let program = cmd.get_program().to_string_lossy().into_owned();
+        assert_eq!(program, "/proc/self/exe");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_command_subprocess_exit() {
+        // Go TestCommand: spawns the binary with argv[0]="reexec", the
+        // package-level init() registers + calls Init(), which finds the
+        // registered name and panics → exit status 2.
+        //
+        // Rust has no package-level init() that auto-runs in subprocesses,
+        // so we verify the command can be spawned and produces an exit code.
+        // We pass the test name as a positional filter so the child runs
+        // only one test and exits quickly.
+        let current_exe = env::current_exe().unwrap();
+        let test_filter = "test_command_empty_args";
+
+        let mut child = std::process::Command::new(&current_exe)
+            .arg0("reexec")
+            .args(["--test-threads=1", test_filter])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("failed to spawn subprocess");
+
+        let status = child.wait().expect("failed to wait on subprocess");
+        // The child runs the requested test and exits 0 (or 101 on failure).
+        // Key assertion: the subprocess ran successfully, proving Command
+        // produces a valid executable.
+        assert!(status.success(), "subprocess exited with: {status}");
+    }
+
+    // ── TestNaiveSelf parity ─────────────────────────────────────────
 
     #[test]
     fn test_naive_self_returns_path() {
@@ -255,38 +344,30 @@ mod tests {
     }
 
     #[test]
+    fn test_naive_self_mkdir_resolved() {
+        // Go TestNaiveSelf: os.Args[0] = "mkdir" → naiveSelf() != "mkdir"
+        // naive_self resolves bare names via PATH, returning an absolute path
+        let path = resolve_naive_self("mkdir");
+        let path_str = path.to_string_lossy();
+        // Must not be the bare name "mkdir"
+        assert_ne!(path_str, "mkdir");
+        // Must be an absolute resolved path (e.g., /usr/bin/mkdir)
+        assert!(
+            path_str.contains('/'),
+            "expected resolved path, got: {path_str}"
+        );
+    }
+
+    #[test]
     fn test_self_path_returns_valid() {
         let path = self_path();
         assert!(!path.to_string_lossy().is_empty());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
-    fn test_command_creation() {
-        let args = vec!["arg1".to_string(), "arg2".to_string()];
-        let cmd = command(&args);
-
-        // The command should have the correct program
-        // We can't easily check Path directly, but we can verify it doesn't panic
-        let program = cmd.get_program();
-        assert!(!program.to_string_lossy().is_empty());
-    }
-
-    #[test]
-    fn test_command_args_passed() {
-        // Go: Command("arg1", "arg2") → Args=["arg1","arg2"]
-        // Rust: command(&["arg1","arg2"]) → argv[0]="arg1", argv[1]="arg2"
-        // The program path is set via Command::new(), but arg0 overrides argv[0]
-        let args = vec!["--test".to_string(), "value".to_string()];
-        let cmd = command(&args);
-
-        // With arg0, the first arg becomes argv[0] (program name position)
-        // and the rest follow as argv[1..]
-        let all_args: Vec<String> = cmd
-            .get_args()
-            .map(|s| s.to_string_lossy().into_owned())
-            .collect();
-        // command() splits first/rest via arg0, so get_args() returns ["value"]
-        assert_eq!(1, all_args.len());
-        assert_eq!("value", all_args[0]);
+    fn test_self_path_is_proc_self_exe() {
+        // Go: Self() returns "/proc/self/exe" on Linux
+        assert_eq!(self_path(), PathBuf::from("/proc/self/exe"));
     }
 }

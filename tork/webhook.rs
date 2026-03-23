@@ -11,6 +11,7 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use thiserror::Error;
@@ -41,8 +42,8 @@ pub const EVENT_DEFAULT: &str = "";
 /// Status codes that indicate a retryable error.
 ///
 /// Matches Go's `retryableStatusCodes` exactly:
-/// 429 TooManyRequests, 500 InternalServerError,
-/// 502 BadGateway, 503 ServiceUnavailable, 504 GatewayTimeout.
+/// `429` Too Many Requests, `500` Internal Server Error,
+/// `502` Bad Gateway, `503` Service Unavailable, `504` Gateway Timeout.
 const RETRYABLE_STATUS_CODES: [u16; 5] = [
     429, // TooManyRequests
     500, // InternalServerError
@@ -81,7 +82,7 @@ pub struct Webhook {
     pub url: String,
     /// Optional custom headers to include in the request.
     #[serde(default)]
-    pub headers: Option<std::collections::HashMap<String, String>>,
+    pub headers: Option<HashMap<String, String>>,
 }
 
 /// Executes a single webhook POST request.
@@ -92,7 +93,7 @@ pub struct Webhook {
 /// Go equivalent: `client.Do(req)` — the error branch maps to `Err(())`.
 fn execute_request(
     url: &str,
-    headers: &Option<std::collections::HashMap<String, String>>,
+    headers: Option<&HashMap<String, String>>,
     body: &[u8],
 ) -> Result<u16, ()> {
     let request = ureq::post(url)
@@ -119,9 +120,9 @@ fn execute_request(
 /// where `client.Do` errors trigger a retry with the same backoff.
 ///
 /// Go equivalent: the three branches inside the retry loop:
-/// 1. Success (2xx) → return nil           → `false`
-/// 2. Non-retryable → return error         → `false`
-/// 3. Connection error / retryable → sleep → `true`
+/// 1. Success (2xx) -> return nil           -> `false`
+/// 2. Non-retryable -> return error         -> `false`
+/// 3. Connection error / retryable -> sleep -> `true`
 #[must_use]
 fn should_retry(result: Result<u16, ()>, remaining_attempts: usize) -> bool {
     match result {
@@ -158,6 +159,11 @@ fn backoff_duration(attempt: usize) -> Duration {
 ///
 /// # Returns
 /// `Ok(())` on success, or an error if the webhook call failed
+///
+/// # Errors
+/// Returns `WebhookError::SerializationError` if the body cannot be serialized.
+/// Returns `WebhookError::NonRetryableError` on non-retryable HTTP status codes.
+/// Returns `WebhookError::MaxAttemptsExceeded` if all retry attempts are exhausted.
 pub fn call(wh: &Webhook, body: &impl serde::Serialize) -> Result<(), WebhookError> {
     let serialized = serde_json::to_string(body).map_err(|_| WebhookError::SerializationError)?;
 
@@ -165,7 +171,7 @@ pub fn call(wh: &Webhook, body: &impl serde::Serialize) -> Result<(), WebhookErr
         let current_attempt = attempt + 1;
         let remaining = WEBHOOK_DEFAULT_MAX_ATTEMPTS - current_attempt;
 
-        let result = execute_request(&wh.url, &wh.headers, serialized.as_bytes());
+        let result = execute_request(&wh.url, wh.headers.as_ref(), serialized.as_bytes());
 
         // Go parity: check success (2xx), non-retryable, then log + retry
         match result {
@@ -208,6 +214,10 @@ pub fn call(wh: &Webhook, body: &impl serde::Serialize) -> Result<(), WebhookErr
     ))
 }
 
+// ---------------------------------------------------------------------------
+// Pure-unit tests (no I/O)
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_should_retry_success_no_retry() {
-        // 2xx success — never retry
+        // 2xx success -- never retry
         assert!(!should_retry(Ok(200), 5));
         assert!(!should_retry(Ok(201), 5));
         assert!(!should_retry(Ok(204), 5));
@@ -249,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_should_retry_non_retryable_no_retry() {
-        // Non-retryable status — return immediately, no retry
+        // Non-retryable status -- return immediately, no retry
         assert!(!should_retry(Ok(400), 5));
         assert!(!should_retry(Ok(401), 5));
         assert!(!should_retry(Ok(404), 5));
@@ -258,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_should_retry_retryable_with_attempts() {
-        // Retryable codes with remaining attempts → retry
+        // Retryable codes with remaining attempts -> retry
         assert!(should_retry(Ok(429), 3));
         assert!(should_retry(Ok(500), 3));
         assert!(should_retry(Ok(502), 3));
@@ -285,7 +295,7 @@ mod tests {
     #[test]
     fn test_backoff_duration_matches_go() {
         // Go: time.Second * time.Duration(attempts*2)
-        // attempts starts at 1 → 2s, 4s, 6s, 8s, 10s
+        // attempts starts at 1 -> 2s, 4s, 6s, 8s, 10s
         assert_eq!(Duration::from_secs(2), backoff_duration(1));
         assert_eq!(Duration::from_secs(4), backoff_duration(2));
         assert_eq!(Duration::from_secs(6), backoff_duration(3));
@@ -317,17 +327,200 @@ mod tests {
 
     #[test]
     fn test_webhook_struct_serde_roundtrip() {
+        let mut m = HashMap::new();
+        m.insert("Authorization".to_string(), "Bearer token".to_string());
         let wh = Webhook {
             url: "https://example.com/hook".to_string(),
-            headers: {
-                let mut m = std::collections::HashMap::new();
-                m.insert("Authorization".to_string(), "Bearer token".to_string());
-                Some(m)
-            },
+            headers: Some(m),
         };
         let json = serde_json::to_string(&wh).expect("serialize");
         let deserialized: Webhook = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(wh.url, deserialized.url);
         assert_eq!(wh.headers, deserialized.headers);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Integration tests -- parity with Go's `internal/webhook/webhook_test.go`
+// ---------------------------------------------------------------------------
+//
+// A tiny HTTP/1.1 server is spawned on a random port.  It returns status
+// codes from a caller-supplied sequence so we can exercise retry behaviour
+// identically to Go's `httptest.NewServer`.
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use std::io::{BufRead, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    /// Maps an HTTP status code to its standard reason phrase.
+    /// Only the codes used in tests are needed.
+    fn status_text(code: u16) -> &'static str {
+        match code {
+            200 => "OK",
+            204 => "No Content",
+            400 => "Bad Request",
+            429 => "Too Many Requests",
+            500 => "Internal Server Error",
+            _ => "Error",
+        }
+    }
+
+    /// Spawns a minimal HTTP/1.1 server that returns status codes from
+    /// `codes` in sequence.  Returns the base URL (`http://127.0.0.1:PORT`).
+    ///
+    /// Go equivalent: `httptest.NewServer` with a handler that returns
+    /// `tt.responseCodes[requestCount]` for each request.
+    fn spawn_test_server(codes: Vec<u16>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let port = listener.local_addr().expect("local addr").port();
+        let codes = Arc::new(codes);
+        let count = Arc::new(AtomicUsize::new(0));
+
+        thread::spawn(move || {
+            for mut stream in listener.incoming().flatten() {
+                // Read the full HTTP request (headers + body) before responding.
+                // ureq sends headers then body; we must consume it all or the
+                // response will get mangled.
+                let mut reader = std::io::BufReader::new(&mut stream);
+                let mut content_length: usize = 0;
+                let mut line_buf = Vec::new();
+
+                loop {
+                    line_buf.clear();
+                    if reader.read_until(b'\n', &mut line_buf).is_err() {
+                        break;
+                    }
+                    let line = String::from_utf8_lossy(&line_buf);
+                    if line == "\r\n" || line == "\n" {
+                        break;
+                    }
+                    if line.to_lowercase().starts_with("content-length:") {
+                        content_length = line
+                            .split(':')
+                            .nth(1)
+                            .and_then(|s| s.trim().parse::<usize>().ok())
+                            .unwrap_or(0);
+                    }
+                }
+
+                // Consume the body if present (via the buffered reader).
+                if content_length > 0 {
+                    let mut body_buf = vec![0u8; content_length];
+                    let _ = std::io::Read::read_exact(&mut reader, &mut body_buf);
+                }
+
+                let idx = count.fetch_add(1, Ordering::Relaxed);
+                let code = if idx < codes.len() {
+                    codes[idx]
+                } else {
+                    500 // fallback for unexpected extra requests
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {code} {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    status_text(code)
+                );
+                let _ = stream.write_all(response.as_bytes());
+            }
+        });
+
+        // Brief pause to let the listener thread start accepting.
+        thread::sleep(Duration::from_millis(50));
+
+        format!("http://127.0.0.1:{port}")
+    }
+
+    /// Helper to build a `Webhook` pointing at a test server.
+    fn test_webhook(url: &str) -> Webhook {
+        Webhook {
+            url: url.to_string(),
+            headers: None,
+        }
+    }
+
+    /// Simple serializable body matching Go's `map[string]string{"key": "value"}`.
+    #[derive(serde::Serialize)]
+    struct TestBody {
+        key: String,
+    }
+
+    fn default_body() -> TestBody {
+        TestBody {
+            key: "value".to_string(),
+        }
+    }
+
+    // ----- Go test case 1: "Successful Response" (200 OK) -----
+
+    #[test]
+    fn test_call_successful_200() {
+        // Go: responseCodes: []int{http.StatusOK}, numRequests: 1, expectedError: false
+        let url = spawn_test_server(vec![200]);
+        let wh = test_webhook(&url);
+        let result = call(&wh, &default_body());
+
+        assert!(
+            result.is_ok(),
+            "Expected success for 200 OK, got: {result:?}"
+        );
+    }
+
+    // ----- Go test case 2: "Successful Response" (204 No Content) -----
+
+    #[test]
+    fn test_call_successful_204() {
+        // Go: responseCodes: []int{http.StatusNoContent}, numRequests: 1, expectedError: false
+        let url = spawn_test_server(vec![204]);
+        let wh = test_webhook(&url);
+        let result = call(&wh, &default_body());
+
+        assert!(
+            result.is_ok(),
+            "Expected success for 204 No Content, got: {result:?}"
+        );
+    }
+
+    // ----- Go test case 3: "Retryable Response - 500 Internal Server Error" -----
+    //
+    // The server returns 500, 500, 200. The first two trigger retries, the
+    // third succeeds. Total requests: 3. Backoff: 2s + 4s = 6s.
+
+    #[test]
+    fn test_call_retryable_500_then_success() {
+        // Go: responseCodes: []int{500, 500, 200}, numRequests: 3, expectedError: false
+        let url = spawn_test_server(vec![500, 500, 200]);
+        let wh = test_webhook(&url);
+        let result = call(&wh, &default_body());
+
+        assert!(
+            result.is_ok(),
+            "Expected success after retries, got: {result:?}"
+        );
+    }
+
+    // ----- Go test case 4: "Non-Retryable Response - 400 Bad Request" -----
+
+    #[test]
+    fn test_call_non_retryable_400() {
+        // Go: responseCodes: []int{http.StatusBadRequest}, numRequests: 1, expectedError: true
+        let url = spawn_test_server(vec![400]);
+        let wh = test_webhook(&url);
+        let result = call(&wh, &default_body());
+
+        assert!(
+            result.is_err(),
+            "Expected error for 400 Bad Request, got: {result:?}"
+        );
+        match result {
+            Err(WebhookError::NonRetryableError(ref u, 400)) => {
+                assert_eq!(url, *u);
+            }
+            other => panic!("Expected NonRetryableError(…, 400), got: {other:?}"),
+        }
     }
 }

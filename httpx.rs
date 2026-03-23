@@ -2,6 +2,8 @@
 //!
 //! HTTP server utilities for asynchronous server startup and connection management.
 
+#![deny(clippy::unwrap_used)]
+
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -71,23 +73,61 @@ pub async fn start_async(addr: SocketAddr, router: axum::Router) -> Result<(), H
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use axum::Router;
 
+    /// Parity with Go `TestStartAsync` part 1: verifies `StartAsync` starts
+    /// the server without error and the TCP listener becomes reachable.
     #[tokio::test]
     async fn test_start_async() {
-        let addr: std::net::SocketAddr = match "127.0.0.1:0".parse() {
-            Ok(a) => a,
-            Err(_) => {
-                // Socket address parsing should always succeed for this literal
-                return;
-            }
-        };
+        let addr: std::net::SocketAddr = "127.0.0.1:0"
+            .parse()
+            .expect("addr should parse");
 
         let router = Router::new().route("/", axum::routing::get(|| async { "OK" }));
 
         let result = start_async(addr, router).await;
         assert!(result.is_ok(), "server should start successfully");
+    }
+
+    /// Parity with Go `TestStartAsync` part 2: verifies the handler responds
+    /// with "OK". Go uses `httptest.NewRecorder` + `Handler.ServeHTTP` (in-memory,
+    /// no network). We use a live Axum server on a dynamically-assigned port.
+    #[tokio::test]
+    async fn test_handler_responds_ok() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("failed to bind");
+        let addr = listener
+            .local_addr()
+            .expect("failed to get local addr");
+        let addr_str = format!("{}", addr);
+
+        let app = Router::new().route("/", axum::routing::get(|| async { "OK" }));
+
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        // Wait for the server to be reachable
+        for _ in 0..50 {
+            if can_connect(&addr_str) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        let url = format!("http://{addr}/");
+        let response = reqwest::get(&url)
+            .await
+            .expect("request should succeed");
+        assert_eq!(response.status(), 200, "server should return 200 OK");
+        let body = response
+            .text()
+            .await
+            .expect("response body should be readable");
+        assert_eq!(body, "OK", "server should respond with 'OK'");
     }
 }

@@ -36,7 +36,7 @@ use crate::docker::tork::{mount_type, Mount, Probe, Registry, TaskLimits};
 use crate::docker::bind::{BindConfig, BindMounter};
 use crate::docker::tmpfs::TmpfsMounter;
 use crate::docker::volume::VolumeMounter;
-use tork::task::TaskLogPart;
+use tork::task::{Task as TorkTask, TaskLogPart};
 use thiserror::Error;
 
 // ----------------------------------------------------------------------------
@@ -1459,7 +1459,7 @@ impl Container {
         task_id: String,
         broker: Option<Arc<dyn tork::broker::Broker>>,
     ) {
-        let Some(_broker) = broker else { return };
+        let Some(broker) = broker else { return };
 
         let mut tick = tokio::time::interval(Duration::from_secs(10));
         let mut prev: Option<f64> = None;
@@ -1471,6 +1471,15 @@ impl Container {
                         Ok(p) if prev.map(|old| (old - p).abs() > 0.001).unwrap_or(true) => {
                             prev = Some(p);
                             tracing::debug!(task_id = %task_id, progress = %p, "progress");
+                            // Publish progress to broker (Go parity: tc.broker.PublishTaskProgress)
+                            let tork_task = TorkTask {
+                                id: Some(task_id.clone()),
+                                progress: p,
+                                ..Default::default()
+                            };
+                            if let Err(e) = broker.publish_task_progress(&tork_task).await {
+                                tracing::warn!(task_id = %task_id, error = %e, "error publishing task progress");
+                            }
                         }
                         Err(_) => break, // container likely exited
                         _ => {}

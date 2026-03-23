@@ -1026,7 +1026,8 @@ impl CompletedHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tork::task::{TASK_STATE_CANCELLED, TASK_STATE_FAILED};
+    use tork::task::{EachTask, ParallelTask, SubJobTask, TASK_STATE_CANCELLED, TASK_STATE_FAILED};
+    use tork::job::Job;
 
     // -- Validation tests --
 

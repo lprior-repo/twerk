@@ -849,13 +849,12 @@ impl DockerRuntime {
 
         // Pull image
         self.pull_image(&task.image, task.registry.as_ref()).await?;
-
-        // Build env
-        let mut env: Vec<String> = task.env.iter()
+        // Build env (Go parity: iterates t.Env HashMap, formats KEY=VALUE, adds TORK_OUTPUT and TORK_PROGRESS)
+        let env: Vec<String> = task.env.iter()
             .map(|(k, v)| format!("{}={}", k, v))
+            .chain(std::iter::once("TORK_OUTPUT=/tork/stdout".to_string()))
+            .chain(std::iter::once("TORK_PROGRESS=/tork/progress".to_string()))
             .collect();
-        env.push("TORK_OUTPUT=/tork/stdout".to_string());
-        env.push("TORK_PROGRESS=/tork/progress".to_string());
 
         // Build mounts with validation (Go parity: mount type validation)
         let mut mounts: Vec<BollardMount> = Vec::new();

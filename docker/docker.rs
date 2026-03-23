@@ -610,11 +610,13 @@ impl DockerRuntime {
         image: &str,
         #[allow(unused_variables)] registry: Option<&Registry>,
     ) -> Result<(), DockerError> {
-        // Check cache
+        // Check cache (respecting TTL)
         {
             let cache = images.read().await;
-            if cache.contains_key(image) {
-                return Ok(());
+            if let Some(ts) = cache.get(image) {
+                if std::time::Instant::now().duration_since(*ts) <= config.image_ttl {
+                    return Ok(());
+                }
             }
         }
 

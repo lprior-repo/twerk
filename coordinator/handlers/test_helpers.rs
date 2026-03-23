@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use tork::Broker;
-use tork::Datastore;
 
 /// Wraps a PostgresDatastore + InMemoryBroker for integration tests.
 pub struct TestEnv {

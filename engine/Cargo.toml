@@ -66,6 +66,12 @@ lapin = "2.3"
 # HTTP client (RabbitMQ management API)
 reqwest = { version = "0.12", features = ["json"] }
 
+# Docker client
+bollard = "0.18"
+
+# Temp file for shell scripts
+tempfile = "3.14"
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockito = "1.0"

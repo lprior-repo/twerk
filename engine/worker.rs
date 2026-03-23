@@ -11,12 +11,21 @@
 
 use crate::broker::BrokerProxy;
 use anyhow::{anyhow, Result};
+use bollard::container::{
+    Config as ContainerConfig, CreateContainerOptions, RemoveContainerOptions,
+};
+use bollard::image::CreateImageOptions;
+use bollard::Docker;
+use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::process::Stdio;
 use tork::mount::Mount;
 use tork::runtime::Runtime as RuntimeTrait;
 use tork::runtime::mount::{MountError, Mounter};
 use tork::runtime::multi::MultiMounter;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 
 use tracing::{debug, warn};
 
@@ -416,11 +425,114 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             });
         }
 
+        // Get the command to run
+        let run_script = task.run.clone().unwrap_or_default();
+        if run_script.is_empty() {
+            return Box::pin(async { Err(anyhow!("task run script is required")) });
+        }
+
+        // Build environment
+        let env_vars: HashMap<String, String> = task
+            .env
+            .as_ref()
+            .map(|e| e.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+
         Box::pin(async move {
             debug!(
                 "[shell-runtime] running task {} with cmd {:?}, uid={}, gid={}",
                 task_id, shell_cmd, uid, gid
             );
+
+            // Create a temporary script file
+            let temp_dir = tempfile::tempdir()
+                .map_err(|e| anyhow!("failed to create temp dir: {}", e))?;
+            let script_path = temp_dir.path().join("script.sh");
+            
+            // Write script with shebang
+            let script_content = format!("#!/bin/bash\n{}", run_script);
+            tokio::fs::write(&script_path, &script_content)
+                .await
+                .map_err(|e| anyhow!("failed to write script: {}", e))?;
+
+            // Build the command
+            let mut cmd = Command::new(&shell_cmd[0]);
+            if shell_cmd.len() > 1 {
+                cmd.args(&shell_cmd[1..]);
+            }
+            cmd.arg(script_path.to_string_lossy().as_ref());
+            
+            // Set environment
+            for (key, value) in &env_vars {
+                cmd.env(key, value);
+            }
+            
+            // Set uid/gid if not default
+            #[cfg(unix)]
+            {
+                if uid != "-" {
+                    if let Ok(uid_val) = uid.parse::<u32>() {
+                        cmd.uid(uid_val);
+                    }
+                }
+                if gid != "-" {
+                    if let Ok(gid_val) = gid.parse::<u32>() {
+                        cmd.gid(gid_val);
+                    }
+                }
+            }
+
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+
+            // Spawn and wait
+            let mut child = cmd
+                .spawn()
+                .map_err(|e| anyhow!("failed to spawn shell: {}", e))?;
+
+            // Read output
+            let stdout = child.stdout.take();
+            let stderr = child.stderr.take();
+
+            let status = child
+                .wait()
+                .await
+                .map_err(|e| anyhow!("failed to wait for shell: {}", e))?;
+
+            // Read stdout if available
+            if let Some(stdout) = stdout {
+                let mut reader = BufReader::new(stdout);
+                let mut line = String::new();
+                while let Ok(n) = reader.read_line(&mut line).await {
+                    if n == 0 {
+                        break;
+                    }
+                    debug!("[shell] {}", line.trim_end());
+                    line.clear();
+                }
+            }
+
+            // Read stderr if available
+            if let Some(stderr) = stderr {
+                let mut reader = BufReader::new(stderr);
+                let mut line = String::new();
+                while let Ok(n) = reader.read_line(&mut line).await {
+                    if n == 0 {
+                        break;
+                    }
+                    warn!("[shell stderr] {}", line.trim_end());
+                    line.clear();
+                }
+            }
+
+            if !status.success() {
+                return Err(anyhow!(
+                    "shell command failed with exit code: {:?}",
+                    status.code()
+                ));
+            }
+
+            debug!("[shell-runtime] task {} completed successfully", task_id);
             Ok(())
         })
     }
@@ -464,17 +576,171 @@ impl RuntimeTrait for DockerRuntimeAdapter {
             return Box::pin(async { Err(anyhow!("task id is required")) });
         }
 
+        // Get image (required for docker)
+        let image = task.image.clone().unwrap_or_default();
+        if image.is_empty() {
+            return Box::pin(async { Err(anyhow!("task image is required for docker runtime")) });
+        }
+
+        // Get command
+        let cmd = task.cmd.clone().unwrap_or_default();
+        let entrypoint = task.entrypoint.clone().unwrap_or_default();
+        let run_script = task.run.clone().unwrap_or_default();
+
+        // Build environment
+        let env_vars: Vec<String> = task
+            .env
+            .as_ref()
+            .map(|e| {
+                e.iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Get working directory
+        let workdir = task.workdir.clone();
+
         Box::pin(async move {
             debug!(
-                "[docker-runtime] running task {} (privileged={})",
-                task_id, privileged
+                "[docker-runtime] running task {} with image {} (privileged={})",
+                task_id, image, privileged
             );
+
+            // Connect to Docker
+            let docker = Docker::connect_with_local_defaults()
+                .map_err(|e| anyhow!("failed to connect to Docker: {}", e))?;
+
+            // Pull image if needed
+            let image_exists = docker
+                .inspect_image(&image)
+                .await
+                .is_ok();
+
+            if !image_exists {
+                debug!("[docker-runtime] pulling image {}", image);
+                let options = CreateImageOptions {
+                    from_image: image.clone(),
+                    ..Default::default()
+                };
+                let mut stream = docker.create_image(Some(options), None, None);
+                while let Some(result) = stream.next().await {
+                    if let Err(e) = result {
+                        debug!("[docker-runtime] warning: pull error: {}", e);
+                    }
+                }
+            }
+
+            // Build container config
+            let mut cmd_args: Vec<&String> = Vec::new();
+            if !entrypoint.is_empty() {
+                cmd_args.extend(entrypoint.iter());
+            }
+            if !run_script.is_empty() {
+                // Use run script as entrypoint command
+                cmd_args.push(&run_script);
+            } else if !cmd.is_empty() {
+                cmd_args.extend(cmd.iter());
+            }
+
+            // Build container config with all required fields
+            let config = ContainerConfig::<String> {
+                image: Some(image.clone()),
+                cmd: if cmd_args.is_empty() {
+                    None
+                } else {
+                    Some(cmd_args.into_iter().map(|s| s.clone()).collect())
+                },
+                env: if env_vars.is_empty() {
+                    None
+                } else {
+                    Some(env_vars)
+                },
+                working_dir: workdir,
+                host_config: Some(bollard::secret::HostConfig {
+                    privileged: Some(privileged),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+
+            // Create container
+            let container_id = docker
+                .create_container(
+                    None::<CreateContainerOptions<String>>,
+                    config,
+                )
+                .await
+                .map_err(|e| anyhow!("failed to create container: {}", e))?
+                .id;
+
+            debug!("[docker-runtime] created container {}", container_id);
+
+            // Start container
+            docker
+                .start_container::<String>(&container_id, None)
+                .await
+                .map_err(|e| anyhow!("failed to start container: {}", e))?;
+
+            // Wait for completion using a simple polling approach
+            let mut exit_code = None;
+            let max_attempts = 60; // 60 seconds timeout
+            for _ in 0..max_attempts {
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                
+                // Check if container is still running
+                let info = docker
+                    .inspect_container(&container_id, None::<bollard::container::InspectContainerOptions>)
+                    .await;
+                
+                if let Ok(info) = info {
+                    if let Some(state) = info.state {
+                        if !state.running.unwrap_or(false) {
+                            exit_code = state.exit_code;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let exit_code = exit_code.unwrap_or(1);
+
+            // Log output
+            if exit_code != 0 {
+                debug!("[docker-runtime] container exited with code {}", exit_code);
+            } else {
+                debug!("[docker-runtime] container completed successfully");
+            }
+
+            // Cleanup - remove container
+            let remove_options = RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            };
+            let _ = docker.remove_container(&container_id, Some(remove_options)).await;
+
+            if exit_code != 0 {
+                return Err(anyhow!(
+                    "container exited with non-zero status: {}",
+                    exit_code
+                ));
+            }
+
+            debug!("[docker-runtime] task {} completed successfully", task_id);
             Ok(())
         })
     }
 
     fn health_check(&self) -> tork::runtime::BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+        Box::pin(async {
+            match Docker::connect_with_local_defaults() {
+                Ok(docker) => {
+                    docker.ping().await?;
+                    Ok(())
+                }
+                Err(e) => Err(anyhow!("docker health check failed: {}", e)),
+            }
+        })
     }
 }
 

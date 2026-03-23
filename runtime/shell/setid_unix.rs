@@ -10,8 +10,6 @@
 //! be called in a child process context (after fork, before exec) as
 //! changing UID/GID of a multi-threaded process is undefined behavior.
 
-use tracing::error;
-
 use super::{DEFAULT_GID, DEFAULT_UID};
 
 /// Set the UID for the current process via `libc::setuid`.
@@ -35,15 +33,17 @@ pub fn set_uid(uid: &str) {
                 // Should only be called in a single-threaded child process context.
                 let ret = unsafe { libc::setuid(uid_val) };
                 if ret != 0 {
-                    error!(
+                    eprintln!(
                         "error setting uid {}: {}",
                         uid_val,
                         std::io::Error::last_os_error()
                     );
+                    std::process::exit(1);
                 }
             }
             Err(e) => {
-                error!("invalid uid '{}': {}", uid, e);
+                eprintln!("invalid uid '{}': {}", uid, e);
+                std::process::exit(1);
             }
         }
     }
@@ -65,15 +65,17 @@ pub fn set_gid(gid: &str) {
                 // Should only be called in a single-threaded child process context.
                 let ret = unsafe { libc::setgid(gid_val) };
                 if ret != 0 {
-                    error!(
+                    eprintln!(
                         "error setting gid {}: {}",
                         gid_val,
                         std::io::Error::last_os_error()
                     );
+                    std::process::exit(1);
                 }
             }
             Err(e) => {
-                error!("invalid gid '{}': {}", gid, e);
+                eprintln!("invalid gid '{}': {}", gid, e);
+                std::process::exit(1);
             }
         }
     }

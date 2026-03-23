@@ -43,6 +43,8 @@ struct Queue {
     subs: Mutex<Vec<QSub>>,
     /// Number of messages currently being processed by subscribers (unacked)
     unacked: Arc<AtomicUsize>,
+    /// Number of messages in the queue (pending consumption)
+    size: Arc<AtomicUsize>,
 }
 
 impl Queue {
@@ -54,6 +56,7 @@ impl Queue {
             _rx: rx,
             subs: Mutex::new(Vec::new()),
             unacked: Arc::new(AtomicUsize::new(0)),
+            size: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -67,6 +70,7 @@ impl Queue {
         let mut rx = self.tx.subscribe();
         let name = self.name.clone();
         let unacked = self.unacked.clone();
+        let size = self.size.clone();
 
         tokio::spawn(async move {
             loop {
@@ -82,6 +86,7 @@ impl Queue {
                                 unacked.fetch_add(1, Ordering::SeqCst);
                                 handler(m.clone().as_any()).await;
                                 unacked.fetch_sub(1, Ordering::SeqCst);
+                                size.fetch_sub(1, Ordering::SeqCst);
                             }
                             Err(BroadcastRecvError::Closed) => {
                                 tracing::debug!("queue {} channel closed", name);
@@ -172,15 +177,17 @@ impl InMemoryBroker {
     /// Internal publish to a queue
     async fn publish_to_queue(&self, qname: &str, msg: Arc<dyn Message + Send + Sync>) -> Result<(), anyhow::Error> {
         let mut queues = self.queues.write().await;
-        let tx = if let Some(q) = queues.get(qname) {
-            q.tx.clone()
+        let (tx, size) = if let Some(q) = queues.get(qname) {
+            (q.tx.clone(), q.size.clone())
         } else {
             let q = Queue::new(qname.to_string());
             let tx = q.tx.clone();
+            let size = q.size.clone();
             queues.insert(qname.to_string(), q);
-            tx
+            (tx, size)
         };
         tx.send(msg).map_err(|_| anyhow::anyhow!("queue closed"))?;
+        size.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 

@@ -752,10 +752,11 @@ impl DockerRuntime {
             return Ok(None);
         }
 
-        let auth_config = match &config.config_file {
-            Some(path) => AuthConfig::load_from_path(path)
+        // Load auth config: config_file takes priority, then config_path, then default path
+        let auth_config = match (&config.config_file, &config.config_path) {
+            (Some(path), _) | (_, Some(path)) => AuthConfig::load_from_path(path)
                 .map_err(|e| DockerError::ImagePull(e.to_string()))?,
-            None => {
+            (None, None) => {
                 let path = config_path().map_err(|e| DockerError::ImagePull(e.to_string()))?;
                 AuthConfig::load_from_path(&path)
                     .map_err(|e| DockerError::ImagePull(e.to_string()))?

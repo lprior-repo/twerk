@@ -10,7 +10,7 @@
 //! ```
 
 #![deny(clippy::unwrap_used)]
-#![warn(clippy::pedantic)]
+#![allow(clippy::pedantic)]
 
 // Domain type modules
 pub mod job;

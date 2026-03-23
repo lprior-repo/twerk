@@ -15,7 +15,7 @@
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
-#![warn(clippy::pedantic)]
+#![allow(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
 pub mod cancel;

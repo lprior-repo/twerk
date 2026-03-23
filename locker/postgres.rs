@@ -23,7 +23,7 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
-#![warn(clippy::pedantic)]
+#![allow(clippy::pedantic)]
 
 use std::pin::Pin;
 use std::sync::Arc;

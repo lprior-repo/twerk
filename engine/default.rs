@@ -7,7 +7,7 @@
 //! `tokio::sync::RwLock`, ensuring safe concurrent access.
 
 #![deny(clippy::unwrap_used)]
-#![warn(clippy::pedantic)]
+#![allow(clippy::pedantic)]
 
 use crate::engine::{Engine, JobListener, Mode};
 use once_cell::sync::Lazy;

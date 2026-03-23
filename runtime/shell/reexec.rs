@@ -14,11 +14,13 @@ use tokio::process::Command;
 /// On Linux, this returns `/proc/self/exe`. On other Unix systems,
 /// it falls back to resolving the executable via PATH.
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 fn self_path() -> PathBuf {
     PathBuf::from("/proc/self/exe")
 }
 
 #[cfg(all(unix, not(target_os = "linux")))]
+#[allow(dead_code)]
 fn self_path() -> PathBuf {
     std::env::args()
         .next()
@@ -27,6 +29,7 @@ fn self_path() -> PathBuf {
 }
 
 #[cfg(not(unix))]
+#[allow(dead_code)]
 fn self_path() -> PathBuf {
     std::env::args()
         .next()
@@ -55,6 +58,7 @@ pub type ReexecCommand = Box<dyn Fn(&[String]) -> Command + Send + Sync>;
 /// let cmd = reexec_from_std(&["myapp".to_string(), "arg1".to_string()]);
 /// ```
 #[must_use]
+#[allow(dead_code)]
 pub fn reexec_from_std(args: &[String]) -> Command {
     let mut cmd = Command::new(self_path());
     if let Some((first, rest)) = args.split_first() {

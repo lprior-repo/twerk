@@ -146,12 +146,8 @@ impl PendingHandler {
     }
 }
 
-impl Default for PendingHandler {
-    fn default() -> Self {
-        // This won't work without ds and broker - panic with a clear message
-        panic!("PendingHandler::default() requires ds and broker. Use PendingHandler::new(ds, broker) instead.");
-    }
-}
+// Note: PendingHandler does not implement Default because it requires
+// ds and broker to be useful. Use PendingHandler::new(ds, broker) instead.
 
 // ---------------------------------------------------------------------------
 // Tests

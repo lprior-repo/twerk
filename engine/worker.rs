@@ -1105,7 +1105,7 @@ async fn create_podman_runtime(
 /// Parses specs like `"VAR"` or `"HOST_VAR:TASK_VAR"` into a HashMap.
 pub fn create_hostenv_middleware(
     vars: &[String],
-) -> Option<Box<dyn std::any::Any + Send + Sync>> {
+) -> Option<crate::engine::TaskMiddlewareFunc> {
     if vars.is_empty() {
         return None;
     }
@@ -1130,10 +1130,33 @@ pub fn create_hostenv_middleware(
         .collect();
 
     if var_map.is_empty() {
-        None
-    } else {
-        Some(Box::new(var_map) as Box<dyn std::any::Any + Send + Sync>)
+        return None;
     }
+
+    // Create the middleware function
+    // Go parity: hostenv.Execute
+    let middleware: crate::engine::TaskMiddlewareFunc = std::sync::Arc::new(
+        move |next: crate::engine::TaskHandlerFunc| -> crate::engine::TaskHandlerFunc {
+            let var_map = var_map.clone();
+            std::sync::Arc::new(move |_ctx: std::sync::Arc<()>, et: crate::engine::TaskEventType, task: &mut tork::task::Task| {
+                if et == crate::engine::TaskEventType::StateChange && task.state == tork::task::TASK_STATE_RUNNING {
+                    if task.env.is_none() {
+                        task.env = Some(HashMap::new());
+                    }
+                    if let Some(ref mut env_map) = task.env {
+                        for (host_name, task_name) in &var_map {
+                            if let Ok(value) = std::env::var(host_name) {
+                                env_map.insert(task_name.clone(), value);
+                            }
+                        }
+                    }
+                }
+                next(_ctx, et, task)
+            })
+        },
+    );
+
+    Some(middleware)
 }
 
 // =============================================================================
@@ -1147,6 +1170,7 @@ pub fn create_hostenv_middleware(
 /// When no runtime is provided, one is created from environment configuration.
 /// Host environment middleware is registered from `TORK_MIDDLEWARE_TASK_HOSTENV_VARS`.
 pub async fn create_worker(
+    engine: &mut crate::engine::Engine,
     _broker: BrokerProxy,
     runtime: Option<Box<dyn RuntimeTrait + Send + Sync>>,
 ) -> Result<Box<dyn Worker + Send + Sync>> {
@@ -1164,7 +1188,8 @@ pub async fn create_worker(
     // Create and register hostenv middleware
     // Go: hostenv, err := task.NewHostEnv(conf.Strings("middleware.task.hostenv.vars")...)
     //     e.cfg.Middleware.Task = append(e.cfg.Middleware.Task, hostenv.Execute)
-    if let Some(_hostenv) = create_hostenv_middleware(&config.hostenv_vars) {
+    if let Some(hostenv_mw) = create_hostenv_middleware(&config.hostenv_vars) {
+        engine.register_task_middleware(hostenv_mw);
         debug!(
             "Registered hostenv middleware for vars: {:?}",
             config.hostenv_vars

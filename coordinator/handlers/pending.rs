@@ -472,8 +472,6 @@ mod tests {
     }
 
     use crate::handlers::test_helpers::{new_uuid, TestEnv};
-    use tork::task::TASK_STATE_SCHEDULED;
-    use tork::Datastore;
 
     /// Go parity: Test_handlePendingTask
     #[tokio::test]

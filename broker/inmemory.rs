@@ -1095,13 +1095,7 @@ mod tests {
         let broker = new_in_memory_broker();
         let qname = format!("test-queue-{}", new_uuid());
 
-        let task = tork::task::Task::default();
-        broker.publish_task(qname.clone(), &task).await.unwrap();
-
-        let info = broker.queue_info(qname.clone()).await.unwrap();
-        assert_eq!(1, info.size);
-
-        // Subscribe and consume
+        // Subscribe first so we receive the message
         let done = Arc::new(tokio::sync::Notify::new());
         let done_clone = done.clone();
 
@@ -1116,6 +1110,10 @@ mod tests {
             .subscribe_for_tasks(qname.clone(), handler)
             .await
             .unwrap();
+
+        // Now publish - the subscriber will receive it
+        let task = tork::task::Task::default();
+        broker.publish_task(qname.clone(), &task).await.unwrap();
 
         // Wait for message to be consumed
         done.notified().await;

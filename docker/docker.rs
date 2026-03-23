@@ -281,16 +281,25 @@ impl Mounter for VolumeMounter {
         &self,
         mnt: &Mount,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
-        let mut mnt = mnt.clone();
-        Box::pin(async move { self.mount(&mut mnt).await.map_err(|e| e.to_string()) })
+        let mnt = mnt.clone();
+        Box::pin(async move {
+            match self.mount(&mnt).await {
+                Ok(mounted) => {
+                    let mut result = mnt;
+                    result.source = mounted.source;
+                    Ok(())
+                }
+                Err(e) => Err(e.to_string()),
+            }
+        })
     }
 
     fn unmount(
         &self,
         mnt: &Mount,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
-        let mut mnt = mnt.clone();
-        Box::pin(async move { self.unmount(&mut mnt).await.map_err(|e| e.to_string()) })
+        let mnt = mnt.clone();
+        Box::pin(async move { self.unmount(&mnt).await.map_err(|e| e.to_string()) })
     }
 }
 

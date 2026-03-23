@@ -64,11 +64,13 @@ impl VolumeMounter {
     /// Mounts a volume mount.
     ///
     /// Generates a unique volume name and creates the volume in Docker.
+    /// Returns a new Mount with the source populated (functional style).
     ///
     /// # Errors
     ///
     /// Returns `VolumeMounterError` if the volume cannot be created.
-    pub async fn mount(&self, mnt: &mut Mount) -> Result<(), VolumeMounterError> {
+    #[must_use]
+    pub async fn mount(&self, mnt: &Mount) -> Result<Mount, VolumeMounterError> {
         // Generate a unique name for the volume
         let name = uuid::Uuid::new_v4().to_string();
 
@@ -88,11 +90,15 @@ impl VolumeMounter {
         ).await
             .map_err(|e| VolumeMounterError::VolumeCreate(e.to_string()))?;
 
-        // Populate mnt.source with the generated volume name (matching Go behavior:
+        // Return new Mount with source populated (matching Go behavior:
         // mn.Source = uuid.NewUUID())
-        mnt.source = Some(name);
-
-        Ok(())
+        Ok(Mount {
+            id: mnt.id.clone(),
+            mount_type: mnt.mount_type.clone(),
+            source: Some(name),
+            target: mnt.target.clone(),
+            opts: mnt.opts.clone(),
+        })
     }
 
     /// Unmounts a volume mount.
@@ -147,10 +153,11 @@ mod tests {
     async fn test_create_volume() {
         let mounter = VolumeMounter::new().await.expect("should create mounter");
 
-        let mut mnt = Mount::new(mount_type::VOLUME, "/somevol");
+        let mnt = Mount::new(mount_type::VOLUME, "/somevol");
 
-        let result = mounter.mount(&mut mnt).await;
+        let result = mounter.mount(&mnt).await;
         assert!(result.is_ok());
-        assert!(mnt.source.is_some());
+        let mounted = result.expect("should have mounted volume");
+        assert!(mounted.source.is_some());
     }
 }

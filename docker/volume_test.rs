@@ -11,9 +11,10 @@ use crate::docker::volume::VolumeMounter;
 async fn test_create_volume() {
     let mounter = VolumeMounter::new().await.expect("should create mounter");
 
-    let mut mnt = Mount::new(mount_type::VOLUME, "/somevol");
+    let mnt = Mount::new(mount_type::VOLUME, "/somevol");
 
-    let result = mounter.mount(&mut mnt).await;
+    let result = mounter.mount(&mnt).await;
     assert!(result.is_ok());
-    assert!(mnt.source.is_some());
+    let mounted = result.expect("should have mounted volume");
+    assert!(mounted.source.is_some());
 }

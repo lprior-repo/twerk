@@ -284,7 +284,9 @@ impl ShellRuntime {
         // === ACTION: Build and spawn command ===
         let mut cmd = (self.reexec)(&args);
         // Go: cmd.Env = env (replaces entire environment, not additive).
-        // In Rust, we set env vars individually. The PATH var is explicitly
+        // Use env_clear() to clear inherited env, then set our explicit vars.
+        cmd.env_clear();
+        // The PATH var is explicitly
         // included in env_vars, so the child process can find binaries.
         for (k, v) in &env_vars {
             cmd.env(k, v);

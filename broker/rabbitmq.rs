@@ -39,6 +39,8 @@ const MSG_TYPE_JOB: &str = "*tork.Job";
 const MSG_TYPE_NODE: &str = "*tork.Node";
 const MSG_TYPE_TASK_LOG_PART: &str = "*tork.TaskLogPart";
 const MSG_TYPE_EVENT: &str = "*tork.Event";
+const MSG_TYPE_TASK_PROGRESS: &str = "*tork.TaskProgress";
+const MSG_TYPE_SCHEDULED_JOB: &str = "*tork.ScheduledJob";
 
 /// Subscription tracking with cancel and done channels
 struct Subscription {
@@ -553,15 +555,17 @@ impl RabbitMQBroker {
             .map(|s| s.as_str())
             .unwrap_or("");
 
-        // Check if message is redelivered AND is a Task — only redirect tasks
+        // Check if message is redelivered AND is a Task or TaskProgress — only redirect tasks
         // to the redeliveries queue (matching Go's behavior)
-        if delivery.redelivered && msg_type == MSG_TYPE_TASK {
+        if delivery.redelivered
+            && (msg_type == MSG_TYPE_TASK || msg_type == MSG_TYPE_TASK_PROGRESS)
+        {
             tracing::debug!(
-                "task message redelivered on queue {}, sending to redeliveries",
+                "task/task progress message redelivered on queue {}, sending to redeliveries",
                 qname
             );
             if let Ok(msg) = serde_json::from_slice::<serde_json::Value>(data) {
-                if let Err(e) = broker.publish_redelivery(&msg, MSG_TYPE_TASK).await {
+                if let Err(e) = broker.publish_redelivery(&msg, msg_type).await {
                     tracing::error!("failed to publish redelivery: {}", e);
                 }
             }

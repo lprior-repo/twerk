@@ -894,7 +894,7 @@ mod tests {
         let t1 = Task {
             id: Some(new_uuid()),
             job_id: Some(job_id.clone()),
-            state: TASK_STATE_RUNNING.clone(),
+            state: tork::task::TASK_STATE_RUNNING.clone(),
             node_id: Some(node_id.clone()),
             ..Task::default()
         };

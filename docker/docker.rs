@@ -945,6 +945,9 @@ impl DockerRuntime {
                 DockerError::ContainerCreate(e.to_string())
             })?;
 
+        // Clone volume name before moving into struct (needed for cleanup on error)
+        let torkdir_volume_name_clone = torkdir_volume_name.clone();
+
         let container = Container {
             id: create_response.id,
             client: self.client.clone(),
@@ -954,10 +957,40 @@ impl DockerRuntime {
             broker: self.config.broker.clone(),
         };
 
-        container.init_torkdir(task.run.as_deref()).await?;
+        // Capture values for cleanup before init (since init consumes self)
+        let container_id = container.id.clone();
+        let cleanup_client = container.client.clone();
+        let torkdir_volume = torkdir_volume_name_clone;
+
+        // Clean up container and volume on initialization failure (Go parity: defer tc.Remove)
+        if let Err(e) = container.init_torkdir(task.run.as_deref()).await {
+            let _ = cleanup_client
+                .remove_container(
+                    &container_id,
+                    Some(RemoveContainerOptions { force: true, ..Default::default() }),
+                )
+                .await;
+            let _ = cleanup_client
+                .remove_volume(&torkdir_volume, None::<bollard::volume::RemoveVolumeOptions>)
+                .await;
+            return Err(e);
+        }
 
         let effective_workdir = workdir.as_deref().unwrap_or(DEFAULT_WORKDIR);
-        container.init_workdir(&task.files, effective_workdir).await?;
+
+        // Clean up container and volume on initialization failure (Go parity: defer tc.Remove)
+        if let Err(e) = container.init_workdir(&task.files, effective_workdir).await {
+            let _ = cleanup_client
+                .remove_container(
+                    &container_id,
+                    Some(RemoveContainerOptions { force: true, ..Default::default() }),
+                )
+                .await;
+            let _ = cleanup_client
+                .remove_volume(&torkdir_volume, None::<bollard::volume::RemoveVolumeOptions>)
+                .await;
+            return Err(e);
+        }
 
         tracing::debug!(container_id = %container.id, "Created container");
         Ok(container)
@@ -1287,7 +1320,11 @@ impl Container {
         Ok(output)
     }
 
-    /// Stream container logs to broker.
+    /// Stream container logs to broker in real-time.
+    ///
+    /// Logs are published immediately as they arrive from Docker.
+    /// Uses `tail: "all"` to capture any logs written before the stream started,
+    /// plus `follow: true` for real-time streaming.
     async fn stream_logs(
         client: Docker,
         container_id: String,
@@ -1296,49 +1333,37 @@ impl Container {
     ) {
         let Some(broker) = broker else { return };
 
+        // Use tail: "all" to get existing logs, follow: true for real-time streaming
         let options = LogsOptions::<String> {
-            stdout: true, stderr: true, follow: true, ..Default::default()
+            stdout: true,
+            stderr: true,
+            follow: true,
+            tail: "all".to_string(),
+            ..Default::default()
         };
         let mut stream = client.logs(&container_id, Some(options));
 
         let mut part_num = 0i64;
-        let mut buffer = String::new();
-        let flush_interval = tokio::time::interval(Duration::from_secs(1));
-        tokio::pin!(flush_interval);
 
-        loop {
-            tokio::select! {
-                result = stream.next() => {
-                    match result {
-                        Some(Ok(LogOutput::StdOut { message })) |
-                        Some(Ok(LogOutput::StdErr { message })) => buffer.push_str(&String::from_utf8_lossy(message.as_ref())),
-                        Some(Ok(_)) => {}
-                        Some(Err(_)) | None => break,
-                    }
-                }
-                _ = flush_interval.tick() => {
-                    if !buffer.is_empty() {
+        // Stream logs in real-time: publish immediately as they arrive
+        while let Some(result) = stream.next().await {
+            match result {
+                Ok(LogOutput::StdOut { message }) | Ok(LogOutput::StdErr { message }) => {
+                    let msg = String::from_utf8_lossy(message.as_ref()).to_string();
+                    if !msg.is_empty() {
                         part_num += 1;
                         let _ = broker.publish_task_log_part(&TaskLogPart {
-                            id: None, number: part_num,
+                            id: None,
+                            number: part_num,
                             task_id: Some(task_id.clone()),
-                            contents: Some(std::mem::take(&mut buffer)),
+                            contents: Some(msg),
                             created_at: None,
                         }).await;
                     }
                 }
+                Ok(_) => {}
+                Err(_) => break,
             }
-        }
-
-        // Final flush
-        if !buffer.is_empty() {
-            part_num += 1;
-            let _ = broker.publish_task_log_part(&TaskLogPart {
-                id: None, number: part_num,
-                task_id: Some(task_id),
-                contents: Some(buffer),
-                created_at: None,
-            }).await;
         }
     }
 

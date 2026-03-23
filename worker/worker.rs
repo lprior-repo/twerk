@@ -66,7 +66,7 @@ pub struct Config {
     /// Default limits
     pub limits: Limits,
     /// Task middleware functions
-    pub middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
+    pub middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for Config {
@@ -129,7 +129,7 @@ pub struct Worker {
     /// Current task count (Arc-shared for heartbeat access)
     task_count: Arc<std::sync::atomic::AtomicI32>,
     /// Task middleware
-    middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
+    middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for Worker {
@@ -333,9 +333,10 @@ impl Worker {
             });
 
         // Apply middleware chain
-        let mut handler = task_handler;
+        type Handler = Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>;
+        let mut handler: Handler = task_handler;
         for mw in self.middleware.iter() {
-            let next = handler;
+            let next: Handler = handler;
             handler = mw(next);
         }
 

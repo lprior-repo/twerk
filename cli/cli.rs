@@ -71,7 +71,7 @@ fn get_banner_mode() -> BannerMode {
 
 /// Get endpoint from configuration or default
 fn get_endpoint() -> String {
-    get_config_string("cli.endpoint").unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
+    get_config_string("endpoint").unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
 }
 
 /// Get datastore type from configuration or default
@@ -93,7 +93,7 @@ fn get_config_string(key: &str) -> Option<String> {
         .add_source(config::File::with_name("config.local"))
         .add_source(
             Environment::with_prefix("TORK")
-                .separator("__")
+                .separator("_")
                 .try_parsing(true),
         )
         .build()

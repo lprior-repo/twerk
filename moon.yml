@@ -1,0 +1,34 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+tasks:
+  check:
+    command: 'cargo check --workspace'
+    toolchains:
+      - rust
+
+  fmt:
+    command: 'cargo fmt --all --check'
+    toolchains:
+      - rust
+
+  lint-src:
+    command: 'cargo clippy --workspace --lib --bins --examples --tests -- -D warnings'
+    toolchains:
+      - rust
+    options:
+      runInCI: true
+
+  test:
+    command: 'cargo test --workspace'
+    toolchains:
+      - rust
+
+  build:
+    command: 'cargo build --workspace'
+    toolchains:
+      - rust
+
+  ci:
+    command: 'moon ci'
+    options:
+      runInCI: true

@@ -1,0 +1,12 @@
+projects:
+  root: "."
+
+vcs:
+  client: git
+  provider: github
+  defaultBranch: main
+
+hasher:
+  optimization: 'performance'
+
+telemetry: false

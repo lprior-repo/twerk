@@ -36,6 +36,8 @@ use tork::job::{Job, ScheduledJob, JOB_STATE_FAILED};
 use tork::node::{Node, HEARTBEAT_RATE_SECS, NODE_STATUS_UP};
 use tork::task::{Task, TASK_STATE_FAILED};
 use tork::version::VERSION;
+use tork_runtime::conf;
+use tork_runtime::middleware::web::config::LoggerConfig;
 
 use crate::api;
 use crate::config::ApiEndpoints;
@@ -567,6 +569,16 @@ impl Coordinator {
     /// Go parity: `c.api.Start()` — binds to the configured address and
     /// serves the router. Uses `axum::serve` with graceful shutdown.
     async fn start_api(&self) -> Result<(), CoordinatorError> {
+        // Build logger config from conf.rs
+        let logger_config = if conf::middleware_web_logger_enabled() {
+            Some(LoggerConfig {
+                level: conf::middleware_web_logger_level(),
+                skip_paths: conf::middleware_web_logger_skip_paths(),
+            })
+        } else {
+            None
+        };
+
         let state = api::AppState::new(
             self.broker.clone(),
             self.datastore.clone(),
@@ -574,6 +586,7 @@ impl Coordinator {
                 address: self.address.clone(),
                 enabled: self.endpoints.to_enabled_map(),
                 cors_origins: vec![],
+                logger_config,
                 ..Default::default()
             },
         );

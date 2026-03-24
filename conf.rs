@@ -604,6 +604,138 @@ pub fn unmarshal<T: for<'de> Deserialize<'de>>(key: &str) -> Result<T, ConfigErr
         })
 }
 
+// =============================================================================
+// Broker RabbitMQ Configuration
+// =============================================================================
+
+/// Get RabbitMQ consumer timeout (default: 30 minutes).
+#[must_use]
+pub fn broker_rabbitmq_consumer_timeout() -> time::Duration {
+    duration_default(
+        "broker.rabbitmq.consumer.timeout",
+        time::Duration::minutes(30),
+    )
+}
+
+/// Get RabbitMQ durable queues setting (default: false).
+#[must_use]
+pub fn broker_rabbitmq_durable_queues() -> bool {
+    bool_default("broker.rabbitmq.durable.queues", false)
+}
+
+/// Get RabbitMQ queue type (default: "classic").
+#[must_use]
+pub fn broker_rabbitmq_queue_type() -> String {
+    string_default("broker.rabbitmq.queue.type", "classic")
+}
+
+// =============================================================================
+// Worker Limits Configuration
+// =============================================================================
+
+/// Get worker limits configuration.
+#[must_use]
+pub fn worker_limits() -> WorkerLimits {
+    WorkerLimits {
+        cpus: string_default("worker.limits.cpus", ""),
+        memory: string_default("worker.limits.memory", ""),
+        timeout: string_default("worker.limits.timeout", ""),
+    }
+}
+
+/// Worker resource limits configuration.
+#[derive(Debug, Clone, Default)]
+pub struct WorkerLimits {
+    /// CPU limit (e.g., "1", "2", "0.5")
+    pub cpus: String,
+    /// Memory limit (e.g., "512m", "1g")
+    pub memory: String,
+    /// Timeout duration (e.g., "5m", "1h")
+    pub timeout: String,
+}
+
+// =============================================================================
+// Mounts Configuration
+// =============================================================================
+
+/// Get mounts.bind.allowed setting (default: false).
+#[must_use]
+pub fn mounts_bind_allowed() -> bool {
+    bool_default("mounts.bind.allowed", false)
+}
+
+/// Get mounts.bind.sources list (default: empty = all sources allowed).
+#[must_use]
+pub fn mounts_bind_sources() -> Vec<String> {
+    strings("mounts.bind.sources")
+}
+
+/// Get mounts.temp.dir setting (default: "/tmp").
+#[must_use]
+pub fn mounts_temp_dir() -> String {
+    string_default("mounts.temp.dir", "/tmp")
+}
+
+// =============================================================================
+// Runtime Docker Configuration
+// =============================================================================
+
+/// Get runtime.docker.privileged setting (default: false).
+#[must_use]
+pub fn runtime_docker_privileged() -> bool {
+    bool_default("runtime.docker.privileged", false)
+}
+
+/// Get runtime.docker.image.ttl duration (default: 24 hours).
+#[must_use]
+pub fn runtime_docker_image_ttl() -> time::Duration {
+    duration_default("runtime.docker.image.ttl", time::Duration::hours(24))
+}
+
+// =============================================================================
+// Runtime Podman Configuration
+// =============================================================================
+
+/// Get runtime.podman.privileged setting (default: false).
+#[must_use]
+pub fn runtime_podman_privileged() -> bool {
+    bool_default("runtime.podman.privileged", false)
+}
+
+/// Get runtime.podman.host.network setting (default: false).
+#[must_use]
+pub fn runtime_podman_host_network() -> bool {
+    bool_default("runtime.podman.host.network", false)
+}
+
+// =============================================================================
+// Middleware Web Logger Configuration
+// =============================================================================
+
+/// Get middleware.web.logger.enabled setting (default: true).
+#[must_use]
+pub fn middleware_web_logger_enabled() -> bool {
+    bool_default("middleware.web.logger.enabled", true)
+}
+
+/// Get middleware.web.logger.level setting (default: "info").
+#[must_use]
+pub fn middleware_web_logger_level() -> String {
+    string_default("middleware.web.logger.level", "info")
+}
+
+/// Get middleware.web.logger.skip_paths list (default: empty).
+/// Note: Go config uses "skip" key, this reads both "skip" and "skip_paths".
+#[must_use]
+pub fn middleware_web_logger_skip_paths() -> Vec<String> {
+    // Try skip_paths first (Rust convention), then fall back to skip (Go convention)
+    let paths = strings("middleware.web.logger.skip_paths");
+    if !paths.is_empty() {
+        return paths;
+    }
+    strings("middleware.web.logger.skip")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -967,5 +1099,306 @@ sarr1 = ["a","b"]
         assert_eq!("", c.str2);
         assert!(c.bool1);
         assert_eq!(vec!["a", "b"], c.sarr1);
+    }
+
+    // =============================================================================
+    // New helper function tests (P2-1, P2-3, P2-6)
+    // =============================================================================
+
+    #[test]
+    fn test_broker_rabbitmq_consumer_timeout() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[broker.rabbitmq.consumer]
+timeout = "15m"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert_eq!(
+            time::Duration::minutes(15),
+            broker_rabbitmq_consumer_timeout()
+        );
+        cleanup();
+    }
+
+    #[test]
+    fn test_broker_rabbitmq_durable_queues() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[broker.rabbitmq]
+durable.queues = true
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(broker_rabbitmq_durable_queues());
+        cleanup();
+    }
+
+    #[test]
+    fn test_broker_rabbitmq_queue_type() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[broker.rabbitmq.queue]
+type = "quorum"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert_eq!("quorum", broker_rabbitmq_queue_type());
+        cleanup();
+    }
+
+    #[test]
+    fn test_worker_limits() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[worker.limits]
+cpus = "2"
+memory = "512m"
+timeout = "1h"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        let limits = worker_limits();
+        assert_eq!("2", limits.cpus);
+        assert_eq!("512m", limits.memory);
+        assert_eq!("1h", limits.timeout);
+        cleanup();
+    }
+
+    #[test]
+    fn test_mounts_bind_allowed() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[mounts.bind]
+allowed = true
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(mounts_bind_allowed());
+        cleanup();
+    }
+
+    #[test]
+    fn test_mounts_bind_sources() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[mounts.bind]
+sources = ["/tmp/test", "/var/data"]
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        let sources = mounts_bind_sources();
+        assert_eq!(vec!["/tmp/test", "/var/data"], sources);
+        cleanup();
+    }
+
+    #[test]
+    fn test_mounts_temp_dir() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[mounts.temp]
+dir = "/var/tmp/tork"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert_eq!("/var/tmp/tork", mounts_temp_dir());
+        cleanup();
+    }
+
+    #[test]
+    fn test_runtime_docker_privileged() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[runtime.docker]
+privileged = true
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(runtime_docker_privileged());
+        cleanup();
+    }
+
+    #[test]
+    fn test_runtime_docker_image_ttl() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[runtime.docker.image]
+ttl = "12h"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert_eq!(time::Duration::hours(12), runtime_docker_image_ttl());
+        cleanup();
+    }
+
+    #[test]
+    fn test_runtime_podman_privileged() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[runtime.podman]
+privileged = true
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(runtime_podman_privileged());
+        cleanup();
+    }
+
+    #[test]
+    fn test_runtime_podman_host_network() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[runtime.podman]
+host.network = true
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(runtime_podman_host_network());
+        cleanup();
+    }
+
+    #[test]
+    fn test_middleware_web_logger_enabled() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[middleware.web.logger]
+enabled = false
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert!(!middleware_web_logger_enabled());
+        cleanup();
+    }
+
+    #[test]
+    fn test_middleware_web_logger_level() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[middleware.web.logger]
+level = "DEBUG"
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        assert_eq!("DEBUG", middleware_web_logger_level());
+        cleanup();
+    }
+
+    #[test]
+    fn test_middleware_web_logger_skip_paths() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[middleware.web.logger]
+skip_paths = ["GET /health", "GET /metrics"]
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        let skip_paths = middleware_web_logger_skip_paths();
+        assert_eq!(vec!["GET /health", "GET /metrics"], skip_paths);
+        cleanup();
+    }
+
+    #[test]
+    fn test_middleware_web_logger_skip_fallback() {
+        setup();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).ok();
+        let path = dir.join("config.toml");
+        write_config(
+            &path,
+            r#"
+[middleware.web.logger]
+skip = ["POST /health"]
+"#,
+        );
+        env::set_var("TORK_CONFIG", path.to_string_lossy().as_ref());
+        load_config().ok();
+        // Should fall back to "skip" when "skip_paths" is not present
+        let skip_paths = middleware_web_logger_skip_paths();
+        assert_eq!(vec!["POST /health"], skip_paths);
+        cleanup();
     }
 }

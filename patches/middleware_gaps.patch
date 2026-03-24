@@ -1,0 +1,296 @@
+# Middleware Parity Gaps Patch
+# Comparing Go tork middleware against Rust twerk middleware
+# Generated: Tue Mar 24 2026
+
+## GAP 1: Task Context Type Mismatch
+
+### Go Code: /tmp/tork-go/middleware/task/task.go (line 28)
+```go
+type HandlerFunc func(context.Context, EventType, *tork.Task) error
+```
+Uses standard library `context.Context` which provides cancellation, deadlines, and values.
+
+### Rust Code: /home/lewis/src/twerk/middleware/task/mod.rs (line 73)
+```rust
+pub type Context = Arc<std::sync::RwLock<()>>;
+```
+Just a placeholder type, not a real context implementation.
+
+### Expected Fix:
+Replace `Arc<std::sync::RwLock<()>>` with a proper context implementation that supports:
+- Cancellation propagation
+- Deadline/timeout support  
+- Value storage and retrieval
+
+Potential approach: Use `tracing::Span` or create a custom `Context` enum with `Cancelled`, `Deadline`, `Values` variants.
+
+---
+
+## GAP 2: Node HandlerFunc Missing `noop_handler` / NoOpHandlerFunc
+
+### Go Code: /tmp/tork-go/middleware/node/node.go
+```go
+type HandlerFunc func(context.Context, *tork.Node) error
+
+type MiddlewareFunc func(next HandlerFunc) HandlerFunc
+
+func ApplyMiddleware(h HandlerFunc, mws []MiddlewareFunc) HandlerFunc {
+    return func(ctx context.Context, n *tork.Node) error {
+        nx := next(ctx, 0, mws, h)
+        return nx(ctx, n)
+    }
+}
+```
+No explicit `NoOpHandlerFunc` defined, but the pattern exists.
+
+### Rust Code: /home/lewis/src/twerk/middleware/node/mod.rs (lines 9, 57-59)
+```rust
+pub type HandlerFunc = Arc<dyn Fn(Arc<Context>, &Node) -> Result<(), NodeError> + Send + Sync>;
+
+pub fn noop_handler() -> HandlerFunc {
+    Arc::new(|_ctx: Arc<Context>, _node: &Node| Ok(()))
+}
+```
+Rust has `noop_handler()` which Go does NOT have - this is Rust-only functionality.
+
+### Expected Fix:
+This gap is Rust-ADDING functionality that Go doesn't have. No change needed unless Go parity requires removing this.
+
+---
+
+## GAP 3: Job Webhook `If` Expression Context - Expr-lang vs Flattened Map
+
+### Go Code: /tmp/tork-go/middleware/job/webhook.go (lines 33-36)
+```go
+if wh.If != "" {
+    val, err := eval.EvaluateExpr(wh.If, map[string]any{
+        "job": tork.NewJobSummary(j),
+    })
+```
+Go uses expr-lang which supports struct field access: `job.State == "COMPLETED"`.
+
+### Rust Code: /home/lewis/src/twerk/middleware/job/webhook.rs (lines 116-151)
+```rust
+fn evaluate_condition(expr: &str, summary: &JobSummary) -> Result<bool, String> {
+    let mut context = HashMap::new();
+    context.insert(
+        "job_state".to_string(),
+        serde_json::Value::String(summary.state.clone()),
+    );
+    context.insert(
+        "job_id".to_string(),
+        serde_json::json!(summary.id.as_deref().unwrap_or("")),
+    );
+    // ... etc - fields are FLATTENED not structured
+```
+Rust flattens to `job_state`, `job_id`, `job_name`, `job_error` - expressions must use these flat names.
+
+### Expected Fix:
+Either:
+1. Keep flattened approach but document that expressions must use flat names (`job_state` not `job.State`)
+2. Implement proper struct-based evaluation using a Rust expr engine that supports dot-access (e.g., `rhai`, `宣讲`)
+
+---
+
+## GAP 4: Task Webhook `If` Expression Context - Full Structs vs JSON Values
+
+### Go Code: /tmp/tork-go/middleware/task/webhook.go (lines 41-45)
+```go
+if wh.If != "" {
+    val, err := eval.EvaluateExpr(wh.If, map[string]any{
+        "task": tork.NewTaskSummary(t),
+        "job":  tork.NewJobSummary(job),
+    })
+```
+Full structs passed to expr-lang.
+
+### Rust Code: /home/lewis/src/twerk/middleware/task/webhook.rs (lines 117-127)
+```rust
+eval_context.insert(
+    "task".to_string(),
+    serde_json::to_value(&summary).unwrap_or(serde_json::Value::Null),
+);
+eval_context.insert(
+    "job".to_string(),
+    serde_json::to_value(&job_summary).unwrap_or(serde_json::Value::Null),
+);
+```
+Structs serialized to JSON, losing type information and struct field access.
+
+### Expected Fix:
+Similar to GAP 3 - either document the limitation or use an expr engine that supports proper dot-access on the serialized JSON.
+
+---
+
+## GAP 5: Task Webhook `getJob` Missing Context Parameter
+
+### Go Code: /tmp/tork-go/middleware/task/webhook.go (lines 68-79)
+```go
+func getJob(ctx context.Context, t *tork.Task, ds datastore.Datastore, c *cache.Cache[*tork.Job]) (*tork.Job, error) {
+    job, ok := c.Get(t.JobID)
+    if ok {
+        return job, nil
+    }
+    job, err := ds.GetJobByID(ctx, t.JobID)  // <-- ctx passed to datastore
+    ...
+}
+```
+
+### Rust Code: /home/lewis/src/twerk/middleware/task/webhook.rs (lines 174-191)
+```rust
+fn get_job(
+    job_id: &str,
+    ds: &dyn Datastore,
+    cache: &tork_cache::Cache<String, Job>,
+) -> Result<Job, TaskMiddlewareError> {
+    if let Some(job) = cache.get(&job_id.to_string()) {
+        return Ok(job);
+    }
+    let job = ds.get_job_by_id(job_id)?;  // <-- no ctx parameter
+    ...
+}
+```
+
+### Expected Fix:
+Add context parameter to `get_job` and `Datastore::get_job_by_id` trait method:
+```rust
+fn get_job(
+    ctx: &Context,  // Add context
+    job_id: &str,
+    ds: &dyn Datastore,
+    cache: &tork_cache::Cache<String, Job>,
+) -> Result<Job, TaskMiddlewareError>
+```
+
+Also update the `Datastore` trait:
+```rust
+pub trait Datastore: Send + Sync {
+    fn get_job_by_id(&self, ctx: &Context, job_id: &str) -> Result<Job, TaskMiddlewareError>;
+}
+```
+
+---
+
+## GAP 6: Node Middleware Context Type Inconsistency
+
+### Go Code: /tmp/tork-go/middleware/node/node.go
+```go
+type HandlerFunc func(context.Context, *tork.Node) error
+```
+Context is `context.Context` from stdlib.
+
+### Rust Code: /home/lewis/src/twerk/middleware/node/mod.rs (lines 9, 14-19)
+```rust
+pub type HandlerFunc = Arc<dyn Fn(Arc<Context>, &Node) -> Result<(), NodeError> + Send + Sync>;
+
+pub struct Context {
+    #[allow(dead_code)]
+    values: Vec<(String, String)>,
+}
+```
+Context is a custom struct with a simple key-value store, NOT `context.Context`.
+
+### Expected Fix:
+If Go parity requires true context.Context semantics, either:
+1. Replace with proper Context implementation supporting cancellation, deadlines, values
+2. Or keep custom Context but ensure it provides equivalent functionality
+
+---
+
+## GAP 7: Middleware Chain Invocation - Go Recursive vs Rust Fold
+
+### Go Code: /tmp/tork-go/middleware/job/job.go (lines 29-41)
+```go
+func ApplyMiddleware(h HandlerFunc, mws []MiddlewareFunc) HandlerFunc {
+    return func(ctx context.Context, et EventType, t *tork.Job) error {
+        nx := next(ctx, 0, mws, h)
+        return nx(ctx, et, t)
+    }
+}
+
+func next(ctx context.Context, index int, mws []MiddlewareFunc, h HandlerFunc) HandlerFunc {
+    if index >= len(mws) {
+        return h
+    }
+    return mws[index](next(ctx, index+1, mws, h))
+}
+```
+Recursive approach - context passed through recursion.
+
+### Rust Code: /home/lewis/src/twerk/middleware/job/mod.rs (lines 92-107)
+```rust
+pub fn apply_middleware(h: HandlerFunc, mws: Vec<MiddlewareFunc>) -> HandlerFunc {
+    mws.into_iter().fold(h, |next, mw| mw(next))
+}
+
+fn next_handler(
+    ctx: Arc<Context>,
+    index: usize,
+    mws: &[MiddlewareFunc],
+    h: HandlerFunc,
+) -> HandlerFunc {
+    if index >= mws.len() {
+        return h;
+    }
+    let nx = next_handler(ctx, index + 1, mws, h);
+    mws[index](nx)
+}
+```
+Rust has recursive `next_handler` but `apply_middleware` uses fold.
+
+### Expected Fix:
+For true parity, `apply_middleware` should use the recursive `next_handler` approach with context passed through. Current Rust fold approach may have different closure capture semantics.
+
+---
+
+## GAP 8: Job Webhook Event Matching - Default Event Handling
+
+### Go Code: /tmp/tork-go/middleware/job/webhook.go (lines 24, 27)
+```go
+if wh.Event != webhook.EventJobStateChange && wh.Event != webhook.EventDefault && wh.Event != webhook.EventJobProgress {
+    continue
+}
+if et == StateChange && wh.Event != webhook.EventJobStateChange && wh.Event != webhook.EventDefault {
+    continue
+}
+```
+Default event matches StateChange only.
+
+### Rust Code: /home/lewis/src/twerk/middleware/job/webhook.rs (lines 85-105)
+```rust
+fn should_fire_webhook(et: EventType, wh: &Webhook) -> bool {
+    let event = wh.event.as_deref().unwrap_or(EVENT_DEFAULT);
+    match et {
+        EventType::StateChange => {
+            event.is_empty() || event == EVENT_JOB_STATE_CHANGE || event == EVENT_DEFAULT
+        }
+        EventType::Progress => event.is_empty() || event == EVENT_JOB_PROGRESS,
+        _ => false,
+    }
+}
+```
+Default/empty event matches BOTH StateChange AND Progress in Rust, but Go only matches StateChange.
+
+### Expected Fix:
+Change Rust logic so empty/default event only matches StateChange:
+```rust
+EventType::StateChange => {
+    event.is_empty() && wh.event.is_none() || event == EVENT_JOB_STATE_CHANGE
+}
+// For Progress, empty should NOT match:
+EventType::Progress => event == EVENT_JOB_PROGRESS,
+```
+
+---
+
+## Summary of Critical Gaps
+
+1. **Task Context Type** - Uses placeholder instead of real context (GAP 1)
+2. **Task getJob context** - Missing ctx parameter (GAP 5)
+3. **Job webhook default event** - Matches both StateChange and Progress, should only match StateChange (GAP 8)
+4. **Expr evaluation** - Flattened context vs struct access (GAP 3, 4)
+
+These gaps affect:
+- Cancellation propagation (context not real)
+- Expression evaluation compatibility (different APIs)
+- Event matching correctness (default event behavior)

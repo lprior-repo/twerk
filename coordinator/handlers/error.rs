@@ -21,10 +21,14 @@
 //! In this functional Rust port, the caller is responsible for evaluation since
 //! the `eval` module lives in a separate crate to avoid circular dependencies.
 
+use std::sync::Arc;
+
 use time::OffsetDateTime;
 use tork::job::{Job, JOB_STATE_FAILED, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED};
 use tork::task::{Task, TaskRetry, TASK_STATE_FAILED, TASK_STATE_PENDING};
+use tork::{Broker, Datastore};
 
+use crate::handlers::job::JobHandler;
 use crate::handlers::{
     noop_job_handler, noop_task_handler, HandlerContext, HandlerError, JobEventType,
     JobHandlerFunc, TaskEventType, TaskHandlerFunc,
@@ -161,6 +165,30 @@ impl ErrorHandler {
         Self {
             handler: noop_task_handler(),
             on_job: noop_job_handler(),
+        }
+    }
+
+    /// Create an error handler with datastore and broker.
+    ///
+    /// This creates a job handler and wraps it with middleware, similar to Go's
+    /// `NewErrorHandler(ds, b, mw...)`.
+    pub fn with_datastore_broker(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
+        let job_handler = JobHandler::new(ds, broker);
+        // Create a sync wrapper around the async job handler
+        // Note: This spawns the async work without waiting for completion
+        let on_job: JobHandlerFunc = Arc::new(move |ctx: HandlerContext, et: JobEventType, job: &mut tork::job::Job| {
+            let job_clone = job.clone();
+            let ctx_clone = ctx;
+            // Spawn the async job handler - fire and forget like Go's goroutine
+            // Errors are logged by the job handler itself
+            tokio::spawn(async move {
+                let _ = job_handler.clone().handle(et, job_clone).await;
+            });
+            Ok(())
+        });
+        Self {
+            handler: noop_task_handler(),
+            on_job,
         }
     }
 

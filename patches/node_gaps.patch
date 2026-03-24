@@ -1,0 +1,345 @@
+# Node and Heartbeat Parity Gaps Patch
+# Target: /home/lewis/src/twerk
+# Source: /tmp/tork-go
+# Generated: 2026-03-24
+
+---
+
+## GAP 1: Missing Health Check System
+
+The Go implementation has a complete health check system at `/tmp/tork-go/health/health.go` that Rust is missing entirely.
+
+### Go Code (`/tmp/tork-go/health/health.go`):
+```go
+package health
+
+type HealthIndicator func(ctx context.Context) error
+
+type HealthCheckResult struct {
+    Status  string `json:"status"`
+    Version string `json:"version"`
+}
+
+type HealthCheck struct {
+    indicators map[string]HealthIndicator
+}
+
+func (b *HealthCheck) WithIndicator(name string, ind HealthIndicator) *HealthCheck {
+    name = strings.TrimSpace(name)
+    if name == "" {
+        panic("health indicator name must not be empty")
+    }
+    if _, ok := b.indicators[name]; ok {
+        panic(fmt.Sprintf("health indicator with name %s already exists", name))
+    }
+    b.indicators[name] = ind
+    return b
+}
+
+func NewHealthCheck() *HealthCheck {
+    return &HealthCheck{
+        indicators: make(map[string]HealthIndicator),
+    }
+}
+
+func (b *HealthCheck) Do(ctx context.Context) HealthCheckResult {
+    for name, ind := range b.indicators {
+        if err := ind(ctx); err != nil {
+            log.Error().Err(err).Msgf("failed %s healthcheck", name)
+            return HealthCheckResult{
+                Status:  StatusDown,
+                Version: tork.Version,
+            }
+        }
+    }
+    return HealthCheckResult{
+        Status:  StatusUp,
+        Version: tork.Version,
+    }
+}
+```
+
+### Expected Fix:
+Create `/home/lewis/src/twerk/tork/health.rs`:
+
+```rust
+//! Health check system for Tork.
+//!
+//! Port of Go `/tmp/tork-go/health/health.go`
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Health indicator function type.
+pub type HealthIndicator = Arc<dyn Fn() -> Result<()> + Send + Sync>;
+
+/// Health check result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HealthCheckResult {
+    pub status: String,
+    pub version: String,
+}
+
+/// Health check with registered indicators.
+#[derive(Default)]
+pub struct HealthCheck {
+    indicators: HashMap<String, HealthIndicator>,
+}
+
+impl HealthCheck {
+    /// Create a new health check.
+    pub fn new() -> Self {
+        Self {
+            indicators: HashMap::new(),
+        }
+    }
+
+    /// Register a health indicator.
+    ///
+    /// # Panics
+    /// Panics if name is empty or already registered.
+    pub fn with_indicator(mut self, name: &str, ind: HealthIndicator) -> Self {
+        let name = name.trim();
+        if name.is_empty() {
+            panic("health indicator name must not be empty");
+        }
+        if self.indicators.contains_key(name) {
+            panic(format!("health indicator with name {} already exists", name));
+        }
+        self.indicators.insert(name.to_string(), ind);
+        self
+    }
+
+    /// Perform all health checks.
+    ///
+    /// Returns `StatusUp` if all indicators pass, `StatusDown` on first failure.
+    pub fn do_check(&self) -> HealthCheckResult {
+        for (name, ind) in &self.indicators {
+            if let Err(e) = ind() {
+                tracing::error!(error = %e, "failed {} healthcheck", name);
+                return HealthCheckResult {
+                    status: STATUS_DOWN.to_string(),
+                    version: crate::version::VERSION.to_string(),
+                };
+            }
+        }
+        HealthCheckResult {
+            status: STATUS_UP.to_string(),
+            version: crate::version::VERSION.to_string(),
+        }
+    }
+}
+
+/// Health status constants.
+pub const STATUS_UP: &str = "UP";
+pub const STATUS_DOWN: &str = "DOWN";
+```
+
+Also need to add to `/home/lewis/src/twerk/tork/mod.rs`:
+```rust
+pub mod health;
+```
+
+---
+
+## GAP 2: Node Clone Trait Implementation
+
+The Go `Node` has a `Clone()` method. Rust has `deep_clone()` but should implement std::clone::Clone for consistency.
+
+### Go Code (`/tmp/tork-go/node.go` lines 32-45):
+```go
+func (n *Node) Clone() *Node {
+    return &Node{
+        ID:              n.ID,
+        Name:            n.Name,
+        StartedAt:       n.StartedAt,
+        CPUPercent:      n.CPUPercent,
+        LastHeartbeatAt: n.LastHeartbeatAt,
+        Queue:           n.Queue,
+        Status:          n.Status,
+        Hostname:        n.Hostname,
+        Port:            n.Port,
+        TaskCount:       n.TaskCount,
+        Version:         n.Version,
+    }
+}
+```
+
+### Rust Code (`/home/lewis/src/twerk/tork/node.rs` lines 42-57):
+```rust
+pub fn deep_clone(&self) -> Self {
+    Self {
+        id: self.id.clone(),
+        name: self.name.clone(),
+        started_at: self.started_at,
+        cpu_percent: self.cpu_percent,
+        last_heartbeat_at: self.last_heartbeat_at,
+        queue: self.queue.clone(),
+        status: self.status.clone(),
+        hostname: self.hostname.clone(),
+        port: self.port,
+        task_count: self.task_count,
+        version: self.version.clone(),
+    }
+}
+```
+
+### Expected Fix:
+Add to `/home/lewis/src/twerk/tork/node.rs`:
+
+```rust
+// Add to the Node impl block:
+impl Clone for Node {
+    fn clone(&self) -> Self {
+        self.deep_clone()
+    }
+}
+```
+
+Or replace `deep_clone` with just implementing the `Clone` trait properly.
+
+---
+
+## GAP 3: Heartbeat Handler Logging on First Receive
+
+The Go code logs at INFO level when a first heartbeat is received. The Rust code does not.
+
+### Go Code (`/tmp/tork-go/internal/coordinator/handlers/heartbeat.go` lines 24-30):
+```go
+func (h *heartbeatHandler) handle(ctx context.Context, n *tork.Node) error {
+    _, err := h.ds.GetNodeByID(ctx, n.ID)
+    if err == datastore.ErrNodeNotFound {
+        log.Info().
+            Str("node-id", n.ID).
+            Str("hostname", n.Hostname).
+            Msg("received first heartbeat")
+        return h.ds.CreateNode(ctx, n)
+    }
+```
+
+### Rust Code (`/home/lewis/src/twerk/coordinator/handlers/heartbeat.rs` lines 106-112):
+```rust
+None => {
+    // Go: first heartbeat — create node
+    self.ds
+        .create_node(node.clone())
+        .await
+        .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+}
+```
+
+### Expected Fix:
+Add logging to the `None` branch in heartbeat handler:
+
+```rust
+None => {
+    info!(
+        node_id = %node_id,
+        hostname = %node.hostname.as_deref().unwrap_or("unknown"),
+        "received first heartbeat"
+    );
+    self.ds
+        .create_node(node.clone())
+        .await
+        .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+}
+```
+
+---
+
+## GAP 4: Node Record Offline Detection Logic
+
+The Go code has logic in `toNode()` to mark nodes as OFFLINE if they haven't sent heartbeats for 2+ periods. This is missing in Rust.
+
+### Go Code (`/tmp/tork-go/datastore/postgres/record.go` lines 298-303):
+```go
+// if we hadn't seen an heartbeat for two or more
+// consecutive periods we consider the node as offline
+if n.LastHeartbeatAt.Before(time.Now().UTC().Add(-tork.HEARTBEAT_RATE*2)) && n.Status == tork.NodeStatusUP {
+    n.Status = tork.NodeStatusOffline
+}
+```
+
+### Expected Fix:
+In `/home/lewis/src/twerk/datastore/postgres/mod.rs`, in `NodeRecord::to_node()`, add offline detection:
+
+```rust
+impl NodeRecord {
+    /// Convert to Node domain type.
+    ///
+    /// Go parity: Marks node as OFFLINE if no heartbeat for 2+ periods.
+    pub fn to_node(&self) -> Node {
+        let mut n = Node {
+            id: Some(self.id.clone()),
+            name: self.name.clone(),
+            started_at: self.started_at,
+            cpu_percent: self.cpu_percent,
+            last_heartbeat_at: self.last_heartbeat_at,
+            queue: self.queue.clone(),
+            status: NodeStatus::from(self.status.clone()),
+            hostname: self.hostname.clone(),
+            port: self.port,
+            task_count: self.task_count,
+            version: self.version.clone(),
+        };
+        
+        // Go parity: if we hadn't seen a heartbeat for two or more
+        // consecutive periods we consider the node as offline
+        let two_heartbeats_ago = time::OffsetDateTime::now_utc() 
+            - time::Duration::seconds(tork::node::HEARTBEAT_RATE_SECS * 2);
+        if n.last_heartbeat_at < two_heartbeats_ago && n.status == tork::node::NODE_STATUS_UP {
+            n.status = tork::node::NODE_STATUS_OFFLINE.to_string();
+        }
+        
+        n
+    }
+}
+```
+
+---
+
+## GAP 5: Missing Node Middleware Context Type in Go parity
+
+The Go middleware uses `context.Context`. Rust has a placeholder `Context` type in middleware/node/mod.rs but it doesn't support the full context pattern.
+
+### Go Code (`/tmp/tork-go/middleware/node/node.go`):
+```go
+type HandlerFunc func(context.Context, *tork.Node) error
+```
+
+### Rust Code (`/home/lewis/src/twerk/middleware/node/mod.rs` lines 14-19):
+```rust
+#[derive(Debug, Clone)]
+pub struct Context {
+    #[allow(dead_code)]
+    values: Vec<(String, String)>,
+}
+```
+
+### Issue:
+The Rust `Context` is not actually used as a context pattern - it's just a placeholder. The `get` method always returns `None`. The Go `context.Context` supports cancellation, timeouts, values, etc.
+
+### Expected Fix (Optional/Nice-to-have):
+Enhance the Rust Context type to support basic key-value storage, or document why the Go-style context pattern wasn't adopted.
+
+---
+
+## SUMMARY
+
+| Gap | Severity | File(s) Affected |
+|-----|----------|------------------|
+| Missing Health Check System | High | Need new `tork/health.rs` |
+| Node `Clone` trait | Low | `tork/node.rs` |
+| Missing first heartbeat log | Medium | `coordinator/handlers/heartbeat.rs` |
+| Missing offline detection in to_node | Medium | `datastore/postgres/mod.rs` |
+| Context type placeholder | Low | `middleware/node/mod.rs` |
+
+---
+
+## NOTES
+
+1. The stale heartbeat check location difference (Go: inside UpdateNode callback vs Rust: in handler) is a design difference but produces equivalent behavior - NOT a gap.
+
+2. The heartbeat sending in Rust coordinator DOES include `started_at` - this was verified and is NOT a gap.
+
+3. The middleware signature difference (Go uses `context.Context`, Rust uses custom `Context`) is a design decision that may be intentional.

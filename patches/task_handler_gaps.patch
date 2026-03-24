@@ -1,0 +1,324 @@
+# Task Handler Parity Gaps - Rust vs Go
+# Generated: Tue Mar 24 2026
+# Focus: Task Handler State Transitions
+
+## GAP 1: Pending Handler - Missing QUEUE_COMPLETED Publish for Skipped Tasks
+
+### Go Code (pending.go lines 43-57):
+```go
+func (h *pendingHandler) skipTask(ctx context.Context, t *tork.Task) error {
+	now := time.Now().UTC()
+	t.State = tork.TaskStateSkipped
+	t.ScheduledAt = &now
+	t.StartedAt = &now
+	t.CompletedAt = &now
+	if err := h.ds.UpdateTask(ctx, t.ID, func(u *tork.Task) error {
+		u.State = t.State
+		u.ScheduledAt = t.ScheduledAt
+		u.StartedAt = t.StartedAt
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "error updating task in datastore")
+	}
+	return h.broker.PublishTask(ctx, broker.QUEUE_COMPLETED, t)  // <-- MISSING IN RUST
+}
+```
+
+### Rust Code (pending.rs lines 132-147):
+```rust
+pub async fn handle(&self, ctx: HandlerContext, task: &mut Task) -> Result<(), HandlerError> {
+    let decision = evaluate_pending(task);
+    match decision {
+        PendingDecision::Skip => {
+            apply_skip_transition(task, OffsetDateTime::now_utc());
+            // MISSING: Publish to QUEUE_COMPLETED via broker
+        }
+        PendingDecision::Schedule => {
+            self.scheduler
+                .schedule_task(task)
+                .await
+                .map_err(|e| HandlerError::Handler(e.to_string()))?;
+        }
+    }
+    (self.handler)(ctx, TaskEventType::StateChange, task)
+}
+```
+
+### Expected Fix:
+After `apply_skip_transition`, the Rust code should publish the skipped task to the completed queue:
+```rust
+self.broker
+    .publish_task(queue::QUEUE_COMPLETED.to_string(), task)
+    .await
+    .map_err(|e| HandlerError::Broker(e.to_string()))?;
+```
+
+---
+
+## GAP 2: Started Handler - Missing Job Handler Middleware Call on SCHEDULED -> RUNNING
+
+### Go Code (started.go lines 52-57):
+```go
+if j.State == tork.JobStateScheduled {
+	j.State = tork.JobStateRunning
+	if err := h.onJob(ctx, job.StateChange, j); err != nil {  // <-- MISSING IN RUST
+		return err
+	}
+}
+```
+
+### Rust Code (started.rs lines 160-170):
+```rust
+if needs_job_transition(&job.state) {
+    let updated_job = tork::Job {
+        state: JOB_STATE_RUNNING.to_string(),
+        ..job.clone()
+    };
+    self.ds
+        .update_job(job_id.to_string(), updated_job)
+        .await
+        .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+    // MISSING: Call job handler for StateChange event (triggers webhooks)
+}
+```
+
+### Expected Fix:
+The Rust code should call the job handler's `handle` method with `JobEventType::StateChange` when transitioning from SCHEDULED to RUNNING. This requires passing the job handler into the started handler or restructuring to call it directly.
+
+---
+
+## GAP 3: Error Handler - Missing failed_at and error Field Updates Before Retry Check
+
+### Go Code (error.go lines 44-57):
+```go
+now := time.Now().UTC()
+t.FailedAt = &now  // <-- SET BEFORE RETRY CHECK
+
+// mark the task as FAILED
+if err := h.ds.UpdateTask(ctx, t.ID, func(u *tork.Task) error {
+	if u.IsActive() {
+		u.State = tork.TaskStateFailed
+		u.FailedAt = t.FailedAt   // <-- ALREADY SET
+		u.Error = t.Error          // <-- ALREADY SET
+	}
+	return nil
+}); err != nil {
+	return errors.Wrapf(err, "error marking task %s as FAILED", t.ID)
+}
+// THEN check retry eligibility
+if (j.State == tork.JobStateRunning || j.State == tork.JobStateScheduled) &&
+	t.Retry != nil &&
+	t.Retry.Attempts < t.Retry.Limit {
+```
+
+### Rust Code (error.rs lines 201-223):
+```rust
+// Step 1: Mark task as failed with timestamp
+task.state = TASK_STATE_FAILED.clone();
+task.failed_at = Some(OffsetDateTime::now_utc());
+
+// Step 2–3: Check retry eligibility and prepare retry task
+if is_retry_eligible(job, task) {
+    let retry_task = prepare_retry_task(task)?;
+    (self.handler)(ctx, TaskEventType::StateChange, task)?;
+    return Ok(ErrorOutcome::Retry { task: retry_task });
+}
+```
+
+### Issue:
+The Rust code correctly sets `failed_at`, but the Go code ALSO sets `u.Error = t.Error` in the UpdateTask closure. The Rust `prepare_retry_task` function correctly clears the error (`error: None`), but the task handler call `(self.handler)(ctx, TaskEventType::StateChange, task)` should persist the error field before retry logic is evaluated.
+
+### Expected Fix:
+Ensure the task handler is called to persist `failed_at` and `error` before checking retry eligibility. The current code structure may not persist these fields to the datastore before returning `ErrorOutcome::Retry`.
+
+---
+
+## GAP 4: Error Handler - Missing Error Queue Publish on Max Redeliveries
+
+### Go Code (error.go lines 77-79):
+```go
+if err := h.broker.PublishTask(ctx, broker.QUEUE_PENDING, rt); err != nil {
+	log.Error().Err(err).Msg("error publishing retry task")
+}
+// MISSING: No else clause - just returns nil
+
+// But in redelivered.go:
+if t.Redelivered >= maxRedeliveries {
+	t.Error = "task redelivered too many times"
+	t.FailedAt = &now
+	t.State = tork.TaskStateFailed
+	return h.broker.PublishTask(ctx, broker.QUEUE_ERROR, t)  // <-- Published to QUEUE_ERROR
+}
+```
+
+Wait, looking more carefully at error.go - when a task exceeds retry limit, Go falls through to:
+```go
+} else {
+	j.State = tork.JobStateFailed
+	j.FailedAt = t.FailedAt
+	j.Error = t.Error
+	return h.onJob(ctx, job.StateChange, j)
+}
+```
+
+It doesn't explicitly publish to QUEUE_ERROR. The job failure handler (`fail_job`) publishes `job.failed` event, and then in the task handler the task would be processed...
+
+Actually looking at the flow again - when max retries exceeded, Go marks job as failed and calls `onJob` which triggers the job failure path. But the task itself is NOT published to the error queue explicitly.
+
+However, in redelivered.go, when max redeliveries is exceeded, the task IS published to QUEUE_ERROR:
+```go
+t.State = tork.TaskStateFailed
+return h.broker.PublishTask(ctx, broker.QUEUE_ERROR, t)
+```
+
+The Rust redelivered handler DOES publish to QUEUE_ERROR correctly.
+
+---
+
+## GAP 5: Error Handler - Missing job.error Field Update on Failure
+
+### Go Code (error.go lines 81-84):
+```go
+} else {
+	j.State = tork.JobStateFailed
+	j.FailedAt = t.FailedAt
+	j.Error = t.Error   // <-- RUST MISSES THIS
+	return h.onJob(ctx, job.StateChange, j)
+}
+```
+
+### Rust Code (error.rs lines 213-223):
+```rust
+// Step 4: No more retries — fail the job
+job.state = JOB_STATE_FAILED.to_string();
+job.failed_at = task.failed_at;
+// MISSING: job.error = task.error.clone();
+job.error = task.error.clone(); // This line exists in Rust but needs verification
+```
+
+Looking at Rust code more carefully - it does set `job.error = task.error.clone()`. Let me verify...
+
+Actually from error.rs line 216: `job.error = task.error.clone();` - this IS present in Rust. So this gap doesn't exist.
+
+---
+
+## GAP 6: Completed Handler - Missing `onJob(ctx, job.Progress, j)` Middleware Call
+
+### Go Code (completed.go lines 235-237):
+```go
+if err := c.onJob(ctx, job.Progress, j); err != nil {
+	return err
+}
+```
+
+### Rust Code (completed/mod.rs lines 370-376):
+```rust
+// Publish progress event (matches Go's onJob(ctx, job.Progress, j))
+let event_payload = serde_json::to_value(&updated_job)
+    .map_err(|e| HandlerError::Handler(format!("failed to serialize job: {e}")))?;
+self.broker
+    .publish_event(TOPIC_JOB_PROGRESS.to_string(), event_payload)
+    .await
+    .map_err(|e| HandlerError::Broker(e.to_string()))?;
+```
+
+### Issue:
+Rust only publishes a progress event to the broker, but Go calls `onJob(ctx, job.Progress, j)` which:
+1. Calls the job handler with Progress event
+2. The job handler may trigger webhooks configured for Progress events
+
+The Rust code does NOT call the job handler for Progress events.
+
+### Expected Fix:
+Call the job handler's handle method with `JobEventType::Progress` when publishing progress, to trigger any webhook middleware:
+```rust
+// After updating job in datastore, call job handler for Progress
+self.on_job(ctx.clone(), JobEventType::Progress, &mut updated_job.clone())?;
+```
+
+---
+
+## GAP 7: Completed Handler - Missing `onJob(ctx, job.StateChange, j)` on Job Completion
+
+### Go Code (completed.go lines 256-259):
+```go
+} else {
+	j.State = tork.JobStateCompleted
+	j.CompletedAt = &now
+	return c.onJob(ctx, job.StateChange, j)  // <-- MISSING IN RUST
+}
+```
+
+### Rust Code (completed/mod.rs lines 409-420):
+```rust
+} else {
+    let now = time::OffsetDateTime::now_utc();
+    let completed_job = Job {
+        state: JOB_STATE_COMPLETED.to_string(),
+        completed_at: Some(now),
+        ..updated_job.clone()
+    };
+    self.ds
+        .update_job(job_id.to_string(), completed_job)
+        .await
+        .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+    // MISSING: Call job handler for StateChange event (triggers job completion webhooks)
+}
+```
+
+### Expected Fix:
+After updating job state to COMPLETED, call the job handler for StateChange event:
+```rust
+let mut completed_job_for_handler = completed_job.clone();
+(self.on_job)(ctx, JobEventType::StateChange, &mut completed_job_for_handler)?;
+```
+
+---
+
+## GAP 8: Error Handler - Missing Job Webhook Middleware Chain
+
+### Go Code (error.go):
+```go
+func NewErrorHandler(ds datastore.Datastore, b broker.Broker, mw ...job.MiddlewareFunc) task.HandlerFunc {
+	h := &errorHandler{
+		ds:     ds,
+		broker: b,
+		onJob:  job.ApplyMiddleware(NewJobHandler(ds, b), mw),  // <-- Webhook middleware applied
+	}
+	return h.handle
+}
+```
+
+### Rust Code (error.rs):
+```rust
+impl ErrorHandler {
+    pub fn with_handlers(handler: TaskHandlerFunc, on_job: JobHandlerFunc) -> Self {
+        Self { handler, on_job }
+    }
+    // ...
+}
+```
+
+### Issue:
+The Rust `ErrorHandler` receives `on_job: JobHandlerFunc` directly, but there's no webhook middleware applied to it. Go's `job.ApplyMiddleware(NewJobHandler(ds, b), mw)` wraps the job handler with webhook middleware.
+
+When the Rust code calls `(self.on_job)(ctx.clone(), JobEventType::StateChange, job)?`, it calls the job handler directly without webhook processing.
+
+### Expected Fix:
+The job handler in Rust should be wrapped with webhook middleware before being passed to ErrorHandler, or the job handler should internally call webhooks when handling StateChange events for FAILED jobs.
+
+---
+
+## Summary of Critical Gaps:
+
+1. **GAP 1**: Pending handler doesn't publish skipped tasks to QUEUE_COMPLETED
+2. **GAP 2**: Started handler doesn't call job handler on SCHEDULED->RUNNING transition
+3. **GAP 6**: Completed handler only publishes progress event, doesn't call job handler
+4. **GAP 7**: Completed handler doesn't call job handler on job completion
+5. **GAP 8**: Error handler's job handler lacks webhook middleware chain
+
+These gaps mean:
+- Skipped tasks don't flow through the completion pipeline in Rust
+- Job state changes don't trigger webhooks configured on jobs
+- Progress events don't trigger webhook middleware
+- Job completion doesn't trigger webhook middleware

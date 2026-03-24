@@ -1,0 +1,206 @@
+# Locker Parity Gaps Patch - Rust vs Go Implementation
+# ======================================================
+#
+# This patch documents the gaps found when auditing the Rust twerk locker
+# implementation against the Go tork implementation.
+#
+# Files compared:
+#   Go: /tmp/tork-go/locker/locker.go, /tmp/tork-go/locker/postgres.go
+#   Rust: /home/lewis/src/twerk/locker/lib.rs, /home/lewis/src/twerk/locker/postgres.rs
+#
+# ==============================================================================
+# GAP 1: Connection Never Returned to Pool on Lock Release
+# ==============================================================================
+#
+# SUMMARY: When a lock is successfully acquired in Rust, the connection is
+# extracted from PooledClient via into_inner() and never returned to the pool.
+# The PooledClient RAII guard is bypassed, so Drop never runs.
+#
+# GO IMPLEMENTATION (Correct):
+#   - tx.Rollback() automatically returns connection to sqlx pool
+#   - Connection is properly recycled
+#
+# RUST IMPLEMENTATION (Broken):
+#   acquire_advisory_lock() at line ~415:
+#     let pooled = pool.get()?;           // Gets PooledClient (RAII guard)
+#     let client = pooled.into_inner();    // BYPASSES Drop! Connection NOT returned
+#     // ... client wrapped in PostgresLock
+#
+#   release_lock() at line ~331:
+#     - Only executes ROLLBACK on the connection
+#     - Does NOT return connection to pool
+#     - Connection is effectively leaked from pool's perspective
+#
+# EXPECTED FIX:
+#   The PostgresLock should not consume the client directly. Instead:
+#   1. Store the PooledClient inside PostgresLock (not just the PgClient)
+#   2. On release, execute ROLLBACK, then let PooledClient drop to return
+#      connection to pool
+#
+#   OR alternatively:
+#   1. Track pool pointer in PostgresLock
+#   2. On release, ROLLBACK and explicitly call pool.put(client, created_at)
+#
+# ==============================================================================
+# GAP 2: release_lock Uses Raw Thread Spawn Instead of spawn_blocking
+# ==============================================================================
+#
+# GO IMPLEMENTATION:
+#   - Simple function call: l.tx.Rollback()
+#
+# RUST IMPLEMENTATION (line ~336):
+#   let handle = std::thread::spawn(move || {
+#       let mut guard = client.lock();
+#       let _ = guard.simple_query("ROLLBACK");
+#   });
+#
+#   Box::pin(async move {
+#       let _ = tokio::task::spawn_blocking(move || {
+#           let _ = handle.join();
+#       })
+#       .await;
+#       Ok(())
+#   })
+#
+# EXPECTED FIX:
+#   Replace raw thread spawn with tokio::task::spawn_blocking directly:
+#
+#   Box::pin(async move {
+#       let client = client.clone(); // or pass necessary data
+#       tokio::task::spawn_blocking(move || {
+#           let mut guard = client.lock();
+#           let _ = guard.simple_query("ROLLBACK");
+#       }).await?;
+#       Ok(())
+#   })
+#
+# ==============================================================================
+# GAP 3: Connection Validation Timing
+# ==============================================================================
+#
+# GO IMPLEMENTATION (lines ~57-66):
+#   func NewPostgresLocker(dsn string, opts ...LockerOption) (*PostgresLocker, error) {
+#       db, err := sqlx.Connect("postgres", dsn)
+#       if err != nil {
+#           return nil, errors.Wrapf(err, "unable to connect to postgres")
+#       }
+#       if db == nil {
+#           return nil, errors.New("database connection cannot be nil")
+#       }
+#       if err := db.Ping(); err != nil {  // <-- EAGER VALIDATION
+#           return nil, errors.Wrapf(err, "failed to ping database")
+#       }
+#       // ...
+#   }
+#
+# RUST IMPLEMENTATION (lines ~368-391):
+#   pub async fn with_options(dsn: &str, opts: PostgresLockerOptions) -> Result<Self, InitError> {
+#       let pool = Arc::new(SyncPostgresPool::new(dsn, &opts));
+#       let handle = std::thread::spawn(move || {
+#           PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ())
+#       });
+#       // Only checks if spawn succeeded, NOT if connection actually works
+#       // Actual validation deferred to first lock acquisition
+#   }
+#
+# EXPECTED FIX:
+#   Add eager connection validation via actual query or ping:
+#
+#   pub async fn with_options(dsn: &str, opts: PostgresLockerOptions) -> Result<Self, InitError> {
+#       let pool = Arc::new(SyncPostgresPool::new(dsn, &opts));
+#
+#       // Validate connection eagerly (like Go's Ping)
+#       let pool_clone = Arc::clone(&pool);
+#       tokio::task::spawn_blocking(move || {
+#           let client = pool_clone.get()?;
+#           client.simple_query("SELECT 1")?;
+#           Ok(())
+#       }).await??;
+#
+#       Ok(Self { pool })
+#   }
+#
+# ==============================================================================
+# GAP 4: API Signature Mismatch
+# ==============================================================================
+#
+# GO IMPLEMENTATION:
+#   func NewPostgresLocker(dsn string, opts ...LockerOption) (*PostgresLocker, error)
+#
+# RUST IMPLEMENTATION:
+#   pub async fn with_options(dsn: &str, opts: PostgresLockerOptions) -> Result<Self, InitError>
+#   pub async fn new(dsn: &str) -> Result<Self, InitError>  // simpler form
+#
+# EXPECTED FIX:
+#   Add a synchronous constructor or change with_options to match Go signature:
+#
+#   // Option A: Add synchronous NewPostgresLocker that validates immediately
+#   pub fn new(dsn: &str) -> Result<Self, InitError> {
+#       // sync version that uses blocking
+#   }
+#
+#   // Option B: Ensure Go's functional options pattern is matched
+#   // (Current Rust builder pattern is reasonable, but different API surface)
+#
+# ==============================================================================
+# GAP 5: Stored Key Never Used
+# ==============================================================================
+#
+# RUST IMPLEMENTATION (lines ~58-62):
+#   struct PostgresLock {
+#       #[allow(dead_code)]
+#       key: String,  // <-- Stored but never accessed
+#       client: Mutex<PgClient>,
+#   }
+#
+# EXPECTED FIX:
+#   Remove unused key field if not needed for debugging/tracing:
+#
+#   struct PostgresLock {
+#       client: Mutex<PgClient>,
+#   }
+#
+#   Or if key is needed for debugging, remove #[allow(dead_code)] and use it.
+#
+# ==============================================================================
+# GAP 6: Default Connection Pool Values May Differ
+# ==============================================================================
+#
+# GO IMPLEMENTATION:
+#   - Uses sqlx defaults (typically unlimited max_open, some max_idle)
+#   - Connection pool settings only applied if explicitly set via With* options
+#
+# RUST IMPLEMENTATION (engine/locker.rs, lines ~60-81):
+#   let max_open = env_int_default("locker.postgres.max_open_conns", 25);
+#   let max_idle = env_int_default("locker.postgres.max_idle_conns", 25);
+#   let lifetime = Duration::from_secs(3600);
+#   let idle_time = Duration::from_secs(300);
+#
+# EXPECTED FIX:
+#   Document that Rust defaults differ from Go sqlx defaults. If parity is
+#   required, either:
+#   1. Use None/0 values in PostgresLockerOptions to indicate "use library default"
+#   2. Or explicitly match Go defaults in engine/locker.rs
+#
+# ==============================================================================
+# GAP 7: hash_key Returns Signed vs Unsigned
+# ==============================================================================
+#
+# GO IMPLEMENTATION (lines ~106-109):
+#   func hashKey(key string) int64 {
+#       hash := sha256.Sum256([]byte(key))
+#       unsigned := binary.BigEndian.Uint64(hash[:8])
+#       return int64(unsigned)  // Explicit cast from uint64 to int64
+#   }
+#
+# RUST IMPLEMENTATION (lines ~71-76):
+#   pub fn hash_key(key: &str) -> i64 {
+#       let result = Sha256::digest(key.as_bytes());
+#       i64::from_be_bytes([...])  // Direct bytes to i64
+#   }
+#
+# NOTE: This is actually CORRECT - both interpret the first 8 bytes as a
+# big-endian signed 64-bit integer. The Go code uses an intermediate uint64
+# but the final int64 conversion preserves the bit pattern identically.
+#
+# ==============================================================================

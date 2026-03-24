@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use tork::broker::queue::QUEUE_COMPLETED;
 use tork::Broker;
 use tork::Datastore;
 
@@ -77,6 +78,7 @@ fn apply_skip_transition(task: &mut Task, now: OffsetDateTime) {
 #[derive(Clone)]
 pub struct PendingHandler {
     scheduler: Scheduler,
+    broker: Arc<dyn Broker>,
     handler: TaskHandlerFunc,
 }
 
@@ -92,7 +94,8 @@ impl PendingHandler {
     /// Create a new pending handler with datastore, broker, and noop callback.
     pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
         Self {
-            scheduler: Scheduler::new(ds, broker),
+            scheduler: Scheduler::new(ds.clone(), broker.clone()),
+            broker,
             handler: noop_task_handler(),
         }
     }
@@ -104,22 +107,32 @@ impl PendingHandler {
         handler: TaskHandlerFunc,
     ) -> Self {
         Self {
-            scheduler: Scheduler::new(ds, broker),
+            scheduler: Scheduler::new(ds, broker.clone()),
+            broker,
             handler,
         }
     }
 
     /// Create a pending handler with a custom scheduler.
-    pub fn with_scheduler(scheduler: Scheduler) -> Self {
+    pub fn with_scheduler(scheduler: Scheduler, broker: Arc<dyn Broker>) -> Self {
         Self {
             scheduler,
+            broker,
             handler: noop_task_handler(),
         }
     }
 
     /// Create a pending handler with custom scheduler and handler function.
-    pub fn with_scheduler_and_handler(scheduler: Scheduler, handler: TaskHandlerFunc) -> Self {
-        Self { scheduler, handler }
+    pub fn with_scheduler_and_handler(
+        scheduler: Scheduler,
+        broker: Arc<dyn Broker>,
+        handler: TaskHandlerFunc,
+    ) -> Self {
+        Self {
+            scheduler,
+            broker,
+            handler,
+        }
     }
 
     /// Handle a pending task event.
@@ -134,6 +147,11 @@ impl PendingHandler {
         match decision {
             PendingDecision::Skip => {
                 apply_skip_transition(task, OffsetDateTime::now_utc());
+                // Go parity: publish skipped task to QUEUE_COMPLETED
+                self.broker
+                    .publish_task(QUEUE_COMPLETED.to_string(), task)
+                    .await
+                    .map_err(|e| HandlerError::Broker(e.to_string()))?;
             }
             PendingDecision::Schedule => {
                 self.scheduler

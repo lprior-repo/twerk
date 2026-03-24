@@ -1,0 +1,198 @@
+# Runtime Parity Gaps - Patch File
+# Comparing Go tork (Docker/Podman/Shell) vs Rust twerk (Podman/Shell)
+# Generated: Tue Mar 24 2026
+
+---
+# GAP 1: Docker Runtime Does Not Exist in Rust
+# ---------------------------------------------
+# The Go codebase has a full Docker runtime at:
+#   /tmp/tork-go/runtime/docker/docker.go
+# The Rust codebase only has Podman runtime at:
+#   /home/lewis/src/twerk/runtime/podman/
+#
+# Expected Fix: Create /home/lewis/src/twerk/runtime/docker/docker.rs
+# using bollard crate for Docker SDK parity with Go's docker runtime.
+# This includes:
+# - Docker client initialization with client.FromEnv
+# - Image pull queue with serialized puller goroutine
+# - Image verification via test container creation
+# - Network creation for sidecars (bridge driver)
+# - Network removal with retry logic (5 retries, exponential backoff)
+# - Image pruning with TTL (72 hours default)
+
+---
+# GAP 2: Shell Runtime stderr Redirect Missing
+# ---------------------------------------------
+# Go shell/shell.go line 190:
+#   cmd.Stderr = cmd.Stdout
+#
+# Rust shell/mod.rs lines 290-291:
+#   cmd.stdout(Stdio::piped());
+#   cmd.stderr(Stdio::piped());
+#
+# Expected Fix: Change Rust to redirect stderr to stdout:
+#   cmd.stdout(Stdio::piped());
+#   cmd.stderr(Stdio::piped()); // REMOVE THIS
+#   // Instead use:
+#   cmd.stderr(cmd.stdout.take().unwrap()); // Redirect stderr to stdout pipe
+# Or simply:
+#   let mut cmd = Command::new(&self.shell[0]);
+#   // ... setup stdout only, then:
+#   cmd.stderr(Stdio::inherit()); // or rely on default
+
+---
+# GAP 3: Network Alias Name Validation Missing
+# --------------------------------------------
+# Go docker/docker.go validates name is set when networks are specified.
+# Rust podman/mod.rs validates name is empty but doesn't link it to networks.
+#
+# Go code at docker.go line 230:
+#   if task.name.as_ref().is_none_or(|n| n.is_empty()) {
+#       return Err(PodmanError::NameRequired)
+#   }
+#
+# But networks check is separate at docker.go lines 236-240:
+#   if len(t.Networks) > 0 && t.Name == "" {
+#       return errors.New("network specified but name is empty")
+#   }
+#
+# Expected Fix: Add validation in podman runtime run():
+#   if !task.networks.is_empty() && task.name.as_ref().is_none_or(|n| n.is_empty()) {
+#       return Err(PodmanError::NameRequiredForNetwork);
+#   }
+
+---
+# GAP 4: Output File Named "output" Instead of "stdout"
+# ----------------------------------------------------
+# Go docker/docker.go uses TORK_OUTPUT env var pointing to a "stdout" file.
+# Rust podman/mod.rs creates a file named "output".
+#
+# Go workdir structure:
+#   /tmp/tork/<task_id>/stdout  (TORK_OUTPUT points here)
+#   /tmp/tork/<task_id>/progress
+#
+# Rust workdir structure:
+#   /tmp/tork/<task_id>/output  <-- NAMED WRONG
+#   /tmp/tork/<task_id>/progress
+#
+# Expected Fix in podman/mod.rs line 594:
+#   let output_file = workdir.join("stdout");  // Change "output" to "stdout"
+
+---
+# GAP 5: Network Create/Remove Not Implemented in Rust
+# ----------------------------------------------------
+# Go docker/docker.go lines 270-308 implement:
+#   - createNetwork() with bridge driver and 10s timeout
+#   - removeNetwork() with 5 retries and exponential backoff
+#
+# Rust Status: No network creation exists. Sidecars (which need networks)
+# are explicitly rejected.
+#
+# Expected Fix: If sidecars support is desired:
+#   - Implement network creation (podman network create)
+#   - Implement network removal with retry (podman network rm)
+#   - Track network IDs for cleanup
+
+---
+# GAP 6: Stdin Not Configured for Podman Containers
+# -------------------------------------------------
+# Go docker/docker.go creates containers with OpenStdin configured.
+# Rust podman/mod.rs doesn't configure stdin.
+#
+# Expected Fix: If stdin is needed for tasks:
+#   create_cmd.arg("-i");  // Interactive mode
+# Or ensure stdin is properly handled if tasks don't need it.
+
+---
+# GAP 7: Sidecars Explicitly Unsupported in Rust Podman
+# ------------------------------------------------------
+# Go docker/docker.go lines 149-158 and 229-247 support sidecars.
+# Rust podman/mod.rs lines 54-55 and 516-518 explicitly reject them.
+#
+# Expected Fix (if parity desired):
+#   - Remove SidecarsNotSupported error
+#   - Implement sidecar container lifecycle (create, start, wait)
+#   - Handle sidecar -> main container communication
+#   - Implement network creation for sidecar isolation
+
+---
+# GAP 8: Image Pull Missing Registry Auth Config File Support
+# ------------------------------------------------------------
+# Go docker/docker.go lines 405-418:
+#   if ref.domain != "" {
+#       username, password, err := getRegistryCredentials(d.config, ref.domain)
+#       // uses config file for credentials
+#   }
+#
+# Rust podman/mod.rs lines 320-323:
+#   if let Some(ref creds) = registry {
+#       if !creds.username.is_empty() {
+#           Self::registry_login(image, &creds.username, &creds.password).await?;
+#       }
+#   }
+#
+# Gap: Go supports reading credentials from config file (~/.docker/config.json).
+# Rust only supports inline registry credentials on task.
+#
+# Expected Fix: Implement registry credential lookup from podman auth file
+# at ~/.config/containers/auth.json or similar.
+
+---
+# GAP 9: Shell Runtime - Progress Tracking Not Integrated with Broker
+# ---------------------------------------------------------------------
+# Go shell/shell.go lines 210-234:
+#   - Creates progress tracking goroutine
+#   - Publishes progress via broker.PublishTaskProgress(ctx, t)
+#
+# Rust shell/mod.rs lines 351-353, 505-547:
+#   - spawn_progress_tracker() exists but returns early if broker is None
+#   - When broker is Some, it correctly publishes
+#
+# This appears correct actually - but worth verifying broker integration.
+
+---
+# GAP 10: Memory Limit Parsing Uses Different Units
+# -------------------------------------------------
+# Go docker/docker.go line 330:
+#   return units.RAMInBytes(limits.Memory)  // Uses docker's units package
+#
+# Rust podman/mod.rs lines 1098-1127:
+#   // Manual parsing with suffixes: gb, g, mb, m, kb, k, b
+#
+# Gap: Go uses docker's units.RAMInBytes which handles more formats
+# (e.g., "512MB", "1g", "1GB" all work).
+# Rust manual parsing may miss some formats.
+#
+# Expected Fix: Verify all Go-supported formats work in Rust:
+#   - "512m" vs "512M" vs "512MB"
+#   - "1g" vs "1G" vs "1GB"
+# Consider using a crate like parse_size or implementing full Go parity.
+
+---
+# GAP 11: CPU Limit Handling Difference
+# -------------------------------------
+# Go docker/docker.go lines 311-324:
+#   - Parses CPU string as big.Rat, multiplies by 1e9 for nanocpus
+#   - Returns int64 nanocpus value
+#   - Uses NanoCPUs in container.Config
+#
+# Rust podman/mod.rs lines 746-749:
+#   create_cmd.arg("--cpus").arg(limits.cpus.clone());
+#   // Podman --cpus takes decimal (e.g., "2" for 2 CPUs)
+#
+# Gap: Go converts to nanocpus (int64), Rust passes string directly.
+# The values may be interpreted differently.
+#
+# Expected Fix: Verify --cpus behavior matches between Docker and Podman.
+# Docker's NanoCPUs and Podman's --cpus may have different semantics.
+
+---
+# GAP 12: Go Has Concurrent Sidecar Log Reading, Rust Has Sequential
+# -------------------------------------------------------------------
+# Go docker/docker.go lines 229-247:
+#   - Creates sidecar containers
+#   - Starts all sidecars in parallel
+#   - Main task waits for completion
+#
+# Rust podman/mod.rs: Sidecars not supported, so this gap is moot
+# until sidecars are implemented.

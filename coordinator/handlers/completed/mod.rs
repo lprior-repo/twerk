@@ -14,7 +14,7 @@ use tork::task::{
 };
 use tork::{Broker, Datastore};
 
-use crate::handlers::HandlerError;
+use crate::handlers::{HandlerContext, HandlerError, JobEventType, JobHandlerFunc};
 
 use self::calc::{
     calculate_progress, create_next_task, has_next_task, increment_each, increment_parallel,
@@ -26,6 +26,7 @@ use self::eval::evaluate_task;
 pub struct CompletedHandler {
     ds: Arc<dyn Datastore>,
     broker: Arc<dyn Broker>,
+    on_job: JobHandlerFunc,
 }
 
 impl std::fmt::Debug for CompletedHandler {
@@ -36,7 +37,15 @@ impl std::fmt::Debug for CompletedHandler {
 
 impl CompletedHandler {
     pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
-        Self { ds, broker }
+        Self {
+            ds,
+            broker,
+            on_job: Arc::new(|_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(())),
+        }
+    }
+
+    pub fn with_on_job(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>, on_job: JobHandlerFunc) -> Self {
+        Self { ds, broker, on_job }
     }
 
     pub async fn handle(&self, task: &Task) -> Result<(), HandlerError> {
@@ -367,13 +376,17 @@ impl CompletedHandler {
             .map_err(|e| HandlerError::Datastore(e.to_string()))?
             .ok_or_else(|| HandlerError::NotFound(format!("job {job_id} not found")))?;
 
-        // Publish progress event (matches Go's onJob(ctx, job.Progress, j))
+        // Publish progress event (matches Go's broker publish)
         let event_payload = serde_json::to_value(&updated_job)
             .map_err(|e| HandlerError::Handler(format!("failed to serialize job: {e}")))?;
         self.broker
             .publish_event(TOPIC_JOB_PROGRESS.to_string(), event_payload)
             .await
             .map_err(|e| HandlerError::Broker(e.to_string()))?;
+
+        // Call onJob with Progress event (GAP 6 - Go: c.onJob(ctx, job.Progress, j))
+        let mut job_for_callback = updated_job.clone();
+        (self.on_job)(Arc::new(()), JobEventType::Progress, &mut job_for_callback)?;
 
         if has_next_task(updated_job.position, updated_job.tasks.len()) {
             let next_idx = usize::try_from(updated_job.position - 1)
@@ -414,9 +427,12 @@ impl CompletedHandler {
                 ..updated_job.clone()
             };
             self.ds
-                .update_job(job_id.to_string(), completed_job)
+                .update_job(job_id.to_string(), completed_job.clone())
                 .await
                 .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+            // Call onJob with StateChange on job completion (GAP 7 - Go: c.onJob(ctx, job.StateChange, j))
+            let mut job_for_callback = completed_job;
+            (self.on_job)(Arc::new(()), JobEventType::StateChange, &mut job_for_callback)?;
         }
 
         Ok(())

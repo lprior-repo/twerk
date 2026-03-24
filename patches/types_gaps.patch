@@ -1,0 +1,61 @@
+# Type/Struct Parity Gaps: Go tork vs Rust twerk
+# Generated from comparison of:
+#   Go: /tmp/tork-go/task.go, /tmp/tork-go/job.go, /tmp/tork-go/mount.go
+#   Rust: /home/lewis/src/twerk/tork/src/task.rs, /home/lewis/src/twerk/tork/src/job.rs
+
+## GAP 1: Mount.type - MISSING in Rust
+
+**Go Definition** (`/tmp/tork-go/mount.go:13`):
+```go
+Type   string            `json:"type,omitempty"`
+```
+
+**Rust Definition** (`/home/lewis/src/twerk/tork/src/task.rs:540-541`):
+```rust
+#[serde(rename = "type")]
+pub mount_type: Option<String>,
+```
+
+**Issue**: The Mount struct in tork/src/task.rs is MISSING the `type` field entirely. The mount_type field exists in `/home/lewis/src/twerk/tork/mount.rs` but not in the task.rs version being compared.
+
+**Expected Fix**: Add `type` field to the Mount struct in tork/src/task.rs:
+```rust
+#[serde(rename = "type", default)]
+pub mount_type: Option<String>,
+```
+
+---
+
+## GAP 2: Mount.opts - MISSING in Rust
+
+**Go Definition** (`/tmp/tork-go/mount.go:16`):
+```go
+Opts   map[string]string `json:"opts,omitempty"`
+```
+
+**Rust Definition**: Field does not exist in tork/src/task.rs Mount struct.
+
+**Issue**: The Mount struct in tork/src/task.rs is missing the `opts` field entirely. It only has `source`, `target`, and `read_only`.
+
+**Expected Fix**: Add `opts` field to the Mount struct in tork/src/task.rs:
+```rust
+#[serde(skip_serializing_if = "Option::is_none")]
+pub opts: Option<HashMap<String, String>>,
+```
+
+---
+
+## Summary of Gaps
+
+| Struct | Field | Go Type | Rust Status |
+|--------|-------|---------|-------------|
+| Mount | type | string | MISSING |
+| Mount | opts | map[string]string | MISSING |
+
+## Notes
+
+1. The Mount struct in `/home/lewis/src/twerk/tork/mount.rs` DOES have both `mount_type` and `opts` fields, suggesting the definition was moved or updated there but NOT in `/home/lewis/src/twerk/tork/src/task.rs`.
+
+2. The Rust Mount in tork/src/task.rs has an extra field `read_only` that doesn't exist in Go's Mount struct.
+
+3. All other fields in Task, Job, SubJobTask, ParallelTask, EachTask, TaskRetry, TaskLimits, Registry, Probe, Webhook, AutoDelete, Permission, JobContext, JobDefaults, JobSchedule appear to be present in both Go and Rust implementations.

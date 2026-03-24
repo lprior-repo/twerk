@@ -16,7 +16,7 @@ use tork::job::{JOB_STATE_RUNNING, JOB_STATE_SCHEDULED};
 use tork::task::{Task, TASK_STATE_CANCELLED, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
 use tork::{Broker, Datastore};
 
-use crate::handlers::HandlerError;
+use crate::handlers::{HandlerContext, HandlerError, JobEventType, JobHandlerFunc};
 
 // ---------------------------------------------------------------------------
 // Pure Calculations (Data → Calc)
@@ -93,6 +93,7 @@ pub(crate) fn prepare_cancelled_task(task: &Task) -> Task {
 pub struct StartedHandler {
     ds: Arc<dyn Datastore>,
     broker: Arc<dyn Broker>,
+    on_job: JobHandlerFunc,
 }
 
 impl std::fmt::Debug for StartedHandler {
@@ -104,7 +105,20 @@ impl std::fmt::Debug for StartedHandler {
 impl StartedHandler {
     /// Create a new started handler with datastore and broker dependencies.
     pub fn new(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>) -> Self {
-        Self { ds, broker }
+        Self {
+            ds,
+            broker,
+            on_job: Arc::new(|_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(())),
+        }
+    }
+
+    /// Create a started handler with datastore, broker, and job handler.
+    pub fn with_on_job(
+        ds: Arc<dyn Datastore>,
+        broker: Arc<dyn Broker>,
+        on_job: JobHandlerFunc,
+    ) -> Self {
+        Self { ds, broker, on_job }
     }
 
     /// Handle a task start event.
@@ -158,15 +172,19 @@ impl StartedHandler {
             }
             StartedAction::Proceed => {
                 // 2b. If job is SCHEDULED, transition to RUNNING
+                // Go: if j.State == tork.JobStateScheduled { j.State = tork.JobStateRunning; h.onJob(ctx, job.StateChange, j) }
                 if needs_job_transition(&job.state) {
-                    let updated_job = tork::Job {
+                    let mut updated_job = tork::Job {
                         state: JOB_STATE_RUNNING.to_string(),
                         ..job.clone()
                     };
                     self.ds
-                        .update_job(job_id.to_string(), updated_job)
+                        .update_job(job_id.to_string(), updated_job.clone())
                         .await
                         .map_err(|e| HandlerError::Datastore(e.to_string()))?;
+                    // Call onJob with StateChange to trigger middleware/webhooks
+                    // Go: h.onJob(ctx, job.StateChange, j)
+                    (self.on_job)(Arc::new(()), JobEventType::StateChange, &mut updated_job)?;
                 }
 
                 // 3. Update task state and node assignment

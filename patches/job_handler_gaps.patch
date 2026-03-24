@@ -1,0 +1,200 @@
+# Job Handler Parity Gaps Patch
+# Comparing: /tmp/tork-go/internal/coordinator/handlers/job.go vs /home/lewis/src/twerk/coordinator/handlers/job/mod.rs
+# And: /tmp/tork-go/internal/eval/eval.go vs /home/lewis/src/twerk/coordinator/handlers/job/eval.rs
+#
+# Format: GAP description followed by expected fixes
+
+---
+
+GAP 1: restartJob - No bounds checking on task index access
+================================================================
+
+Go allows direct array access without bounds checking:
+  t := j.Tasks[j.Position-1]
+
+If Position is 0 or > len(Tasks), Go will panic.
+Rust has explicit bounds checking:
+  if task_index >= job.tasks.len() {
+      return Err(HandlerError::Handler(format!(
+          "task index {task_index} out of range (job has {} tasks)",
+          job.tasks.len()
+      )));
+  }
+
+EXPECTED FIX in Go job.go restartJob():
+Add bounds checking before accessing j.Tasks[j.Position-1], similar to Rust:
+  position := j.Position
+  if position < 1 || position > len(j.Tasks) {
+      return errors.Errorf("task position %d out of range (job has %d tasks)", position, len(j.Tasks))
+  }
+  t := j.Tasks[position-1]
+
+---
+
+GAP 2: EvaluateTask - Go doesn't evaluate Files field
+================================================================
+
+Go EvaluateTask evaluates: Name, Var, Image, Queue, Env, If, Pre, Post, Parallel, CMD, SubJob
+Go does NOT evaluate: Description, Workdir, Timeout, Files, GPU, Entrypoint, Sidecars, Each
+
+Rust evaluate_task evaluates ALL fields including Files.
+
+EXPECTED FIX in Go eval.go EvaluateTask():
+Add evaluation of Files field:
+  // evaluate files
+  files := t.Files
+  for k, v := range files {
+      result, err := EvaluateTemplate(v, c)
+      if err != nil {
+          return err
+      }
+      files[k] = result
+  }
+  t.Files = files
+
+---
+
+GAP 3: EvaluateTask - Missing Entrypoint evaluation in Go
+================================================================
+
+Go EvaluateTask does not evaluate Entrypoint.
+Rust evaluate_task evaluates entrypoint array.
+
+EXPECTED FIX in Go eval.go EvaluateTask():
+Add evaluation of Entrypoint array:
+  // evaluate entrypoint
+  for i, v := range t.Entrypoint {
+      result, err := EvaluateTemplate(v, c)
+      if err != nil {
+          return err
+      }
+      t.Entrypoint[i] = result
+  }
+
+---
+
+GAP 4: EvaluateTask - Missing Sidecars evaluation in Go
+================================================================
+
+Go EvaluateTask does not evaluate Sidecars.
+Rust evaluate_task evaluates sidecars.
+
+EXPECTED FIX in Go eval.go EvaluateTask():
+Add recursive evaluation of sidecars similar to Pre and Post tasks:
+  // evaluate sidecars
+  sidecars := make([]*tork.Task, len(t.Sidecars))
+  for i, sidecar := range t.Sidecars {
+      if err := EvaluateTask(sidecar, c); err != nil {
+          return err
+      }
+      sidecars[i] = sidecar
+  }
+  t.Sidecars = sidecars
+
+---
+
+GAP 5: EvaluateTask - Missing Each task evaluation in Go
+================================================================
+
+Go EvaluateTask does not evaluate Each tasks.
+Rust evaluate_task evaluates the EachTask structure (var, list, inner task).
+
+EXPECTED FIX in Go eval.go EvaluateTask():
+Add evaluation of EachTask fields:
+  if t.Each != nil {
+      var_, err := EvaluateTemplate(t.Each.Var, c)
+      if err != nil {
+          return err
+      }
+      t.Each.Var = var_
+      list, err := EvaluateTemplate(t.Each.List, c)
+      if err != nil {
+          return err
+      }
+      t.Each.List = list
+      if err := EvaluateTask(t.Each.Task, c); err != nil {
+          return err
+      }
+  }
+
+---
+
+GAP 6: EvaluateTask - Missing Description, Workdir, Timeout, GPU fields in Go
+================================================================
+
+Go EvaluateTask does not evaluate: Description, Workdir, Timeout, GPU
+
+EXPECTED FIX in Go eval.go EvaluateTask():
+Add these field evaluations alongside existing Name, Var, Image, Queue evaluations:
+  // evaluate description
+  desc, err := EvaluateTemplate(t.Description, c)
+  if err != nil {
+      return err
+  }
+  t.Description = desc
+
+  // evaluate workdir
+  wd, err := EvaluateTemplate(t.Workdir, c)
+  if err != nil {
+      return err
+  }
+  t.Workdir = wd
+
+  // evaluate timeout
+  to, err := EvaluateTemplate(t.Timeout, c)
+  if err != nil {
+      return err
+  }
+  t.Timeout = to
+
+  // evaluate gpu
+  gpus, err := EvaluateTemplate(t.GPU, c)
+  if err != nil {
+      return err
+  }
+  t.GPU = gpus
+
+---
+
+GAP 7: EvaluateTask - Missing SubJob Webhooks Headers evaluation in Go
+================================================================
+
+Go EvaluateTask evaluates SubJob webhooks URL and headers, but does NOT initialize
+Headers map if nil before iterating.
+
+EXPECTED FIX in Go eval.go (line 124-126):
+Change from:
+  if wh.Headers == nil {
+      wh.Headers = make(map[string]string)
+  }
+  for k, v := range wh.Headers {
+
+To ensure headers are properly initialized before the loop.
+
+Note: This appears to already be in Go code at lines 124-126, but verify it's present and correct.
+
+---
+
+GAP 8: restartJob - Go doesn't propagate task evaluation failure to job level
+================================================================
+
+In Go startJob (lines 83-89), when task evaluation fails, the job is marked as FAILED
+via recursive handle call. But in Go restartJob, task evaluation failure does NOT
+mark the job as FAILED - the job stays RUNNING with a FAILED task.
+
+If this is intentional (to allow retry), document it. If not, add similar failure
+propagation to restartJob:
+  if t.State == tork.TaskStateFailed {
+      return h.handle(ctx, job.StateChange, j)
+  }
+
+EXPECTED FIX (if intentional behavior change):
+After task evaluation in restartJob, add:
+  if t.State == tork.TaskStateFailed {
+      j.FailedAt = &now
+      j.State = tork.JobStateFailed
+      j.Error = t.Error
+      return h.handle(ctx, job.StateChange, j)
+  }
+
+---

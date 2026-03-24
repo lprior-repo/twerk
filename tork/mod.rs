@@ -23,6 +23,7 @@
 pub mod broker;
 pub mod datastore;
 pub mod eval;
+pub mod health;
 pub mod job;
 pub mod mount;
 pub mod node;

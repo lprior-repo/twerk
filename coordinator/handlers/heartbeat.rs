@@ -106,6 +106,11 @@ impl HeartbeatHandler {
         match existing {
             None => {
                 // Go: first heartbeat — create node
+                tracing::info!(
+                    node_id = %node_id,
+                    hostname = %node.hostname.as_deref().unwrap_or("unknown"),
+                    "received first heartbeat"
+                );
                 self.ds
                     .create_node(node.clone())
                     .await

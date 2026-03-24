@@ -4,17 +4,16 @@
 
 use crate::broker::{
     is_coordinator_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler,
-    HeartbeatHandler, JobHandler, QueueInfo, TaskHandler, TaskLogPartHandler,
-    TaskProgressHandler,
+    HeartbeatHandler, JobHandler, QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
-use futures_util::StreamExt;
-use tork::task::Task;
 use crate::uuid::new_short_uuid;
+use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
+use tork::task::Task;
 
 /// Default consumer timeout (30 minutes)
 const DEFAULT_CONSUMER_TIMEOUT_MS: i64 = 30 * 60 * 1000;
@@ -300,24 +299,28 @@ impl RabbitMQBroker {
             messages_unacknowledged: i64,
         }
 
-        let url = if let Some(ref mgmt_url) = self.management_url {
-            format!("{}/api/queues/", mgmt_url)
+        let (url, username, password) = if let Some(ref mgmt_url) = self.management_url {
+            (format!("{}/api/queues/", mgmt_url), String::new(), String::new())
         } else {
-            // Parse host from AMQP URL
+            // Parse host from AMQP URL for default management API endpoint
             let parsed = url::Url::parse(&self.url)?;
-            format!(
-                "http://{}:15672/api/queues/",
-                parsed.host_str().unwrap_or("localhost")
+            let host = parsed.host_str().unwrap_or("localhost");
+            let username = parsed.username();
+            let password = parsed.password().unwrap_or("");
+            (
+                format!("http://{}:15672/api/queues/", host),
+                username.to_string(),
+                password.to_string(),
             )
         };
 
         let client = reqwest::Client::new();
-        let resp = client
-            .get(&url)
-            .send()
-            .await?
-            .json::<Vec<ApiResponse>>()
-            .await?;
+        let mut req = client.get(&url);
+        // Set Basic Auth if credentials are available from AMQP URL
+        if !username.is_empty() {
+            req = req.basic_auth(username, Some(password));
+        }
+        let resp = req.send().await?.error_for_status()?.json::<Vec<ApiResponse>>().await?;
 
         Ok(resp
             .into_iter()
@@ -386,7 +389,10 @@ impl RabbitMQBroker {
                 return Ok(());
             }
 
-            match self.try_subscribe(exchange, routing_key, &qname, handler.clone()).await {
+            match self
+                .try_subscribe(exchange, routing_key, &qname, handler.clone())
+                .await
+            {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     attempt += 1;
@@ -487,7 +493,10 @@ impl RabbitMQBroker {
             channel: channel.clone(),
             consumer_tag: consumer_tag.clone(),
         };
-        self.subscriptions.write().await.insert(sub_id, subscription);
+        self.subscriptions
+            .write()
+            .await
+            .insert(sub_id, subscription);
 
         let qname_for_handler = qname.to_string();
         let broker_for_handler = self.clone();
@@ -556,8 +565,7 @@ impl RabbitMQBroker {
 
         // Check if message is redelivered AND is a Task or TaskProgress — only redirect tasks
         // to the redeliveries queue (matching Go's behavior)
-        if delivery.redelivered
-            && (msg_type == MSG_TYPE_TASK || msg_type == MSG_TYPE_TASK_PROGRESS)
+        if delivery.redelivered && (msg_type == MSG_TYPE_TASK || msg_type == MSG_TYPE_TASK_PROGRESS)
         {
             tracing::debug!(
                 "task/task progress message redelivered on queue {}, sending to redeliveries",
@@ -607,8 +615,14 @@ impl RabbitMQBroker {
         msg: &serde_json::Value,
         msg_type: &str,
     ) -> Result<(), anyhow::Error> {
-        self.publish(EXCHANGE_DEFAULT, queue::QUEUE_REDELIVERIES, msg, msg_type, 0)
-            .await
+        self.publish(
+            EXCHANGE_DEFAULT,
+            queue::QUEUE_REDELIVERIES,
+            msg,
+            msg_type,
+            0,
+        )
+        .await
     }
 }
 
@@ -687,7 +701,8 @@ impl Broker for RabbitMQBroker {
                     })
                 });
 
-            broker.subscribe("", "", queue::QUEUE_PROGRESS.to_string(), handler)
+            broker
+                .subscribe("", "", queue::QUEUE_PROGRESS.to_string(), handler)
                 .await
         })
     }
@@ -721,7 +736,8 @@ impl Broker for RabbitMQBroker {
                     })
                 });
 
-            broker.subscribe("", "", queue::QUEUE_HEARTBEAT.to_string(), handler)
+            broker
+                .subscribe("", "", queue::QUEUE_HEARTBEAT.to_string(), handler)
                 .await
         })
     }
@@ -731,13 +747,7 @@ impl Broker for RabbitMQBroker {
         let broker = self.clone();
         Box::pin(async move {
             broker
-                .publish(
-                    EXCHANGE_DEFAULT,
-                    queue::QUEUE_JOBS,
-                    &job,
-                    MSG_TYPE_JOB,
-                    0,
-                )
+                .publish(EXCHANGE_DEFAULT, queue::QUEUE_JOBS, &job, MSG_TYPE_JOB, 0)
                 .await
         })
     }
@@ -755,7 +765,8 @@ impl Broker for RabbitMQBroker {
                     })
                 });
 
-            broker.subscribe("", "", queue::QUEUE_JOBS.to_string(), handler)
+            broker
+                .subscribe("", "", queue::QUEUE_JOBS.to_string(), handler)
                 .await
         })
     }
@@ -817,7 +828,8 @@ impl Broker for RabbitMQBroker {
                     })
                 });
 
-            broker.subscribe("", "", queue::QUEUE_LOGS.to_string(), handler)
+            broker
+                .subscribe("", "", queue::QUEUE_LOGS.to_string(), handler)
                 .await
         })
     }
@@ -927,14 +939,18 @@ impl Broker for RabbitMQBroker {
                     for sub in subs.values() {
                         if sub.qname.starts_with(queue::QUEUE_EXCLUSIVE_PREFIX) {
                             tracing::debug!("deleting exclusive queue: {}", sub.qname);
-                            if let Err(e) = sub.channel.queue_delete(
-                                &sub.qname,
-                                lapin::options::QueueDeleteOptions {
-                                    if_empty: false,
-                                    if_unused: false,
-                                    nowait: false,
-                                },
-                            ).await {
+                            if let Err(e) = sub
+                                .channel
+                                .queue_delete(
+                                    &sub.qname,
+                                    lapin::options::QueueDeleteOptions {
+                                        if_empty: false,
+                                        if_unused: false,
+                                        nowait: false,
+                                    },
+                                )
+                                .await
+                            {
                                 tracing::error!("error deleting queue {}: {}", sub.qname, e);
                             }
                         }
@@ -959,7 +975,8 @@ impl Broker for RabbitMQBroker {
                 // Clear subscriptions
                 drop(pool);
                 subscriptions.write().await.clear();
-            }).await;
+            })
+            .await;
 
             if shutdown_result.is_err() {
                 tracing::warn!("shutdown timed out after {:?}", timeout);
@@ -1069,7 +1086,10 @@ mod tests {
             .expect("subscribe should succeed");
 
         let job = tork::job::Job::default();
-        broker.publish_job(&job).await.expect("publish should succeed");
+        broker
+            .publish_job(&job)
+            .await
+            .expect("publish should succeed");
 
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         assert!(*received.lock().expect("mutex not poisoned"));
@@ -1115,7 +1135,10 @@ mod tests {
             task_count: 0,
             version: String::new(),
         };
-        broker.publish_heartbeat(node).await.expect("publish should succeed");
+        broker
+            .publish_heartbeat(node)
+            .await
+            .expect("publish should succeed");
 
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         assert!(*received.lock().expect("mutex not poisoned"));
@@ -1178,10 +1201,7 @@ mod tests {
                 return;
             }
         };
-        broker
-            .shutdown()
-            .await
-            .expect("shutdown should succeed");
+        broker.shutdown().await.expect("shutdown should succeed");
     }
 
     /// Mirrors Go's TestInMemoryHealthCheck.

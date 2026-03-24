@@ -4,16 +4,16 @@
 //! development, testing, etc.
 
 use crate::broker::{
-    is_coordinator_queue, queue, Broker, BoxedFuture, BoxedHandlerFuture, EventHandler,
+    is_coordinator_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler,
     HeartbeatHandler, JobHandler, QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
-use tork::task::TaskLogPart;
 use crate::wildcard::match_pattern;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::sync::broadcast::error::RecvError as BroadcastRecvError;
+use tokio::sync::{broadcast, mpsc, RwLock};
+use tork::task::TaskLogPart;
 
 /// Default queue size for in-memory channels
 const DEFAULT_QUEUE_SIZE: usize = 1000;
@@ -61,8 +61,15 @@ impl Queue {
     }
 
     /// Add a subscription and return the terminate/terminated channels
-    fn subscribe(&self, handler: Arc<dyn Fn(Arc<dyn std::any::Any + Send + Sync>) -> BoxedHandlerFuture + Send + Sync + 'static>) -> (mpsc::Sender<()>, mpsc::Receiver<()>)
-    {
+    fn subscribe(
+        &self,
+        handler: Arc<
+            dyn Fn(Arc<dyn std::any::Any + Send + Sync>) -> BoxedHandlerFuture
+                + Send
+                + Sync
+                + 'static,
+        >,
+    ) -> (mpsc::Sender<()>, mpsc::Receiver<()>) {
         let (terminate_tx, mut terminate_rx) = mpsc::channel::<()>(1);
         let (terminated_tx, terminated_rx) = mpsc::channel::<()>(1);
 
@@ -175,7 +182,11 @@ pub fn new_in_memory_broker() -> InMemoryBroker {
 
 impl InMemoryBroker {
     /// Internal publish to a queue
-    async fn publish_to_queue(&self, qname: &str, msg: Arc<dyn Message + Send + Sync>) -> Result<(), anyhow::Error> {
+    async fn publish_to_queue(
+        &self,
+        qname: &str,
+        msg: Arc<dyn Message + Send + Sync>,
+    ) -> Result<(), anyhow::Error> {
         let mut queues = self.queues.write().await;
         let (tx, size) = if let Some(q) = queues.get(qname) {
             (q.tx.clone(), q.size.clone())
@@ -195,12 +206,17 @@ impl InMemoryBroker {
     async fn subscribe_to_queue(
         &self,
         qname: &str,
-        handler: Arc<dyn Fn(Arc<dyn std::any::Any + Send + Sync>) -> BoxedHandlerFuture + Send + Sync + 'static>,
+        handler: Arc<
+            dyn Fn(Arc<dyn std::any::Any + Send + Sync>) -> BoxedHandlerFuture
+                + Send
+                + Sync
+                + 'static,
+        >,
     ) -> Result<(), anyhow::Error> {
         let mut queues = self.queues.write().await;
-        let queue = queues.entry(qname.to_string()).or_insert_with(|| {
-            Queue::new(qname.to_string())
-        });
+        let queue = queues
+            .entry(qname.to_string())
+            .or_insert_with(|| Queue::new(qname.to_string()));
 
         let (terminate_tx, terminated_rx) = queue.subscribe(handler);
         if let Ok(mut subs) = queue.subs.lock() {
@@ -229,15 +245,19 @@ impl Broker for InMemoryBroker {
         let broker = self.clone();
         let qname = qname.clone();
         Box::pin(async move {
-            broker.subscribe_to_queue(&qname, Arc::new(move |msg| {
-                let handler = handler.clone();
-                Box::pin(async move {
-                    if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
-                        handler(Arc::new(task.deep_clone())).await;
-                    }
-                })
-            }))
-            .await?;
+            broker
+                .subscribe_to_queue(
+                    &qname,
+                    Arc::new(move |msg| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
+                                handler(Arc::new(task.deep_clone())).await;
+                            }
+                        })
+                    }),
+                )
+                .await?;
             Ok(())
         })
     }
@@ -246,7 +266,9 @@ impl Broker for InMemoryBroker {
         let broker = self.clone();
         let task = task.deep_clone();
         Box::pin(async move {
-            broker.publish_to_queue(queue::QUEUE_PROGRESS, Arc::new(task)).await?;
+            broker
+                .publish_to_queue(queue::QUEUE_PROGRESS, Arc::new(task))
+                .await?;
             Ok(())
         })
     }
@@ -254,15 +276,19 @@ impl Broker for InMemoryBroker {
     fn subscribe_for_task_progress(&self, handler: TaskProgressHandler) -> BoxedFuture<()> {
         let broker = self.clone();
         Box::pin(async move {
-            broker.subscribe_to_queue(queue::QUEUE_PROGRESS, Arc::new(move |msg| {
-                let handler = handler.clone();
-                Box::pin(async move {
-                    if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
-                        handler(task.deep_clone()).await;
-                    }
-                })
-            }))
-            .await?;
+            broker
+                .subscribe_to_queue(
+                    queue::QUEUE_PROGRESS,
+                    Arc::new(move |msg| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Some(task) = msg.downcast_ref::<tork::task::Task>() {
+                                handler(task.deep_clone()).await;
+                            }
+                        })
+                    }),
+                )
+                .await?;
             Ok(())
         })
     }
@@ -271,7 +297,9 @@ impl Broker for InMemoryBroker {
         let broker = self.clone();
         let node = node.deep_clone();
         Box::pin(async move {
-            broker.publish_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(node)).await?;
+            broker
+                .publish_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(node))
+                .await?;
             Ok(())
         })
     }
@@ -279,15 +307,19 @@ impl Broker for InMemoryBroker {
     fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()> {
         let broker = self.clone();
         Box::pin(async move {
-            broker.subscribe_to_queue(queue::QUEUE_HEARTBEAT, Arc::new(move |msg| {
-                let handler = handler.clone();
-                Box::pin(async move {
-                    if let Some(node) = msg.downcast_ref::<tork::node::Node>() {
-                        handler(node.deep_clone()).await;
-                    }
-                })
-            }))
-            .await?;
+            broker
+                .subscribe_to_queue(
+                    queue::QUEUE_HEARTBEAT,
+                    Arc::new(move |msg| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Some(node) = msg.downcast_ref::<tork::node::Node>() {
+                                handler(node.deep_clone()).await;
+                            }
+                        })
+                    }),
+                )
+                .await?;
             Ok(())
         })
     }
@@ -296,7 +328,9 @@ impl Broker for InMemoryBroker {
         let broker = self.clone();
         let job = job.deep_clone();
         Box::pin(async move {
-            broker.publish_to_queue(queue::QUEUE_JOBS, Arc::new(job)).await?;
+            broker
+                .publish_to_queue(queue::QUEUE_JOBS, Arc::new(job))
+                .await?;
             Ok(())
         })
     }
@@ -304,15 +338,19 @@ impl Broker for InMemoryBroker {
     fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()> {
         let broker = self.clone();
         Box::pin(async move {
-            broker.subscribe_to_queue(queue::QUEUE_JOBS, Arc::new(move |msg| {
-                let handler = handler.clone();
-                Box::pin(async move {
-                    if let Some(job) = msg.downcast_ref::<tork::job::Job>() {
-                        handler(job.deep_clone()).await;
-                    }
-                })
-            }))
-            .await?;
+            broker
+                .subscribe_to_queue(
+                    queue::QUEUE_JOBS,
+                    Arc::new(move |msg| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Some(job) = msg.downcast_ref::<tork::job::Job>() {
+                                handler(job.deep_clone()).await;
+                            }
+                        })
+                    }),
+                )
+                .await?;
             Ok(())
         })
     }
@@ -354,7 +392,11 @@ impl Broker for InMemoryBroker {
 
             tokio::spawn(async move {
                 while let Ok(msg) = rx.recv().await {
-                    let value = msg.clone().as_any().downcast::<serde_json::Value>().unwrap_or_else(|_| Arc::new(serde_json::Value::Null));
+                    let value = msg
+                        .clone()
+                        .as_any()
+                        .downcast::<serde_json::Value>()
+                        .unwrap_or_else(|_| Arc::new(serde_json::Value::Null));
                     handler((*value).clone()).await;
                 }
             });
@@ -367,7 +409,9 @@ impl Broker for InMemoryBroker {
         let broker = self.clone();
         let part = part.clone();
         Box::pin(async move {
-            broker.publish_to_queue(queue::QUEUE_LOGS, Arc::new(part)).await?;
+            broker
+                .publish_to_queue(queue::QUEUE_LOGS, Arc::new(part))
+                .await?;
             Ok(())
         })
     }
@@ -375,15 +419,19 @@ impl Broker for InMemoryBroker {
     fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()> {
         let broker = self.clone();
         Box::pin(async move {
-            broker.subscribe_to_queue(queue::QUEUE_LOGS, Arc::new(move |msg| {
-                let handler = handler.clone();
-                Box::pin(async move {
-                    if let Some(part) = msg.downcast_ref::<TaskLogPart>() {
-                        handler(part.clone()).await;
-                    }
-                })
-            }))
-            .await?;
+            broker
+                .subscribe_to_queue(
+                    queue::QUEUE_LOGS,
+                    Arc::new(move |msg| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Some(part) = msg.downcast_ref::<TaskLogPart>() {
+                                handler(part.clone()).await;
+                            }
+                        })
+                    }),
+                )
+                .await?;
             Ok(())
         })
     }
@@ -457,7 +505,15 @@ impl Broker for InMemoryBroker {
         let topics = self.topics.clone();
         let terminated = self.terminated.clone();
         Box::pin(async move {
-            if !terminated.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_ok() {
+            if !terminated
+                .compare_exchange(
+                    false,
+                    true,
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                )
+                .is_ok()
+            {
                 return Ok(());
             }
 
@@ -506,7 +562,10 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
 
         let task = tork::task::Task {
             id: Some(new_uuid()),
@@ -540,14 +599,15 @@ mod tests {
             let broker_clone = broker.clone();
             let qname_clone = qname.clone();
             handles.push(tokio::spawn(async move {
-                let handler: TaskHandler = Arc::new(move |_task| {
-                    Box::pin(async move {})
-                });
+                let handler: TaskHandler = Arc::new(move |_task| Box::pin(async move {}));
                 broker_clone.subscribe_for_tasks(qname_clone, handler).await
             }));
         }
         for handle in handles {
-            handle.await.expect("subscribe task should not panic").expect("subscribe should succeed");
+            handle
+                .await
+                .expect("subscribe task should not panic")
+                .expect("subscribe should succeed");
         }
 
         let queues = broker.queues().await.unwrap();
@@ -669,7 +729,10 @@ mod tests {
 
         broker.shutdown().await.unwrap();
 
-        broker.health_check().await.expect_err("should fail after shutdown");
+        broker
+            .health_check()
+            .await
+            .expect_err("should fail after shutdown");
     }
 
     /// Mirrors Go's TestInMemoryGetQueuesUnacked:
@@ -703,7 +766,10 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
 
         // Publish a task that the handler will pick up and block on
         broker.publish_task(qname.clone(), &task).await.unwrap();
@@ -757,7 +823,10 @@ mod tests {
         // Publish 10 jobs
         for _ in 0..10 {
             let job = tork::job::Job::default();
-            broker.publish_job(&job).await.expect("publish should succeed");
+            broker
+                .publish_job(&job)
+                .await
+                .expect("publish should succeed");
         }
 
         // Wait for all processing (2 subscribers × 10 jobs = 20)
@@ -789,7 +858,10 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_tasks(qname1.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname1.clone(), handler)
+            .await
+            .unwrap();
 
         let task = tork::task::Task::default();
         // Publish 10 tasks to each queue
@@ -840,16 +912,28 @@ mod tests {
         let topic_job_completed = "job.completed".to_string();
 
         // Subscribe to "job.*" — should receive ALL job events
-        broker.subscribe_for_events(topic_job.clone(), handler1).await.unwrap();
+        broker
+            .subscribe_for_events(topic_job.clone(), handler1)
+            .await
+            .unwrap();
 
         // Subscribe to "job.completed" — should only receive completed events
-        broker.subscribe_for_events(topic_job_completed.clone(), handler2).await.unwrap();
+        broker
+            .subscribe_for_events(topic_job_completed.clone(), handler2)
+            .await
+            .unwrap();
 
         // Publish 10 completed + 10 failed events
         for _ in 0..10 {
             let event = serde_json::json!({"id": new_uuid()});
-            broker.publish_event(topic_job_completed.clone(), event.clone()).await.unwrap();
-            broker.publish_event("job.failed".to_string(), event.clone()).await.unwrap();
+            broker
+                .publish_event(topic_job_completed.clone(), event.clone())
+                .await
+                .unwrap();
+            broker
+                .publish_event("job.failed".to_string(), event.clone())
+                .await
+                .unwrap();
         }
 
         // Wait for all events to be processed
@@ -928,19 +1012,11 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         let guard = received_task.lock().expect("mutex not poisoned");
-        let received = guard
-            .as_ref()
-            .expect("should have received a task");
-        let mounts = received
-            .mounts
-            .as_ref()
-            .expect("should have mounts");
+        let received = guard.as_ref().expect("should have received a task");
+        let mounts = received.mounts.as_ref().expect("should have mounts");
         assert_eq!(
             "/somevolume",
-            mounts[0]
-                .target
-                .as_ref()
-                .expect("mount should have target")
+            mounts[0].target.as_ref().expect("mount should have target")
         );
     }
 
@@ -1026,7 +1102,10 @@ mod tests {
     async fn test_queue_info_not_found() {
         let broker = new_in_memory_broker();
         let result = broker.queue_info("nonexistent-queue".to_string()).await;
-        assert!(result.is_err(), "queue_info should error for non-existent queue");
+        assert!(
+            result.is_err(),
+            "queue_info should error for non-existent queue"
+        );
     }
 
     /// Tests that queues() returns all queues including empty ones.
@@ -1128,7 +1207,10 @@ mod tests {
     async fn test_delete_nonexistent_queue() {
         let broker = new_in_memory_broker();
         let result = broker.delete_queue("nonexistent-queue".to_string()).await;
-        assert!(result.is_ok(), "delete should succeed on non-existent queue");
+        assert!(
+            result.is_ok(),
+            "delete should succeed on non-existent queue"
+        );
     }
 
     /// Tests that multiple queues with different names are tracked separately.
@@ -1169,15 +1251,15 @@ mod tests {
         });
 
         let topic = "task.started".to_string();
-        broker.subscribe_for_events(topic.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_events(topic.clone(), handler)
+            .await
+            .unwrap();
 
         // Publish to exact topic
         for _ in 0..5 {
             let event = serde_json::json!({"id": new_uuid()});
-            broker
-                .publish_event(topic.clone(), event)
-                .await
-                .unwrap();
+            broker.publish_event(topic.clone(), event).await.unwrap();
         }
 
         // Publish to different topic - should NOT be received

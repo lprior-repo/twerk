@@ -113,10 +113,8 @@ impl HeartbeatHandler {
             }
             Some(stored) => {
                 // Go: subsequent heartbeat — filter stale, then update
-                let freshness = compare_heartbeat_freshness(
-                    stored.last_heartbeat_at,
-                    node.last_heartbeat_at,
-                );
+                let freshness =
+                    compare_heartbeat_freshness(stored.last_heartbeat_at, node.last_heartbeat_at);
 
                 if let HeartbeatFreshness::Fresh = freshness {
                     let updated = apply_heartbeat_update(&stored, node);
@@ -135,4 +133,3 @@ impl HeartbeatHandler {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-

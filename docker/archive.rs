@@ -7,8 +7,8 @@
 //! - **Actions**: File I/O at boundary
 
 use std::fs::{self, File};
-use std::os::unix::fs::MetadataExt;
 use std::io::{self, BufReader, Read};
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 use libc::S_IFMT;

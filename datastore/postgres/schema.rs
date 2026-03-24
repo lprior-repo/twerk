@@ -107,7 +107,11 @@ CREATE TABLE jobs (
     secrets          bytea,
     progress         double precision default 0,
     scheduled_job_id varchar(32) references scheduled_jobs(id),
-    ts               tsvector
+    ts               tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(description, '')), 'C') ||
+        setweight(to_tsvector('english', coalesce(name, '')), 'B') ||
+        setweight(to_tsvector('english', state), 'A')
+    ) STORED
 );
 
 CREATE INDEX idx_jobs_state ON jobs (state);
@@ -182,7 +186,9 @@ CREATE TABLE tasks_log_parts (
     task_id    varchar(32) not null references tasks(id),
     created_at timestamptz not null,
     contents   text        not null,
-    ts        tsvector
+    ts        tsvector GENERATED ALWAYS AS (
+        to_tsvector('english', contents)
+    ) STORED
 );
 
 CREATE INDEX idx_tasks_log_parts_task_id ON tasks_log_parts (task_id);
@@ -570,6 +576,24 @@ mod tests {
         assert!(
             sql.contains("port bigint not null"),
             "nodes.port must be bigint to match Rust i64"
+        );
+    }
+
+    #[test]
+    fn schema_jobs_ts_uses_generated_always() {
+        assert!(
+            SCHEMA.contains("GENERATED ALWAYS AS"),
+            "jobs.ts must use GENERATED ALWAYS AS for full-text search auto-population"
+        );
+    }
+
+    #[test]
+    fn schema_tasks_log_parts_ts_uses_generated_always() {
+        // There should be two GENERATED ALWAYS AS clauses: one for jobs.ts, one for tasks_log_parts.ts
+        let count = SCHEMA.matches("GENERATED ALWAYS AS").count();
+        assert!(
+            count >= 2,
+            "both jobs.ts and tasks_log_parts.ts must use GENERATED ALWAYS AS (found {count})"
         );
     }
 }

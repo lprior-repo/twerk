@@ -5,19 +5,14 @@
 
 use crate::syncx::Map;
 use crate::worker::RunningTask;
-use tork::broker::Broker;
-use tork::runtime::Runtime;
-use tork::version::VERSION;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use tork::broker::Broker;
+use tork::runtime::Runtime;
+use tork::version::VERSION;
 
 /// Minimum port number for dynamic assignment
 pub const MIN_PORT: u16 = 8001;
@@ -58,9 +53,7 @@ pub struct Api {
 
 impl std::fmt::Debug for Api {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Api")
-            .field("port", &self.port)
-            .finish()
+        f.debug_struct("Api").field("port", &self.port).finish()
     }
 }
 
@@ -72,10 +65,9 @@ impl Api {
         runtime: Arc<dyn Runtime>,
         tasks: Arc<Map<String, RunningTask>>,
     ) -> Self {
-        let port = address.and_then(|addr| {
-            addr.strip_prefix(':')
-                .and_then(|p| p.parse().ok())
-        }).unwrap_or(0);
+        let port = address
+            .and_then(|addr| addr.strip_prefix(':').and_then(|p| p.parse().ok()))
+            .unwrap_or(0);
 
         Self {
             handle: None,
@@ -183,22 +175,12 @@ impl Clone for Api {
 }
 
 /// Health check handler — mirrors Go's health check with runtime + broker indicators
-async fn health_handler(
-    State(state): State<ApiState>,
-) -> (StatusCode, Json<HealthResponse>) {
+async fn health_handler(State(state): State<ApiState>) -> (StatusCode, Json<HealthResponse>) {
     // Check runtime health
-    let runtime_ok = state
-        .runtime
-        .health_check()
-        .await
-        .is_ok();
+    let runtime_ok = state.runtime.health_check().await.is_ok();
 
     // Check broker health
-    let broker_ok = state
-        .broker
-        .health_check()
-        .await
-        .is_ok();
+    let broker_ok = state.broker.health_check().await.is_ok();
 
     if runtime_ok && broker_ok {
         (
@@ -255,9 +237,7 @@ mod tests {
         }
 
         fn health_check(&self) -> tork::runtime::BoxedFuture<()> {
-            Box::pin(async {
-                Err(anyhow::anyhow!("runtime unhealthy"))
-            })
+            Box::pin(async { Err(anyhow::anyhow!("runtime unhealthy")) })
         }
     }
 

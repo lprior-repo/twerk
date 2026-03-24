@@ -142,7 +142,11 @@ async fn test_container_create_and_remove() {
             }),
         )
         .await;
-    assert!(remove_result.is_ok(), "should remove container: {:?}", remove_result.err());
+    assert!(
+        remove_result.is_ok(),
+        "should remove container: {:?}",
+        remove_result.err()
+    );
 }
 
 #[tokio::test]
@@ -231,7 +235,11 @@ async fn test_container_remove_while_running() {
             }),
         )
         .await;
-    assert!(result.is_ok(), "force remove should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "force remove should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -346,9 +354,14 @@ async fn test_task_with_env_vars() {
 
     let mut task = make_task();
     task.id = "test-env-task".to_string();
-    task.env.insert("MY_VAR".to_string(), "my_value".to_string());
+    task.env
+        .insert("MY_VAR".to_string(), "my_value".to_string());
     task.env.insert("ANOTHER".to_string(), "123".to_string());
-    task.cmd = vec!["sh".to_string(), "-c".to_string(), "echo $MY_VAR $ANOTHER".to_string()];
+    task.cmd = vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        "echo $MY_VAR $ANOTHER".to_string(),
+    ];
 
     let container = runtime.create_container(&task).await.unwrap();
     container.start().await.expect("container should start");
@@ -405,7 +418,8 @@ async fn test_task_with_files() {
 
     let mut task = make_task();
     task.id = "test-files-task".to_string();
-    task.files.insert("hello.txt".to_string(), "world".to_string());
+    task.files
+        .insert("hello.txt".to_string(), "world".to_string());
     task.workdir = Some("/tork/workdir".to_string());
     task.cmd = vec!["cat".to_string(), "hello.txt".to_string()];
 
@@ -415,7 +429,10 @@ async fn test_task_with_files() {
     let result = container.wait().await;
     assert!(result.is_ok());
     let output = result.unwrap();
-    assert!(output.contains("world"), "should read file content: {output}");
+    assert!(
+        output.contains("world"),
+        "should read file content: {output}"
+    );
 
     // Clean up
     let _ = container
@@ -503,14 +520,20 @@ async fn test_full_task_run() {
     let mut task = make_task();
     task.id = "test-full-run".to_string();
     task.name = Some("full-run-test".to_string());
-    task.env.insert("TEST_VAR".to_string(), "test_value".to_string());
-    task.files.insert("data.txt".to_string(), "test content".to_string());
+    task.env
+        .insert("TEST_VAR".to_string(), "test_value".to_string());
+    task.files
+        .insert("data.txt".to_string(), "test content".to_string());
     task.workdir = Some("/tork/workdir".to_string());
     task.cmd = vec!["cat".to_string(), "data.txt".to_string()];
 
     // The run method handles the full lifecycle
     let result = runtime.run(&mut task).await;
-    assert!(result.is_ok(), "full run should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "full run should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]

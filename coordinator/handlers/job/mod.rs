@@ -3,8 +3,8 @@
 //! Ported from Go `internal/coordinator/handlers/job.go`.
 //! Manages the full job lifecycle: start, complete, fail, restart, cancel.
 
-pub mod eval;
 pub mod calc;
+pub mod eval;
 
 use std::sync::Arc;
 
@@ -14,8 +14,10 @@ use tracing::{debug, error};
 use tork::broker::queue::{QUEUE_COMPLETED, QUEUE_ERROR, QUEUE_PENDING};
 use tork::broker::Broker;
 use tork::datastore::Datastore;
-use tork::job::{Job, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
-    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED};
+use tork::job::{
+    Job, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
+    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
+};
 use tork::task::{TASK_STATE_CANCELLED, TASK_STATE_FAILED, TASK_STATE_PENDING};
 
 use crate::handlers::{HandlerError, JobEventType};
@@ -61,7 +63,8 @@ impl JobHandler {
         &'a self,
         et: JobEventType,
         job: &'a mut Job,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), HandlerError>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), HandlerError>> + Send + 'a>>
+    {
         Box::pin(async move {
             if et != JobEventType::StateChange {
                 return Ok(());
@@ -111,17 +114,24 @@ impl JobHandler {
         }
 
         let task_clone = task.clone();
-        self.ds.create_task(task_clone).await
+        self.ds
+            .create_task(task_clone)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
-        let mut updated_job = self.ds.get_job_by_id(job_id.clone()).await
+        let mut updated_job = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?
             .ok_or_else(|| HandlerError::NotFound(format!("job not found: {job_id}")))?;
         updated_job.state = JOB_STATE_SCHEDULED.to_string();
         updated_job.started_at = Some(OffsetDateTime::now_utc());
         updated_job.position = 1;
         let updated_job_id = updated_job.id.clone().unwrap_or_default();
-        self.ds.update_job(updated_job_id, updated_job).await
+        self.ds
+            .update_job(updated_job_id, updated_job)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         if task.state == *TASK_STATE_FAILED {
@@ -132,7 +142,9 @@ impl JobHandler {
             return self.handle(JobEventType::StateChange, job).await;
         }
 
-        self.broker.publish_task(QUEUE_PENDING.to_string(), &task).await
+        self.broker
+            .publish_task(QUEUE_PENDING.to_string(), &task)
+            .await
             .map_err(|e| HandlerError::Broker(e.to_string()))?;
 
         Ok(())
@@ -142,7 +154,10 @@ impl JobHandler {
     async fn complete_job(&self, job: &mut Job) -> Result<(), HandlerError> {
         let job_id = job.id.clone().unwrap_or_default();
 
-        let current = self.ds.get_job_by_id(job_id.clone()).await
+        let current = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?
             .ok_or_else(|| HandlerError::NotFound(format!("job not found: {job_id}")))?;
 
@@ -162,10 +177,17 @@ impl JobHandler {
                 Ok(evaluated) => {
                     let delete_at = job.auto_delete.as_ref().and_then(|ad| {
                         ad.after.as_ref().and_then(|after| {
-                            parse_duration(after).ok().map(|dur| OffsetDateTime::now_utc() + dur)
+                            parse_duration(after)
+                                .ok()
+                                .map(|dur| OffsetDateTime::now_utc() + dur)
                         })
                     });
-                    (JOB_STATE_COMPLETED.to_string(), Some(evaluated), None, delete_at)
+                    (
+                        JOB_STATE_COMPLETED.to_string(),
+                        Some(evaluated),
+                        None,
+                        delete_at,
+                    )
                 }
                 Err(eval_err) => {
                     error!(error = %eval_err, job_id = %job_id, "error evaluating job output");
@@ -190,14 +212,21 @@ impl JobHandler {
         }
 
         let upd_id = updated.id.clone().unwrap_or_default();
-        self.ds.update_job(upd_id, updated).await
+        self.ds
+            .update_job(upd_id, updated)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         if let Some(ref parent_id) = job.parent_id {
             if !parent_id.is_empty() {
-                let parent = self.ds.get_task_by_id(parent_id.clone()).await
+                let parent = self
+                    .ds
+                    .get_task_by_id(parent_id.clone())
+                    .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| HandlerError::NotFound(format!("parent task not found: {parent_id}")))?;
+                    .ok_or_else(|| {
+                        HandlerError::NotFound(format!("parent task not found: {parent_id}"))
+                    })?;
 
                 let mut updated_parent = parent.clone();
                 if new_state == JOB_STATE_FAILED {
@@ -210,21 +239,32 @@ impl JobHandler {
                     updated_parent.result = result.clone();
                 }
 
-                let queue = if new_state == JOB_STATE_FAILED { QUEUE_ERROR } else { QUEUE_COMPLETED };
-                return self.broker.publish_task(queue.to_string(), &updated_parent).await
+                let queue = if new_state == JOB_STATE_FAILED {
+                    QUEUE_ERROR
+                } else {
+                    QUEUE_COMPLETED
+                };
+                return self
+                    .broker
+                    .publish_task(queue.to_string(), &updated_parent)
+                    .await
                     .map_err(|e| HandlerError::Broker(e.to_string()));
             }
         }
 
         if new_state == JOB_STATE_FAILED {
-            let event = serde_json::to_value(job)
-                .map_err(|e| HandlerError::Handler(e.to_string()))?;
-            self.broker.publish_event(TOPIC_JOB_FAILED.to_string(), event).await
+            let event =
+                serde_json::to_value(job).map_err(|e| HandlerError::Handler(e.to_string()))?;
+            self.broker
+                .publish_event(TOPIC_JOB_FAILED.to_string(), event)
+                .await
                 .map_err(|e| HandlerError::Broker(e.to_string()))
         } else {
-            let event = serde_json::to_value(job)
-                .map_err(|e| HandlerError::Handler(e.to_string()))?;
-            self.broker.publish_event(TOPIC_JOB_COMPLETED.to_string(), event).await
+            let event =
+                serde_json::to_value(job).map_err(|e| HandlerError::Handler(e.to_string()))?;
+            self.broker
+                .publish_event(TOPIC_JOB_COMPLETED.to_string(), event)
+                .await
                 .map_err(|e| HandlerError::Broker(e.to_string()))
         }
     }
@@ -233,7 +273,10 @@ impl JobHandler {
     async fn mark_job_as_running(&self, job: &mut Job) -> Result<(), HandlerError> {
         let job_id = job.id.clone().unwrap_or_default();
 
-        let current = self.ds.get_job_by_id(job_id.clone()).await
+        let current = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         let Some(mut current) = current else {
@@ -249,7 +292,9 @@ impl JobHandler {
         job.state = current.state.clone();
 
         let upd_id = current.id.clone().unwrap_or_default();
-        self.ds.update_job(upd_id, current).await
+        self.ds
+            .update_job(upd_id, current)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))
     }
 
@@ -257,7 +302,10 @@ impl JobHandler {
     async fn restart_job(&self, job: &mut Job) -> Result<(), HandlerError> {
         let job_id = job.id.clone().unwrap_or_default();
 
-        let current = self.ds.get_job_by_id(job_id.clone()).await
+        let current = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?
             .ok_or_else(|| HandlerError::NotFound(format!("job not found: {job_id}")))?;
 
@@ -272,7 +320,9 @@ impl JobHandler {
         updated.state = JOB_STATE_RUNNING.to_string();
         updated.failed_at = None;
         let upd_id = updated.id.clone().unwrap_or_default();
-        self.ds.update_job(upd_id, updated).await
+        self.ds
+            .update_job(upd_id, updated)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         let now = OffsetDateTime::now_utc();
@@ -304,10 +354,14 @@ impl JobHandler {
         task.position = job.position;
         task.created_at = Some(now);
 
-        self.ds.create_task(task.clone()).await
+        self.ds
+            .create_task(task.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
-        self.broker.publish_task(QUEUE_PENDING.to_string(), &task).await
+        self.broker
+            .publish_task(QUEUE_PENDING.to_string(), &task)
+            .await
             .map_err(|e| HandlerError::Broker(e.to_string()))
     }
 
@@ -316,7 +370,10 @@ impl JobHandler {
         debug!(job_id = ?job.id, error = ?job.error, "job failed");
         let job_id = job.id.clone().unwrap_or_default();
 
-        let current = self.ds.get_job_by_id(job_id.clone()).await
+        let current = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         if let Some(mut current) = current {
@@ -324,30 +381,43 @@ impl JobHandler {
                 current.state = JOB_STATE_FAILED.to_string();
                 current.failed_at = job.failed_at;
                 let upd_id = current.id.clone().unwrap_or_default();
-                self.ds.update_job(upd_id, current).await
+                self.ds
+                    .update_job(upd_id, current)
+                    .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?;
             }
         }
 
         if let Some(ref parent_id) = job.parent_id {
             if !parent_id.is_empty() {
-                let parent = self.ds.get_task_by_id(parent_id.clone()).await
+                let parent = self
+                    .ds
+                    .get_task_by_id(parent_id.clone())
+                    .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| HandlerError::NotFound(format!("parent task not found: {parent_id}")))?;
+                    .ok_or_else(|| {
+                        HandlerError::NotFound(format!("parent task not found: {parent_id}"))
+                    })?;
 
                 let mut updated_parent = parent;
                 updated_parent.state = TASK_STATE_FAILED.clone();
                 updated_parent.failed_at = job.failed_at;
                 updated_parent.error = job.error.clone();
 
-                return self.broker.publish_task(QUEUE_ERROR.to_string(), &updated_parent).await
+                return self
+                    .broker
+                    .publish_task(QUEUE_ERROR.to_string(), &updated_parent)
+                    .await
                     .map_err(|e| HandlerError::Broker(e.to_string()));
             }
         }
 
         self.cancel_active_tasks(&job_id).await?;
 
-        let refreshed = self.ds.get_job_by_id(job_id).await
+        let refreshed = self
+            .ds
+            .get_job_by_id(job_id)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         if let Some(refreshed) = refreshed {
@@ -356,7 +426,9 @@ impl JobHandler {
                 job.error = refreshed.error.clone();
                 let event = serde_json::to_value(&refreshed)
                     .map_err(|e| HandlerError::Handler(e.to_string()))?;
-                self.broker.publish_event(TOPIC_JOB_FAILED.to_string(), event).await
+                self.broker
+                    .publish_event(TOPIC_JOB_FAILED.to_string(), event)
+                    .await
                     .map_err(|e| HandlerError::Broker(e.to_string()))?;
             }
         }
@@ -368,7 +440,10 @@ impl JobHandler {
     async fn cancel_job(&self, job: &mut Job) -> Result<(), HandlerError> {
         let job_id = job.id.clone().unwrap_or_default();
 
-        let current = self.ds.get_job_by_id(job_id.clone()).await
+        let current = self
+            .ds
+            .get_job_by_id(job_id.clone())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         let Some(mut current) = current else {
@@ -382,24 +457,39 @@ impl JobHandler {
         current.state = JOB_STATE_CANCELLED.to_string();
         job.state = current.state.clone();
         let upd_id = current.id.clone().unwrap_or_default();
-        self.ds.update_job(upd_id, current).await
+        self.ds
+            .update_job(upd_id, current)
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         if let Some(ref parent_id) = job.parent_id {
             if !parent_id.is_empty() {
-                let parent_task = self.ds.get_task_by_id(parent_id.clone()).await
+                let parent_task = self
+                    .ds
+                    .get_task_by_id(parent_id.clone())
+                    .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| HandlerError::NotFound(format!("parent task not found: {parent_id}")))?;
+                    .ok_or_else(|| {
+                        HandlerError::NotFound(format!("parent task not found: {parent_id}"))
+                    })?;
 
-                let parent_job_id = parent_task.job_id.clone()
-                    .ok_or_else(|| HandlerError::Handler("parent task has no job_id".to_string()))?;
+                let parent_job_id = parent_task.job_id.clone().ok_or_else(|| {
+                    HandlerError::Handler("parent task has no job_id".to_string())
+                })?;
 
-                let mut parent_job = self.ds.get_job_by_id(parent_job_id.clone()).await
+                let mut parent_job = self
+                    .ds
+                    .get_job_by_id(parent_job_id.clone())
+                    .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| HandlerError::NotFound(format!("parent job not found: {parent_job_id}")))?;
+                    .ok_or_else(|| {
+                        HandlerError::NotFound(format!("parent job not found: {parent_job_id}"))
+                    })?;
 
                 parent_job.state = JOB_STATE_CANCELLED.to_string();
-                self.broker.publish_job(&parent_job).await
+                self.broker
+                    .publish_job(&parent_job)
+                    .await
                     .map_err(|e| HandlerError::Broker(e.to_string()))?;
             }
         }
@@ -409,38 +499,57 @@ impl JobHandler {
 
     /// Cancel all currently active tasks for a job.
     async fn cancel_active_tasks(&self, job_id: &str) -> Result<(), HandlerError> {
-        let tasks = self.ds.get_active_tasks(job_id.to_string()).await
+        let tasks = self
+            .ds
+            .get_active_tasks(job_id.to_string())
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         for mut task in tasks {
             task.state = TASK_STATE_CANCELLED.clone();
             let task_id = task.id.clone().unwrap_or_default();
             let task_clone = task.clone();
-            self.ds.update_task(task_id, task_clone).await
+            self.ds
+                .update_task(task_id, task_clone)
+                .await
                 .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
             if let Some(ref sj) = task.subjob {
                 if let Some(ref sj_id) = sj.id {
                     if !sj_id.is_empty() {
-                        let subjob = self.ds.get_job_by_id(sj_id.clone()).await
+                        let subjob = self
+                            .ds
+                            .get_job_by_id(sj_id.clone())
+                            .await
                             .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                            .ok_or_else(|| HandlerError::NotFound(format!("sub-job not found: {sj_id}")))?;
+                            .ok_or_else(|| {
+                                HandlerError::NotFound(format!("sub-job not found: {sj_id}"))
+                            })?;
 
                         let mut cancelled_subjob = subjob;
                         cancelled_subjob.state = JOB_STATE_CANCELLED.to_string();
-                        self.broker.publish_job(&cancelled_subjob).await
+                        self.broker
+                            .publish_job(&cancelled_subjob)
+                            .await
                             .map_err(|e| HandlerError::Broker(e.to_string()))?;
                     }
                 }
             } else if let Some(ref node_id) = task.node_id {
                 if !node_id.is_empty() {
-                    let node = self.ds.get_node_by_id(node_id.clone()).await
+                    let node = self
+                        .ds
+                        .get_node_by_id(node_id.clone())
+                        .await
                         .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                        .ok_or_else(|| HandlerError::NotFound(format!("node not found: {node_id}")))?;
+                        .ok_or_else(|| {
+                            HandlerError::NotFound(format!("node not found: {node_id}"))
+                        })?;
 
                     let queue = node.queue.clone().unwrap_or_default();
                     if !queue.is_empty() {
-                        self.broker.publish_task(queue, &task).await
+                        self.broker
+                            .publish_task(queue, &task)
+                            .await
                             .map_err(|e| HandlerError::Broker(e.to_string()))?;
                     }
                 }
@@ -451,10 +560,7 @@ impl JobHandler {
     }
 
     /// Process a job state transition based on the current state.
-    pub fn process_state_transition(
-        &self,
-        job: &Job,
-    ) -> Result<JobStateTransition, HandlerError> {
+    pub fn process_state_transition(&self, job: &Job) -> Result<JobStateTransition, HandlerError> {
         let transition = match job.state.as_str() {
             s if s == JOB_STATE_PENDING => JobStateTransition::Start,
             s if s == JOB_STATE_SCHEDULED => JobStateTransition::Schedule,
@@ -480,6 +586,8 @@ impl JobHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use tork::task::Task;
 
     fn test_context() -> HashMap<String, serde_json::Value> {
         let mut map = HashMap::new();
@@ -505,22 +613,48 @@ mod tests {
         fn get_active_tasks(&self, _job_id: String) -> tork::datastore::BoxedFuture<Vec<Task>> {
             Box::pin(async { Ok(Vec::new()) })
         }
-        fn get_next_task(&self, _parent_task_id: String) -> tork::datastore::BoxedFuture<Option<Task>> {
+        fn get_next_task(
+            &self,
+            _parent_task_id: String,
+        ) -> tork::datastore::BoxedFuture<Option<Task>> {
             Box::pin(async { Ok(None) })
         }
-        fn create_task_log_part(&self, _part: tork::task::TaskLogPart) -> tork::datastore::BoxedFuture<()> {
+        fn create_task_log_part(
+            &self,
+            _part: tork::task::TaskLogPart,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn get_task_log_parts(&self, _task_id: String, _q: String, _page: i64, _size: i64) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
-            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 1, size: 20 }) })
+        fn get_task_log_parts(
+            &self,
+            _task_id: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 20,
+                })
+            })
         }
         fn create_node(&self, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn update_node(&self, _id: String, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
+        fn update_node(
+            &self,
+            _id: String,
+            _node: tork::node::Node,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn get_node_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::node::Node>> {
+        fn get_node_by_id(
+            &self,
+            _id: String,
+        ) -> tork::datastore::BoxedFuture<Option<tork::node::Node>> {
             Box::pin(async { Ok(None) })
         }
         fn get_active_nodes(&self) -> tork::datastore::BoxedFuture<Vec<tork::node::Node>> {
@@ -535,25 +669,76 @@ mod tests {
         fn get_job_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<Job>> {
             Box::pin(async { Ok(None) })
         }
-        fn get_job_log_parts(&self, _job_id: String, _q: String, _page: i64, _size: i64) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
-            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 1, size: 20 }) })
+        fn get_job_log_parts(
+            &self,
+            _job_id: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 20,
+                })
+            })
         }
-        fn get_jobs(&self, _current_user: String, _q: String, _page: i64, _size: i64) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::JobSummary>> {
-            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 1, size: 20 }) })
+        fn get_jobs(
+            &self,
+            _current_user: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::JobSummary>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 20,
+                })
+            })
         }
-        fn create_scheduled_job(&self, _sj: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+        fn create_scheduled_job(
+            &self,
+            _sj: tork::job::ScheduledJob,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn get_active_scheduled_jobs(&self) -> tork::datastore::BoxedFuture<Vec<tork::job::ScheduledJob>> {
+        fn get_active_scheduled_jobs(
+            &self,
+        ) -> tork::datastore::BoxedFuture<Vec<tork::job::ScheduledJob>> {
             Box::pin(async { Ok(Vec::new()) })
         }
-        fn get_scheduled_jobs(&self, _current_user: String, _page: i64, _size: i64) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::ScheduledJobSummary>> {
-            Box::pin(async { Ok(tork::datastore::Page { items: vec![], total: 0, page: 1, size: 20 }) })
+        fn get_scheduled_jobs(
+            &self,
+            _current_user: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::ScheduledJobSummary>>
+        {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 20,
+                })
+            })
         }
-        fn get_scheduled_job_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::job::ScheduledJob>> {
+        fn get_scheduled_job_by_id(
+            &self,
+            _id: String,
+        ) -> tork::datastore::BoxedFuture<Option<tork::job::ScheduledJob>> {
             Box::pin(async { Ok(None) })
         }
-        fn update_scheduled_job(&self, _id: String, _sj: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+        fn update_scheduled_job(
+            &self,
+            _id: String,
+            _sj: tork::job::ScheduledJob,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn delete_scheduled_job(&self, _id: String) -> tork::datastore::BoxedFuture<()> {
@@ -562,7 +747,10 @@ mod tests {
         fn create_user(&self, _user: tork::user::User) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn get_user(&self, _username: String) -> tork::datastore::BoxedFuture<Option<tork::user::User>> {
+        fn get_user(
+            &self,
+            _username: String,
+        ) -> tork::datastore::BoxedFuture<Option<tork::user::User>> {
             Box::pin(async { Ok(None) })
         }
         fn create_role(&self, _role: tork::role::Role) -> tork::datastore::BoxedFuture<()> {
@@ -574,13 +762,24 @@ mod tests {
         fn get_roles(&self) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
             Box::pin(async { Ok(Vec::new()) })
         }
-        fn get_user_roles(&self, _user_id: String) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
+        fn get_user_roles(
+            &self,
+            _user_id: String,
+        ) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
             Box::pin(async { Ok(Vec::new()) })
         }
-        fn assign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+        fn assign_role(
+            &self,
+            _user_id: String,
+            _role_id: String,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn unassign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+        fn unassign_role(
+            &self,
+            _user_id: String,
+            _role_id: String,
+        ) -> tork::datastore::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn get_metrics(&self) -> tork::datastore::BoxedFuture<tork::stats::Metrics> {
@@ -599,44 +798,78 @@ mod tests {
         fn publish_task(&self, _qname: String, _task: &Task) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_tasks(&self, _qname: String, _handler: tork::broker::TaskHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_tasks(
+            &self,
+            _qname: String,
+            _handler: tork::broker::TaskHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn publish_task_progress(&self, _task: &Task) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_task_progress(&self, _handler: tork::broker::TaskProgressHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_task_progress(
+            &self,
+            _handler: tork::broker::TaskProgressHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn publish_heartbeat(&self, _node: tork::node::Node) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_heartbeats(&self, _handler: tork::broker::HeartbeatHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_heartbeats(
+            &self,
+            _handler: tork::broker::HeartbeatHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn publish_job(&self, _job: &Job) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_jobs(&self, _handler: tork::broker::JobHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_jobs(
+            &self,
+            _handler: tork::broker::JobHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn publish_event(&self, _topic: String, _event: serde_json::Value) -> tork::broker::BoxedFuture<()> {
+        fn publish_event(
+            &self,
+            _topic: String,
+            _event: serde_json::Value,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_events(&self, _pattern: String, _handler: tork::broker::EventHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_events(
+            &self,
+            _pattern: String,
+            _handler: tork::broker::EventHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn publish_task_log_part(&self, _part: &tork::task::TaskLogPart) -> tork::broker::BoxedFuture<()> {
+        fn publish_task_log_part(
+            &self,
+            _part: &tork::task::TaskLogPart,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
-        fn subscribe_for_task_log_part(&self, _handler: tork::broker::TaskLogPartHandler) -> tork::broker::BoxedFuture<()> {
+        fn subscribe_for_task_log_part(
+            &self,
+            _handler: tork::broker::TaskLogPartHandler,
+        ) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
         fn queues(&self) -> tork::broker::BoxedFuture<Vec<tork::broker::QueueInfo>> {
             Box::pin(async { Ok(Vec::new()) })
         }
         fn queue_info(&self, _qname: String) -> tork::broker::BoxedFuture<tork::broker::QueueInfo> {
-            Box::pin(async { Ok(tork::broker::QueueInfo { name: String::new(), size: 0, subscribers: 0, unacked: 0 }) })
+            Box::pin(async {
+                Ok(tork::broker::QueueInfo {
+                    name: String::new(),
+                    size: 0,
+                    subscribers: 0,
+                    unacked: 0,
+                })
+            })
         }
         fn delete_queue(&self, _qname: String) -> tork::broker::BoxedFuture<()> {
             Box::pin(async { Ok(()) })
@@ -658,7 +891,10 @@ mod tests {
     #[test]
     fn test_evaluate_template_with_expression() {
         let ctx = test_context();
-        assert_eq!(evaluate_template("{{ inputs.var1 }}", &ctx).unwrap(), "hello");
+        assert_eq!(
+            evaluate_template("{{ inputs.var1 }}", &ctx).unwrap(),
+            "hello"
+        );
     }
 
     #[test]
@@ -677,7 +913,10 @@ mod tests {
     fn test_evaluate_task_with_bad_env() {
         let ctx = test_context();
         let mut task = Task::default();
-        task.env = Some(HashMap::from([("SOMEVAR".to_string(), "{{ bad_expression }}".to_string())]));
+        task.env = Some(HashMap::from([(
+            "SOMEVAR".to_string(),
+            "{{ bad_expression }}".to_string(),
+        )]));
         assert!(evaluate_task(&task, &ctx).is_err());
     }
 
@@ -685,17 +924,39 @@ mod tests {
     fn test_evaluate_task_with_good_env() {
         let ctx = test_context();
         let mut task = Task::default();
-        task.env = Some(HashMap::from([("SOMEVAR".to_string(), "{{ inputs.var1 }}".to_string())]));
+        task.env = Some(HashMap::from([(
+            "SOMEVAR".to_string(),
+            "{{ inputs.var1 }}".to_string(),
+        )]));
         let result = evaluate_task(&task, &ctx).unwrap();
-        assert_eq!(result.env.as_ref().and_then(|e| e.get("SOMEVAR")).map(String::as_str), Some("hello"));
+        assert_eq!(
+            result
+                .env
+                .as_ref()
+                .and_then(|e| e.get("SOMEVAR"))
+                .map(String::as_str),
+            Some("hello")
+        );
     }
 
     #[test]
     fn test_parse_duration() {
-        assert_eq!(parse_duration("1m").unwrap(), std::time::Duration::from_secs(60));
-        assert_eq!(parse_duration("2h").unwrap(), std::time::Duration::from_secs(7200));
-        assert_eq!(parse_duration("30s").unwrap(), std::time::Duration::from_secs(30));
-        assert_eq!(parse_duration("1h30m").unwrap(), std::time::Duration::from_secs(5400));
+        assert_eq!(
+            parse_duration("1m").unwrap(),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            parse_duration("2h").unwrap(),
+            std::time::Duration::from_secs(7200)
+        );
+        assert_eq!(
+            parse_duration("30s").unwrap(),
+            std::time::Duration::from_secs(30)
+        );
+        assert_eq!(
+            parse_duration("1h30m").unwrap(),
+            std::time::Duration::from_secs(5400)
+        );
         assert!(parse_duration("invalid").is_err());
     }
 

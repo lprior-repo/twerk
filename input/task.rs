@@ -17,8 +17,7 @@ use tork::task::{
 };
 
 /// Task input type
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Task {
     /// Task name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -202,8 +201,7 @@ pub struct Parallel {
 }
 
 /// Retry configuration
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Retry {
     /// Maximum retry count
     #[serde(default)]
@@ -362,7 +360,6 @@ pub struct Probe {
     pub timeout: Option<String>,
 }
 
-
 impl Task {
     /// Creates a new Task with the given name and image
     #[must_use]
@@ -413,7 +410,6 @@ impl Retry {
         (1..=10).contains(&self.limit)
     }
 }
-
 
 impl Limits {
     /// Creates a new Limits with the given CPU and memory

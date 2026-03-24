@@ -71,9 +71,10 @@ impl ScheduleHandler {
             .await
             .map_err(|e| HandlerError::Handler(format!("error creating scheduler: {e}")))?;
 
-        scheduler.start().await.map_err(|e| {
-            HandlerError::Handler(format!("error starting scheduler: {e}"))
-        })?;
+        scheduler
+            .start()
+            .await
+            .map_err(|e| HandlerError::Handler(format!("error starting scheduler: {e}")))?;
 
         let handler = Self {
             ds: ds.clone(),
@@ -84,7 +85,10 @@ impl ScheduleHandler {
         };
 
         // Initialize all existing active jobs
-        let active_jobs = handler.ds.get_active_scheduled_jobs().await
+        let active_jobs = handler
+            .ds
+            .get_active_scheduled_jobs()
+            .await
             .map_err(|e| HandlerError::Datastore(e.to_string()))?;
 
         for active_job in &active_jobs {
@@ -106,7 +110,9 @@ impl ScheduleHandler {
 
     /// Handle a scheduled job event.
     pub async fn handle(&self, scheduled_job: &ScheduledJob) -> Result<(), HandlerError> {
-        let job_id = scheduled_job.id.as_deref()
+        let job_id = scheduled_job
+            .id
+            .as_deref()
             .ok_or_else(|| HandlerError::Validation("scheduled job ID is required".into()))?;
 
         match calculate_schedule_action(&scheduled_job.state)? {
@@ -196,13 +202,13 @@ impl ScheduleHandler {
 
                 lock.release_lock().await.ok();
             })
-        }).map_err(|e| {
-            HandlerError::Handler(format!("error scheduling job {job_id}: {e}"))
-        })?;
+        })
+        .map_err(|e| HandlerError::Handler(format!("error scheduling job {job_id}: {e}")))?;
 
-        let job_uuid = self.scheduler.add(cron_job).await.map_err(|e| {
-            HandlerError::Handler(format!("error scheduling job {job_id}: {e}"))
-        })?;
+        let job_uuid =
+            self.scheduler.add(cron_job).await.map_err(|e| {
+                HandlerError::Handler(format!("error scheduling job {job_id}: {e}"))
+            })?;
 
         let mut jobs = self.jobs.lock().await;
         jobs.insert(job_id.to_string(), job_uuid);
@@ -214,9 +220,9 @@ impl ScheduleHandler {
     async fn handle_paused(&self, job_id: &str) -> Result<(), HandlerError> {
         let jobs = self.jobs.lock().await;
 
-        let job_uuid = jobs.get(job_id).ok_or_else(|| {
-            HandlerError::NotFound(format!("unknown scheduled job: {job_id}"))
-        })?;
+        let job_uuid = jobs
+            .get(job_id)
+            .ok_or_else(|| HandlerError::NotFound(format!("unknown scheduled job: {job_id}")))?;
 
         tracing::info!(scheduled_job_id = job_id, "Pausing scheduled job");
 
@@ -237,7 +243,9 @@ impl ScheduleHandler {
 
 #[cfg(test)]
 mod tests {
+    use self::calc::MIN_SCHEDULED_JOB_LOCK_TTL;
     use super::*;
+    use tork::{JOB_STATE_PENDING, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED};
 
     #[test]
     fn test_calculate_schedule_action_active() {
@@ -287,8 +295,14 @@ mod tests {
         assert_eq!(job.name.as_deref(), Some("Test Scheduled Job"));
         assert_eq!(job.task_count, 0);
         assert!(job.schedule.is_some());
-        assert_eq!(job.schedule.as_ref().and_then(|s| s.id.as_deref()), Some("sched-1"));
-        assert_eq!(job.schedule.as_ref().and_then(|s| s.cron.as_deref()), Some("* * * * *"));
+        assert_eq!(
+            job.schedule.as_ref().and_then(|s| s.id.as_deref()),
+            Some("sched-1")
+        );
+        assert_eq!(
+            job.schedule.as_ref().and_then(|s| s.cron.as_deref()),
+            Some("* * * * *")
+        );
     }
 
     #[test]
@@ -342,6 +356,9 @@ mod tests {
 
     #[test]
     fn test_min_lock_ttl() {
-        assert_eq!(MIN_SCHEDULED_JOB_LOCK_TTL, std::time::Duration::from_secs(10));
+        assert_eq!(
+            MIN_SCHEDULED_JOB_LOCK_TTL,
+            std::time::Duration::from_secs(10)
+        );
     }
 }

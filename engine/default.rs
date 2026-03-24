@@ -64,7 +64,11 @@ pub async fn register_log_middleware(mw: crate::engine::LogMiddlewareFunc) {
 ///
 /// Go parity: `func RegisterMounter(runtime, name string, mounter runtime.Mounter)`
 #[allow(dead_code)]
-pub async fn register_mounter(rt: &str, name: &str, mounter: Box<dyn tork::runtime::mount::Mounter>) {
+pub async fn register_mounter(
+    rt: &str,
+    name: &str,
+    mounter: Box<dyn tork::runtime::mount::Mounter>,
+) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_mounter(rt, name, mounter);
 }
@@ -80,10 +84,7 @@ pub async fn register_runtime(rt: Box<dyn Runtime + Send + Sync>) {
 /// Register a datastore provider by name.
 ///
 /// Go parity: `func RegisterDatastoreProvider(name string, provider datastore.Provider)`
-pub async fn register_datastore_provider(
-    name: &str,
-    provider: Box<dyn Datastore + Send + Sync>,
-) {
+pub async fn register_datastore_provider(name: &str, provider: Box<dyn Datastore + Send + Sync>) {
     let mut engine = DEFAULT_ENGINE.write().await;
     engine.register_datastore_provider(name, provider);
 }

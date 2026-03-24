@@ -30,11 +30,14 @@ pub const LOCKER_POSTGRES: &str = "postgres";
 /// The lock is consumed when released, preventing double-release.
 pub trait Lock: Send + Sync {
     /// Release the lock, consuming it.
-    fn release_lock(self: Pin<Box<Self>>) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>>;
+    fn release_lock(
+        self: Pin<Box<Self>>,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>>;
 }
 
 /// Result type for [`Locker::acquire_lock`] operations.
-pub type AcquireLockFuture = Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>>;
+pub type AcquireLockFuture =
+    Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>>;
 
 /// Trait for lockers that can acquire and release locks.
 pub trait Locker: Send + Sync {

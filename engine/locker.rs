@@ -135,4 +135,3 @@ fn env_duration_default(key: &str, default: Duration) -> Duration {
 
 #[cfg(test)]
 mod locker_test;
-

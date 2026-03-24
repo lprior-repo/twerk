@@ -155,14 +155,13 @@ impl RedeliveredHandler {
                     .await
                     .map_err(|e| HandlerError::Broker(e.to_string()))?;
             }
-            RedeliveredOutcome::Requeued { task: requeued_task } => {
+            RedeliveredOutcome::Requeued {
+                task: requeued_task,
+            } => {
                 // Go: `h.broker.PublishTask(ctx, t.Queue, t)`
-                let qname = requeued_task
-                    .queue
-                    .clone()
-                    .ok_or_else(|| {
-                        HandlerError::Validation("task queue is required for requeue".into())
-                    })?;
+                let qname = requeued_task.queue.clone().ok_or_else(|| {
+                    HandlerError::Validation("task queue is required for requeue".into())
+                })?;
                 self.broker
                     .publish_task(qname, &requeued_task)
                     .await
@@ -176,4 +175,3 @@ impl RedeliveredHandler {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-

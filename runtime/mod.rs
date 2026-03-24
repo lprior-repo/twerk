@@ -5,8 +5,8 @@
 //! - The `Runtime` trait (Run, HealthCheck)
 //! - The `Mounter` trait and `MultiMounter` for mount management
 
-pub mod shell;
 pub mod podman;
+pub mod shell;
 
 // Re-export shared runtime abstractions for parity with Go's runtime package
 pub use tork::runtime::Mounter;

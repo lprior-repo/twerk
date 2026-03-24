@@ -5,7 +5,7 @@
 //! datastore/broker (pure boundary), return JSON response.
 
 use axum::body::Bytes;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -13,20 +13,21 @@ use serde_json::json;
 use std::sync::Arc;
 use tork::broker::is_task_queue;
 use tork::{
-    new_job_summary, new_scheduled_job_summary, Broker, Datastore, Job,
-    JOB_STATE_CANCELLED, JOB_STATE_FAILED, JOB_STATE_RESTART, JOB_STATE_RUNNING,
-    JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
+    new_job_summary, new_scheduled_job_summary, Broker, Datastore, Job, UsernameValue,
+    JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_RESTART,
+    JOB_STATE_RUNNING, JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
 };
 
 use super::error::ApiError;
 use super::AppState;
 
 /// Broker topic for job events (Go: `broker.TOPIC_JOB`)
-/// Used for the wait mode in create_job (deferred).
-#[allow(dead_code)]
 const TOPIC_JOB: &str = "job.*";
 /// Broker topic for scheduled job events (Go: `broker.TOPIC_SCHEDULED_JOB`)
 const TOPIC_SCHEDULED_JOB: &str = "scheduled.job";
+
+/// Timeout for wait mode in seconds (Go: configurable, default 60).
+const WAIT_TIMEOUT_SECS: u64 = 60;
 
 // ---------------------------------------------------------------------------
 // Pagination helpers
@@ -50,9 +51,32 @@ fn parse_page(p: Option<i64>) -> i64 {
 
 /// Parse a size parameter with clamping.
 fn parse_size(p: Option<i64>, default: i64, max: i64) -> i64 {
-    p.filter(|&v| v >= 1)
-        .unwrap_or(default)
-        .clamp(1, max)
+    p.filter(|&v| v >= 1).unwrap_or(default).clamp(1, max)
+}
+
+/// Query parameters for POST /jobs (wait mode).
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct CreateJobQuery {
+    pub wait: Option<bool>,
+}
+
+/// Extract the authenticated username from request extensions.
+///
+/// The auth middleware (basic auth or API key) inserts a `UsernameValue`
+/// into the request extensions. Returns empty string if unauthenticated.
+fn extract_current_user(req: &Request) -> String {
+    req.extensions()
+        .get::<UsernameValue>()
+        .map(|v| v.0.clone())
+        .unwrap_or_default()
+}
+
+/// Check if a job state is terminal (completed, failed, or cancelled).
+fn is_terminal_state(state: &str) -> bool {
+    matches!(
+        state,
+        JOB_STATE_COMPLETED | JOB_STATE_FAILED | JOB_STATE_CANCELLED
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -63,19 +87,14 @@ fn parse_size(p: Option<i64>, default: i64, max: i64) -> i64 {
 ///
 /// Go parity: `health.NewHealthCheck().WithIndicator(...).Do(ctx)`
 pub async fn health_handler(State(state): State<AppState>) -> Response {
-    let ds_ok = state
-        .ds
-        .health_check()
-        .await
-        .is_ok();
-    let broker_ok = state
-        .broker
-        .health_check()
-        .await
-        .is_ok();
+    let ds_ok = state.ds.health_check().await.is_ok();
+    let broker_ok = state.broker.health_check().await.is_ok();
 
     let (status, body) = if ds_ok && broker_ok {
-        (StatusCode::OK, json!({"status": "UP", "version": tork::version::VERSION}))
+        (
+            StatusCode::OK,
+            json!({"status": "UP", "version": tork::version::VERSION}),
+        )
     } else {
         (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -103,8 +122,10 @@ pub async fn get_task_handler(
         .map_err(ApiError::from)?
         .ok_or_else(|| ApiError::not_found(format!("task {id} not found")))?;
 
-    Ok(axum::Json(serde_json::to_value(task).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(task).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Get task log parts with pagination.
@@ -133,8 +154,10 @@ pub async fn get_task_log_handler(
         .await
         .map_err(ApiError::from)?;
 
-    Ok(axum::Json(serde_json::to_value(parts).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(parts).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +171,7 @@ pub async fn get_task_log_handler(
 /// Wait mode subscribes to job events and blocks until terminal state or timeout.
 pub async fn create_job_handler(
     State(state): State<AppState>,
+    Query(cq): Query<CreateJobQuery>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, ApiError> {
@@ -157,19 +181,25 @@ pub async fn create_job_handler(
         .unwrap_or("");
 
     let ji = match content_type {
-        "application/json" => {
-            serde_json::from_slice::<tork_input::Job>(&body)
-                .map_err(|e| ApiError::bad_request(e.to_string()))?
-        }
-        "text/yaml" | "application/x-yaml" => {
-            serde_yml::from_slice::<tork_input::Job>(&body)
-                .map_err(|e| ApiError::bad_request(e.to_string()))?
-        }
+        "application/json" => serde_json::from_slice::<tork_input::Job>(&body)
+            .map_err(|e| ApiError::bad_request(e.to_string()))?,
+        "text/yaml" | "application/x-yaml" => serde_yml::from_slice::<tork_input::Job>(&body)
+            .map_err(|e| ApiError::bad_request(e.to_string()))?,
         "" => return Err(ApiError::bad_request("missing content type")),
-        other => return Err(ApiError::bad_request(format!("unknown content type: {other}"))),
+        other => {
+            return Err(ApiError::bad_request(format!(
+                "unknown content type: {other}"
+            )))
+        }
     };
 
     let job = submit_job(&state.ds, &state.broker, ji).await?;
+
+    if cq.wait == Some(true) {
+        let job_id = job.id.clone().unwrap_or_default();
+        return wait_for_terminal_state(&state, job_id).await;
+    }
+
     let summary = new_job_summary(&job);
     let val = serde_json::to_value(summary).map_err(|e| ApiError::internal(e.to_string()))?;
     Ok((StatusCode::OK, axum::Json(val)).into_response())
@@ -189,8 +219,10 @@ pub async fn get_job_handler(
         .map_err(ApiError::from)?
         .ok_or_else(|| ApiError::not_found(format!("job {id} not found")))?;
 
-    Ok(axum::Json(serde_json::to_value(job).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(job).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Get job log parts with pagination.
@@ -219,8 +251,10 @@ pub async fn get_job_log_handler(
         .await
         .map_err(ApiError::from)?;
 
-    Ok(axum::Json(serde_json::to_value(parts).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(parts).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Cancel a running or scheduled job.
@@ -289,22 +323,27 @@ pub async fn restart_job_handler(
 /// List jobs with pagination.
 ///
 /// Go parity: page defaults 1, size defaults 10, max 20.
+/// Filters by authenticated user when auth middleware is active.
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
     Query(qp): Query<PaginationQuery>,
+    req: Request,
 ) -> Result<Response, ApiError> {
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 10, 20);
     let q = qp.q.clone().unwrap_or_default();
+    let current_user = extract_current_user(&req);
 
     let result = state
         .ds
-        .get_jobs(String::new(), q, page, size)
+        .get_jobs(current_user, q, page, size)
         .await
         .map_err(ApiError::internal)?;
 
-    Ok(axum::Json(serde_json::to_value(result).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(result).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -325,16 +364,18 @@ pub async fn create_scheduled_job_handler(
         .unwrap_or("");
 
     let ji = match content_type {
-        "application/json" => {
-            serde_json::from_slice::<tork_input::ScheduledJob>(&body)
-                .map_err(|e| ApiError::bad_request(e.to_string()))?
-        }
+        "application/json" => serde_json::from_slice::<tork_input::ScheduledJob>(&body)
+            .map_err(|e| ApiError::bad_request(e.to_string()))?,
         "text/yaml" | "application/x-yaml" => {
             serde_yml::from_slice::<tork_input::ScheduledJob>(&body)
                 .map_err(|e| ApiError::bad_request(e.to_string()))?
         }
         "" => return Err(ApiError::bad_request("missing content type")),
-        other => return Err(ApiError::bad_request(format!("unknown content type: {other}"))),
+        other => {
+            return Err(ApiError::bad_request(format!(
+                "unknown content type: {other}"
+            )))
+        }
     };
 
     let sj = submit_scheduled_job(&state.ds, &state.broker, ji).await?;
@@ -357,28 +398,35 @@ pub async fn get_scheduled_job_handler(
         .map_err(ApiError::from)?
         .ok_or_else(|| ApiError::not_found(format!("scheduled job {id} not found")))?;
 
-    Ok(axum::Json(serde_json::to_value(sj).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(sj).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// List scheduled jobs with pagination.
 ///
 /// Go parity: page defaults 1, size defaults 10, max 20.
+/// Filters by authenticated user when auth middleware is active.
 pub async fn list_scheduled_jobs_handler(
     State(state): State<AppState>,
     Query(qp): Query<PaginationQuery>,
+    req: Request,
 ) -> Result<Response, ApiError> {
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 10, 20);
+    let current_user = extract_current_user(&req);
 
     let result = state
         .ds
-        .get_scheduled_jobs(String::new(), page, size)
+        .get_scheduled_jobs(current_user, page, size)
         .await
         .map_err(ApiError::internal)?;
 
-    Ok(axum::Json(serde_json::to_value(result).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(result).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Pause an active scheduled job.
@@ -496,12 +544,12 @@ pub async fn delete_scheduled_job_handler(
 /// List all broker queues.
 ///
 /// Go parity: `s.broker.Queues` → 200 with list.
-pub async fn list_queues_handler(
-    State(state): State<AppState>,
-) -> Result<Response, ApiError> {
+pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let queues = state.broker.queues().await.map_err(ApiError::internal)?;
-    Ok(axum::Json(serde_json::to_value(queues).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(queues).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Get queue info by name.
@@ -517,8 +565,10 @@ pub async fn get_queue_handler(
         .await
         .map_err(|_| ApiError::not_found(format!("queue {name} not found")))?;
 
-    Ok(axum::Json(serde_json::to_value(queue).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(queue).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 /// Delete a queue by name.
@@ -557,17 +607,17 @@ pub async fn delete_queue_handler(
 /// List active worker nodes.
 ///
 /// Go parity: `s.ds.GetActiveNodes` → 200 with list.
-pub async fn list_nodes_handler(
-    State(state): State<AppState>,
-) -> Result<Response, ApiError> {
+pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let nodes = state
         .ds
         .get_active_nodes()
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-    Ok(axum::Json(serde_json::to_value(nodes).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(nodes).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -577,17 +627,13 @@ pub async fn list_nodes_handler(
 /// Get system metrics.
 ///
 /// Go parity: `s.ds.GetMetrics` → 200 with metrics.
-pub async fn get_metrics_handler(
-    State(state): State<AppState>,
-) -> Result<Response, ApiError> {
-    let metrics = state
-        .ds
-        .get_metrics()
-        .await
-        .map_err(ApiError::internal)?;
+pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
+    let metrics = state.ds.get_metrics().await.map_err(ApiError::internal)?;
 
-    Ok(axum::Json(serde_json::to_value(metrics).map_err(|e| ApiError::internal(e.to_string()))?)
-        .into_response())
+    Ok(
+        axum::Json(serde_json::to_value(metrics).map_err(|e| ApiError::internal(e.to_string()))?)
+            .into_response(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -688,8 +734,7 @@ async fn submit_scheduled_job(
     broker: &Arc<dyn Broker>,
     ji: tork_input::ScheduledJob,
 ) -> Result<tork::ScheduledJob, ApiError> {
-    tork_input::validate_scheduled_job(&ji)
-        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    tork_input::validate_scheduled_job(&ji).map_err(|e| ApiError::bad_request(e.to_string()))?;
 
     let mut sj = ji.to_scheduled_job();
     sj.created_by = None;
@@ -698,12 +743,77 @@ async fn submit_scheduled_job(
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-    let event_val =
-        serde_json::to_value(&sj).map_err(|e| ApiError::internal(e.to_string()))?;
+    let event_val = serde_json::to_value(&sj).map_err(|e| ApiError::internal(e.to_string()))?;
     broker
         .publish_event(TOPIC_SCHEDULED_JOB.to_string(), event_val)
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
     Ok(sj)
+}
+
+/// Wait for a job to reach a terminal state via broker events.
+///
+/// Subscribes to `job.*` events, waits for the specified job to reach
+/// COMPLETED, FAILED, or CANCELLED state, or times out after 60 seconds.
+/// Returns the full job object as JSON.
+async fn wait_for_terminal_state(state: &AppState, job_id: String) -> Result<Response, ApiError> {
+    use std::sync::Mutex;
+    use tokio::sync::oneshot;
+    use tokio::time::{timeout, Duration};
+
+    let (tx, rx) = oneshot::channel::<serde_json::Value>();
+    let tx_guard = Arc::new(Mutex::new(Some(tx)));
+    let waiting_id = job_id.clone();
+
+    let handler: tork::broker::EventHandler = Arc::new(move |event: serde_json::Value| {
+        let tx_guard = tx_guard.clone();
+        let waiting_id = waiting_id.clone();
+        Box::pin(async move {
+            let dominated_by_terminal = event
+                .get("state")
+                .and_then(|s| s.as_str())
+                .is_some_and(is_terminal_state);
+
+            let dominated_by_id = event
+                .get("id")
+                .and_then(|id| id.as_str())
+                .is_some_and(|id| id == waiting_id);
+
+            if dominated_by_id && dominated_by_terminal {
+                if let Some(sender) = tx_guard.lock().ok().and_then(|mut g| g.take()) {
+                    let _ = sender.send(event);
+                }
+            }
+        })
+    });
+
+    state
+        .broker
+        .subscribe_for_events(TOPIC_JOB.to_string(), handler)
+        .await
+        .map_err(ApiError::internal)?;
+
+    let wait_result = timeout(Duration::from_secs(WAIT_TIMEOUT_SECS), rx).await;
+
+    match wait_result {
+        Ok(Ok(job_value)) => {
+            let val =
+                serde_json::to_value(&job_value).map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok((StatusCode::OK, axum::Json(val)).into_response())
+        }
+        Ok(Err(_recv_err)) => Err(ApiError::internal("job event channel closed")),
+        Err(_timeout_err) => {
+            // On timeout, fetch the current job state from the datastore
+            let job = state
+                .ds
+                .get_job_by_id(job_id.clone())
+                .await
+                .map_err(ApiError::from)?
+                .ok_or_else(|| ApiError::not_found(format!("job {job_id} not found")))?;
+
+            let val = serde_json::to_value(job).map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok((StatusCode::OK, axum::Json(val)).into_response())
+        }
+    }
 }

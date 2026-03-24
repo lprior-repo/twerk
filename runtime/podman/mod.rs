@@ -11,9 +11,9 @@
 //! - Mount driver options
 //! - Stderr log forwarding to broker
 
-mod volume;
 #[cfg(test)]
 mod tests;
+mod volume;
 
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -209,10 +209,7 @@ struct ContainerGuard {
 }
 
 impl ContainerGuard {
-    fn new(
-        container_id: String,
-        tasks: Arc<RwLock<HashMap<String, String>>>,
-    ) -> Self {
+    fn new(container_id: String, tasks: Arc<RwLock<HashMap<String, String>>>) -> Self {
         Self {
             container_id,
             tasks,
@@ -354,7 +351,10 @@ impl PodmanRuntime {
         password: &str,
     ) -> Result<(), PodmanError> {
         let registry_host = Self::extract_registry_host(image);
-        debug!("Logging into registry {} for user {}", registry_host, username);
+        debug!(
+            "Logging into registry {} for user {}",
+            registry_host, username
+        );
         let mut cmd = Command::new("podman");
         cmd.arg("login");
         cmd.arg("--username").arg(username);
@@ -621,12 +621,9 @@ impl PodmanRuntime {
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
 
         // Make entrypoint executable (needed when custom entrypoint uses -c)
-        tokio::fs::set_permissions(
-            &entrypoint_path,
-            std::fs::Permissions::from_mode(0o755),
-        )
-        .await
-        .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
+        tokio::fs::set_permissions(&entrypoint_path, std::fs::Permissions::from_mode(0o755))
+            .await
+            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
 
         // Pull image with optional registry credentials
         let registry = task.registry.as_ref().and_then(|r| {
@@ -715,10 +712,7 @@ impl PodmanRuntime {
                                 .map(|(k, v)| format!("{}={}", k, v))
                                 .collect::<Vec<_>>()
                                 .join(",");
-                            format!(
-                                "{}:{}:{}",
-                                mount.source, mount.target, opt_str
-                            )
+                            format!("{}:{}:{}", mount.source, mount.target, opt_str)
                         }
                     } else {
                         format!("{}:{}", mount.source, mount.target)
@@ -757,9 +751,7 @@ impl PodmanRuntime {
             // Memory
             if !limits.memory.is_empty() {
                 let bytes = Self::parse_memory(&limits.memory)?;
-                create_cmd
-                    .arg("--memory")
-                    .arg(bytes.to_string());
+                create_cmd.arg("--memory").arg(bytes.to_string());
             }
         }
 
@@ -774,9 +766,7 @@ impl PodmanRuntime {
         if let Some(ref probe) = task.probe {
             let port_str = probe.port.to_string();
             // Expose the container port
-            create_cmd
-                .arg("--expose")
-                .arg(format!("{}/tcp", port_str));
+            create_cmd.arg("--expose").arg(format!("{}/tcp", port_str));
             // Map to a random host port on localhost
             create_cmd
                 .arg("-p")
@@ -834,7 +824,9 @@ impl PodmanRuntime {
 
         let create_output = tokio::time::timeout(CREATE_TIMEOUT, create_cmd.output())
             .await
-            .map_err(|_| PodmanError::ContainerCreation("create timed out after 30 seconds".to_string()))?
+            .map_err(|_| {
+                PodmanError::ContainerCreation("create timed out after 30 seconds".to_string())
+            })?
             .map_err(|e| PodmanError::ContainerCreation(e.to_string()))?;
 
         if !create_output.status.success() {
@@ -1005,9 +997,7 @@ impl PodmanRuntime {
             .await
             .map_err(|e| PodmanError::ContainerInspect(e.to_string()))?;
 
-        let port_str = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let port_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         port_str
             .parse::<u16>()
@@ -1092,12 +1082,9 @@ impl PodmanRuntime {
     /// Parse a CPU limit string (e.g., "2", "1.5", "0.5") into
     /// the number of CPUs as a float. Returns the float value or error.
     fn parse_cpus(cpus: &str) -> Result<f64, PodmanError> {
-        let nanos: f64 = cpus
-            .parse()
-            .map_err(|e| PodmanError::InvalidCpusLimit(format!(
-                "failed to parse '{}' as CPU limit: {}",
-                cpus, e
-            )))?;
+        let nanos: f64 = cpus.parse().map_err(|e| {
+            PodmanError::InvalidCpusLimit(format!("failed to parse '{}' as CPU limit: {}", cpus, e))
+        })?;
         if nanos < 0.0 {
             return Err(PodmanError::InvalidCpusLimit(
                 "CPU limit must be non-negative".to_string(),
@@ -1129,12 +1116,12 @@ impl PodmanRuntime {
             (memory, 1u64)
         };
 
-        let value: f64 = num_str
-            .parse()
-            .map_err(|e| PodmanError::InvalidMemoryLimit(format!(
+        let value: f64 = num_str.parse().map_err(|e| {
+            PodmanError::InvalidMemoryLimit(format!(
                 "failed to parse '{}' as memory limit: {}",
                 memory, e
-            )))?;
+            ))
+        })?;
 
         Ok((value * multiplier as f64) as u64)
     }
@@ -1252,13 +1239,12 @@ impl PodmanRuntime {
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| PodmanError::ContainerCreation(format!(
+        let output = cmd.output().await.map_err(|e| {
+            PodmanError::ContainerCreation(format!(
                 "failed to remove container {}: {}",
                 container_id, e
-            )))?;
+            ))
+        })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1273,9 +1259,10 @@ impl PodmanRuntime {
     pub async fn health_check(&self) -> Result<(), PodmanError> {
         let mut cmd = Command::new("podman");
         cmd.arg("version");
-        let output = cmd.output().await.map_err(|_| {
-            PodmanError::PodmanNotRunning
-        })?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|_| PodmanError::PodmanNotRunning)?;
 
         if !output.status.success() {
             return Err(PodmanError::PodmanNotRunning);

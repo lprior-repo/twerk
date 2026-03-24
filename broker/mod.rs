@@ -15,8 +15,8 @@ pub mod rabbitmq;
 
 // Re-export broker types from tork crate
 pub use tork::broker::{
-    Broker, BoxedFuture, BoxedHandlerFuture, EventHandler, HeartbeatHandler, JobHandler,
-    QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo,
+    TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
 
 // Re-export queue constants

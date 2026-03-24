@@ -6,9 +6,9 @@
 use crate::host::get_cpu_percent;
 use crate::syncx::Map;
 use dashmap::DashMap;
-use tork::broker::{is_worker_queue, queue, Broker};
 use tork::broker::queue::{QUEUE_COMPLETED, QUEUE_ERROR, QUEUE_EXCLUSIVE_PREFIX, QUEUE_STARTED};
-use tork::node::{Node, HEARTBEAT_RATE_SECS, NODE_STATUS_UP, NODE_STATUS_DOWN};
+use tork::broker::{is_worker_queue, queue, Broker};
+use tork::node::{Node, HEARTBEAT_RATE_SECS, NODE_STATUS_DOWN, NODE_STATUS_UP};
 use tork::runtime::Runtime;
 use tork::task::{Task, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING};
 
@@ -66,7 +66,44 @@ pub struct Config {
     /// Default limits
     pub limits: Limits,
     /// Task middleware functions
-    pub middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
+    pub middleware: Arc<
+        Vec<
+            Box<
+                dyn Fn(
+                        Arc<
+                            dyn Fn(
+                                    Arc<Task>,
+                                ) -> std::pin::Pin<
+                                    Box<
+                                        dyn std::future::Future<
+                                                Output = Result<
+                                                    (Result<(), anyhow::Error>, Arc<Task>),
+                                                    anyhow::Error,
+                                                >,
+                                            > + Send,
+                                    >,
+                                > + Send
+                                + Sync,
+                        >,
+                    ) -> Arc<
+                        dyn Fn(
+                                Arc<Task>,
+                            ) -> std::pin::Pin<
+                                Box<
+                                    dyn std::future::Future<
+                                            Output = Result<
+                                                (Result<(), anyhow::Error>, Arc<Task>),
+                                                anyhow::Error,
+                                            >,
+                                        > + Send,
+                                >,
+                            > + Send
+                            + Sync,
+                    > + Send
+                    + Sync,
+            >,
+        >,
+    >,
 }
 
 impl std::fmt::Debug for Config {
@@ -129,7 +166,44 @@ pub struct Worker {
     /// Current task count (Arc-shared for heartbeat access)
     task_count: Arc<std::sync::atomic::AtomicI32>,
     /// Task middleware
-    middleware: Arc<Vec<Box<dyn Fn(Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>) -> Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> + Send + Sync>>>,
+    middleware: Arc<
+        Vec<
+            Box<
+                dyn Fn(
+                        Arc<
+                            dyn Fn(
+                                    Arc<Task>,
+                                ) -> std::pin::Pin<
+                                    Box<
+                                        dyn std::future::Future<
+                                                Output = Result<
+                                                    (Result<(), anyhow::Error>, Arc<Task>),
+                                                    anyhow::Error,
+                                                >,
+                                            > + Send,
+                                    >,
+                                > + Send
+                                + Sync,
+                        >,
+                    ) -> Arc<
+                        dyn Fn(
+                                Arc<Task>,
+                            ) -> std::pin::Pin<
+                                Box<
+                                    dyn std::future::Future<
+                                            Output = Result<
+                                                (Result<(), anyhow::Error>, Arc<Task>),
+                                                anyhow::Error,
+                                            >,
+                                        > + Send,
+                                >,
+                            > + Send
+                            + Sync,
+                    > + Send
+                    + Sync,
+            >,
+        >,
+    >,
 }
 
 impl std::fmt::Debug for Worker {
@@ -139,7 +213,10 @@ impl std::fmt::Debug for Worker {
             .field("name", &self.name)
             .field("start_time", &self.start_time)
             .field("queues", &self.queues.len())
-            .field("task_count", &self.task_count.load(std::sync::atomic::Ordering::SeqCst))
+            .field(
+                "task_count",
+                &self.task_count.load(std::sync::atomic::Ordering::SeqCst),
+            )
             .finish()
     }
 }
@@ -217,7 +294,8 @@ impl Worker {
     /// Internal task handling with context
     async fn do_handle_task(&self, task: Arc<Task>) -> Result<(), WorkerError> {
         // Increment task count
-        self.task_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.task_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let _decrement = Defer {
             counter: Arc::clone(&self.task_count),
         };
@@ -275,65 +353,99 @@ impl Worker {
         let runtime = Arc::clone(&self.runtime);
         let broker = Arc::clone(&self.broker);
         let timeout_str = task.timeout.clone();
-        let task_handler: Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync> =
-            Arc::new(move |task: Arc<Task>| {
-                let runtime = Arc::clone(&runtime);
-                let broker = Arc::clone(&broker);
-                let timeout_str = timeout_str.clone();
-                Box::pin(async move {
-                    // Publish QUEUE_STARTED after middleware starts but before runtime
-                    let task_started = Arc::clone(&task);
-                    if let Err(e) = broker
-                        .publish_task(QUEUE_STARTED.to_string(), &task_started)
-                        .await
-                    {
-                        tracing::warn!(error = %e, "failed to publish task started event");
-                    }
+        let task_handler: Arc<
+            dyn Fn(
+                    Arc<Task>,
+                ) -> std::pin::Pin<
+                    Box<
+                        dyn std::future::Future<
+                                Output = Result<
+                                    (Result<(), anyhow::Error>, Arc<Task>),
+                                    anyhow::Error,
+                                >,
+                            > + Send,
+                    >,
+                > + Send
+                + Sync,
+        > = Arc::new(move |task: Arc<Task>| {
+            let runtime = Arc::clone(&runtime);
+            let broker = Arc::clone(&broker);
+            let timeout_str = timeout_str.clone();
+            Box::pin(async move {
+                // Publish QUEUE_STARTED after middleware starts but before runtime
+                let task_started = Arc::clone(&task);
+                if let Err(e) = broker
+                    .publish_task(QUEUE_STARTED.to_string(), &task_started)
+                    .await
+                {
+                    tracing::warn!(error = %e, "failed to publish task started event");
+                }
 
-                    let mut t = (*task).clone();
-                    let ctx = std::sync::Arc::new(tokio::sync::RwLock::new(()));
+                let mut t = (*task).clone();
+                let ctx = std::sync::Arc::new(tokio::sync::RwLock::new(()));
 
-                    // Parse timeout if defined (Go: doRunTask creates timeout context)
-                    let run_future = runtime.run(ctx, &mut t);
-                    let result = if let Some(ref ts) = timeout_str {
-                        let dur = parse_go_duration(ts);
-                        match tokio::time::timeout(dur, run_future).await {
-                            Ok(inner) => inner,
-                            Err(_) => {
-                                let now = time::OffsetDateTime::now_utc();
-                                t.error = Some(format!(
-                                    "context deadline exceeded: {} timeout",
-                                    ts
-                                ));
-                                t.failed_at = Some(now);
-                                t.state = TASK_STATE_FAILED;
-                                return Ok((Err(anyhow::anyhow!(
-                                    "context deadline exceeded: {}",
-                                    ts
-                                )), Arc::new(t)));
-                            }
+                // Parse timeout if defined (Go: doRunTask creates timeout context)
+                let run_future = runtime.run(ctx, &mut t);
+                let result = if let Some(ref ts) = timeout_str {
+                    let dur = parse_go_duration(ts);
+                    match tokio::time::timeout(dur, run_future).await {
+                        Ok(inner) => inner,
+                        Err(_) => {
+                            let now = time::OffsetDateTime::now_utc();
+                            t.error = Some(format!("context deadline exceeded: {} timeout", ts));
+                            t.failed_at = Some(now);
+                            t.state = TASK_STATE_FAILED;
+                            return Ok((
+                                Err(anyhow::anyhow!("context deadline exceeded: {}", ts)),
+                                Arc::new(t),
+                            ));
                         }
-                    } else {
-                        run_future.await
-                    };
-
-                    if let Err(e) = result {
-                        let now = time::OffsetDateTime::now_utc();
-                        t.error = Some(e.to_string());
-                        t.failed_at = Some(now);
-                        t.state = TASK_STATE_FAILED;
-                        Ok((Err(e), Arc::new(t)))
-                    } else {
-                        let now = time::OffsetDateTime::now_utc();
-                        t.completed_at = Some(now);
-                        t.state = TASK_STATE_COMPLETED;
-                        Ok((Ok(()), Arc::new(t)))
                     }
-                }) as std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>>
-            });
+                } else {
+                    run_future.await
+                };
+
+                if let Err(e) = result {
+                    let now = time::OffsetDateTime::now_utc();
+                    t.error = Some(e.to_string());
+                    t.failed_at = Some(now);
+                    t.state = TASK_STATE_FAILED;
+                    Ok((Err(e), Arc::new(t)))
+                } else {
+                    let now = time::OffsetDateTime::now_utc();
+                    t.completed_at = Some(now);
+                    t.state = TASK_STATE_COMPLETED;
+                    Ok((Ok(()), Arc::new(t)))
+                }
+            })
+                as std::pin::Pin<
+                    Box<
+                        dyn std::future::Future<
+                                Output = Result<
+                                    (Result<(), anyhow::Error>, Arc<Task>),
+                                    anyhow::Error,
+                                >,
+                            > + Send,
+                    >,
+                >
+        });
 
         // Apply middleware chain
-        type Handler = Arc<dyn Fn(Arc<Task>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>> + Send + Sync>;
+        type Handler = Arc<
+            dyn Fn(
+                    Arc<Task>,
+                ) -> std::pin::Pin<
+                    Box<
+                        dyn std::future::Future<
+                                Output = Result<
+                                    (Result<(), anyhow::Error>, Arc<Task>),
+                                    anyhow::Error,
+                                >,
+                            > + Send,
+                    >,
+                > + Send
+                + Sync,
+        >;
         let mut handler: Handler = task_handler;
         for mw in self.middleware.iter() {
             let next: Handler = handler;
@@ -370,8 +482,7 @@ impl Worker {
         };
 
         // Remove from running tasks
-        self.tasks
-            .delete(task.id.clone().unwrap_or_default());
+        self.tasks.delete(task.id.clone().unwrap_or_default());
 
         match result {
             Ok(()) => {
@@ -396,7 +507,10 @@ impl Worker {
     /// Starts the worker
     pub async fn start(&mut self) -> Result<(), WorkerError> {
         // Start API server
-        self.api.start().await.map_err(|e| WorkerError::ApiShutdown(e.to_string()))?;
+        self.api
+            .start()
+            .await
+            .map_err(|e| WorkerError::ApiShutdown(e.to_string()))?;
 
         let worker_id = self.id.clone();
         let tasks = Arc::clone(&self.tasks);
@@ -428,7 +542,8 @@ impl Worker {
             .map_err(|e| WorkerError::SubscribeQueue(e.to_string()))?;
 
         // Subscribe to shared work queues
-        let queues_snapshot: Vec<(String, i32)> = self.queues
+        let queues_snapshot: Vec<(String, i32)> = self
+            .queues
             .iter()
             .map(|pair| (pair.key().clone(), *pair.value()))
             .collect();
@@ -442,7 +557,8 @@ impl Worker {
                             if let Err(e) = worker.handle_task(task).await {
                                 tracing::error!(error = %e, "error handling task");
                             }
-                        }) as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+                        })
+                            as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
                     });
 
                     self.broker
@@ -576,7 +692,8 @@ struct Defer {
 
 impl Drop for Defer {
     fn drop(&mut self) {
-        self.counter.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        self.counter
+            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -924,8 +1041,14 @@ mod tests {
         // Wait for at least one heartbeat
         heartbeat_received.notified().await;
 
-        let status = received_status.lock().map(|g| g.clone()).unwrap_or_default();
-        assert_eq!(status, NODE_STATUS_DOWN, "unhealthy runtime should report DOWN");
+        let status = received_status
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_default();
+        assert_eq!(
+            status, NODE_STATUS_DOWN,
+            "unhealthy runtime should report DOWN"
+        );
 
         worker.stop().await.unwrap();
     }
@@ -946,9 +1069,7 @@ mod tests {
         // Spawn the task handle
         let worker_clone = worker.clone();
         let task_for_cancel = Arc::clone(&task);
-        let handle = tokio::spawn(async move {
-            worker_clone.handle_task(task_for_cancel).await
-        });
+        let handle = tokio::spawn(async move { worker_clone.handle_task(task_for_cancel).await });
 
         // Wait a tiny bit for the task to register, then cancel
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -975,9 +1096,7 @@ mod tests {
 
         let task = test_task("count-task");
         let worker_clone = worker.clone();
-        let handle = tokio::spawn(async move {
-            worker_clone.handle_task(task).await
-        });
+        let handle = tokio::spawn(async move { worker_clone.handle_task(task).await });
 
         // Give the task time to start and increment the counter
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -1147,19 +1266,30 @@ mod tests {
 
     // Type aliases for middleware readability
     type BoxedTaskFn = Arc<
-        dyn Fn(Arc<Task>) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>,
-        > + Send + Sync,
+        dyn Fn(
+                Arc<Task>,
+            ) -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<(), anyhow::Error>> + Send>,
+            > + Send
+            + Sync,
     >;
     type BoxedMiddlewareFn = Box<dyn Fn(BoxedTaskFn) -> BoxedTaskFn + Send + Sync>;
 
     // Middleware function type matching Config.middleware
     type ConfigMiddlewareFn = Arc<
-        dyn Fn(Arc<Task>) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>> + Send>,
-        > + Send + Sync,
+        dyn Fn(
+                Arc<Task>,
+            ) -> std::pin::Pin<
+                Box<
+                    dyn std::future::Future<
+                            Output = Result<(Result<(), anyhow::Error>, Arc<Task>), anyhow::Error>,
+                        > + Send,
+                >,
+            > + Send
+            + Sync,
     >;
-    type BoxedConfigMiddleware = Box<dyn Fn(ConfigMiddlewareFn) -> ConfigMiddlewareFn + Send + Sync>;
+    type BoxedConfigMiddleware =
+        Box<dyn Fn(ConfigMiddlewareFn) -> ConfigMiddlewareFn + Send + Sync>;
 
     // ---- TestStart (mirrors Go TestStart) ----
     // Verifies basic start/stop lifecycle without error.
@@ -1376,17 +1506,18 @@ mod tests {
             .await
             .unwrap();
 
-        let mw: BoxedConfigMiddleware = Box::new(move |next: ConfigMiddlewareFn| -> ConfigMiddlewareFn {
-            let called = Arc::clone(&middleware_called_clone);
-            Arc::new(move |task: Arc<Task>| {
-                let next = Arc::clone(&next);
-                let called = Arc::clone(&called);
-                Box::pin(async move {
-                    called.store(true, std::sync::atomic::Ordering::SeqCst);
-                    next(task).await.map(|(_inner_result, task)| (Ok(()), task))
+        let mw: BoxedConfigMiddleware =
+            Box::new(move |next: ConfigMiddlewareFn| -> ConfigMiddlewareFn {
+                let called = Arc::clone(&middleware_called_clone);
+                Arc::new(move |task: Arc<Task>| {
+                    let next = Arc::clone(&next);
+                    let called = Arc::clone(&called);
+                    Box::pin(async move {
+                        called.store(true, std::sync::atomic::Ordering::SeqCst);
+                        next(task).await.map(|(_inner_result, task)| (Ok(()), task))
+                    })
                 })
-            })
-        });
+            });
 
         let queues = Arc::new(DashMap::new());
         queues.insert("someq".to_string(), 1);
@@ -1538,9 +1669,7 @@ mod tests {
             };
             Self {
                 inner: Arc::new(crate::runtime::shell::ShellRuntime::new(config)),
-                last_result: Arc::new(std::sync::Mutex::new(
-                    std::collections::HashMap::new(),
-                )),
+                last_result: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             }
         }
 
@@ -1578,12 +1707,13 @@ mod tests {
                     .unwrap_or_default(),
                 files: task.files.clone().unwrap_or_default(),
                 networks: task.networks.clone().unwrap_or_default(),
-                limits: task.limits.as_ref().map(|l| {
-                    crate::runtime::shell::TaskLimits {
+                limits: task
+                    .limits
+                    .as_ref()
+                    .map(|l| crate::runtime::shell::TaskLimits {
                         cpus: l.cpus.clone().unwrap_or_default(),
                         memory: l.memory.clone().unwrap_or_default(),
-                    }
-                }),
+                    }),
                 registry: None, // ShellRuntime doesn't use registry
                 sidecars: task
                     .sidecars
@@ -1694,7 +1824,11 @@ mod tests {
         });
 
         let result = w.handle_task(t1).await;
-        assert!(result.is_ok(), "handle_task should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "handle_task should succeed: {:?}",
+            result.err()
+        );
 
         // Wait for completion event
         tokio::time::timeout(Duration::from_secs(2), completed.notified())
@@ -1855,4 +1989,3 @@ mod tests {
         assert_eq!(std::time::Duration::from_secs(5), dur);
     }
 }
-

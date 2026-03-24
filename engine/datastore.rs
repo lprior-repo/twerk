@@ -17,8 +17,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dashmap::DashMap;
-use tokio::sync::RwLock;
 use time::Duration;
+use tokio::sync::RwLock;
 use tork::datastore::{BoxedFuture, Datastore, Page};
 use tork::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use tork::node::Node;
@@ -217,10 +217,7 @@ pub async fn create_datastore() -> Result<Box<dyn Datastore + Send + Sync>> {
 
     match dstype.as_str() {
         "postgres" => {
-            let dsn = env_string_default(
-                "datastore.postgres.dsn",
-                DEFAULT_POSTGRES_DSN,
-            );
+            let dsn = env_string_default("datastore.postgres.dsn", DEFAULT_POSTGRES_DSN);
 
             let logs_retention = env_duration_default(
                 "datastore.retention.logs.duration",
@@ -232,14 +229,16 @@ pub async fn create_datastore() -> Result<Box<dyn Datastore + Send + Sync>> {
             );
             let encryption_key = {
                 let v = env_string("datastore.encryption.key");
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             };
             let max_open = env_int_default("datastore.postgres.max_open_conns", 25);
             let max_idle = env_int_default("datastore.postgres.max_idle_conns", 25);
-            let lifetime = env_duration_default(
-                "datastore.postgres.conn_max_lifetime",
-                Duration::hours(1),
-            );
+            let lifetime =
+                env_duration_default("datastore.postgres.conn_max_lifetime", Duration::hours(1));
             let idle_time = env_duration_default(
                 "datastore.postgres.conn_max_idle_time",
                 Duration::minutes(5),
@@ -308,23 +307,25 @@ impl Datastore for PostgresAdapter {
     fn get_task_by_id(&self, id: String) -> BoxedFuture<Option<Task>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            ds.get_task_by_id(&id).await.map(Some).map_err(Self::map_err)
+            ds.get_task_by_id(&id)
+                .await
+                .map(Some)
+                .map_err(Self::map_err)
         })
     }
 
     fn get_active_tasks(&self, job_id: String) -> BoxedFuture<Vec<Task>> {
         let ds = self.inner.clone();
-        Box::pin(async move {
-            ds.get_active_tasks(&job_id)
-                .await
-                .map_err(Self::map_err)
-        })
+        Box::pin(async move { ds.get_active_tasks(&job_id).await.map_err(Self::map_err) })
     }
 
     fn get_next_task(&self, parent_task_id: String) -> BoxedFuture<Option<Task>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            ds.get_next_task(&parent_task_id).await.map(Some).map_err(Self::map_err)
+            ds.get_next_task(&parent_task_id)
+                .await
+                .map(Some)
+                .map_err(Self::map_err)
         })
     }
 
@@ -342,7 +343,8 @@ impl Datastore for PostgresAdapter {
     ) -> BoxedFuture<Page<TaskLogPart>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            let pg_page = ds.get_task_log_parts(&task_id, &q, page, size)
+            let pg_page = ds
+                .get_task_log_parts(&task_id, &q, page, size)
                 .await
                 .map_err(Self::map_err)?;
             Ok(Page {
@@ -374,7 +376,10 @@ impl Datastore for PostgresAdapter {
     fn get_node_by_id(&self, id: String) -> BoxedFuture<Option<Node>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            ds.get_node_by_id(&id).await.map(Some).map_err(Self::map_err)
+            ds.get_node_by_id(&id)
+                .await
+                .map(Some)
+                .map_err(Self::map_err)
         })
     }
 
@@ -402,9 +407,7 @@ impl Datastore for PostgresAdapter {
 
     fn get_job_by_id(&self, id: String) -> BoxedFuture<Option<Job>> {
         let ds = self.inner.clone();
-        Box::pin(async move {
-            ds.get_job_by_id(&id).await.map(Some).map_err(Self::map_err)
-        })
+        Box::pin(async move { ds.get_job_by_id(&id).await.map(Some).map_err(Self::map_err) })
     }
 
     fn get_job_log_parts(
@@ -416,7 +419,8 @@ impl Datastore for PostgresAdapter {
     ) -> BoxedFuture<Page<TaskLogPart>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            let pg_page = ds.get_job_log_parts(&job_id, &q, page, size)
+            let pg_page = ds
+                .get_job_log_parts(&job_id, &q, page, size)
                 .await
                 .map_err(Self::map_err)?;
             Ok(Page {
@@ -437,7 +441,8 @@ impl Datastore for PostgresAdapter {
     ) -> BoxedFuture<Page<JobSummary>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            let pg_page = ds.get_jobs(&current_user, &q, page, size)
+            let pg_page = ds
+                .get_jobs(&current_user, &q, page, size)
                 .await
                 .map_err(Self::map_err)?;
             Ok(Page {
@@ -467,7 +472,8 @@ impl Datastore for PostgresAdapter {
     ) -> BoxedFuture<Page<ScheduledJobSummary>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            let pg_page = ds.get_scheduled_jobs(&current_user, page, size)
+            let pg_page = ds
+                .get_scheduled_jobs(&current_user, page, size)
                 .await
                 .map_err(Self::map_err)?;
             Ok(Page {
@@ -482,7 +488,10 @@ impl Datastore for PostgresAdapter {
     fn get_scheduled_job_by_id(&self, id: String) -> BoxedFuture<Option<ScheduledJob>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            ds.get_scheduled_job_by_id(&id).await.map(Some).map_err(Self::map_err)
+            ds.get_scheduled_job_by_id(&id)
+                .await
+                .map(Some)
+                .map_err(Self::map_err)
         })
     }
 
@@ -511,7 +520,10 @@ impl Datastore for PostgresAdapter {
     fn get_user(&self, username: String) -> BoxedFuture<Option<User>> {
         let ds = self.inner.clone();
         Box::pin(async move {
-            ds.get_user(&username).await.map(Some).map_err(Self::map_err)
+            ds.get_user(&username)
+                .await
+                .map(Some)
+                .map_err(Self::map_err)
         })
     }
 
@@ -522,9 +534,7 @@ impl Datastore for PostgresAdapter {
 
     fn get_role(&self, id: String) -> BoxedFuture<Option<Role>> {
         let ds = self.inner.clone();
-        Box::pin(async move {
-            ds.get_role(&id).await.map(Some).map_err(Self::map_err)
-        })
+        Box::pin(async move { ds.get_role(&id).await.map(Some).map_err(Self::map_err) })
     }
 
     fn get_roles(&self) -> BoxedFuture<Vec<Role>> {
@@ -539,12 +549,20 @@ impl Datastore for PostgresAdapter {
 
     fn assign_role(&self, user_id: String, role_id: String) -> BoxedFuture<()> {
         let ds = self.inner.clone();
-        Box::pin(async move { ds.assign_role(&user_id, &role_id).await.map_err(Self::map_err) })
+        Box::pin(async move {
+            ds.assign_role(&user_id, &role_id)
+                .await
+                .map_err(Self::map_err)
+        })
     }
 
     fn unassign_role(&self, user_id: String, role_id: String) -> BoxedFuture<()> {
         let ds = self.inner.clone();
-        Box::pin(async move { ds.unassign_role(&user_id, &role_id).await.map_err(Self::map_err) })
+        Box::pin(async move {
+            ds.unassign_role(&user_id, &role_id)
+                .await
+                .map_err(Self::map_err)
+        })
     }
 
     fn get_metrics(&self) -> BoxedFuture<Metrics> {
@@ -596,8 +614,7 @@ impl InMemoryDatastore {
 
     /// Helper: extract ID from Option<String>.
     fn require_id(id: &Option<String>) -> Result<String> {
-        id.clone()
-            .ok_or_else(|| anyhow::anyhow!("id is required"))
+        id.clone().ok_or_else(|| anyhow::anyhow!("id is required"))
     }
 
     /// Helper: simple pagination over a Vec.
@@ -847,9 +864,7 @@ impl Datastore for InMemoryDatastore {
 
     fn get_scheduled_job_by_id(&self, id: String) -> BoxedFuture<Option<ScheduledJob>> {
         let scheduled_jobs = self.scheduled_jobs.clone();
-        Box::pin(async move {
-            Ok(scheduled_jobs.get(&id).map(|r| r.value().clone()))
-        })
+        Box::pin(async move { Ok(scheduled_jobs.get(&id).map(|r| r.value().clone())) })
     }
 
     fn update_scheduled_job(&self, id: String, job: ScheduledJob) -> BoxedFuture<()> {
@@ -957,18 +972,19 @@ impl Datastore for InMemoryDatastore {
         let tasks = self.tasks.clone();
         let nodes = self.nodes.clone();
         Box::pin(async move {
-            let jobs_running = jobs
-                .iter()
-                .filter(|e| e.value().state == "RUNNING")
-                .count() as i64;
+            let jobs_running = jobs.iter().filter(|e| e.value().state == "RUNNING").count() as i64;
             let tasks_running = tasks
                 .iter()
                 .filter(|e| e.value().state.as_ref() == "RUNNING")
                 .count() as i64;
             let nodes_running = nodes.len() as i64;
             Ok(Metrics {
-                jobs: tork::stats::JobMetrics { running: jobs_running },
-                tasks: tork::stats::TaskMetrics { running: tasks_running },
+                jobs: tork::stats::JobMetrics {
+                    running: jobs_running,
+                },
+                tasks: tork::stats::TaskMetrics {
+                    running: tasks_running,
+                },
                 nodes: tork::stats::NodeMetrics {
                     running: nodes_running,
                     cpu_percent: 0.0,
@@ -986,23 +1002,23 @@ impl Datastore for InMemoryDatastore {
     }
 }
 
-    /// Creates a new in-memory datastore for testing.
-    ///
-    /// Returns a boxed `Datastore` trait object backed by an in-memory
-    /// `DashMap` store with no persistence.
-    #[must_use]
-    pub fn new_inmemory_datastore() -> Box<dyn Datastore + Send + Sync> {
-        Box::new(InMemoryDatastore::new())
-    }
+/// Creates a new in-memory datastore for testing.
+///
+/// Returns a boxed `Datastore` trait object backed by an in-memory
+/// `DashMap` store with no persistence.
+#[must_use]
+pub fn new_inmemory_datastore() -> Box<dyn Datastore + Send + Sync> {
+    Box::new(InMemoryDatastore::new())
+}
 
-    /// Creates an `Arc<dyn Datastore>` from the in-memory store.
-    ///
-    /// Used by middleware configs that require `Arc<dyn Datastore>`.
-    #[must_use]
-    pub fn new_inmemory_datastore_arc() -> std::sync::Arc<dyn tork::datastore::Datastore> {
-        let boxed: Box<dyn tork::datastore::Datastore + Send + Sync> =
-            crate::datastore::new_inmemory_datastore();
-        // Unsize coercion: Box<dyn Trait + Send + Sync> → Box<dyn Trait>
-        let boxed: Box<dyn tork::datastore::Datastore> = boxed;
-        std::sync::Arc::from(boxed)
-    }
+/// Creates an `Arc<dyn Datastore>` from the in-memory store.
+///
+/// Used by middleware configs that require `Arc<dyn Datastore>`.
+#[must_use]
+pub fn new_inmemory_datastore_arc() -> std::sync::Arc<dyn tork::datastore::Datastore> {
+    let boxed: Box<dyn tork::datastore::Datastore + Send + Sync> =
+        crate::datastore::new_inmemory_datastore();
+    // Unsize coercion: Box<dyn Trait + Send + Sync> → Box<dyn Trait>
+    let boxed: Box<dyn tork::datastore::Datastore> = boxed;
+    std::sync::Arc::from(boxed)
+}

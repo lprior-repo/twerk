@@ -24,7 +24,7 @@ use lapin::{
 };
 use tokio::sync::RwLock;
 use tork::broker::{
-    Broker, BoxedFuture, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
+    BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
     TaskLogPartHandler, TaskProgressHandler,
 };
 use tork::node::Node;
@@ -282,23 +282,21 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
     match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
         BrokerType::RabbitMQ => {
-            let url = env_string_default(
-                "broker.rabbitmq.url",
-                DEFAULT_RABBITMQ_URL,
-            );
+            let url = env_string_default("broker.rabbitmq.url", DEFAULT_RABBITMQ_URL);
             let management_url = {
                 let v = env_string("broker.rabbitmq.management.url");
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             };
             let _consumer_timeout = env_duration_ms_default(
                 "broker.rabbitmq.consumer.timeout",
                 DEFAULT_CONSUMER_TIMEOUT_MS,
             );
             let durable = env_bool("broker.rabbitmq.durable.queues", false);
-            let queue_type = env_string_default(
-                "broker.rabbitmq.queue.type",
-                QUEUE_TYPE_CLASSIC,
-            );
+            let queue_type = env_string_default("broker.rabbitmq.queue.type", QUEUE_TYPE_CLASSIC);
 
             let broker = RabbitMQBroker::new(
                 &url,
@@ -416,11 +414,7 @@ impl Broker for RabbitMQBroker {
         })
     }
 
-    fn subscribe_for_tasks(
-        &self,
-        _qname: String,
-        _handler: TaskHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_tasks(&self, _qname: String, _handler: TaskHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -428,10 +422,7 @@ impl Broker for RabbitMQBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_task_progress(
-        &self,
-        _handler: TaskProgressHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_task_progress(&self, _handler: TaskProgressHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -439,10 +430,7 @@ impl Broker for RabbitMQBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_heartbeats(
-        &self,
-        _handler: HeartbeatHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_heartbeats(&self, _handler: HeartbeatHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -454,33 +442,19 @@ impl Broker for RabbitMQBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn publish_event(
-        &self,
-        _topic: String,
-        _event: serde_json::Value,
-    ) -> BoxedFuture<()> {
+    fn publish_event(&self, _topic: String, _event: serde_json::Value) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_events(
-        &self,
-        _pattern: String,
-        _handler: EventHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_events(&self, _pattern: String, _handler: EventHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn publish_task_log_part(
-        &self,
-        _part: &tork::task::TaskLogPart,
-    ) -> BoxedFuture<()> {
+    fn publish_task_log_part(&self, _part: &tork::task::TaskLogPart) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_task_log_part(
-        &self,
-        _handler: TaskLogPartHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_task_log_part(&self, _handler: TaskLogPartHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -575,11 +549,7 @@ impl Broker for InMemoryBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_tasks(
-        &self,
-        qname: String,
-        handler: TaskHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
         self.handlers
             .entry(qname)
             .or_insert_with(Vec::new)
@@ -591,10 +561,7 @@ impl Broker for InMemoryBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_task_progress(
-        &self,
-        _handler: TaskProgressHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_task_progress(&self, _handler: TaskProgressHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -602,10 +569,7 @@ impl Broker for InMemoryBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_heartbeats(
-        &self,
-        _handler: HeartbeatHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_heartbeats(&self, _handler: HeartbeatHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
@@ -617,33 +581,19 @@ impl Broker for InMemoryBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn publish_event(
-        &self,
-        _topic: String,
-        _event: serde_json::Value,
-    ) -> BoxedFuture<()> {
+    fn publish_event(&self, _topic: String, _event: serde_json::Value) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_events(
-        &self,
-        _pattern: String,
-        _handler: EventHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_events(&self, _pattern: String, _handler: EventHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn publish_task_log_part(
-        &self,
-        _part: &tork::task::TaskLogPart,
-    ) -> BoxedFuture<()> {
+    fn publish_task_log_part(&self, _part: &tork::task::TaskLogPart) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 
-    fn subscribe_for_task_log_part(
-        &self,
-        _handler: TaskLogPartHandler,
-    ) -> BoxedFuture<()> {
+    fn subscribe_for_task_log_part(&self, _handler: TaskLogPartHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
     }
 

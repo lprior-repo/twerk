@@ -23,13 +23,12 @@ use records::{
     TaskLogPartRecord, TaskRecord, UserRecord,
 };
 use tork::{
-    job::{Job, JobSummary,
-        ScheduledJob, ScheduledJobSummary},
-    task::{Permission, Task, TaskLogPart},
-    Node,
-    user::User,
+    job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary},
     role::Role,
     stats::Metrics,
+    task::{Permission, Task, TaskLogPart},
+    user::User,
+    Node,
 };
 
 pub use schema::SCHEMA;
@@ -94,7 +93,7 @@ impl PostgresDatastore {
     /// values are invalid (e.g., cleanup interval under 1 minute).
     pub async fn new(dsn: &str, options: Options) -> DatastoreResult<Self> {
         let mut pool_options = PgPoolOptions::new();
-        
+
         if let Some(max_conns) = options.max_open_conns {
             pool_options = pool_options.max_connections(max_conns.cast_unsigned());
         }
@@ -111,7 +110,7 @@ impl PostgresDatastore {
                 idle_time.whole_seconds().cast_unsigned(),
             ));
         }
-        
+
         let pool = pool_options
             .connect(dsn)
             .await
@@ -190,17 +189,24 @@ impl PostgresDatastore {
         let dsn = format!(
             "postgres://tork:tork@localhost:5432/tork?sslmode=disable&options=-csearch_path={schema_name}"
         );
-        
-        let ds = Self::new(&dsn, Options { disable_cleanup: true, ..Options::default() }).await?;
-        
+
+        let ds = Self::new(
+            &dsn,
+            Options {
+                disable_cleanup: true,
+                ..Options::default()
+            },
+        )
+        .await?;
+
         // Create the isolated test schema
         sqlx::query(&format!("CREATE SCHEMA \"{schema_name}\""))
             .execute(&ds.pool)
             .await
             .map_err(|e| DatastoreError::Database(format!("create schema failed: {e}")))?;
-        
+
         ds.exec_script(SCHEMA).await?;
-        
+
         Ok(ds)
     }
 
@@ -310,12 +316,16 @@ impl PostgresDatastore {
 
     /// Deletes jobs and all associated data (perms, log parts, tasks) by IDs.
     async fn delete_jobs_by_ids(&self, ids: &[String]) -> DatastoreResult<i64> {
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
         let count = delete_jobs_cascade(&mut tx, ids).await?;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
 
         Ok(count)
@@ -334,12 +344,16 @@ impl PostgresDatastore {
         F: FnOnce(&mut sqlx::Transaction<'_, sqlx::Postgres>) -> Fut,
         Fut: Future<Output = DatastoreResult<T>>,
     {
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
         match callback(&mut tx).await {
             Ok(result) => {
-                tx.commit().await
+                tx.commit()
+                    .await
                     .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
                 Ok(result)
             }
@@ -362,44 +376,56 @@ impl PostgresDatastore {
 
     /// Creates a new task in the database.
     pub async fn create_task(&self, task: &Task) -> DatastoreResult<()> {
-        let env = task.env.as_ref()
-            .and_then(|e| serde_json::to_vec(e).ok());
-        
-        let files = task.files.as_ref()
-            .and_then(|f| serde_json::to_vec(f).ok());
-        
+        let env = task.env.as_ref().and_then(|e| serde_json::to_vec(e).ok());
+
+        let files = task.files.as_ref().and_then(|f| serde_json::to_vec(f).ok());
+
         let pre = serde_json::to_vec(&task.pre)
             .map_err(|e| DatastoreError::Serialization(format!("task.pre: {e}")))?;
-        
+
         let post = serde_json::to_vec(&task.post)
             .map_err(|e| DatastoreError::Serialization(format!("task.post: {e}")))?;
-        
+
         let sidecars = serde_json::to_vec(&task.sidecars)
             .map_err(|e| DatastoreError::Serialization(format!("task.sidecars: {e}")))?;
-        
-        let retry = task.retry.as_ref()
-            .and_then(|r| serde_json::to_vec(r).ok());
-        
-        let limits = task.limits.as_ref()
+
+        let retry = task.retry.as_ref().and_then(|r| serde_json::to_vec(r).ok());
+
+        let limits = task
+            .limits
+            .as_ref()
             .and_then(|l| serde_json::to_vec(l).ok());
-        
-        let parallel = task.parallel.as_ref()
+
+        let parallel = task
+            .parallel
+            .as_ref()
             .and_then(|p| serde_json::to_vec(p).ok());
-        
-        let each = task.each.as_ref()
-            .and_then(|e| serde_json::to_vec(e).ok());
-        
-        let subjob = task.subjob.as_ref()
+
+        let each = task.each.as_ref().and_then(|e| serde_json::to_vec(e).ok());
+
+        let subjob = task
+            .subjob
+            .as_ref()
             .and_then(|s| serde_json::to_vec(s).ok());
-        
-        let registry = task.registry.as_ref()
+
+        let registry = task
+            .registry
+            .as_ref()
             .and_then(|r| serde_json::to_vec(r).ok());
-        
-        let mounts = task.mounts.as_ref()
+
+        let mounts = task
+            .mounts
+            .as_ref()
             .and_then(|m| serde_json::to_vec(m).ok());
 
-        let id = task.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("task id is required".to_string()))?;
-        let job_id = task.job_id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("task job_id is required".to_string()))?;
+        let id = task
+            .id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("task id is required".to_string()))?;
+        let job_id = task
+            .job_id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("task job_id is required".to_string()))?;
 
         let cmd = task.cmd.as_deref();
         let entrypoint = task.entrypoint.as_deref();
@@ -468,14 +494,12 @@ impl PostgresDatastore {
 
     /// Gets a task by ID from the database.
     pub async fn get_task_by_id(&self, id: &str) -> DatastoreResult<Task> {
-        let record: TaskRecord = sqlx::query_as(
-            "SELECT * FROM tasks WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
-        .ok_or(DatastoreError::TaskNotFound)?;
+        let record: TaskRecord = sqlx::query_as("SELECT * FROM tasks WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
+            .ok_or(DatastoreError::TaskNotFound)?;
 
         record.to_task()
     }
@@ -483,7 +507,7 @@ impl PostgresDatastore {
     /// Gets active tasks for a job.
     pub async fn get_active_tasks(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
         let active_states = ["CREATED", "PENDING", "SCHEDULED", "RUNNING"];
-        
+
         let records: Vec<TaskRecord> = sqlx::query_as(
             r"
             SELECT * FROM tasks 
@@ -497,10 +521,7 @@ impl PostgresDatastore {
         .await
         .map_err(|e| DatastoreError::Database(format!("get active tasks failed: {e}")))?;
 
-        records
-            .iter()
-            .map(TaskRecord::to_task)
-            .collect()
+        records.iter().map(TaskRecord::to_task).collect()
     }
 
     /// Gets the next task for execution.
@@ -519,11 +540,15 @@ impl PostgresDatastore {
 
     /// Creates a task log part.
     pub async fn create_task_log_part(&self, part: &TaskLogPart) -> DatastoreResult<()> {
-        let task_id = part.task_id.as_ref()
+        let task_id = part
+            .task_id
+            .as_ref()
             .ok_or_else(|| DatastoreError::InvalidInput("task_id is required".to_string()))?;
-        
+
         if part.number < 1 {
-            return Err(DatastoreError::InvalidInput("part number must be > 0".to_string()));
+            return Err(DatastoreError::InvalidInput(
+                "part number must be > 0".to_string(),
+            ));
         }
 
         let id = uuid::Uuid::new_v4().to_string().replace('-', "");
@@ -555,9 +580,9 @@ impl PostgresDatastore {
         size: i64,
     ) -> DatastoreResult<Page<TaskLogPart>> {
         let offset = (page - 1) * size;
-        
+
         let (search_term, _tags) = parse_query(q);
-        
+
         let records: Vec<TaskLogPartRecord> = sqlx::query_as(&format!(
             r"
             SELECT * FROM tasks_log_parts 
@@ -577,13 +602,14 @@ impl PostgresDatastore {
             .map(TaskLogPartRecord::to_task_log_part)
             .collect();
 
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM tasks_log_parts WHERE task_id = $1",
-        )
-        .bind(task_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("count task log parts failed: {e}")))?;
+        let count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM tasks_log_parts WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("count task log parts failed: {e}"))
+                })?;
 
         let total_pages = count / size + i64::from(count % size != 0);
 
@@ -600,7 +626,10 @@ impl PostgresDatastore {
 
     /// Creates a new node in the database.
     pub async fn create_node(&self, node: &Node) -> DatastoreResult<()> {
-        let id = node.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("node id is required".to_string()))?;
+        let id = node
+            .id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("node id is required".to_string()))?;
 
         sqlx::query(
             r"
@@ -629,14 +658,12 @@ impl PostgresDatastore {
 
     /// Gets a node by ID.
     pub async fn get_node_by_id(&self, id: &str) -> DatastoreResult<Node> {
-        let record: NodeRecord = sqlx::query_as(
-            "SELECT * FROM nodes WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get node failed: {e}")))?
-        .ok_or(DatastoreError::NodeNotFound)?;
+        let record: NodeRecord = sqlx::query_as("SELECT * FROM nodes WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("get node failed: {e}")))?
+            .ok_or(DatastoreError::NodeNotFound)?;
 
         Ok(record.to_node())
     }
@@ -644,7 +671,7 @@ impl PostgresDatastore {
     /// Gets active nodes (with recent heartbeats).
     pub async fn get_active_nodes(&self) -> DatastoreResult<Vec<Node>> {
         let timeout = time::OffsetDateTime::now_utc() - time::Duration::minutes(5);
-        
+
         let records: Vec<NodeRecord> = sqlx::query_as(
             r"
             SELECT * FROM nodes 
@@ -657,48 +684,56 @@ impl PostgresDatastore {
         .await
         .map_err(|e| DatastoreError::Database(format!("get active nodes failed: {e}")))?;
 
-        Ok(records
-            .iter()
-            .map(NodeRecord::to_node)
-            .collect())
+        Ok(records.iter().map(NodeRecord::to_node).collect())
     }
 
     // Job operations
 
     /// Creates a new job in the database.
     pub async fn create_job(&self, job: &Job) -> DatastoreResult<()> {
-        let id = job.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("job id is required".to_string()))?;
+        let id = job
+            .id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("job id is required".to_string()))?;
 
         if job.created_by.is_none() {
-            return Err(DatastoreError::InvalidInput("created_by is required".to_string()));
+            return Err(DatastoreError::InvalidInput(
+                "created_by is required".to_string(),
+            ));
         }
-        let created_by_id = job.created_by.as_ref().and_then(|u| u.id.as_ref())
+        let created_by_id = job
+            .created_by
+            .as_ref()
+            .and_then(|u| u.id.as_ref())
             .ok_or_else(|| DatastoreError::InvalidInput("created_by.id is required".to_string()))?;
 
         let tasks = serde_json::to_vec(&job.tasks)
             .map_err(|e| DatastoreError::Serialization(format!("job.tasks: {e}")))?;
-        
+
         let inputs = serde_json::to_vec(&job.inputs)
             .map_err(|e| DatastoreError::Serialization(format!("job.inputs: {e}")))?;
-        
+
         let context = serde_json::to_vec(&job.context)
             .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
-        
-        let defaults = job.defaults.as_ref()
+
+        let defaults = job
+            .defaults
+            .as_ref()
             .and_then(|d| serde_json::to_vec(d).ok());
-        
-        let auto_delete = job.auto_delete.as_ref()
+
+        let auto_delete = job
+            .auto_delete
+            .as_ref()
             .and_then(|a| serde_json::to_vec(a).ok());
-        
+
         let webhooks = serde_json::to_vec(&job.webhooks)
             .map_err(|e| DatastoreError::Serialization(format!("job.webhooks: {e}")))?;
 
         let tags = job.tags.as_deref().unwrap_or(&[]);
         let scheduled_job_id = job.schedule.as_ref().and_then(|s| s.id.as_ref());
 
-        let mut secrets: HashMap<String, String> = job.secrets.clone()
-            .unwrap_or_default();
-        
+        let mut secrets: HashMap<String, String> = job.secrets.clone().unwrap_or_default();
+
         if !secrets.is_empty() {
             secrets = encrypt::encrypt_secrets(&secrets, self.encryption_key.as_deref())?;
         }
@@ -751,9 +786,9 @@ impl PostgresDatastore {
                     (None, Some(r)) => (None, r.id.clone()),
                     _ => continue,
                 };
-                
+
                 let perm_id = uuid::Uuid::new_v4().to_string().replace('-', "");
-                
+
                 sqlx::query(
                     r"
                     insert into jobs_perms (id, job_id, user_id, role_id)
@@ -775,18 +810,16 @@ impl PostgresDatastore {
 
     /// Gets a job by ID.
     pub async fn get_job_by_id(&self, id: &str) -> DatastoreResult<Job> {
-        let record: JobRecord = sqlx::query_as(
-            "SELECT * FROM jobs WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get job failed: {e}")))?
-        .ok_or(DatastoreError::JobNotFound)?;
+        let record: JobRecord = sqlx::query_as("SELECT * FROM jobs WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("get job failed: {e}")))?
+            .ok_or(DatastoreError::JobNotFound)?;
 
         // Get tasks for this job
         let tasks: Vec<Task> = vec![]; // TODO: Load tasks if needed
-        
+
         // Get execution (completed tasks)
         let execution_records: Vec<TaskRecord> = sqlx::query_as(
             r"
@@ -807,15 +840,14 @@ impl PostgresDatastore {
 
         // Get created_by user
         let user = self.get_user(&record.created_by).await?;
-        
+
         // Get permissions
-        let perm_records: Vec<JobPermRecord> = sqlx::query_as(
-            "SELECT * FROM jobs_perms WHERE job_id = $1",
-        )
-        .bind(id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get job perms failed: {e}")))?;
+        let perm_records: Vec<JobPermRecord> =
+            sqlx::query_as("SELECT * FROM jobs_perms WHERE job_id = $1")
+                .bind(id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get job perms failed: {e}")))?;
 
         let mut perms = Vec::new();
         for pr in perm_records {
@@ -836,7 +868,13 @@ impl PostgresDatastore {
             }
         }
 
-        record.to_job(tasks, execution, user, perms, self.encryption_key.as_deref())
+        record.to_job(
+            tasks,
+            execution,
+            user,
+            perms,
+            self.encryption_key.as_deref(),
+        )
     }
 
     /// Gets job log parts with pagination.
@@ -848,9 +886,9 @@ impl PostgresDatastore {
         size: i64,
     ) -> DatastoreResult<Page<TaskLogPart>> {
         let offset = (page - 1) * size;
-        
+
         let (search_term, _tags) = parse_query(q);
-        
+
         let records: Vec<TaskLogPartRecord> = sqlx::query_as(&format!(
             r"
             SELECT tlp.* FROM tasks_log_parts tlp
@@ -948,13 +986,9 @@ impl PostgresDatastore {
         let mut result = Vec::new();
         for record in records {
             if let Ok(user) = self.get_user(&record.created_by).await {
-                if let Ok(job) = record.to_job(
-                    vec![],
-                    vec![],
-                    user,
-                    vec![],
-                    self.encryption_key.as_deref(),
-                ) {
+                if let Ok(job) =
+                    record.to_job(vec![], vec![], user, vec![], self.encryption_key.as_deref())
+                {
                     result.push(tork::job::new_job_summary(&job));
                 }
             }
@@ -986,7 +1020,8 @@ impl PostgresDatastore {
             AND
                 ($3 = '' OR EXISTS (SELECT 1 FROM no_job_perms njp WHERE njp.job_id=j.id) 
                     OR EXISTS (SELECT 1 FROM job_perms_info jpi WHERE jpi.job_id = j.id))
-            ".to_string();
+            "
+        .to_string();
 
         let count: i64 = sqlx::query_scalar(&count_query)
             .bind(&search_term)
@@ -1012,34 +1047,44 @@ impl PostgresDatastore {
 
     /// Creates a new scheduled job.
     pub async fn create_scheduled_job(&self, sj: &ScheduledJob) -> DatastoreResult<()> {
-        let id = sj.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("scheduled job id is required".to_string()))?;
+        let id = sj.id.as_ref().ok_or_else(|| {
+            DatastoreError::InvalidInput("scheduled job id is required".to_string())
+        })?;
 
         if sj.created_by.is_none() {
-            return Err(DatastoreError::InvalidInput("created_by is required".to_string()));
+            return Err(DatastoreError::InvalidInput(
+                "created_by is required".to_string(),
+            ));
         }
-        let created_by_id = sj.created_by.as_ref().and_then(|u| u.id.as_ref())
+        let created_by_id = sj
+            .created_by
+            .as_ref()
+            .and_then(|u| u.id.as_ref())
             .ok_or_else(|| DatastoreError::InvalidInput("created_by.id is required".to_string()))?;
 
         let tasks = serde_json::to_vec(&sj.tasks)
             .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
-        
+
         let inputs = serde_json::to_vec(&sj.inputs)
             .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.inputs: {e}")))?;
-        
-        let defaults = sj.defaults.as_ref()
+
+        let defaults = sj
+            .defaults
+            .as_ref()
             .and_then(|d| serde_json::to_vec(d).ok());
-        
-        let auto_delete = sj.auto_delete.as_ref()
+
+        let auto_delete = sj
+            .auto_delete
+            .as_ref()
             .and_then(|a| serde_json::to_vec(a).ok());
-        
+
         let webhooks = serde_json::to_vec(&sj.webhooks)
             .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.webhooks: {e}")))?;
 
         let tags = sj.tags.as_deref().unwrap_or(&[]);
 
-        let mut secrets: HashMap<String, String> = sj.secrets.clone()
-            .unwrap_or_default();
-        
+        let mut secrets: HashMap<String, String> = sj.secrets.clone().unwrap_or_default();
+
         if !secrets.is_empty() {
             secrets = encrypt::encrypt_secrets(&secrets, self.encryption_key.as_deref())?;
         }
@@ -1080,21 +1125,23 @@ impl PostgresDatastore {
 
     /// Gets active scheduled jobs.
     pub async fn get_active_scheduled_jobs(&self) -> DatastoreResult<Vec<ScheduledJob>> {
-        let records: Vec<ScheduledJobRecord> = sqlx::query_as(
-            "SELECT * FROM scheduled_jobs WHERE state = 'ACTIVE'",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get active scheduled jobs failed: {e}")))?;
+        let records: Vec<ScheduledJobRecord> =
+            sqlx::query_as("SELECT * FROM scheduled_jobs WHERE state = 'ACTIVE'")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("get active scheduled jobs failed: {e}"))
+                })?;
 
         let mut result = Vec::new();
         for record in records {
             let tasks: Vec<Task> = serde_json::from_slice(&record.tasks)
                 .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
-            
+
             let user = self.get_user(&record.created_by).await?;
-            
-            let sj = record.to_scheduled_job(tasks, user, vec![], self.encryption_key.as_deref())?;
+
+            let sj =
+                record.to_scheduled_job(tasks, user, vec![], self.encryption_key.as_deref())?;
             result.push(sj);
         }
 
@@ -1144,19 +1191,18 @@ impl PostgresDatastore {
         for record in records {
             let tasks: Vec<Task> = serde_json::from_slice(&record.tasks)
                 .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
-            
+
             let user = self.get_user(&record.created_by).await?;
-            
-            let sj = record.to_scheduled_job(tasks, user, vec![], self.encryption_key.as_deref())?;
+
+            let sj =
+                record.to_scheduled_job(tasks, user, vec![], self.encryption_key.as_deref())?;
             result.push(tork::job::new_scheduled_job_summary(&sj));
         }
 
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM scheduled_jobs",
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("count scheduled jobs failed: {e}")))?;
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM scheduled_jobs")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("count scheduled jobs failed: {e}")))?;
 
         let total_pages = count / size + i64::from(count % size != 0);
         let result_size = result.len() as i64;
@@ -1172,28 +1218,28 @@ impl PostgresDatastore {
 
     /// Gets a scheduled job by ID.
     pub async fn get_scheduled_job_by_id(&self, id: &str) -> DatastoreResult<ScheduledJob> {
-        let record: ScheduledJobRecord = sqlx::query_as(
-            "SELECT * FROM scheduled_jobs WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get scheduled job failed: {e}")))?
-        .ok_or(DatastoreError::ScheduledJobNotFound)?;
+        let record: ScheduledJobRecord =
+            sqlx::query_as("SELECT * FROM scheduled_jobs WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get scheduled job failed: {e}")))?
+                .ok_or(DatastoreError::ScheduledJobNotFound)?;
 
         let tasks: Vec<Task> = serde_json::from_slice(&record.tasks)
             .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
-        
+
         let user = self.get_user(&record.created_by).await?;
 
         // Get permissions
-        let perm_records: Vec<ScheduledPermRecord> = sqlx::query_as(
-            "SELECT * FROM scheduled_jobs_perms WHERE scheduled_job_id = $1",
-        )
-        .bind(id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get scheduled job perms failed: {e}")))?;
+        let perm_records: Vec<ScheduledPermRecord> =
+            sqlx::query_as("SELECT * FROM scheduled_jobs_perms WHERE scheduled_job_id = $1")
+                .bind(id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("get scheduled job perms failed: {e}"))
+                })?;
 
         let mut perms = Vec::new();
         for pr in perm_records {
@@ -1221,8 +1267,13 @@ impl PostgresDatastore {
 
     /// Creates a new user.
     pub async fn create_user(&self, user: &User) -> DatastoreResult<()> {
-        let id = user.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("user id is required".to_string()))?;
-        let created_at = user.created_at.unwrap_or_else(time::OffsetDateTime::now_utc);
+        let id = user
+            .id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("user id is required".to_string()))?;
+        let created_at = user
+            .created_at
+            .unwrap_or_else(time::OffsetDateTime::now_utc);
 
         sqlx::query(
             r"
@@ -1245,14 +1296,13 @@ impl PostgresDatastore {
 
     /// Gets a user by username or ID.
     pub async fn get_user(&self, uid: &str) -> DatastoreResult<User> {
-        let record: UserRecord = sqlx::query_as(
-            "SELECT * FROM users WHERE username_ = $1 OR id = $1",
-        )
-        .bind(uid)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
-        .ok_or(DatastoreError::UserNotFound)?;
+        let record: UserRecord =
+            sqlx::query_as("SELECT * FROM users WHERE username_ = $1 OR id = $1")
+                .bind(uid)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
+                .ok_or(DatastoreError::UserNotFound)?;
 
         Ok(record.to_user())
     }
@@ -1261,8 +1311,13 @@ impl PostgresDatastore {
 
     /// Creates a new role.
     pub async fn create_role(&self, role: &Role) -> DatastoreResult<()> {
-        let id = role.id.as_ref().ok_or_else(|| DatastoreError::InvalidInput("role id is required".to_string()))?;
-        let created_at = role.created_at.unwrap_or_else(time::OffsetDateTime::now_utc);
+        let id = role
+            .id
+            .as_ref()
+            .ok_or_else(|| DatastoreError::InvalidInput("role id is required".to_string()))?;
+        let created_at = role
+            .created_at
+            .unwrap_or_else(time::OffsetDateTime::now_utc);
 
         sqlx::query(
             r"
@@ -1283,31 +1338,24 @@ impl PostgresDatastore {
 
     /// Gets a role by ID or slug.
     pub async fn get_role(&self, id: &str) -> DatastoreResult<Role> {
-        let record: RoleRecord = sqlx::query_as(
-            "SELECT * FROM roles WHERE id = $1 OR slug = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get role failed: {e}")))?
-        .ok_or(DatastoreError::RoleNotFound)?;
+        let record: RoleRecord = sqlx::query_as("SELECT * FROM roles WHERE id = $1 OR slug = $1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("get role failed: {e}")))?
+            .ok_or(DatastoreError::RoleNotFound)?;
 
         Ok(record.to_role())
     }
 
     /// Gets all roles.
     pub async fn get_roles(&self) -> DatastoreResult<Vec<Role>> {
-        let records: Vec<RoleRecord> = sqlx::query_as(
-            "SELECT * FROM roles ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get roles failed: {e}")))?;
+        let records: Vec<RoleRecord> = sqlx::query_as("SELECT * FROM roles ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("get roles failed: {e}")))?;
 
-        Ok(records
-            .iter()
-            .map(RoleRecord::to_role)
-            .collect())
+        Ok(records.iter().map(RoleRecord::to_role).collect())
     }
 
     /// Gets roles assigned to a user.
@@ -1324,10 +1372,7 @@ impl PostgresDatastore {
         .await
         .map_err(|e| DatastoreError::Database(format!("get user roles failed: {e}")))?;
 
-        Ok(records
-            .iter()
-            .map(RoleRecord::to_role)
-            .collect())
+        Ok(records.iter().map(RoleRecord::to_role).collect())
     }
 
     /// Assigns a role to a user.
@@ -1353,14 +1398,12 @@ impl PostgresDatastore {
 
     /// Unassigns a role from a user.
     pub async fn unassign_role(&self, user_id: &str, role_id: &str) -> DatastoreResult<()> {
-        sqlx::query(
-            "delete from users_roles where user_id = $1 and role_id = $2",
-        )
-        .bind(user_id)
-        .bind(role_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("unassign role failed: {e}")))?;
+        sqlx::query("delete from users_roles where user_id = $1 and role_id = $2")
+            .bind(user_id)
+            .bind(role_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DatastoreError::Database(format!("unassign role failed: {e}")))?;
 
         Ok(())
     }
@@ -1369,12 +1412,11 @@ impl PostgresDatastore {
 
     /// Gets system metrics.
     pub async fn get_metrics(&self) -> DatastoreResult<Metrics> {
-        let jobs_running: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM jobs WHERE state = 'RUNNING'",
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get jobs running failed: {e}")))?;
+        let jobs_running: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM jobs WHERE state = 'RUNNING'")
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get jobs running failed: {e}")))?;
 
         let tasks_running: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM tasks t JOIN jobs j ON t.job_id = j.id WHERE t.state = 'RUNNING' AND j.state = 'RUNNING'",
@@ -1429,25 +1471,38 @@ impl PostgresDatastore {
         F: FnOnce(&mut Task) -> DatastoreResult<()>,
     {
         let encryption_key = self.encryption_key.clone();
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
-        let record: TaskRecord = sqlx::query_as::<_, TaskRecord>(
-            "SELECT * FROM tasks WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("fetch task for update failed: {e}")))?
-        .ok_or(DatastoreError::TaskNotFound)?;
+        let record: TaskRecord =
+            sqlx::query_as::<_, TaskRecord>("SELECT * FROM tasks WHERE id = $1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("fetch task for update failed: {e}"))
+                })?
+                .ok_or(DatastoreError::TaskNotFound)?;
 
         let mut task = record.to_task()?;
         modify(&mut task)?;
 
         let each = task.each.as_ref().and_then(|e| serde_json::to_vec(e).ok());
-        let parallel = task.parallel.as_ref().and_then(|p| serde_json::to_vec(p).ok());
-        let subjob = task.subjob.as_ref().and_then(|s| serde_json::to_vec(s).ok());
-        let limits = task.limits.as_ref().and_then(|l| serde_json::to_vec(l).ok());
+        let parallel = task
+            .parallel
+            .as_ref()
+            .and_then(|p| serde_json::to_vec(p).ok());
+        let subjob = task
+            .subjob
+            .as_ref()
+            .and_then(|s| serde_json::to_vec(s).ok());
+        let limits = task
+            .limits
+            .as_ref()
+            .and_then(|l| serde_json::to_vec(l).ok());
         let retry = task.retry.as_ref().and_then(|r| serde_json::to_vec(r).ok());
 
         let result = sqlx::query(
@@ -1486,7 +1541,9 @@ impl PostgresDatastore {
         let _ = encryption_key; // available for future use
 
         match result {
-            Ok(_) => tx.commit().await
+            Ok(_) => tx
+                .commit()
+                .await
                 .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}"))),
             Err(e) => {
                 let _ = tx.rollback().await;
@@ -1500,17 +1557,21 @@ impl PostgresDatastore {
     where
         F: FnOnce(&mut Node) -> DatastoreResult<()>,
     {
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
-        let record: NodeRecord = sqlx::query_as::<_, NodeRecord>(
-            "SELECT * FROM nodes WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("fetch node for update failed: {e}")))?
-        .ok_or(DatastoreError::NodeNotFound)?;
+        let record: NodeRecord =
+            sqlx::query_as::<_, NodeRecord>("SELECT * FROM nodes WHERE id = $1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("fetch node for update failed: {e}"))
+                })?
+                .ok_or(DatastoreError::NodeNotFound)?;
 
         let mut node = record.to_node();
         modify(&mut node)?;
@@ -1532,7 +1593,9 @@ impl PostgresDatastore {
         .await;
 
         match result {
-            Ok(_) => tx.commit().await
+            Ok(_) => tx
+                .commit()
+                .await
                 .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}"))),
             Err(e) => {
                 let _ = tx.rollback().await;
@@ -1547,33 +1610,35 @@ impl PostgresDatastore {
         F: FnOnce(&mut Job) -> DatastoreResult<()>,
     {
         let encryption_key = self.encryption_key.clone();
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
-        let record: JobRecord = sqlx::query_as::<_, JobRecord>(
-            "SELECT * FROM jobs WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("fetch job for update failed: {e}")))?
-        .ok_or(DatastoreError::JobNotFound)?;
+        let record: JobRecord =
+            sqlx::query_as::<_, JobRecord>("SELECT * FROM jobs WHERE id = $1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("fetch job for update failed: {e}")))?
+                .ok_or(DatastoreError::JobNotFound)?;
 
         let tasks: Vec<Task> = serde_json::from_slice(&record.tasks)
             .map_err(|e| DatastoreError::Serialization(format!("job.tasks: {e}")))?;
 
-        let user_record: UserRecord = sqlx::query_as(
-            "SELECT * FROM users WHERE username_ = $1 OR id = $1",
-        )
-        .bind(&record.created_by)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
-        .ok_or(DatastoreError::UserNotFound)?;
+        let user_record: UserRecord =
+            sqlx::query_as("SELECT * FROM users WHERE username_ = $1 OR id = $1")
+                .bind(&record.created_by)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
+                .ok_or(DatastoreError::UserNotFound)?;
 
         let created_by = user_record.to_user();
 
-        let mut job = record.to_job(tasks, vec![], created_by, vec![], encryption_key.as_deref())?;
+        let mut job =
+            record.to_job(tasks, vec![], created_by, vec![], encryption_key.as_deref())?;
         modify(&mut job)?;
 
         let context = serde_json::to_vec(&job.context)
@@ -1603,7 +1668,9 @@ impl PostgresDatastore {
         .await;
 
         match result {
-            Ok(_) => tx.commit().await
+            Ok(_) => tx
+                .commit()
+                .await
                 .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}"))),
             Err(e) => {
                 let _ = tx.rollback().await;
@@ -1618,7 +1685,10 @@ impl PostgresDatastore {
         F: FnOnce(&mut ScheduledJob) -> DatastoreResult<()>,
     {
         let encryption_key = self.encryption_key.clone();
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
         let record: ScheduledJobRecord = sqlx::query_as::<_, ScheduledJobRecord>(
@@ -1627,24 +1697,26 @@ impl PostgresDatastore {
         .bind(id)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| DatastoreError::Database(format!("fetch scheduled job for update failed: {e}")))?
+        .map_err(|e| {
+            DatastoreError::Database(format!("fetch scheduled job for update failed: {e}"))
+        })?
         .ok_or(DatastoreError::ScheduledJobNotFound)?;
 
         let tasks: Vec<Task> = serde_json::from_slice(&record.tasks)
             .map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
 
-        let user_record: UserRecord = sqlx::query_as(
-            "SELECT * FROM users WHERE username_ = $1 OR id = $1",
-        )
-        .bind(&record.created_by)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
-        .ok_or(DatastoreError::UserNotFound)?;
+        let user_record: UserRecord =
+            sqlx::query_as("SELECT * FROM users WHERE username_ = $1 OR id = $1")
+                .bind(&record.created_by)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
+                .ok_or(DatastoreError::UserNotFound)?;
 
         let created_by = user_record.to_user();
 
-        let mut sj = record.to_scheduled_job(tasks, created_by, vec![], encryption_key.as_deref())?;
+        let mut sj =
+            record.to_scheduled_job(tasks, created_by, vec![], encryption_key.as_deref())?;
         modify(&mut sj)?;
 
         let result = sqlx::query("UPDATE scheduled_jobs SET state = $1 WHERE id = $2")
@@ -1654,27 +1726,35 @@ impl PostgresDatastore {
             .await;
 
         match result {
-            Ok(_) => tx.commit().await
+            Ok(_) => tx
+                .commit()
+                .await
                 .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}"))),
             Err(e) => {
                 let _ = tx.rollback().await;
-                Err(DatastoreError::Database(format!("update scheduled job failed: {e}")))
+                Err(DatastoreError::Database(format!(
+                    "update scheduled job failed: {e}"
+                )))
             }
         }
     }
 
     /// Deletes a scheduled job and all its associated job instances.
     pub async fn delete_scheduled_job(&self, id: &str) -> DatastoreResult<()> {
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
 
-        let instance_ids: Vec<String> = sqlx::query_scalar(
-            "SELECT id FROM jobs WHERE scheduled_job_id = $1",
-        )
-        .bind(id)
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(|e| DatastoreError::Database(format!("get scheduled job instances failed: {e}")))?;
+        let instance_ids: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM jobs WHERE scheduled_job_id = $1")
+                .bind(id)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("get scheduled job instances failed: {e}"))
+                })?;
 
         if !instance_ids.is_empty() {
             delete_jobs_cascade(&mut tx, &instance_ids).await?;
@@ -1684,7 +1764,9 @@ impl PostgresDatastore {
             .bind(id)
             .execute(&mut *tx)
             .await
-            .map_err(|e| DatastoreError::Database(format!("delete scheduled job perms failed: {e}")))?;
+            .map_err(|e| {
+                DatastoreError::Database(format!("delete scheduled job perms failed: {e}"))
+            })?;
 
         sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
             .bind(id)
@@ -1692,7 +1774,8 @@ impl PostgresDatastore {
             .await
             .map_err(|e| DatastoreError::Database(format!("delete scheduled job failed: {e}")))?;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))
     }
 }
@@ -1706,7 +1789,7 @@ fn sanitize_string(s: Option<&str>) -> Option<String> {
 fn parse_query(query: &str) -> (String, Vec<String>) {
     let mut terms = Vec::new();
     let mut tags = Vec::new();
-    
+
     for part in query.split_whitespace() {
         if part.starts_with("tag:") {
             tags.push(part.trim_start_matches("tag:").to_string());
@@ -1718,7 +1801,7 @@ fn parse_query(query: &str) -> (String, Vec<String>) {
             terms.push(part.to_string());
         }
     }
-    
+
     (terms.join(" "), tags)
 }
 
@@ -1757,7 +1840,7 @@ async fn delete_jobs_cascade(
         .await
         .map_err(|e| DatastoreError::Database(format!("delete jobs failed: {e}")))?;
 
-        Ok(result.rows_affected().cast_signed())
+    Ok(result.rows_affected().cast_signed())
 }
 
 #[cfg(test)]
@@ -1770,8 +1853,14 @@ mod tests {
     fn options_default_values() {
         let opts = Options::default();
 
-        assert_eq!(opts.logs_retention_duration, DEFAULT_LOGS_RETENTION_DURATION);
-        assert_eq!(opts.jobs_retention_duration, DEFAULT_JOBS_RETENTION_DURATION);
+        assert_eq!(
+            opts.logs_retention_duration,
+            DEFAULT_LOGS_RETENTION_DURATION
+        );
+        assert_eq!(
+            opts.jobs_retention_duration,
+            DEFAULT_JOBS_RETENTION_DURATION
+        );
         assert_eq!(opts.cleanup_interval, MIN_CLEANUP_INTERVAL);
         assert!(!opts.disable_cleanup);
         assert!(opts.encryption_key.is_none());
@@ -1944,9 +2033,15 @@ mod tests {
     #[cfg(test)]
     async fn setup_test_ds() -> PostgresDatastore {
         let dsn = "postgres://tork:tork@localhost:5432/tork?sslmode=disable";
-        PostgresDatastore::new(dsn, Options { disable_cleanup: true, ..Options::default() })
-            .await
-            .unwrap()
+        PostgresDatastore::new(
+            dsn,
+            Options {
+                disable_cleanup: true,
+                ..Options::default()
+            },
+        )
+        .await
+        .unwrap()
     }
 
     #[tokio::test]
@@ -1960,7 +2055,10 @@ mod tests {
         let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
         let user = User {
             id: Some(user_id.clone()),
-            username: Some(format!("inttest_task_{}", uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string())),
+            username: Some(format!(
+                "inttest_task_{}",
+                uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string()
+            )),
             name: Some("Test User".to_string()),
             password_hash: Some("".to_string()),
             created_at: Some(now),
@@ -1986,7 +2084,10 @@ mod tests {
             created_at: Some(now),
             description: Some("some description".to_string()),
             networks: Some(vec!["some-network".to_string()]),
-            files: Some(HashMap::from([("myfile".to_string(), "hello world".to_string())])),
+            files: Some(HashMap::from([(
+                "myfile".to_string(),
+                "hello world".to_string(),
+            )])),
             registry: Some(Registry {
                 username: Some("me".to_string()),
                 password: Some("secret".to_string()),
@@ -2119,10 +2220,22 @@ mod tests {
         ds.create_task_log_part(&part1).await.unwrap();
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM tasks_log_parts WHERE task_id = $1").bind(&task_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1").bind(&job_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM tasks_log_parts WHERE task_id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2173,9 +2286,18 @@ mod tests {
         assert!(result.is_err());
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1").bind(&job_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Task update integration tests ───────────────────────────────────
@@ -2232,9 +2354,18 @@ mod tests {
         assert!(updated.started_at.is_some());
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1").bind(&job_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2306,11 +2437,26 @@ mod tests {
         assert!(states.contains(&"PENDING"));
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task1_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task2_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1").bind(&task3_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1").bind(&job_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task1_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task2_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task3_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Node update integration tests ────────────────────────────────────
@@ -2347,7 +2493,10 @@ mod tests {
         assert_eq!(updated.task_count, 5);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1").bind(&node_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1")
+            .bind(&node_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2389,8 +2538,14 @@ mod tests {
         assert!(names.contains(&"active-node-2"));
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1").bind(&node1_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1").bind(&node2_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1")
+            .bind(&node1_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM nodes WHERE id = $1")
+            .bind(&node2_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Job integration tests ────────────────────────────────────────────
@@ -2429,18 +2584,22 @@ mod tests {
         ds.create_job(&job).await.unwrap();
 
         // Verify job was created by checking database directly
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM jobs WHERE id = $1)"
-        )
-        .bind(&job_id)
-        .fetch_one(&ds.pool)
-        .await
-        .unwrap();
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE id = $1)")
+            .bind(&job_id)
+            .fetch_one(&ds.pool)
+            .await
+            .unwrap();
         assert!(exists);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1").bind(&job_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Scheduled Job integration tests ─────────────────────────────────
@@ -2484,8 +2643,14 @@ mod tests {
         assert_eq!(retrieved.cron, scheduled_job.cron);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1").bind(&sj_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2542,9 +2707,18 @@ mod tests {
         // the retrieval assertion to avoid this known issue.
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1").bind(&sj1_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1").bind(&sj2_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj1_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj2_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2592,8 +2766,14 @@ mod tests {
         assert_eq!(updated.state, tork::job::SCHEDULED_JOB_STATE_PAUSED);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1").bind(&sj_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── User integration tests ──────────────────────────────────────────
@@ -2626,7 +2806,10 @@ mod tests {
         assert_eq!(retrieved_by_id.id, user.id);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Role integration tests ───────────────────────────────────────────
@@ -2639,7 +2822,10 @@ mod tests {
         let role_id = uuid::Uuid::new_v4().to_string().replace('-', "");
         let role = Role {
             id: Some(role_id.clone()),
-            slug: Some(format!("test-role-{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            slug: Some(format!(
+                "test-role-{}",
+                &uuid::Uuid::new_v4().to_string()[..8]
+            )),
             name: Some("Test Role".to_string()),
             created_at: Some(now),
         };
@@ -2654,7 +2840,10 @@ mod tests {
         assert_eq!(retrieved_by_slug.id, role.id);
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM roles WHERE id = $1").bind(&role_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM roles WHERE id = $1")
+            .bind(&role_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     #[tokio::test]
@@ -2693,7 +2882,10 @@ mod tests {
         let role_id = uuid::Uuid::new_v4().to_string().replace('-', "");
         let role = Role {
             id: Some(role_id.clone()),
-            slug: Some(format!("test-assign-{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            slug: Some(format!(
+                "test-assign-{}",
+                &uuid::Uuid::new_v4().to_string()[..8]
+            )),
             name: Some("Test Assign Role".to_string()),
             created_at: Some(now),
         };
@@ -2711,12 +2903,23 @@ mod tests {
 
         // Verify unassigned
         let roles_after = ds.get_user_roles(&user_id).await.unwrap();
-        assert!(!roles_after.iter().any(|r| r.id.as_deref() == Some(&role_id)));
+        assert!(!roles_after
+            .iter()
+            .any(|r| r.id.as_deref() == Some(&role_id)));
 
         // Cleanup
-        let _ = sqlx::query("DELETE FROM users_roles WHERE user_id = $1").bind(&user_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM roles WHERE id = $1").bind(&role_id).execute(&ds.pool).await;
-        let _ = sqlx::query("DELETE FROM users WHERE id = $1").bind(&user_id).execute(&ds.pool).await;
+        let _ = sqlx::query("DELETE FROM users_roles WHERE user_id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM roles WHERE id = $1")
+            .bind(&role_id)
+            .execute(&ds.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await;
     }
 
     // ── Metrics integration tests ────────────────────────────────────────

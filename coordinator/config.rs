@@ -28,8 +28,8 @@ use tokio::sync::{watch, Mutex};
 use tracing::{debug, error, info, warn};
 
 use tork::broker::{
-    is_coordinator_queue, queue, Broker, EventHandler, HeartbeatHandler, JobHandler,
-    TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    is_coordinator_queue, queue, Broker, EventHandler, HeartbeatHandler, JobHandler, TaskHandler,
+    TaskLogPartHandler, TaskProgressHandler,
 };
 use tork::datastore::Datastore;
 use tork::job::{Job, ScheduledJob, JOB_STATE_FAILED};
@@ -39,10 +39,11 @@ use tork::version::VERSION;
 
 use crate::api;
 use crate::handlers::{
-    completed::CompletedHandler, error::ErrorHandler, heartbeat::HeartbeatHandler as NodeHeartbeatHandler,
-    job::JobHandler as JobEventHandler, log::LogHandler, pending::PendingHandler,
-    progress::ProgressHandler, redelivered::RedeliveredHandler, schedule::ScheduleHandler,
-    started::StartedHandler, HandlerError,
+    completed::CompletedHandler, error::ErrorHandler,
+    heartbeat::HeartbeatHandler as NodeHeartbeatHandler, job::JobHandler as JobEventHandler,
+    log::LogHandler, pending::PendingHandler, progress::ProgressHandler,
+    redelivered::RedeliveredHandler, schedule::ScheduleHandler, started::StartedHandler,
+    HandlerError,
 };
 
 // ---------------------------------------------------------------------------
@@ -55,9 +56,7 @@ use crate::handlers::{
 /// without hyphens. We use standard UUID v4 with hyphens stripped.
 #[must_use]
 fn new_coordinator_id() -> String {
-    uuid::Uuid::new_v4()
-        .to_string()
-        .replace('-', "")
+    uuid::Uuid::new_v4().to_string().replace('-', "")
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +187,69 @@ impl Middleware {
 }
 
 // ---------------------------------------------------------------------------
+// API Endpoints
+// ---------------------------------------------------------------------------
+
+/// Configuration for enabling/disabling API endpoint groups.
+///
+/// Go parity: `coordinator.api.endpoints.*` config namespace.
+///
+/// Each field corresponds to an endpoint group. All default to `true`.
+/// Use [`to_enabled_map`](ApiEndpoints::to_enabled_map) to convert to
+/// the `HashMap<String, bool>` format expected by the API router.
+#[derive(Debug, Clone)]
+pub struct ApiEndpoints {
+    /// Enable health check endpoint (`GET /health`).
+    pub health: bool,
+    /// Enable job management endpoints (`/jobs/*`).
+    pub jobs: bool,
+    /// Enable task endpoints (`/tasks/*`).
+    pub tasks: bool,
+    /// Enable node listing endpoint (`GET /nodes`).
+    pub nodes: bool,
+    /// Enable queue management endpoints (`/queues/*`).
+    pub queues: bool,
+    /// Enable metrics endpoint (`GET /metrics`).
+    pub metrics: bool,
+    /// Enable user management endpoints (`/users`).
+    pub users: bool,
+    /// Enable scheduled job endpoints (`/scheduled-jobs/*`).
+    pub scheduled_jobs: bool,
+}
+
+impl Default for ApiEndpoints {
+    fn default() -> Self {
+        Self {
+            health: true,
+            jobs: true,
+            tasks: true,
+            nodes: true,
+            queues: true,
+            metrics: true,
+            users: true,
+            scheduled_jobs: true,
+        }
+    }
+}
+
+impl ApiEndpoints {
+    /// Convert to the `HashMap<String, bool>` format used by the API router.
+    #[must_use]
+    pub fn to_enabled_map(&self) -> HashMap<String, bool> {
+        let mut map = HashMap::new();
+        map.insert("health".to_string(), self.health);
+        map.insert("jobs".to_string(), self.jobs);
+        map.insert("tasks".to_string(), self.tasks);
+        map.insert("nodes".to_string(), self.nodes);
+        map.insert("queues".to_string(), self.queues);
+        map.insert("metrics".to_string(), self.metrics);
+        map.insert("users".to_string(), self.users);
+        map.insert("scheduled_jobs".to_string(), self.scheduled_jobs);
+        map
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
@@ -207,8 +269,12 @@ pub struct Config {
     pub address: String,
     /// Queue concurrency settings (queue name → number of consumers)
     pub queues: HashMap<String, i64>,
-    /// Enabled API endpoints
+    /// Enabled API endpoints (legacy map format)
     pub enabled: HashMap<String, bool>,
+    /// API endpoint toggling configuration
+    ///
+    /// Go parity: `coordinator.api.endpoints.*`
+    pub endpoints: ApiEndpoints,
     /// Middleware chains for handlers
     ///
     /// Go parity: `cfg.Middleware`
@@ -222,6 +288,7 @@ impl std::fmt::Debug for Config {
             .field("address", &self.address)
             .field("queues", &self.queues)
             .field("enabled", &self.enabled)
+            .field("endpoints", &self.endpoints)
             .field("broker", &"<dyn Broker>")
             .field("datastore", &"<dyn Datastore>")
             .field("locker", &"<dyn Locker>")
@@ -239,6 +306,7 @@ impl Clone for Config {
             address: self.address.clone(),
             queues: self.queues.clone(),
             enabled: self.enabled.clone(),
+            endpoints: self.endpoints.clone(),
             middleware: self.middleware.clone(),
         }
     }

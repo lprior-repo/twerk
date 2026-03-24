@@ -37,10 +37,7 @@ pub const DEFAULT_POSTGRES_DSN: &str =
 ///
 /// Returns [`CliError::UnknownDatastore`] if the datastore type is not supported.
 /// Returns [`CliError::Migration`] if the migration fails.
-pub async fn run_migration(
-    datastore_type: &str,
-    postgres_dsn: &str,
-) -> Result<(), CliError> {
+pub async fn run_migration(datastore_type: &str, postgres_dsn: &str) -> Result<(), CliError> {
     match datastore_type.to_lowercase().as_str() {
         "postgres" | "postgresql" => {
             let pg = PostgresDatastore::new(
@@ -53,11 +50,9 @@ pub async fn run_migration(
             .await
             .map_err(|e| CliError::Migration(format!("failed to connect to postgres: {e}")))?;
 
-            pg.exec_script(SCHEMA)
-                .await
-                .map_err(|e| {
-                    CliError::Migration(format!("error when trying to create db schema: {e}"))
-                })?;
+            pg.exec_script(SCHEMA).await.map_err(|e| {
+                CliError::Migration(format!("error when trying to create db schema: {e}"))
+            })?;
 
             pg.close()
                 .await

@@ -1,10 +1,10 @@
 //! MultiMounter - manages multiple mounters
 
 use crate::mount::Mount;
-use crate::runtime::mount::{Mounter, MountError};
+use crate::runtime::mount::{MountError, Mounter};
 use std::collections::HashMap;
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
 use tokio::sync::RwLock;
 
 /// A mounter that routes to different mounters based on mount type
@@ -56,9 +56,10 @@ impl MultiMounter {
         let mount_id = mnt.id.as_ref().ok_or(MountError::MissingMountId)?;
         let mount_type = mnt.mount_type.clone();
 
-        let mounter = self.mounters.get(&mount_type).ok_or_else(|| {
-            MountError::UnknownMountType(mount_type.clone())
-        })?;
+        let mounter = self
+            .mounters
+            .get(&mount_type)
+            .ok_or_else(|| MountError::UnknownMountType(mount_type.clone()))?;
 
         // Store mount_id -> mount_type mapping for routing unmount
         {
@@ -81,15 +82,16 @@ impl MultiMounter {
         // Look up the mount_type for this mount_id
         let mount_type = {
             let mut mapping = self.mapping.write().await;
-            mapping.remove(mount_id).ok_or_else(|| {
-                MountError::MounterNotFound(mnt.clone())
-            })?
+            mapping
+                .remove(mount_id)
+                .ok_or_else(|| MountError::MounterNotFound(mnt.clone()))?
         };
 
         // Find the mounter for this mount_type
-        let mounter = self.mounters.get(&mount_type).ok_or_else(|| {
-            MountError::UnknownMountType(mount_type.clone())
-        })?;
+        let mounter = self
+            .mounters
+            .get(&mount_type)
+            .ok_or_else(|| MountError::UnknownMountType(mount_type.clone()))?;
 
         // Call the actual mounter
         mounter.unmount(ctx, mnt).await

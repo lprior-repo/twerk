@@ -24,8 +24,8 @@
 
 use std::collections::HashMap;
 
-use super::*;
 use super::slug;
+use super::*;
 
 fn create_test_task() -> Task {
     Task {
@@ -106,7 +106,10 @@ async fn test_podman_run_not_supported_sidecars() {
 
     let result = rt.run(&mut task).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), PodmanError::SidecarsNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        PodmanError::SidecarsNotSupported
+    ));
 }
 
 #[tokio::test]
@@ -117,7 +120,10 @@ async fn test_podman_host_network_disabled() {
 
     let result = rt.run(&mut task).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), PodmanError::HostNetworkingDisabled));
+    assert!(matches!(
+        result.unwrap_err(),
+        PodmanError::HostNetworkingDisabled
+    ));
 }
 
 // ── Integration tests (require podman) ─────────────────────────────
@@ -129,7 +135,11 @@ async fn test_podman_run_task_cmd() {
     let mut task = create_test_task();
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "run with CMD should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "run with CMD should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Mirrors Go's TestPodmanRunTaskRun.
@@ -141,7 +151,11 @@ async fn test_podman_run_task_run() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "run with run script should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "run with run script should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("hello world\n", task.result);
 }
 
@@ -155,7 +169,11 @@ async fn test_podman_custom_entrypoint() {
     task.entrypoint = vec!["/bin/sh".to_string(), "-c".to_string()];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "run with custom entrypoint should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "run with custom entrypoint should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("hello world\n", task.result);
 }
 
@@ -223,7 +241,11 @@ async fn test_podman_run_pre_post() {
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "pre/post should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "pre/post should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("hello\n", task.result);
 }
 
@@ -243,7 +265,11 @@ async fn test_podman_run_task_with_volume() {
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "volume mount should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "volume mount should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Mirrors Go's TestPodmanRunTaskWithVolumeAndCustomWorkdir.
@@ -263,7 +289,11 @@ async fn test_podman_run_volume_custom_workdir() {
     task.workdir = Some("/xyz".to_string());
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "volume+workdir should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "volume+workdir should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("thing\n", task.result);
 }
 
@@ -284,7 +314,11 @@ async fn test_podman_run_volume_and_workdir() {
     task.workdir = Some("/xyz".to_string());
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "volume+workdir should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "volume+workdir should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Mirrors Go's TestPodmanRunTaskInitWorkdir.
@@ -301,7 +335,11 @@ async fn test_podman_run_task_init_workdir() {
     ]);
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "init workdir should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "init workdir should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("hello world", task.result);
 }
 
@@ -319,7 +357,11 @@ async fn test_podman_run_task_init_workdir_ls() {
     ]);
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "init workdir ls should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "init workdir ls should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("hello.txt\nlarge.txt\n", task.result);
 }
 
@@ -345,7 +387,11 @@ async fn test_podman_run_task_with_error() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err(), "run with bad command should fail: {:?}", result);
+    assert!(
+        result.is_err(),
+        "run with bad command should fail: {:?}",
+        result
+    );
 }
 
 /// Mirrors Go's TestPodmanHealthCheck.
@@ -353,7 +399,11 @@ async fn test_podman_run_task_with_error() {
 async fn test_podman_health_check() {
     let rt = PodmanRuntime::new(create_test_config());
     let result = rt.health_check().await;
-    assert!(result.is_ok(), "health check should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "health check should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Mirrors Go's TestPodmanHealthCheckFailed — verifies error when podman isn't running.
@@ -382,7 +432,11 @@ async fn test_run_task_privileged_on() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "privileged run should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "privileged run should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("Can modify kernel params\n", task.result);
 }
 
@@ -395,7 +449,11 @@ async fn test_run_task_privileged_off() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "non-privileged run should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "non-privileged run should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("Cannot modify kernel params\n", task.result);
 }
 
@@ -415,7 +473,10 @@ fn test_volume_mounter() {
     // Mount creates a temp directory
     let result = vm.mount(&mut mount);
     assert!(result.is_ok());
-    assert!(!mount.source.is_empty(), "source should be populated after mount");
+    assert!(
+        !mount.source.is_empty(),
+        "source should be populated after mount"
+    );
 
     // Verify the directory exists and is world-writable
     let metadata = std::fs::metadata(&mount.source);
@@ -532,7 +593,11 @@ async fn test_podman_container_lifecycle() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "container lifecycle should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "container lifecycle should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("lifecycle_test\n", task.result);
 }
 
@@ -550,7 +615,11 @@ async fn test_podman_container_start_and_wait() {
     let result = rt.run(&mut task).await;
     let elapsed = start.elapsed();
 
-    assert!(result.is_ok(), "container start+wait should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "container start+wait should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("wait_test\n", task.result);
     // Should have waited at least 1 second for the sleep command
     assert!(elapsed >= std::time::Duration::from_secs(1));
@@ -566,7 +635,11 @@ async fn test_podman_container_remove() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "container remove should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "container remove should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("remove_test\n", task.result);
 
     // After run completes, the container should be cleaned up
@@ -590,7 +663,11 @@ async fn test_podman_bind_mount() {
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "bind mount should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "bind mount should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("bind_mount\n", task.result);
 }
 
@@ -601,20 +678,23 @@ async fn test_podman_tmpfs_mount() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
     // Write to tmpfs mount and read it back
-    task.run = "echo tmpfs_test > /tmpfs/data.txt && cat /tmpfs/data.txt > $TORK_OUTPUT".to_string();
+    task.run =
+        "echo tmpfs_test > /tmpfs/data.txt && cat /tmpfs/data.txt > $TORK_OUTPUT".to_string();
     task.cmd = vec![];
     task.mounts = vec![Mount {
         id: uuid::Uuid::new_v4().to_string(),
         mount_type: MountType::Tmpfs,
         source: String::new(),
         target: "/tmpfs".to_string(),
-        opts: Some(HashMap::from([
-            ("size".to_string(), "10m".to_string()),
-        ])),
+        opts: Some(HashMap::from([("size".to_string(), "10m".to_string())])),
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "tmpfs mount should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "tmpfs mount should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("tmpfs_test\n", task.result);
 }
 
@@ -644,7 +724,11 @@ async fn test_podman_multiple_volume_mounts() {
     ];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "multiple volume mounts should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "multiple volume mounts should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("volume1\nvolume2\n", task.result);
 }
 
@@ -654,7 +738,8 @@ async fn test_podman_multiple_volume_mounts() {
 async fn test_podman_volume_no_opts() {
     let rt = PodmanRuntime::new(create_test_config());
     let mut task = create_test_task();
-    task.run = "echo volume_baseline > /baseline/data.txt && cat /baseline/data.txt > $TORK_OUTPUT".to_string();
+    task.run = "echo volume_baseline > /baseline/data.txt && cat /baseline/data.txt > $TORK_OUTPUT"
+        .to_string();
     task.cmd = vec![];
     task.mounts = vec![Mount {
         id: uuid::Uuid::new_v4().to_string(),
@@ -665,7 +750,11 @@ async fn test_podman_volume_no_opts() {
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "volume without opts should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "volume without opts should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("volume_baseline\n", task.result);
 }
 
@@ -677,12 +766,14 @@ async fn test_podman_env_vars() {
     let mut task = create_test_task();
     task.run = "echo $MY_VAR > $TORK_OUTPUT".to_string();
     task.cmd = vec![];
-    task.env = HashMap::from([
-        ("MY_VAR".to_string(), "env_test_value".to_string()),
-    ]);
+    task.env = HashMap::from([("MY_VAR".to_string(), "env_test_value".to_string())]);
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "env vars should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "env vars should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("env_test_value\n", task.result);
 }
 
@@ -697,7 +788,11 @@ async fn test_podman_networks() {
     // Just verify it runs without network-related errors
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "container with networks should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "container with networks should succeed: {:?}",
+        result.err()
+    );
 }
 
 /// Test container with resource limits.
@@ -714,7 +809,11 @@ async fn test_podman_resource_limits() {
     });
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "resource limits should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "resource limits should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("limits_test\n", task.result);
 }
 
@@ -744,12 +843,14 @@ async fn test_podman_files() {
     let mut task = create_test_task();
     task.run = "cat myfile.txt > $TORK_OUTPUT".to_string();
     task.cmd = vec![];
-    task.files = HashMap::from([
-        ("myfile.txt".to_string(), "file_content_test".to_string()),
-    ]);
+    task.files = HashMap::from([("myfile.txt".to_string(), "file_content_test".to_string())]);
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "files injection should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "files injection should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("file_content_test", task.result);
 }
 
@@ -770,13 +871,23 @@ async fn test_stop_container_helper() {
 
     // Now stop it using our helper
     let result = PodmanRuntime::stop_container(&container_id).await;
-    assert!(result.is_ok(), "stop_container should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "stop_container should succeed: {:?}",
+        result.err()
+    );
 
     // Verify container is removed
     let mut inspect_cmd = tokio::process::Command::new("podman");
     inspect_cmd.arg("inspect").arg(&container_id);
-    let inspect_output = inspect_cmd.output().await.expect("podman inspect should succeed");
-    assert!(!inspect_output.status.success(), "container should be removed");
+    let inspect_output = inspect_cmd
+        .output()
+        .await
+        .expect("podman inspect should succeed");
+    assert!(
+        !inspect_output.status.success(),
+        "container should be removed"
+    );
 }
 
 /// Test image exists locally check.
@@ -880,7 +991,11 @@ async fn test_podman_pre_post_with_volume() {
     }];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "pre/post with volume should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "pre/post with volume should succeed: {:?}",
+        result.err()
+    );
     // Pre task writes "pre_data", main task reads it
     assert_eq!("pre_data\n", task.result);
 }
@@ -895,6 +1010,10 @@ async fn test_podman_task_result() {
     task.cmd = vec![];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_ok(), "task result should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "task result should succeed: {:?}",
+        result.err()
+    );
     assert_eq!("line1\nline2\n", task.result);
 }

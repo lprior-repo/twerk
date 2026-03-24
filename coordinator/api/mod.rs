@@ -30,8 +30,16 @@ use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
 use tork::{Broker, Datastore};
+use tower_http::cors::CorsLayer;
+
+use tork_runtime::middleware::web::body_limit::body_limit_layer;
+use tork_runtime::middleware::web::config::{
+    BodyLimitConfig, CorsConfig, LoggerConfig, RateLimitConfig,
+};
+use tork_runtime::middleware::web::cors::cors_layer;
+use tork_runtime::middleware::web::logger::logger_layer;
+use tork_runtime::middleware::web::rate_limit::rate_limit_layer;
 
 /// Configuration for the API server.
 #[derive(Debug, Clone)]
@@ -42,6 +50,14 @@ pub struct Config {
     pub enabled: HashMap<String, bool>,
     /// CORS origins (empty means allow all)
     pub cors_origins: Vec<String>,
+    /// CORS middleware configuration
+    pub cors_config: Option<CorsConfig>,
+    /// Rate limiting middleware configuration
+    pub rate_limit_config: Option<RateLimitConfig>,
+    /// Request logger middleware configuration
+    pub logger_config: Option<LoggerConfig>,
+    /// Body limit middleware configuration
+    pub body_limit_config: Option<BodyLimitConfig>,
 }
 
 impl Default for Config {
@@ -50,6 +66,10 @@ impl Default for Config {
             address: "0.0.0.0:8000".to_string(),
             enabled: HashMap::new(),
             cors_origins: vec![],
+            cors_config: None,
+            rate_limit_config: None,
+            logger_config: None,
+            body_limit_config: None,
         }
     }
 }
@@ -79,22 +99,60 @@ impl AppState {
     /// Create a new AppState with the given broker, datastore, and config.
     #[must_use]
     pub fn new(broker: Arc<dyn Broker>, ds: Arc<dyn Datastore>, config: Config) -> Self {
-        Self {
-            broker,
-            ds,
-            config,
-        }
+        Self { broker, ds, config }
     }
 }
 
 /// Create a new router with the given state and configured endpoints.
 ///
 /// Go parity: registers all routes from `NewAPI`, respecting the `Enabled` map.
+/// Applies middleware layers (CORS, logging, rate limiting, body limit) based
+/// on the provided configuration.
 pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
-    let cors = CorsLayer::new();
 
-    let mut router = Router::new().layer(cors);
+    // Build middleware layers from configuration
+    // CORS layer (always present, defaults to permissive)
+    let cors = state
+        .config
+        .cors_config
+        .as_ref()
+        .map(|c| cors_layer(c))
+        .unwrap_or_else(CorsLayer::new);
+
+    // Rate limiting layer (optional)
+    let rate_limit = state
+        .config
+        .rate_limit_config
+        .as_ref()
+        .and_then(|c| rate_limit_layer(c));
+
+    // Request logger layer (optional)
+    let logger = state.config.logger_config.as_ref().map(|c| logger_layer(c));
+
+    // Body limit layer (optional)
+    let body_limit = state
+        .config
+        .body_limit_config
+        .as_ref()
+        .map(|c| body_limit_layer(c));
+
+    let mut router = Router::new();
+
+    // Apply layers in order: CORS → Logger → RateLimit → BodyLimit
+    router = router.layer(cors);
+
+    if let Some(logger) = logger {
+        router = router.layer(logger);
+    }
+
+    if let Some(rate_limit) = rate_limit {
+        router = router.layer(rate_limit);
+    }
+
+    if let Some(body_limit) = body_limit {
+        router = router.layer(body_limit);
+    }
 
     // Health
     if is_enabled(enabled, "health") {
@@ -111,7 +169,10 @@ pub fn create_router(state: AppState) -> Router {
     // Jobs
     if is_enabled(enabled, "jobs") {
         router = router
-            .route("/jobs", post(handlers::create_job_handler).get(handlers::list_jobs_handler))
+            .route(
+                "/jobs",
+                post(handlers::create_job_handler).get(handlers::list_jobs_handler),
+            )
             .route("/jobs/{id}", get(handlers::get_job_handler))
             .route("/jobs/{id}/log", get(handlers::get_job_log_handler))
             .route("/jobs/{id}/cancel", put(handlers::cancel_job_handler))
@@ -121,13 +182,22 @@ pub fn create_router(state: AppState) -> Router {
                 post(handlers::create_scheduled_job_handler)
                     .get(handlers::list_scheduled_jobs_handler),
             )
-            .route("/scheduled-jobs/{id}", get(handlers::get_scheduled_job_handler))
-            .route("/scheduled-jobs/{id}/pause", put(handlers::pause_scheduled_job_handler))
+            .route(
+                "/scheduled-jobs/{id}",
+                get(handlers::get_scheduled_job_handler),
+            )
+            .route(
+                "/scheduled-jobs/{id}/pause",
+                put(handlers::pause_scheduled_job_handler),
+            )
             .route(
                 "/scheduled-jobs/{id}/resume",
                 put(handlers::resume_scheduled_job_handler),
             )
-            .route("/scheduled-jobs/{id}", delete(handlers::delete_scheduled_job_handler));
+            .route(
+                "/scheduled-jobs/{id}",
+                delete(handlers::delete_scheduled_job_handler),
+            );
     }
 
     // Queues
@@ -167,6 +237,10 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.address, "0.0.0.0:8000");
         assert!(config.enabled.is_empty());
+        assert!(config.cors_config.is_none());
+        assert!(config.rate_limit_config.is_none());
+        assert!(config.logger_config.is_none());
+        assert!(config.body_limit_config.is_none());
     }
 
     #[test]

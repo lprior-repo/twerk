@@ -17,10 +17,9 @@ pub mod worker;
 pub use broker::BrokerProxy;
 pub use datastore::DatastoreProxy;
 pub use engine::{
-    Config, Engine, Mode, State, Middleware, JobListener,
-    TaskMiddlewareFunc, JobMiddlewareFunc, LogMiddlewareFunc,
-    NodeMiddlewareFunc, WebMiddlewareFunc, EndpointHandler,
-    TaskEventType, JobEventType,
+    Config, EndpointHandler, Engine, JobEventType, JobListener, JobMiddlewareFunc,
+    LogMiddlewareFunc, Middleware, Mode, NodeMiddlewareFunc, State, TaskEventType,
+    TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 
 /// Topic constant for job events
@@ -29,6 +28,8 @@ pub const TOPIC_JOB: &str = "job.*";
 pub const TOPIC_JOB_COMPLETED: &str = "job.completed";
 /// Topic for failed job events
 pub const TOPIC_JOB_FAILED: &str = "job.failed";
+/// Topic for job progress events
+pub const TOPIC_JOB_PROGRESS: &str = "job.progress";
 
 mod engine {
     //! Core engine implementation
@@ -36,18 +37,18 @@ mod engine {
     use crate::broker::BrokerProxy;
     use crate::coordinator::{create_coordinator, Coordinator};
     use crate::datastore::DatastoreProxy;
-    use crate::worker::{create_worker, Worker};
     use crate::locker::{create_locker, Locker};
-    use tork::runtime::mount::Mounter;
-    use tork::runtime::{MultiMounter, Runtime};
-    use tork::broker::Broker;
-    use tork::datastore::Datastore;
+    use crate::worker::{create_worker, Worker};
     use anyhow::{anyhow, Result};
     use std::collections::HashMap;
     use std::future::Future;
     use std::pin::Pin;
     use std::sync::Arc;
     use tokio::sync::{broadcast, RwLock};
+    use tork::broker::Broker;
+    use tork::datastore::Datastore;
+    use tork::runtime::mount::Mounter;
+    use tork::runtime::{MultiMounter, Runtime};
     use tracing::{debug, error};
 
     /// Job listener callback type
@@ -137,7 +138,9 @@ mod engine {
 
     /// Job handler function.
     pub type JobHandlerFunc = Arc<
-        dyn Fn(Arc<()>, JobEventType, &mut tork::job::Job) -> Result<(), JobHandlerError> + Send + Sync,
+        dyn Fn(Arc<()>, JobEventType, &mut tork::job::Job) -> Result<(), JobHandlerError>
+            + Send
+            + Sync,
     >;
 
     /// Log handler function.
@@ -146,9 +149,8 @@ mod engine {
     >;
 
     /// Node handler function.
-    pub type NodeHandlerFunc = Arc<
-        dyn Fn(Arc<()>, &mut tork::node::Node) -> Result<(), NodeHandlerError> + Send + Sync,
-    >;
+    pub type NodeHandlerFunc =
+        Arc<dyn Fn(Arc<()>, &mut tork::node::Node) -> Result<(), NodeHandlerError> + Send + Sync>;
 
     /// Job event type for middleware handlers.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -219,8 +221,6 @@ mod engine {
         pub middleware: Middleware,
         pub endpoints: HashMap<String, EndpointHandler>,
     }
-
-    
 
     /// Engine is the main orchestration engine
     #[allow(dead_code)]
@@ -456,7 +456,11 @@ mod engine {
         }
 
         /// Register a broker provider
-        pub fn register_broker_provider(&mut self, name: &str, provider: Box<dyn Broker + Send + Sync>) {
+        pub fn register_broker_provider(
+            &mut self,
+            name: &str,
+            provider: Box<dyn Broker + Send + Sync>,
+        ) {
             if self.state != State::Idle {
                 return;
             }
@@ -472,12 +476,7 @@ mod engine {
         /// Matches Go's `RegisterMounter(rt, name, mounter)`:
         /// - Creates a new `MultiMounter` for the runtime if one doesn't exist yet.
         /// - Registers the named mounter into that runtime's `MultiMounter`.
-        pub fn register_mounter(
-            &mut self,
-            rt: &str,
-            name: &str,
-            mounter: Box<dyn Mounter>,
-        ) {
+        pub fn register_mounter(&mut self, rt: &str, name: &str, mounter: Box<dyn Mounter>) {
             if self.state != State::Idle {
                 return;
             }
@@ -511,24 +510,27 @@ mod engine {
                 let broker = self.broker.clone();
                 let listeners = Arc::new(listeners);
                 let job_id_for_listener = job_id.clone();
-                
-                broker.subscribe_for_events(
-                    super::TOPIC_JOB.to_string(),
-                    Arc::new(move |event: serde_json::Value| {
-                        let listeners = listeners.clone();
-                        let job_id = job_id_for_listener.clone();
-                        Box::pin(async move {
-                            // Try to parse the event as a job
-                            if let Ok(ev_job) = serde_json::from_value::<tork::job::Job>(event) {
-                                if ev_job.id.as_ref() == job_id.as_ref() {
-                                    for listener in listeners.iter() {
-                                        listener(ev_job.clone());
+
+                broker
+                    .subscribe_for_events(
+                        super::TOPIC_JOB.to_string(),
+                        Arc::new(move |event: serde_json::Value| {
+                            let listeners = listeners.clone();
+                            let job_id = job_id_for_listener.clone();
+                            Box::pin(async move {
+                                // Try to parse the event as a job
+                                if let Ok(ev_job) = serde_json::from_value::<tork::job::Job>(event)
+                                {
+                                    if ev_job.id.as_ref() == job_id.as_ref() {
+                                        for listener in listeners.iter() {
+                                            listener(ev_job.clone());
+                                        }
                                     }
                                 }
-                            }
-                        })
-                    }),
-                ).await?;
+                            })
+                        }),
+                    )
+                    .await?;
             }
 
             // Submit to coordinator
@@ -593,8 +595,9 @@ mod engine {
             self.broker.init("inmemory").await?;
             self.datastore.init().await?;
 
-            // Create locker
-            let locker = create_locker("inmemory").await?;
+            // Create locker — resolve type from env (locker.type → datastore.type → inmemory)
+            let locker_type = resolve_locker_type();
+            let locker = create_locker(&locker_type).await?;
             *self.locker.write().await = Some(locker);
 
             let coord = create_coordinator(self.broker.clone(), self.datastore.clone()).await?;
@@ -611,12 +614,10 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                let sigint = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::interrupt()
-                ).ok();
-                let sigterm = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::terminate()
-                ).ok();
+                let sigint =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
+                let sigterm =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
                 let terminate_rx = {
                     let terminated_tx = terminated_tx_clone.read().await;
                     match terminated_tx.as_ref() {
@@ -671,12 +672,10 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                let sigint = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::interrupt()
-                ).ok();
-                let sigterm = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::terminate()
-                ).ok();
+                let sigint =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
+                let sigterm =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
                 let terminate_rx = {
                     let terminated_tx = terminated_tx_clone.read().await;
                     match terminated_tx.as_ref() {
@@ -711,8 +710,9 @@ mod engine {
             self.broker.init("inmemory").await?;
             self.datastore.init().await?;
 
-            // Create locker
-            let locker = create_locker("inmemory").await?;
+            // Create locker — resolve type from env (locker.type → datastore.type → inmemory)
+            let locker_type = resolve_locker_type();
+            let locker = create_locker(&locker_type).await?;
             *self.locker.write().await = Some(locker);
 
             // Set up runtime if not already set
@@ -741,12 +741,10 @@ mod engine {
 
             // Spawn signal handler task
             tokio::spawn(async move {
-                let sigint = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::interrupt()
-                ).ok();
-                let sigterm = tokio::signal::unix::signal(
-                    tokio::signal::unix::SignalKind::terminate()
-                ).ok();
+                let sigint =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
+                let sigterm =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
                 let terminate_rx = {
                     let terminated_tx = terminated_tx_clone.read().await;
                     match terminated_tx.as_ref() {
@@ -783,6 +781,24 @@ mod engine {
             });
 
             Ok(())
+        }
+    }
+
+    /// Resolves the locker type from environment variables.
+    ///
+    /// Matches Go `initLocker()`:
+    /// - Reads `TORK_LOCKER_TYPE`, falls back to `TORK_DATASTORE_TYPE`,
+    ///   falls back to `"inmemory"`.
+    fn resolve_locker_type() -> String {
+        let from_env = std::env::var("TORK_LOCKER_TYPE")
+            .ok()
+            .filter(|s| !s.is_empty());
+        match from_env {
+            Some(t) => t,
+            None => std::env::var("TORK_DATASTORE_TYPE")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "inmemory".to_string()),
         }
     }
 
@@ -963,15 +979,13 @@ mod engine {
         // ── Middleware registration ───────────────────────────────
 
         #[tokio::test]
-        async fn test_middleware_registration_when_idle() -> Result<(), Box<dyn std::error::Error>> {
+        async fn test_middleware_registration_when_idle() -> Result<(), Box<dyn std::error::Error>>
+        {
             ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config::default());
 
-            let mw: WebMiddlewareFunc = Arc::new(|req, next| {
-                Box::pin(async move {
-                    next.run(req).await
-                })
-            });
+            let mw: WebMiddlewareFunc =
+                Arc::new(|req, next| Box::pin(async move { next.run(req).await }));
             engine.register_web_middleware(mw);
 
             engine.start().await?;
@@ -984,10 +998,10 @@ mod engine {
 
         #[test]
         fn test_register_mounter_creates_multi_mounter() {
-            use tork::mount::Mount;
-            use tork::runtime::mount::MountError;
             use std::future::Future;
             use std::pin::Pin;
+            use tork::mount::Mount;
+            use tork::runtime::mount::MountError;
 
             struct NoopMounter;
 
@@ -1032,17 +1046,39 @@ mod engine {
         impl Mounter for FakeTestMounter {
             fn mount(
                 &self,
-                _ctx: Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>>,
+                _ctx: Pin<
+                    Box<
+                        dyn std::future::Future<
+                                Output = Result<(), tork::runtime::mount::MountError>,
+                            > + Send,
+                    >,
+                >,
                 _mnt: &tork::mount::Mount,
-            ) -> Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>> {
+            ) -> Pin<
+                Box<
+                    dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>>
+                        + Send,
+                >,
+            > {
                 Box::pin(async { Ok(()) })
             }
 
             fn unmount(
                 &self,
-                _ctx: Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>>,
+                _ctx: Pin<
+                    Box<
+                        dyn std::future::Future<
+                                Output = Result<(), tork::runtime::mount::MountError>,
+                            > + Send,
+                    >,
+                >,
                 _mnt: &tork::mount::Mount,
-            ) -> Pin<Box<dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>> + Send>> {
+            ) -> Pin<
+                Box<
+                    dyn std::future::Future<Output = Result<(), tork::runtime::mount::MountError>>
+                        + Send,
+                >,
+            > {
                 Box::pin(async { Ok(()) })
             }
         }
@@ -1192,7 +1228,8 @@ mod engine {
         /// Go parity: Tests that `register_endpoint` is silently
         /// ignored when the engine is not idle.
         #[tokio::test]
-        async fn test_register_endpoint_rejected_when_not_idle() -> Result<(), Box<dyn std::error::Error>> {
+        async fn test_register_endpoint_rejected_when_not_idle(
+        ) -> Result<(), Box<dyn std::error::Error>> {
             ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config::default());
             engine.start().await?;
@@ -1216,7 +1253,8 @@ mod engine {
         /// Go parity: In Go, calling Register*Middleware after Start()
         /// is silently ignored. Verify all five middleware types.
         #[tokio::test]
-        async fn test_middleware_registration_rejected_when_running() -> Result<(), Box<dyn std::error::Error>> {
+        async fn test_middleware_registration_rejected_when_running(
+        ) -> Result<(), Box<dyn std::error::Error>> {
             ensure_inmemory_datastore_env();
             let mut engine = Engine::new(Config::default());
             engine.start().await?;
@@ -1227,9 +1265,8 @@ mod engine {
             let pre_node = engine.middleware.node.len();
             let pre_log = engine.middleware.log.len();
 
-            let web_mw: WebMiddlewareFunc = Arc::new(|req, next| {
-                Box::pin(async move { next.run(req).await })
-            });
+            let web_mw: WebMiddlewareFunc =
+                Arc::new(|req, next| Box::pin(async move { next.run(req).await }));
             engine.register_web_middleware(web_mw);
 
             let task_mw: TaskMiddlewareFunc = Arc::new(|h| h);
@@ -1262,7 +1299,8 @@ mod engine {
         #[tokio::test]
         async fn test_register_datastore_provider() {
             let mut engine = Engine::new(Config::default());
-            engine.register_datastore_provider("custom", crate::datastore::new_inmemory_datastore());
+            engine
+                .register_datastore_provider("custom", crate::datastore::new_inmemory_datastore());
             assert!(
                 engine.ds_providers.contains_key("custom"),
                 "expected ds_providers to contain 'custom'"
@@ -1284,9 +1322,8 @@ mod engine {
         #[tokio::test]
         async fn test_register_broker_provider() {
             let mut engine = Engine::new(Config::default());
-            engine.register_broker_provider("custom", Box::new(
-                crate::broker::InMemoryBroker::new(),
-            ));
+            engine
+                .register_broker_provider("custom", Box::new(crate::broker::InMemoryBroker::new()));
             assert!(
                 engine.broker_providers.contains_key("custom"),
                 "expected broker_providers to contain 'custom'"
@@ -1297,12 +1334,8 @@ mod engine {
         #[tokio::test]
         async fn test_register_broker_provider_duplicate_ignored() {
             let mut engine = Engine::new(Config::default());
-            engine.register_broker_provider("rmq", Box::new(
-                crate::broker::InMemoryBroker::new(),
-            ));
-            engine.register_broker_provider("rmq", Box::new(
-                crate::broker::InMemoryBroker::new(),
-            ));
+            engine.register_broker_provider("rmq", Box::new(crate::broker::InMemoryBroker::new()));
+            engine.register_broker_provider("rmq", Box::new(crate::broker::InMemoryBroker::new()));
             assert_eq!(engine.broker_providers.len(), 1);
         }
 

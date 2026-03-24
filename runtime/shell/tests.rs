@@ -128,7 +128,10 @@ async fn test_shell_runtime_run_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::NetworksNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::NetworksNotSupported
+    ));
 }
 
 #[tokio::test]
@@ -230,7 +233,10 @@ fn test_build_env() {
         "env should contain VAR2=value2"
     );
     assert!(
-        !env.contains(&("NON_REEXEC_VAR".to_string(), "should_not_be_included".to_string())),
+        !env.contains(&(
+            "NON_REEXEC_VAR".to_string(),
+            "should_not_be_included".to_string()
+        )),
         "env should not contain NON_REEXEC_VAR"
     );
 }
@@ -241,22 +247,44 @@ async fn test_run_task_with_pre_post() {
     let mut task = create_test_task();
     task.run = "cat /tmp/pre.txt > $REEXEC_TORK_OUTPUT".to_string();
     task.pre.push(Task {
-        id: String::new(), name: None, image: String::new(),
+        id: String::new(),
+        name: None,
+        image: String::new(),
         run: "echo hello pre > /tmp/pre.txt".to_string(),
-        cmd: vec![], entrypoint: vec![], env: HashMap::new(),
-        mounts: vec![], files: HashMap::new(), networks: vec![],
-        limits: None, registry: None, sidecars: vec![],
-        pre: vec![], post: vec![], workdir: None,
-        result: String::new(), progress: 0.0,
+        cmd: vec![],
+        entrypoint: vec![],
+        env: HashMap::new(),
+        mounts: vec![],
+        files: HashMap::new(),
+        networks: vec![],
+        limits: None,
+        registry: None,
+        sidecars: vec![],
+        pre: vec![],
+        post: vec![],
+        workdir: None,
+        result: String::new(),
+        progress: 0.0,
     });
     task.post.push(Task {
-        id: String::new(), name: None, image: String::new(),
+        id: String::new(),
+        name: None,
+        image: String::new(),
         run: "echo bye bye".to_string(),
-        cmd: vec![], entrypoint: vec![], env: HashMap::new(),
-        mounts: vec![], files: HashMap::new(), networks: vec![],
-        limits: None, registry: None, sidecars: vec![],
-        pre: vec![], post: vec![], workdir: None,
-        result: String::new(), progress: 0.0,
+        cmd: vec![],
+        entrypoint: vec![],
+        env: HashMap::new(),
+        mounts: vec![],
+        files: HashMap::new(),
+        networks: vec![],
+        limits: None,
+        registry: None,
+        sidecars: vec![],
+        pre: vec![],
+        post: vec![],
+        workdir: None,
+        result: String::new(),
+        progress: 0.0,
     });
 
     let result = rt.run(create_no_cancel(), &mut task).await;
@@ -294,16 +322,15 @@ async fn test_progress_reporting() {
     let received_progress = Arc::new(Mutex::new(Vec::new()));
     let received_progress_clone = received_progress.clone();
 
-    let handler: tork::broker::TaskProgressHandler =
-        Arc::new(move |task: tork::task::Task| {
-            let progress = received_progress_clone.clone();
-            Box::pin(async move {
-                // tork::task::Task has progress as Option<f64>
-                let p = task.progress;
-                let mut guard = progress.lock().expect("lock poisoned");
-                guard.push(p);
-            })
-        });
+    let handler: tork::broker::TaskProgressHandler = Arc::new(move |task: tork::task::Task| {
+        let progress = received_progress_clone.clone();
+        Box::pin(async move {
+            // tork::task::Task has progress as Option<f64>
+            let p = task.progress;
+            let mut guard = progress.lock().expect("lock poisoned");
+            guard.push(p);
+        })
+    });
 
     broker
         .subscribe_for_task_progress(handler)
@@ -325,7 +352,8 @@ async fn test_progress_reporting() {
 
     // Task writes a progress value to the progress file
     let mut task = create_test_task();
-    task.run = r#"echo 0.75 > "$REEXEC_TORK_PROGRESS"; echo -n done > "$REEXEC_TORK_OUTPUT""#.to_string();
+    task.run =
+        r#"echo 0.75 > "$REEXEC_TORK_PROGRESS"; echo -n done > "$REEXEC_TORK_OUTPUT""#.to_string();
 
     let result = rt.run(create_no_cancel(), &mut task).await;
 
@@ -361,7 +389,10 @@ async fn test_error_mounts_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::MountsNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::MountsNotSupported
+    ));
 }
 
 /// Test that entrypoint is rejected.
@@ -375,7 +406,10 @@ async fn test_error_entrypoint_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::EntrypointNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::EntrypointNotSupported
+    ));
 }
 
 /// Test that image is rejected.
@@ -406,7 +440,10 @@ async fn test_error_limits_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::LimitsNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::LimitsNotSupported
+    ));
 }
 
 /// Test that memory limits are rejected.
@@ -423,7 +460,10 @@ async fn test_error_limits_memory_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::LimitsNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::LimitsNotSupported
+    ));
 }
 
 /// Test that registry is rejected.
@@ -437,7 +477,10 @@ async fn test_error_registry_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::RegistryNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::RegistryNotSupported
+    ));
 }
 
 /// Test that cmd is rejected.
@@ -484,7 +527,10 @@ async fn test_error_sidecars_not_supported() {
     let result = rt.run(create_no_cancel(), &mut task).await;
 
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ShellError::SidecarsNotSupported));
+    assert!(matches!(
+        result.unwrap_err(),
+        ShellError::SidecarsNotSupported
+    ));
 }
 
 /// Test read_progress_sync with various inputs.
@@ -570,7 +616,8 @@ async fn test_cancellation_during_pretask() {
 async fn test_task_env_vars_passed() {
     let rt = ShellRuntime::new(create_test_config());
     let mut task = create_test_task();
-    task.env.insert("MY_VAR".to_string(), "my_value".to_string());
+    task.env
+        .insert("MY_VAR".to_string(), "my_value".to_string());
     task.run = r#"echo -n "$REEXEC_MY_VAR" > "$REEXEC_TORK_OUTPUT""#.to_string();
 
     let result = rt.run(create_no_cancel(), &mut task).await;

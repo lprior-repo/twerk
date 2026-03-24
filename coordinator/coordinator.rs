@@ -28,8 +28,8 @@ use tokio::sync::{watch, Mutex};
 use tracing::{debug, error, info, warn};
 
 use tork::broker::{
-    is_coordinator_queue, queue, Broker, EventHandler, HeartbeatHandler, JobHandler,
-    TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    is_coordinator_queue, queue, Broker, EventHandler, HeartbeatHandler, JobHandler, TaskHandler,
+    TaskLogPartHandler, TaskProgressHandler,
 };
 use tork::datastore::Datastore;
 use tork::job::{Job, ScheduledJob, JOB_STATE_FAILED};
@@ -38,11 +38,13 @@ use tork::task::{Task, TASK_STATE_FAILED};
 use tork::version::VERSION;
 
 use crate::api;
+use crate::config::ApiEndpoints;
 use crate::handlers::{
-    completed::CompletedHandler, error::ErrorHandler, heartbeat::HeartbeatHandler as NodeHeartbeatHandler,
-    job::JobHandler as JobEventHandler, log::LogHandler, pending::PendingHandler,
-    progress::ProgressHandler, redelivered::RedeliveredHandler, schedule::ScheduleHandler,
-    started::StartedHandler, HandlerError,
+    completed::CompletedHandler, error::ErrorHandler,
+    heartbeat::HeartbeatHandler as NodeHeartbeatHandler, job::JobHandler as JobEventHandler,
+    log::LogHandler, pending::PendingHandler, progress::ProgressHandler,
+    redelivered::RedeliveredHandler, schedule::ScheduleHandler, started::StartedHandler,
+    HandlerError,
 };
 
 // ---------------------------------------------------------------------------
@@ -55,9 +57,7 @@ use crate::handlers::{
 /// without hyphens. We use standard UUID v4 with hyphens stripped.
 #[must_use]
 fn new_coordinator_id() -> String {
-    uuid::Uuid::new_v4()
-        .to_string()
-        .replace('-', "")
+    uuid::Uuid::new_v4().to_string().replace('-', "")
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +209,10 @@ pub struct Config {
     pub queues: HashMap<String, i64>,
     /// Enabled API endpoints
     pub enabled: HashMap<String, bool>,
+    /// API endpoint toggling configuration
+    ///
+    /// Go parity: `coordinator.api.endpoints.*`
+    pub endpoints: ApiEndpoints,
     /// Middleware chains for handlers
     ///
     /// Go parity: `cfg.Middleware`
@@ -222,6 +226,7 @@ impl std::fmt::Debug for Config {
             .field("address", &self.address)
             .field("queues", &self.queues)
             .field("enabled", &self.enabled)
+            .field("endpoints", &self.endpoints)
             .field("broker", &"<dyn Broker>")
             .field("datastore", &"<dyn Datastore>")
             .field("locker", &"<dyn Locker>")
@@ -239,6 +244,7 @@ impl Clone for Config {
             address: self.address.clone(),
             queues: self.queues.clone(),
             enabled: self.enabled.clone(),
+            endpoints: self.endpoints.clone(),
             middleware: self.middleware.clone(),
         }
     }
@@ -301,6 +307,8 @@ pub struct Coordinator {
     queues: HashMap<String, i64>,
     /// API listen address
     address: String,
+    /// API endpoint toggling
+    endpoints: ApiEndpoints,
     /// Middleware chains for handlers
     middleware: Middleware,
 
@@ -386,7 +394,9 @@ impl Coordinator {
         let schedule_handler = Arc::new(
             ScheduleHandler::new(ds.clone(), broker.clone(), cfg.locker.clone())
                 .await
-                .map_err(|e| CoordinatorError::Handler(format!("error initializing job scheduler: {e}")))?,
+                .map_err(|e| {
+                    CoordinatorError::Handler(format!("error initializing job scheduler: {e}"))
+                })?,
         );
 
         // 4. Create stop channel (Go: make(chan any))
@@ -403,6 +413,7 @@ impl Coordinator {
             datastore: ds,
             queues,
             address: cfg.address,
+            endpoints: cfg.endpoints,
             middleware: cfg.middleware,
             pending_handler,
             started_handler,
@@ -480,7 +491,8 @@ impl Coordinator {
             let mut guard = self.heartbeat_handle.lock().await;
             if let Some(handle) = guard.take() {
                 drop(guard); // release lock before awaiting
-                let _ = tokio::time::timeout(Duration::from_secs(SHUTDOWN_TIMEOUT_SECS), handle).await;
+                let _ =
+                    tokio::time::timeout(Duration::from_secs(SHUTDOWN_TIMEOUT_SECS), handle).await;
             }
         }
 
@@ -493,7 +505,9 @@ impl Coordinator {
         {
             Ok(Ok(())) => {}
             Ok(Err(e)) => {
-                return Err(CoordinatorError::Broker(format!("broker shutdown error: {e}")));
+                return Err(CoordinatorError::Broker(format!(
+                    "broker shutdown error: {e}"
+                )));
             }
             Err(timeout) => {
                 return Err(CoordinatorError::Broker(format!(
@@ -507,7 +521,8 @@ impl Coordinator {
             let mut guard = self.api_handle.lock().await;
             if let Some(handle) = guard.take() {
                 drop(guard); // release lock before awaiting
-                let _ = tokio::time::timeout(Duration::from_secs(SHUTDOWN_TIMEOUT_SECS), handle).await;
+                let _ =
+                    tokio::time::timeout(Duration::from_secs(SHUTDOWN_TIMEOUT_SECS), handle).await;
             }
         }
 
@@ -557,8 +572,9 @@ impl Coordinator {
             self.datastore.clone(),
             api::Config {
                 address: self.address.clone(),
-                enabled: HashMap::new(),
+                enabled: self.endpoints.to_enabled_map(),
                 cors_origins: vec![],
+                ..Default::default()
             },
         );
         let router = api::create_router(state);
@@ -654,7 +670,8 @@ impl Coordinator {
                             Ok(()) => {}
                             Err(e) => {
                                 warn!(error = %e, queue = queue::QUEUE_STARTED, "started handler error");
-                                Self::publish_task_error(&broker, &ds, &error_handler, &task, &e).await;
+                                Self::publish_task_error(&broker, &ds, &error_handler, &task, &e)
+                                    .await;
                             }
                         }
                     })
@@ -680,7 +697,8 @@ impl Coordinator {
                             Ok(()) => {}
                             Err(e) => {
                                 warn!(error = %e, queue = queue::QUEUE_COMPLETED, "completed handler error");
-                                Self::publish_task_error(&broker, &ds, &error_handler, &task, &e).await;
+                                Self::publish_task_error(&broker, &ds, &error_handler, &task, &e)
+                                    .await;
                             }
                         }
                     })
@@ -736,7 +754,10 @@ impl Coordinator {
                     let error_handler = error_handler.clone();
                     Box::pin(async move {
                         let mut j = job;
-                        match handler.handle(crate::handlers::JobEventType::StateChange, &mut j).await {
+                        match handler
+                            .handle(crate::handlers::JobEventType::StateChange, &mut j)
+                            .await
+                        {
                             Ok(()) => {}
                             Err(e) => {
                                 warn!(error = %e, queue = queue::QUEUE_JOBS, "job handler error");
@@ -753,14 +774,15 @@ impl Coordinator {
             }
             queue::QUEUE_LOGS => {
                 let handler = self.log_handler.clone();
-                let base_handler: TaskLogPartHandler = Arc::new(move |part: tork::task::TaskLogPart| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Err(e) = handler.handle(&part).await {
-                            error!(error = %e, "log handler error");
-                        }
-                    })
-                });
+                let base_handler: TaskLogPartHandler =
+                    Arc::new(move |part: tork::task::TaskLogPart| {
+                        let handler = handler.clone();
+                        Box::pin(async move {
+                            if let Err(e) = handler.handle(&part).await {
+                                error!(error = %e, "log handler error");
+                            }
+                        })
+                    });
                 let log_handler = self.middleware.apply_log(base_handler);
                 self.broker
                     .subscribe_for_task_log_part(log_handler)
@@ -785,7 +807,10 @@ impl Coordinator {
                                     error: Some(e.to_string()),
                                     ..task.clone()
                                 };
-                                if let Err(pe) = broker.publish_task(queue::QUEUE_ERROR.to_string(), &failed).await {
+                                if let Err(pe) = broker
+                                    .publish_task(queue::QUEUE_ERROR.to_string(), &failed)
+                                    .await
+                                {
                                     error!(error = %pe, "error publishing failed task to error queue");
                                 }
                             }
@@ -848,7 +873,9 @@ impl Coordinator {
         self.broker
             .subscribe_for_events(TOPIC_SCHEDULED_JOB.to_string(), event_handler)
             .await
-            .map_err(|e| CoordinatorError::Broker(format!("subscribe to {TOPIC_SCHEDULED_JOB}: {e}")))?;
+            .map_err(|e| {
+                CoordinatorError::Broker(format!("subscribe to {TOPIC_SCHEDULED_JOB}: {e}"))
+            })?;
 
         Ok(())
     }
@@ -948,7 +975,10 @@ impl Coordinator {
             ..(*task).clone()
         };
 
-        if let Err(e) = broker.publish_task(queue::QUEUE_ERROR.to_string(), &failed).await {
+        if let Err(e) = broker
+            .publish_task(queue::QUEUE_ERROR.to_string(), &failed)
+            .await
+        {
             error!(error = %e, "error publishing failed task to error queue");
         }
 
@@ -1025,15 +1055,42 @@ mod tests {
         let queues = HashMap::new();
         let result = apply_default_queue_concurrency(queues);
 
-        assert_eq!(result.get(queue::QUEUE_COMPLETED), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_ERROR), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_PENDING), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_STARTED), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_HEARTBEAT), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_JOBS), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_LOGS), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_PROGRESS), Some(&DEFAULT_QUEUE_CONCURRENCY));
-        assert_eq!(result.get(queue::QUEUE_REDELIVERIES), Some(&DEFAULT_QUEUE_CONCURRENCY));
+        assert_eq!(
+            result.get(queue::QUEUE_COMPLETED),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_ERROR),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_PENDING),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_STARTED),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_HEARTBEAT),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_JOBS),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_LOGS),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_PROGRESS),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
+        assert_eq!(
+            result.get(queue::QUEUE_REDELIVERIES),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
     }
 
     #[test]
@@ -1057,7 +1114,10 @@ mod tests {
 
         let result = apply_default_queue_concurrency(queues);
 
-        assert_eq!(result.get(queue::QUEUE_ERROR), Some(&DEFAULT_QUEUE_CONCURRENCY));
+        assert_eq!(
+            result.get(queue::QUEUE_ERROR),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
     }
 
     #[test]
@@ -1067,7 +1127,10 @@ mod tests {
 
         let result = apply_default_queue_concurrency(queues);
 
-        assert_eq!(result.get(queue::QUEUE_STARTED), Some(&DEFAULT_QUEUE_CONCURRENCY));
+        assert_eq!(
+            result.get(queue::QUEUE_STARTED),
+            Some(&DEFAULT_QUEUE_CONCURRENCY)
+        );
     }
 
     #[test]

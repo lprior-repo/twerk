@@ -344,7 +344,11 @@ fn wildcard_match(pattern: &str, s: &str) -> bool {
 
     for i in 0..lp {
         let idx = (i + 1) * (ls + 1);
-        dp[idx] = if pattern_chars[i] == '*' { dp[i * (ls + 1)] } else { false };
+        dp[idx] = if pattern_chars[i] == '*' {
+            dp[i * (ls + 1)]
+        } else {
+            false
+        };
     }
 
     for i in 0..lp {
@@ -387,8 +391,6 @@ pub fn cors_layer() -> CorsLayer {
 
     debug!("CORS middleware enabled with origins: {:?}", allow_origins);
 
-    
-
     CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -418,14 +420,20 @@ impl BasicAuthConfig {
 /// Basic authentication middleware for Axum
 /// Validates credentials against the datastore
 #[allow(clippy::type_complexity)]
-pub fn basic_auth_layer(config: BasicAuthConfig) -> axum::middleware::FromFnLayer<
-    fn(axum::extract::State<BasicAuthConfig>, axum::extract::Request, Next) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
+pub fn basic_auth_layer(
+    config: BasicAuthConfig,
+) -> axum::middleware::FromFnLayer<
+    fn(
+        axum::extract::State<BasicAuthConfig>,
+        axum::extract::Request,
+        Next,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
     BasicAuthConfig,
     Pin<Box<dyn Future<Output = Response> + Send>>,
 > {
-    axum::middleware::from_fn_with_state(config, move |state, req, next| Box::pin(async move {
-        basic_auth_middleware(state, req, next).await
-    }))
+    axum::middleware::from_fn_with_state(config, move |state, req, next| {
+        Box::pin(async move { basic_auth_middleware(state, req, next).await })
+    })
 }
 
 async fn basic_auth_middleware(
@@ -493,10 +501,12 @@ async fn basic_auth_middleware(
     }
 }
 
-/// Username value to store in request extensions
-#[derive(Clone, Debug)]
+/// Username value to store in request extensions.
+///
+/// Re-exported from `tork::user` so both middleware and handlers
+/// share the same type for extension extraction.
 #[allow(dead_code)]
-struct UsernameValue(String);
+pub use tork::user::UsernameValue;
 
 // =============================================================================
 // API Key Authentication Middleware
@@ -530,14 +540,20 @@ impl KeyAuthConfig {
 
 /// API key authentication middleware for Axum
 #[allow(clippy::type_complexity)]
-pub fn key_auth_layer(config: KeyAuthConfig) -> axum::middleware::FromFnLayer<
-    fn(axum::extract::State<KeyAuthConfig>, axum::extract::Request, Next) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
+pub fn key_auth_layer(
+    config: KeyAuthConfig,
+) -> axum::middleware::FromFnLayer<
+    fn(
+        axum::extract::State<KeyAuthConfig>,
+        axum::extract::Request,
+        Next,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
     KeyAuthConfig,
     Pin<Box<dyn Future<Output = Response> + Send>>,
 > {
-    axum::middleware::from_fn_with_state(config, move |state, req, next| Box::pin(async move {
-        key_auth_middleware(state, req, next).await
-    }))
+    axum::middleware::from_fn_with_state(config, move |state, req, next| {
+        Box::pin(async move { key_auth_middleware(state, req, next).await })
+    })
 }
 
 async fn key_auth_middleware(
@@ -550,7 +566,10 @@ async fn key_auth_middleware(
     let pattern = format!("{} {}", method, path);
 
     // Check if path should be skipped
-    let should_skip = config.skip_paths.iter().any(|p| wildcard_match(p, &pattern));
+    let should_skip = config
+        .skip_paths
+        .iter()
+        .any(|p| wildcard_match(p, &pattern));
 
     if should_skip {
         return Ok(next.run(request).await);
@@ -600,14 +619,20 @@ impl RateLimitConfig {
 
 /// Rate limiting middleware for Axum using in-memory storage
 #[allow(clippy::type_complexity)]
-pub fn rate_limit_layer(config: RateLimitConfig) -> axum::middleware::FromFnLayer<
-    fn(axum::extract::State<RateLimitConfig>, axum::extract::Request, Next) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
+pub fn rate_limit_layer(
+    config: RateLimitConfig,
+) -> axum::middleware::FromFnLayer<
+    fn(
+        axum::extract::State<RateLimitConfig>,
+        axum::extract::Request,
+        Next,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
     RateLimitConfig,
     Pin<Box<dyn Future<Output = Response> + Send>>,
 > {
-    axum::middleware::from_fn_with_state(config, move |state, req, next| Box::pin(async move {
-        rate_limit_middleware(state, req, next).await
-    }))
+    axum::middleware::from_fn_with_state(config, move |state, req, next| {
+        Box::pin(async move { rate_limit_middleware(state, req, next).await })
+    })
 }
 
 async fn rate_limit_middleware(
@@ -657,14 +682,20 @@ impl BodyLimitConfig {
 
 /// Body size limit middleware for Axum
 #[allow(clippy::type_complexity)]
-pub fn body_limit_layer(config: BodyLimitConfig) -> axum::middleware::FromFnLayer<
-    fn(axum::extract::State<BodyLimitConfig>, axum::extract::Request, Next) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
+pub fn body_limit_layer(
+    config: BodyLimitConfig,
+) -> axum::middleware::FromFnLayer<
+    fn(
+        axum::extract::State<BodyLimitConfig>,
+        axum::extract::Request,
+        Next,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, StatusCode>> + Send>>,
     BodyLimitConfig,
     Pin<Box<dyn Future<Output = Response> + Send>>,
 > {
-    axum::middleware::from_fn_with_state(config, move |state, req, next| Box::pin(async move {
-        body_limit_middleware(state, req, next).await
-    }))
+    axum::middleware::from_fn_with_state(config, move |state, req, next| {
+        Box::pin(async move { body_limit_middleware(state, req, next).await })
+    })
 }
 
 async fn body_limit_middleware(
@@ -733,14 +764,20 @@ impl HttpLogConfig {
 
 /// HTTP request logging middleware using tracing
 #[allow(clippy::type_complexity)]
-pub fn http_log_layer(config: HttpLogConfig) -> axum::middleware::FromFnLayer<
-    fn(axum::extract::State<HttpLogConfig>, axum::extract::Request, Next) -> Pin<Box<dyn Future<Output = Response> + Send>>,
+pub fn http_log_layer(
+    config: HttpLogConfig,
+) -> axum::middleware::FromFnLayer<
+    fn(
+        axum::extract::State<HttpLogConfig>,
+        axum::extract::Request,
+        Next,
+    ) -> Pin<Box<dyn Future<Output = Response> + Send>>,
     HttpLogConfig,
     Pin<Box<dyn Future<Output = Response> + Send>>,
 > {
-    axum::middleware::from_fn_with_state(config, move |state, req, next| Box::pin(async move {
-        http_log_middleware(state, req, next).await
-    }))
+    axum::middleware::from_fn_with_state(config, move |state, req, next| {
+        Box::pin(async move { http_log_middleware(state, req, next).await })
+    })
 }
 
 async fn http_log_middleware(
@@ -754,7 +791,10 @@ async fn http_log_middleware(
     let pattern = format!("{} {}", method.as_str(), path);
 
     // Check if path should be skipped
-    let should_skip = config.skip_paths.iter().any(|p| wildcard_match(p, &pattern));
+    let should_skip = config
+        .skip_paths
+        .iter()
+        .any(|p| wildcard_match(p, &pattern));
 
     if should_skip {
         return next.run(request).await;
@@ -894,11 +934,10 @@ pub fn create_web_middlewares(
     Option<HttpLogConfig>,
 ) {
     let cors = config_bool("middleware.web.cors.enabled").then(cors_layer);
-    let basic_auth = config_bool("middleware.web.basicauth.enabled")
-        .then(|| BasicAuthConfig::new(datastore));
-    let key_auth = config_bool("middleware.web.keyauth.enabled").then(|| {
-        KeyAuthConfig::new(config_string_default("middleware.web.keyauth.key", ""))
-    });
+    let basic_auth =
+        config_bool("middleware.web.basicauth.enabled").then(|| BasicAuthConfig::new(datastore));
+    let key_auth = config_bool("middleware.web.keyauth.enabled")
+        .then(|| KeyAuthConfig::new(config_string_default("middleware.web.keyauth.key", "")));
     let rate_limit = config_bool("middleware.web.ratelimit.enabled").then(|| {
         RateLimitConfig::new(config_int_default("middleware.web.ratelimit.rps", 20) as u32)
     });
@@ -906,21 +945,17 @@ pub fn create_web_middlewares(
         .map(BodyLimitConfig::new);
     let http_log = config_bool_default("middleware.web.logger.enabled", true).then(|| {
         HttpLogConfig::new()
-            .with_level(&config_string_default("middleware.web.logger.level", "DEBUG"))
+            .with_level(&config_string_default(
+                "middleware.web.logger.level",
+                "DEBUG",
+            ))
             .with_skip_paths(config_strings_default(
                 "middleware.web.logger.skip",
                 &["GET /health"],
             ))
     });
 
-    (
-        cors,
-        basic_auth,
-        key_auth,
-        rate_limit,
-        body_limit,
-        http_log,
-    )
+    (cors, basic_auth, key_auth, rate_limit, body_limit, http_log)
 }
 
 // =============================================================================
@@ -1059,8 +1094,8 @@ mod tests {
 
     #[test]
     fn test_key_auth_config_with_skip_paths() {
-        let config = KeyAuthConfig::new("key".to_string())
-            .with_skip_paths(vec!["GET /health".to_string()]);
+        let config =
+            KeyAuthConfig::new("key".to_string()).with_skip_paths(vec!["GET /health".to_string()]);
         assert_eq!(config.skip_paths, vec!["GET /health".to_string()]);
     }
 
@@ -1148,7 +1183,10 @@ mod tests {
         // Look up by username
         let found = ds.get_user("testuser".to_string()).await?;
         assert!(found.is_some());
-        let found = found.as_ref().and_then(|u| u.id.as_deref()).unwrap_or_default();
+        let found = found
+            .as_ref()
+            .and_then(|u| u.id.as_deref())
+            .unwrap_or_default();
         assert_eq!(found, "u1");
 
         // Non-existent user
@@ -1159,7 +1197,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inmemory_datastore_wrong_password_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_inmemory_datastore_wrong_password_rejected(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let ds = crate::datastore::new_inmemory_datastore();
 
         let hashed = bcrypt::hash("correct", 4)?;

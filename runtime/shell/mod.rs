@@ -34,9 +34,9 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
 use crate::broker::Broker;
-use crate::runtime::shell::reexec::ReexecCommand;
-use crate::runtime::podman::Mounter;
 use crate::runtime::podman::Mount as PodmanMount;
+use crate::runtime::podman::Mounter;
+use crate::runtime::shell::reexec::ReexecCommand;
 use tork::task::{Task as TorkTask, TaskLogPart};
 
 pub const DEFAULT_UID: &str = "-";
@@ -229,17 +229,14 @@ impl ShellRuntime {
 
         // === ACTION: Create stdout and progress files with correct permissions ===
         let stdout_path = workdir.join("stdout");
-        std::fs::write(&stdout_path, b"")
-            .map_err(|e| ShellError::FileWrite(e.to_string()))?;
+        std::fs::write(&stdout_path, b"").map_err(|e| ShellError::FileWrite(e.to_string()))?;
         #[cfg(unix)]
         perms::set(&stdout_path, perms::STDOUT).map_err(ShellError::FileWrite)?;
 
         let progress_path = workdir.join("progress");
-        std::fs::write(&progress_path, b"")
-            .map_err(|e| ShellError::FileWrite(e.to_string()))?;
+        std::fs::write(&progress_path, b"").map_err(|e| ShellError::FileWrite(e.to_string()))?;
         #[cfg(unix)]
-        perms::set(&progress_path, perms::PROGRESS)
-            .map_err(ShellError::FileWrite)?;
+        perms::set(&progress_path, perms::PROGRESS).map_err(ShellError::FileWrite)?;
 
         // === ACTION: Write task files with 0444 permissions ===
         for (filename, contents) in &task.files {
@@ -251,8 +248,7 @@ impl ShellRuntime {
             std::fs::write(&file_path, contents)
                 .map_err(|e| ShellError::FileWrite(e.to_string()))?;
             #[cfg(unix)]
-            perms::set(&file_path, perms::TASK_FILE)
-                .map_err(ShellError::FileWrite)?;
+            perms::set(&file_path, perms::TASK_FILE).map_err(ShellError::FileWrite)?;
         }
 
         // === CALC: Build environment (matching Go exactly) ===
@@ -265,8 +261,7 @@ impl ShellRuntime {
         std::fs::write(&entrypoint_path, &task.r#run)
             .map_err(|e| ShellError::FileWrite(e.to_string()))?;
         #[cfg(unix)]
-        perms::set(&entrypoint_path, perms::ENTRYPOINT)
-            .map_err(ShellError::FileWrite)?;
+        perms::set(&entrypoint_path, perms::ENTRYPOINT).map_err(ShellError::FileWrite)?;
 
         // === CALC: Build command arguments (matching Go layout exactly) ===
         // Go: ["shell", "-uid", UID, "-gid", GID, <shell...>, <entrypoint>]
@@ -354,11 +349,8 @@ impl ShellRuntime {
         });
 
         // === ACTION: Spawn progress tracker (publishes to broker) ===
-        let progress_task = spawn_progress_tracker(
-            self.broker.clone(),
-            task_id.clone(),
-            progress_path.clone(),
-        );
+        let progress_task =
+            spawn_progress_tracker(self.broker.clone(), task_id.clone(), progress_path.clone());
 
         // === ACTION: Wait for completion with cancellation support ===
         let (cancel_tx, mut cancel_rx) = tokio::sync::mpsc::channel::<()>(1);
@@ -492,10 +484,7 @@ fn build_task_env(
                 format!("{}TORK_PROGRESS", ENV_VAR_PREFIX),
                 progress_path.to_string_lossy().to_string(),
             ),
-            (
-                "WORKDIR".to_string(),
-                workdir.to_string_lossy().to_string(),
-            ),
+            ("WORKDIR".to_string(), workdir.to_string_lossy().to_string()),
             (
                 "PATH".to_string(),
                 std::env::var("PATH").unwrap_or_default(),

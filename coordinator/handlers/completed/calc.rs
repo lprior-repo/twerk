@@ -3,11 +3,15 @@
 use std::collections::HashMap;
 
 use tork::job::Job;
-use tork::task::{EachTask, ParallelTask, Task, TASK_STATE_COMPLETED, TASK_STATE_PENDING,
-    TASK_STATE_RUNNING, TASK_STATE_SCHEDULED, TASK_STATE_SKIPPED};
+use tork::task::{
+    EachTask, ParallelTask, Task, TASK_STATE_COMPLETED, TASK_STATE_PENDING, TASK_STATE_RUNNING,
+    TASK_STATE_SCHEDULED, TASK_STATE_SKIPPED,
+};
 
 pub fn validate_task_can_complete(state: &str) -> bool {
-    *state == *TASK_STATE_RUNNING || *state == *TASK_STATE_SCHEDULED || *state == *TASK_STATE_SKIPPED
+    *state == *TASK_STATE_RUNNING
+        || *state == *TASK_STATE_SCHEDULED
+        || *state == *TASK_STATE_SKIPPED
 }
 
 pub fn is_completion_state(state: &str) -> bool {
@@ -31,7 +35,7 @@ pub fn is_last_parallel_completion(completions: i64, task_count: usize) -> bool 
 }
 
 pub fn has_next_task(position: i64, tasks_len: usize) -> bool {
-    position <= tasks_len as i64
+    position < tasks_len as i64
 }
 
 pub fn should_dispatch_next(concurrency: i64, index: i64, size: i64, is_last: bool) -> bool {

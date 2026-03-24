@@ -1,6 +1,17 @@
 //! Web middleware implementation.
 //!
-//! Provides a middleware pattern for HTTP request/response handling.
+//! Provides a middleware pattern for HTTP request/response handling,
+//! plus built-in Axum tower middleware for common HTTP concerns:
+//! - CORS ([`cors`])
+//! - Rate limiting ([`rate_limit`])
+//! - Request logging ([`logger`])
+//! - Body size limits ([`body_limit`])
+
+pub mod body_limit;
+pub mod config;
+pub mod cors;
+pub mod logger;
+pub mod rate_limit;
 
 use std::sync::Arc;
 

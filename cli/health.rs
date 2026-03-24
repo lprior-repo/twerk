@@ -42,8 +42,8 @@ pub async fn health_check(endpoint: &str) -> Result<String, CliError> {
         .await
         .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
-    let health_response: HealthResponse = serde_json::from_str(&body)
-        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
+    let health_response: HealthResponse =
+        serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     println!("Status: {}", health_response.status);
 

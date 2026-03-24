@@ -78,16 +78,18 @@ impl VolumeMounter {
         let client = self.client.read().await;
 
         // Create the volume (we don't need the response since we use the generated name)
-        let _volume = client.create_volume(
-            bollard::volume::CreateVolumeOptions {
+        let _volume = client
+            .create_volume(bollard::volume::CreateVolumeOptions {
                 name: name.clone(),
                 driver: "local".to_string(),
-                driver_opts: mnt.opts.iter()
+                driver_opts: mnt
+                    .opts
+                    .iter()
                     .map(|(k, v)| (k.clone(), v.clone()))
                     .collect::<std::collections::HashMap<String, String>>(),
                 labels: std::collections::HashMap::new(),
-            }
-        ).await
+            })
+            .await
             .map_err(|e| VolumeMounterError::VolumeCreate(e.to_string()))?;
 
         // Return new Mount with source populated (matching Go behavior:
@@ -109,19 +111,21 @@ impl VolumeMounter {
     ///
     /// Returns `VolumeMounterError` if the volume cannot be removed.
     pub async fn unmount(&self, mnt: &Mount) -> Result<(), VolumeMounterError> {
-        let source = mnt.source.as_ref()
+        let source = mnt
+            .source
+            .as_ref()
             .ok_or_else(|| VolumeMounterError::UnknownVolume("no source".to_string()))?;
 
         let client = self.client.read().await;
 
         // List volumes to verify it exists
-        let volumes = client.list_volumes(
-            Some(bollard::volume::ListVolumesOptions {
+        let volumes = client
+            .list_volumes(Some(bollard::volume::ListVolumesOptions {
                 filters: vec![("name".to_string(), vec![source.clone()])]
                     .into_iter()
                     .collect(),
-            })
-        ).await
+            }))
+            .await
             .map_err(|e| VolumeMounterError::VolumeList(e.to_string()))?;
 
         if volumes.volumes.as_ref().is_none_or(|v| v.is_empty()) {
@@ -129,12 +133,12 @@ impl VolumeMounter {
         }
 
         // Remove the volume
-        client.remove_volume(
-            source,
-            Some(bollard::volume::RemoveVolumeOptions {
-                force: true,
-            })
-        ).await
+        client
+            .remove_volume(
+                source,
+                Some(bollard::volume::RemoveVolumeOptions { force: true }),
+            )
+            .await
             .map_err(|e| VolumeMounterError::VolumeRemove(e.to_string()))?;
 
         Ok(())

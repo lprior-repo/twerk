@@ -49,7 +49,10 @@ mod tests {
     #[test]
     fn test_hash_password() {
         let hashed = password("1234");
-        assert!(hashed.is_ok(), "bcrypt should generate hash with default cost");
+        assert!(
+            hashed.is_ok(),
+            "bcrypt should generate hash with default cost"
+        );
         let hashed = hashed.unwrap();
         assert!(check_password_hash("1234", &hashed));
     }
@@ -57,7 +60,10 @@ mod tests {
     #[test]
     fn test_check_password_hash_wrong_password() {
         let hashed = password("1234");
-        assert!(hashed.is_ok(), "bcrypt should generate hash with default cost");
+        assert!(
+            hashed.is_ok(),
+            "bcrypt should generate hash with default cost"
+        );
         let hashed = hashed.unwrap();
         assert!(!check_password_hash("wrong", &hashed));
     }

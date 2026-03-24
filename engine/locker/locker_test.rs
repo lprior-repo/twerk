@@ -2,11 +2,8 @@
 //!
 //! Tests for locker creation and configuration helpers.
 
-use crate::locker::{
-    create_locker, 
-    env_string, env_string_default, env_int_default,
-};
 use crate::locker::InMemoryLocker;
+use crate::locker::{create_locker, env_int_default, env_string, env_string_default};
 use locker::Locker;
 
 #[tokio::test]
@@ -50,7 +47,7 @@ async fn test_inmemory_locker_multiple_locks() {
     let result2 = locker.acquire_lock("key2").await;
     assert!(result1.is_ok());
     assert!(result2.is_ok());
-    
+
     // Release key1, then acquire it again - should succeed
     if let Ok(lock1) = result1 {
         lock1.release_lock().await.expect("release should succeed");
@@ -84,13 +81,19 @@ fn test_env_string_dots_to_underscores() {
 #[test]
 fn test_env_string_default_empty() {
     std::env::remove_var("TORK_LOCKER_DEFAULT_EMPTY");
-    assert_eq!(env_string_default("locker.default.empty", "fallback"), "fallback");
+    assert_eq!(
+        env_string_default("locker.default.empty", "fallback"),
+        "fallback"
+    );
 }
 
 #[test]
 fn test_env_string_default_set() {
     std::env::set_var("TORK_LOCKER_DEFAULT_SET", "custom_locker");
-    assert_eq!(env_string_default("locker.default.set", "fallback"), "custom_locker");
+    assert_eq!(
+        env_string_default("locker.default.set", "fallback"),
+        "custom_locker"
+    );
     std::env::remove_var("TORK_LOCKER_DEFAULT_SET");
 }
 

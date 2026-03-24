@@ -1,7 +1,9 @@
 //! Pure calculation functions for schedule handling.
 
-use tork::job::{Job, JobContext, JobSchedule, ScheduledJob, JOB_STATE_PENDING,
-    SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED};
+use tork::job::{
+    Job, JobContext, JobSchedule, ScheduledJob, JOB_STATE_PENDING, SCHEDULED_JOB_STATE_ACTIVE,
+    SCHEDULED_JOB_STATE_PAUSED,
+};
 
 use crate::handlers::HandlerError;
 

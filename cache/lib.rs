@@ -128,8 +128,11 @@ where
     /// Deletes all expired items from the given map.
     fn delete_expired_from_map(items: &Arc<DashMap<K, Item<V>>>) {
         // Count expired items before removing
-        let expired_count = items.iter().filter(|entry| entry.value().is_expired()).count();
-        
+        let expired_count = items
+            .iter()
+            .filter(|entry| entry.value().is_expired())
+            .count();
+
         if expired_count > 0 {
             debug!("Janitor deleting {} expired items", expired_count);
         }
@@ -213,9 +216,12 @@ where
     /// Returns `true` if the key existed and was not expired, `false` otherwise.
     pub fn set_expiration(&self, key: &K, duration: Duration) -> bool {
         let expiration = Some(std::time::Instant::now() + duration);
-        self.items.get_mut(key).map(|mut entry| {
-            entry.set_expiration(expiration);
-        }).is_some()
+        self.items
+            .get_mut(key)
+            .map(|mut entry| {
+                entry.set_expiration(expiration);
+            })
+            .is_some()
     }
 
     /// Atomically modifies the value for a key using the given function.
@@ -269,7 +275,7 @@ where
         F: FnMut(&K, &V) -> bool,
     {
         let mut count = 0;
-        
+
         for entry in self.items.iter().filter(|e| !e.is_expired()) {
             let guard = match entry.get() {
                 Some(g) => g,
@@ -280,7 +286,7 @@ where
             }
             count += 1;
         }
-        
+
         count
     }
 }
@@ -447,9 +453,7 @@ mod tests {
         cache.insert(1, 10i32, None);
 
         // Modify that returns error
-        let result = cache.modify(&1, |_v| {
-            Err::<(), &str>("something went wrong")
-        });
+        let result = cache.modify(&1, |_v| Err::<(), &str>("something went wrong"));
         assert!(result.is_some());
         let modify_result = result.unwrap();
         assert!(modify_result.is_err());
@@ -570,7 +574,7 @@ mod tests {
             call_count.set(c + 1);
             c < 1 // Return true only on first call, false after
         });
-        
+
         // callback called twice (once for each entry before break)
         assert_eq!(call_count.get(), 2);
         // but only 1 item was successfully iterated (first f returned true)

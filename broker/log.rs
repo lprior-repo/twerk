@@ -4,9 +4,9 @@
 //! them to the broker's task log queue.
 
 use crate::broker::Broker;
-use tork::task::TaskLogPart;
 use std::io;
 use std::sync::Arc;
+use tork::task::TaskLogPart;
 
 /// Log shipper that batches log entries and forwards them to the broker.
 pub struct LogShipper {
@@ -124,7 +124,10 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_task_log_part(handler).await.expect("subscribe should succeed");
+        broker
+            .subscribe_for_task_log_part(handler)
+            .await
+            .expect("subscribe should succeed");
 
         let shipper = LogShipper::new(broker.clone(), task_id.clone());
 
@@ -137,7 +140,10 @@ mod tests {
         // Data should not be forwarded immediately (it's buffered)
         {
             let guard = received.lock().expect("mutex not poisoned");
-            assert!(guard.is_none(), "data should not be forwarded before timeout");
+            assert!(
+                guard.is_none(),
+                "data should not be forwarded before timeout"
+            );
         }
 
         // Wait for the 1-second timeout to trigger
@@ -145,7 +151,9 @@ mod tests {
 
         // Data should now be forwarded
         let guard = received.lock().expect("mutex not poisoned");
-        let part = guard.as_ref().expect("data should be forwarded after timeout");
+        let part = guard
+            .as_ref()
+            .expect("data should be forwarded after timeout");
         assert_eq!(part.contents.as_deref(), Some("hello world"));
         assert_eq!(part.task_id.as_deref(), Some(task_id.as_str()));
     }
@@ -170,21 +178,37 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_task_log_part(handler).await.expect("subscribe should succeed");
+        broker
+            .subscribe_for_task_log_part(handler)
+            .await
+            .expect("subscribe should succeed");
 
         let shipper = LogShipper::new(broker.clone(), task_id.clone());
 
         // Write multiple batches using async write
-        shipper.write_async(b"batch1").await.expect("write should succeed");
-        shipper.write_async(b"batch2").await.expect("write should succeed");
-        shipper.write_async(b"batch3").await.expect("write should succeed");
+        shipper
+            .write_async(b"batch1")
+            .await
+            .expect("write should succeed");
+        shipper
+            .write_async(b"batch2")
+            .await
+            .expect("write should succeed");
+        shipper
+            .write_async(b"batch3")
+            .await
+            .expect("write should succeed");
 
         // Wait for the 1-second timeout to trigger
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // All batches should be forwarded together as one message
         let guard = received.lock().expect("mutex not poisoned");
-        assert_eq!(guard.len(), 1, "all batches should be combined into one forward");
+        assert_eq!(
+            guard.len(),
+            1,
+            "all batches should be combined into one forward"
+        );
         assert_eq!(
             guard[0].as_str(),
             "batch1batch2batch3",

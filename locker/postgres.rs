@@ -71,8 +71,7 @@ struct PostgresLock {
 pub fn hash_key(key: &str) -> i64 {
     let result = Sha256::digest(key.as_bytes());
     i64::from_be_bytes([
-        result[0], result[1], result[2], result[3],
-        result[4], result[5], result[6], result[7],
+        result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
     ])
 }
 
@@ -170,9 +169,10 @@ impl SyncPostgresPool {
         {
             let mut count = self.open_count.lock();
             if *count >= self.max_open {
-                return Err(LockError::Connection(
-                    format!("pool exhausted: max_open_conns={} reached", self.max_open)
-                ));
+                return Err(LockError::Connection(format!(
+                    "pool exhausted: max_open_conns={} reached",
+                    self.max_open
+                )));
             }
             *count += 1;
         }
@@ -193,9 +193,7 @@ impl SyncPostgresPool {
         let dsn = self.dsn.clone();
         let timeout = self.connect_timeout;
 
-        let handle = std::thread::spawn(move || {
-            PgClient::connect(&dsn, postgres::NoTls)
-        });
+        let handle = std::thread::spawn(move || PgClient::connect(&dsn, postgres::NoTls));
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -203,18 +201,16 @@ impl SyncPostgresPool {
             .map_err(|e| LockError::Connection(format!("failed to create runtime: {e}")))?;
 
         let result = rt.block_on(async {
-            tokio::time::timeout(
-                timeout,
-                tokio::task::spawn_blocking(move || handle.join()),
-            )
-            .await
+            tokio::time::timeout(timeout, tokio::task::spawn_blocking(move || handle.join())).await
         });
 
         // result is Result<Result<Result<PgClient, Error>, JoinError>, Elapsed>
         match result {
             Ok(Ok(Ok(Ok(client)))) => Ok(client),
             Ok(Ok(Ok(Err(e)))) => Err(LockError::Connection(e.to_string())),
-            Ok(Ok(Err(_panic))) => Err(LockError::Connection("connect thread panicked".to_string())),
+            Ok(Ok(Err(_panic))) => {
+                Err(LockError::Connection("connect thread panicked".to_string()))
+            }
             Ok(Err(_join_err)) => Err(LockError::Connection("spawn failed".to_string())),
             Err(_) => Err(LockError::Connection(format!(
                 "connection timed out after {timeout:?}"
@@ -369,10 +365,7 @@ impl PostgresLocker {
     /// # Errors
     ///
     /// Returns [`InitError`] if the connection cannot be established.
-    pub async fn with_options(
-        dsn: &str,
-        opts: PostgresLockerOptions,
-    ) -> Result<Self, InitError> {
+    pub async fn with_options(dsn: &str, opts: PostgresLockerOptions) -> Result<Self, InitError> {
         let pool = Arc::new(SyncPostgresPool::new(dsn, &opts));
 
         let timeout = opts
@@ -384,11 +377,8 @@ impl PostgresLocker {
             PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ())
         });
 
-        let connect_result = tokio::time::timeout(
-            timeout,
-            tokio::task::spawn_blocking(move || handle.join()),
-        )
-        .await;
+        let connect_result =
+            tokio::time::timeout(timeout, tokio::task::spawn_blocking(move || handle.join())).await;
 
         match connect_result {
             Ok(Ok(Ok(Ok(())))) => Ok(Self { pool }),
@@ -523,7 +513,9 @@ mod tests {
     #[tokio::test]
     async fn test_postgres_locker_acquire_lock() {
         let dsn = "postgres://tork:tork@localhost:5432/tork";
-        let locker = PostgresLocker::new(dsn).await.expect("locker should be created");
+        let locker = PostgresLocker::new(dsn)
+            .await
+            .expect("locker should be created");
         let key = "test_key";
 
         let lock = locker

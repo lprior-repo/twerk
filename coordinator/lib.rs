@@ -26,6 +26,7 @@
 #![forbid(unsafe_code)]
 
 pub mod api;
+pub mod config;
 pub mod coordinator;
 pub mod handlers;
 pub mod scheduler;

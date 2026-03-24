@@ -64,7 +64,9 @@ impl InMemLock {
 }
 
 impl Lock for InMemLock {
-    fn release_lock(self: Pin<Box<Self>>) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
+    fn release_lock(
+        self: Pin<Box<Self>>,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
         let this = Pin::into_inner(self);
 
         let key = this.key.clone();
@@ -84,7 +86,8 @@ impl Locker for InMemoryLocker {
     fn acquire_lock(
         &self,
         key: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Pin<Box<dyn Lock>>, LockError>> + Send>>
+    {
         let key = key.to_string();
         let locks = Arc::clone(&self.locks);
 
@@ -117,12 +120,21 @@ mod tests {
         let key = "test_key";
 
         // First acquisition should succeed
-        let lock = locker.acquire_lock(key).await.expect("first acquire should succeed");
+        let lock = locker
+            .acquire_lock(key)
+            .await
+            .expect("first acquire should succeed");
         lock.release_lock().await.expect("release should succeed");
 
         // After release, we should be able to acquire again
-        let lock2 = locker.acquire_lock(key).await.expect("second acquire should succeed");
-        lock2.release_lock().await.expect("second release should succeed");
+        let lock2 = locker
+            .acquire_lock(key)
+            .await
+            .expect("second acquire should succeed");
+        lock2
+            .release_lock()
+            .await
+            .expect("second release should succeed");
     }
 
     #[tokio::test]
@@ -131,7 +143,10 @@ mod tests {
         let key = "test_key";
 
         // First acquisition should succeed
-        let _lock = locker.acquire_lock(key).await.expect("first acquire should succeed");
+        let _lock = locker
+            .acquire_lock(key)
+            .await
+            .expect("first acquire should succeed");
 
         // Second acquisition should fail
         let result = locker.acquire_lock(key).await;
@@ -153,7 +168,10 @@ mod tests {
         }
 
         impl Lock for DummyLock {
-            fn release_lock(self: Pin<Box<Self>>) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
+            fn release_lock(
+                self: Pin<Box<Self>>,
+            ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>>
+            {
                 let key = self.key.clone();
                 Box::pin(async move { Err(LockError::NotLocked { key }) })
             }

@@ -82,9 +82,7 @@ mod tests {
     /// the server without error and the TCP listener becomes reachable.
     #[tokio::test]
     async fn test_start_async() {
-        let addr: std::net::SocketAddr = "127.0.0.1:0"
-            .parse()
-            .expect("addr should parse");
+        let addr: std::net::SocketAddr = "127.0.0.1:0".parse().expect("addr should parse");
 
         let router = Router::new().route("/", axum::routing::get(|| async { "OK" }));
 
@@ -100,9 +98,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind");
-        let addr = listener
-            .local_addr()
-            .expect("failed to get local addr");
+        let addr = listener.local_addr().expect("failed to get local addr");
         let addr_str = format!("{}", addr);
 
         let app = Router::new().route("/", axum::routing::get(|| async { "OK" }));
@@ -120,9 +116,7 @@ mod tests {
         }
 
         let url = format!("http://{addr}/");
-        let response = reqwest::get(&url)
-            .await
-            .expect("request should succeed");
+        let response = reqwest::get(&url).await.expect("request should succeed");
         assert_eq!(response.status(), 200, "server should return 200 OK");
         let body = response
             .text()

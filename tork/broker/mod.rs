@@ -15,6 +15,9 @@ pub type BoxedFuture<T> =
 /// Boxed handler future type
 pub type BoxedHandlerFuture = Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
 
+/// Topic constant for job progress events
+pub const TOPIC_JOB_PROGRESS: &str = "job.progress";
+
 /// Queue names
 pub mod queue {
     /// The queue used by the API to insert new tasks into

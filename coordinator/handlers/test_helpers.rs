@@ -29,7 +29,8 @@ impl TestEnv {
             .await
             .expect("failed to connect to postgres for integration tests");
 
-        let broker: Arc<dyn Broker> = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let broker: Arc<dyn Broker> =
+            Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
 
         Self {
             ds: Arc::new(ds),

@@ -12,6 +12,13 @@ pub const USER_GUEST: UsernameKey = "guest";
 /// Username context key
 pub const USERNAME: UsernameKey = "username";
 
+/// Authenticated username stored in request extensions by auth middleware.
+///
+/// Handlers extract this from `axum::http::Extensions` to determine the
+/// current user for permission-scoped queries (e.g., `get_jobs`).
+#[derive(Clone, Debug)]
+pub struct UsernameValue(pub String);
+
 impl User {
     /// Creates a deep clone of this user.
     ///

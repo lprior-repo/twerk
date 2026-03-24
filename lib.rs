@@ -12,13 +12,13 @@ pub mod logging;
 pub mod middleware;
 pub mod netx;
 pub mod redact;
+pub mod reexec;
 pub mod runtime;
 pub mod slices;
 pub mod syncx;
 pub mod uuid;
-pub mod wildcard;
-pub mod reexec;
 pub mod webhook;
+pub mod wildcard;
 pub mod worker;
 
 // Re-export commonly used items

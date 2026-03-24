@@ -33,7 +33,7 @@ pub const GIT_COMMIT: &str = "unknown";
 /// # Errors
 ///
 /// Returns [`CliError::Logging`] if the log level is invalid.
-#[must_use] 
+#[must_use]
 pub fn get_git_commit() -> String {
     get_config_string("cli.git_sha").unwrap_or_else(|| "unknown".to_string())
 }
@@ -98,7 +98,7 @@ fn get_config_string(key: &str) -> Option<String> {
         )
         .build()
         .ok()?;
-    
+
     config.get_string(key).ok()
 }
 

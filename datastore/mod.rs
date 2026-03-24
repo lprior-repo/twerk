@@ -12,14 +12,14 @@
 pub mod postgres;
 
 use std::error::Error as StdError;
+use thiserror::Error;
 use tork::{
     job::{Job, ScheduledJob},
+    role::Role,
     task::{Task, TaskLogPart},
     user::User,
-    role::Role,
     Node,
 };
-use thiserror::Error;
 
 /// A marker trait for types that can be used within a transaction.
 /// This allows for dynamic dispatch of transaction callbacks.
@@ -107,32 +107,71 @@ pub struct Page<T> {
 pub trait Datastore: Send + Sync {
     // Task operations
     fn create_task(&self, task: &Task) -> impl StdError + Send + Sync + '_;
-    fn update_task(&self, id: &str, modify: impl Fn(&mut Task) -> Result<()>) -> impl StdError + Send + Sync + '_;
+    fn update_task(
+        &self,
+        id: &str,
+        modify: impl Fn(&mut Task) -> Result<()>,
+    ) -> impl StdError + Send + Sync + '_;
     fn get_task_by_id(&self, id: &str) -> impl StdError + Send + Sync + '_;
     fn get_active_tasks(&self, job_id: &str) -> impl StdError + Send + Sync + '_;
     fn get_next_task(&self, parent_task_id: &str) -> impl StdError + Send + Sync + '_;
     fn create_task_log_part(&self, part: &TaskLogPart) -> impl StdError + Send + Sync + '_;
-    fn get_task_log_parts(&self, task_id: &str, q: &str, page: i64, size: i64) -> impl StdError + Send + Sync + '_;
+    fn get_task_log_parts(
+        &self,
+        task_id: &str,
+        q: &str,
+        page: i64,
+        size: i64,
+    ) -> impl StdError + Send + Sync + '_;
 
     // Node operations
     fn create_node(&self, node: &Node) -> impl StdError + Send + Sync + '_;
-    fn update_node(&self, id: &str, modify: impl Fn(&mut Node) -> Result<()>) -> impl StdError + Send + Sync + '_;
+    fn update_node(
+        &self,
+        id: &str,
+        modify: impl Fn(&mut Node) -> Result<()>,
+    ) -> impl StdError + Send + Sync + '_;
     fn get_node_by_id(&self, id: &str) -> impl StdError + Send + Sync + '_;
     fn get_active_nodes(&self) -> impl StdError + Send + Sync + '_;
 
     // Job operations
     fn create_job(&self, job: &Job) -> impl StdError + Send + Sync + '_;
-    fn update_job(&self, id: &str, modify: impl Fn(&mut Job) -> Result<()>) -> impl StdError + Send + Sync + '_;
+    fn update_job(
+        &self,
+        id: &str,
+        modify: impl Fn(&mut Job) -> Result<()>,
+    ) -> impl StdError + Send + Sync + '_;
     fn get_job_by_id(&self, id: &str) -> impl StdError + Send + Sync + '_;
-    fn get_job_log_parts(&self, job_id: &str, q: &str, page: i64, size: i64) -> impl StdError + Send + Sync + '_;
-    fn get_jobs(&self, current_user: &str, q: &str, page: i64, size: i64) -> impl StdError + Send + Sync + '_;
+    fn get_job_log_parts(
+        &self,
+        job_id: &str,
+        q: &str,
+        page: i64,
+        size: i64,
+    ) -> impl StdError + Send + Sync + '_;
+    fn get_jobs(
+        &self,
+        current_user: &str,
+        q: &str,
+        page: i64,
+        size: i64,
+    ) -> impl StdError + Send + Sync + '_;
 
     // Scheduled job operations
     fn create_scheduled_job(&self, sj: &ScheduledJob) -> impl StdError + Send + Sync + '_;
     fn get_active_scheduled_jobs(&self) -> impl StdError + Send + Sync + '_;
-    fn get_scheduled_jobs(&self, current_user: &str, page: i64, size: i64) -> impl StdError + Send + Sync + '_;
+    fn get_scheduled_jobs(
+        &self,
+        current_user: &str,
+        page: i64,
+        size: i64,
+    ) -> impl StdError + Send + Sync + '_;
     fn get_scheduled_job_by_id(&self, id: &str) -> impl StdError + Send + Sync + '_;
-    fn update_scheduled_job(&self, id: &str, modify: impl Fn(&mut ScheduledJob) -> Result<()>) -> impl StdError + Send + Sync + '_;
+    fn update_scheduled_job(
+        &self,
+        id: &str,
+        modify: impl Fn(&mut ScheduledJob) -> Result<()>,
+    ) -> impl StdError + Send + Sync + '_;
     fn delete_scheduled_job(&self, id: &str) -> impl StdError + Send + Sync + '_;
 
     // User and role operations

@@ -19,9 +19,7 @@ async fn test_acquire_and_release_single_lock() {
         .await
         .expect("first acquire should succeed");
 
-    lock.release_lock()
-        .await
-        .expect("release should succeed");
+    lock.release_lock().await.expect("release should succeed");
 }
 
 /// Verifies that a lock can be reacquired after being released.
@@ -35,7 +33,8 @@ async fn test_reacquire_after_release() {
         .await
         .expect("first acquire should succeed");
 
-    lock1.release_lock()
+    lock1
+        .release_lock()
         .await
         .expect("first release should succeed");
 
@@ -44,7 +43,8 @@ async fn test_reacquire_after_release() {
         .await
         .expect("reacquire should succeed");
 
-    lock2.release_lock()
+    lock2
+        .release_lock()
         .await
         .expect("second release should succeed");
 }
@@ -155,8 +155,6 @@ async fn test_sequential_many_keys() {
             .acquire_lock(&key)
             .await
             .expect("acquire should succeed");
-        lock.release_lock()
-            .await
-            .expect("release should succeed");
+        lock.release_lock().await.expect("release should succeed");
     }
 }

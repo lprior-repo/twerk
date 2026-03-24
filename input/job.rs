@@ -15,8 +15,7 @@ use tork::task::Permission as TorkPermission;
 use tork::{Role, User};
 
 /// Job input type for creating a new job
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Job {
     /// Job name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -68,8 +67,7 @@ pub struct Job {
 }
 
 /// ScheduledJob input type for creating a scheduled job
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct ScheduledJob {
     /// Job name
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,8 +119,7 @@ pub struct ScheduledJob {
 }
 
 /// Default configuration for job tasks
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct JobDefaults {
     /// Retry configuration
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,7 +196,6 @@ pub struct Wait {
     pub timeout: String,
 }
 
-
 impl Job {
     /// Creates a new Job with the given name and tasks
     #[must_use]
@@ -224,7 +220,6 @@ impl Job {
     }
 }
 
-
 impl ScheduledJob {
     /// Creates a new ScheduledJob with the given name, schedule, and tasks
     #[must_use]
@@ -237,7 +232,6 @@ impl ScheduledJob {
         }
     }
 }
-
 
 impl Job {
     /// Convert to domain Job type

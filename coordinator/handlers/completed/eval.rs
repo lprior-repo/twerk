@@ -2,13 +2,82 @@
 
 use std::collections::HashMap;
 
-use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value as EvalValue};
+use evalexpr::{
+    eval_with_context, ContextWithMutableFunctions, ContextWithMutableVariables, HashMapContext,
+    Value as EvalValue,
+};
 use regex::Regex;
 use tork::task::Task;
 
+/// Built-in function: `randomInt()` or `randomInt(max)`.
+/// - 0 args → random non-negative integer
+/// - 1 arg  → random integer in `[0, max)`
+fn random_int_fn(args: &EvalValue) -> Result<EvalValue, String> {
+    let max_opt = match args.as_tuple() {
+        Ok(tuple) => match tuple.len() {
+            0 => None,
+            1 => Some(
+                tuple[0]
+                    .as_int()
+                    .map_err(|_| "randomInt requires a numeric argument")?,
+            ),
+            n => return Err(format!("randomInt expects 0 or 1 arguments, got {n}")),
+        },
+        Err(_) => match args {
+            EvalValue::Empty => None,
+            EvalValue::Int(n) => Some(*n),
+            _ => return Err("randomInt requires a numeric argument".into()),
+        },
+    };
+
+    match max_opt {
+        None | Some(0) => {
+            let val = rand::random::<i64>();
+            Ok(EvalValue::Int(
+                i64::try_from(val.unsigned_abs()).unwrap_or(i64::MAX),
+            ))
+        }
+        Some(max) if max > 0 => {
+            let val = rand::random::<i64>();
+            let val_abs = val.unsigned_abs();
+            let result = val_abs % u64::try_from(max).unwrap_or(u64::MAX);
+            Ok(EvalValue::Int(i64::try_from(result).unwrap_or(i64::MAX)))
+        }
+        Some(_) => Ok(EvalValue::Int(0)),
+    }
+}
+
+/// Built-in function: `sequence(start, stop)` → `[start, start+1, ..., stop-1]`.
+/// Returns empty if `start >= stop`.
+fn sequence_fn(args: &EvalValue) -> Result<EvalValue, String> {
+    let tuple = args
+        .as_tuple()
+        .map_err(|_| "sequence expects tuple arguments".to_string())?;
+
+    if tuple.len() != 2 {
+        return Err(format!("sequence expects 2 arguments, got {}", tuple.len()));
+    }
+
+    let start = tuple[0]
+        .as_int()
+        .map_err(|_| "sequence requires numeric arguments".to_string())?;
+    let stop = tuple[1]
+        .as_int()
+        .map_err(|_| "sequence requires numeric arguments".to_string())?;
+
+    let range = if start >= stop {
+        Vec::new()
+    } else {
+        (start..stop).map(EvalValue::Int).collect()
+    };
+
+    Ok(EvalValue::Tuple(range))
+}
+
 #[allow(clippy::expect_used)]
-static TEMPLATE_REGEX: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"\{\{\s*(.+?)\s*\}\}").expect("invalid template regex"));
+static TEMPLATE_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\{\{\s*(.+?)\s*\}\}").expect("invalid template regex")
+});
 
 pub fn json_to_eval_value(json: &serde_json::Value) -> Result<EvalValue, String> {
     match json {
@@ -46,6 +115,22 @@ pub fn create_eval_context(
     context: &HashMap<String, serde_json::Value>,
 ) -> Result<HashMapContext, String> {
     let mut ctx = HashMapContext::new();
+
+    // Register randomInt function
+    let random_int_func = evalexpr::Function::new(|args: &EvalValue| {
+        random_int_fn(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function("randomInt".to_string(), random_int_func)
+        .map_err(|e: evalexpr::EvalexprError| e.to_string())?;
+
+    // Register sequence function
+    let sequence_func = evalexpr::Function::new(|args| {
+        sequence_fn(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function("sequence".to_string(), sequence_func)
+        .map_err(|e: evalexpr::EvalexprError| e.to_string())?;
+
+    // Add context variables
     for (key, value) in context {
         let eval_value = json_to_eval_value(value).unwrap_or(EvalValue::Empty);
         ctx.set_value(key.clone(), eval_value)
@@ -54,10 +139,7 @@ pub fn create_eval_context(
     Ok(ctx)
 }
 
-pub fn flatten_json_value(
-    prefix: &str,
-    value: &serde_json::Value,
-) -> Vec<(String, EvalValue)> {
+pub fn flatten_json_value(prefix: &str, value: &serde_json::Value) -> Vec<(String, EvalValue)> {
     match value {
         serde_json::Value::Object(map) => map
             .iter()
@@ -108,23 +190,23 @@ pub fn evaluate_template(
         return Ok(template.to_string());
     }
 
-    let (result, last_end) = matches.iter().try_fold(
-        (String::new(), 0usize),
-        |(buf, loc), m| {
-            let start_tag = m.start();
-            let prefix = if loc < start_tag {
-                template[loc..start_tag].to_string()
-            } else {
-                String::new()
-            };
-            let caps = TEMPLATE_REGEX
-                .captures(m.as_str())
-                .ok_or_else(|| format!("no capture in match: {}", m.as_str()))?;
-            let expr_str = &caps[1];
-            let replacement = evaluate_expr(expr_str, context)?;
-            Ok::<(String, usize), String>((buf + &prefix + &replacement, m.end()))
-        },
-    )?;
+    let (result, last_end) =
+        matches
+            .iter()
+            .try_fold((String::new(), 0usize), |(buf, loc), m| {
+                let start_tag = m.start();
+                let prefix = if loc < start_tag {
+                    template[loc..start_tag].to_string()
+                } else {
+                    String::new()
+                };
+                let caps = TEMPLATE_REGEX
+                    .captures(m.as_str())
+                    .ok_or_else(|| format!("no capture in match: {}", m.as_str()))?;
+                let expr_str = &caps[1];
+                let replacement = evaluate_expr(expr_str, context)?;
+                Ok::<(String, usize), String>((buf + &prefix + &replacement, m.end()))
+            })?;
 
     let tail = &template[last_end..];
     Ok(result + tail)
@@ -192,55 +274,91 @@ pub fn evaluate_task(
     let post = eval_tasks(&task.post, context)?;
     let sidecars = eval_tasks(&task.sidecars, context)?;
 
-    let cmd = task.cmd.as_ref().map(|cmds| {
-        cmds.iter().map(|s| evaluate_template(s, context)).collect::<Result<Vec<_>, _>>()
-    }).transpose()?;
-
-    let entrypoint = task.entrypoint.as_ref().map(|eps| {
-        eps.iter().map(|s| evaluate_template(s, context)).collect::<Result<Vec<_>, _>>()
-    }).transpose()?;
-
-    let parallel = task.parallel.as_ref().map(|par| {
-        let tasks = eval_tasks(&par.tasks, context)?;
-        Ok::<tork::task::ParallelTask, String>(tork::task::ParallelTask {
-            tasks,
-            completions: par.completions,
+    let cmd = task
+        .cmd
+        .as_ref()
+        .map(|cmds| {
+            cmds.iter()
+                .map(|s| evaluate_template(s, context))
+                .collect::<Result<Vec<_>, _>>()
         })
-    }).transpose()?;
+        .transpose()?;
 
-    let each = task.each.as_ref().map(|each| {
-        let var = eval_field(&each.var, context)?;
-        let list = eval_field(&each.list, context)?;
-        let inner_task = each.task.as_ref().map(|t| evaluate_task(t, context)).transpose()?;
-        Ok::<tork::task::EachTask, String>(tork::task::EachTask {
-            var,
-            list,
-            task: inner_task.map(Box::new),
-            size: each.size,
-            completions: each.completions,
-            concurrency: each.concurrency,
-            index: each.index,
+    let entrypoint = task
+        .entrypoint
+        .as_ref()
+        .map(|eps| {
+            eps.iter()
+                .map(|s| evaluate_template(s, context))
+                .collect::<Result<Vec<_>, _>>()
         })
-    }).transpose()?;
+        .transpose()?;
 
-    let subjob = task.subjob.as_ref().map(|sj| {
-        let subjob_name = eval_field(&sj.name, context)?;
-        let inputs = eval_map(&sj.inputs, context)?;
-        let secrets = eval_map(&sj.secrets, context)?;
-        let subjob_tasks = eval_tasks(&sj.tasks, context)?;
-        Ok::<tork::task::SubJobTask, String>(tork::task::SubJobTask {
-            id: sj.id.clone(),
-            name: subjob_name,
-            description: sj.description.clone(),
-            tasks: subjob_tasks,
-            inputs: if inputs.is_empty() { None } else { Some(inputs) },
-            secrets: if secrets.is_empty() { None } else { Some(secrets) },
-            auto_delete: sj.auto_delete.clone(),
-            output: sj.output.clone(),
-            detached: sj.detached,
-            webhooks: sj.webhooks.clone(),
+    let parallel = task
+        .parallel
+        .as_ref()
+        .map(|par| {
+            let tasks = eval_tasks(&par.tasks, context)?;
+            Ok::<tork::task::ParallelTask, String>(tork::task::ParallelTask {
+                tasks,
+                completions: par.completions,
+            })
         })
-    }).transpose()?;
+        .transpose()?;
+
+    let each = task
+        .each
+        .as_ref()
+        .map(|each| {
+            let var = eval_field(&each.var, context)?;
+            let list = eval_field(&each.list, context)?;
+            let inner_task = each
+                .task
+                .as_ref()
+                .map(|t| evaluate_task(t, context))
+                .transpose()?;
+            Ok::<tork::task::EachTask, String>(tork::task::EachTask {
+                var,
+                list,
+                task: inner_task.map(Box::new),
+                size: each.size,
+                completions: each.completions,
+                concurrency: each.concurrency,
+                index: each.index,
+            })
+        })
+        .transpose()?;
+
+    let subjob = task
+        .subjob
+        .as_ref()
+        .map(|sj| {
+            let subjob_name = eval_field(&sj.name, context)?;
+            let inputs = eval_map(&sj.inputs, context)?;
+            let secrets = eval_map(&sj.secrets, context)?;
+            let subjob_tasks = eval_tasks(&sj.tasks, context)?;
+            Ok::<tork::task::SubJobTask, String>(tork::task::SubJobTask {
+                id: sj.id.clone(),
+                name: subjob_name,
+                description: sj.description.clone(),
+                tasks: subjob_tasks,
+                inputs: if inputs.is_empty() {
+                    None
+                } else {
+                    Some(inputs)
+                },
+                secrets: if secrets.is_empty() {
+                    None
+                } else {
+                    Some(secrets)
+                },
+                auto_delete: sj.auto_delete.clone(),
+                output: sj.output.clone(),
+                detached: sj.detached,
+                webhooks: sj.webhooks.clone(),
+            })
+        })
+        .transpose()?;
 
     Ok(Task {
         id: task.id.clone(),

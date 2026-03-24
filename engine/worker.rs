@@ -20,11 +20,11 @@ use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::process::Stdio;
+use tokio::process::Command;
 use tork::mount::Mount;
-use tork::runtime::Runtime as RuntimeTrait;
 use tork::runtime::mount::{MountError, Mounter};
 use tork::runtime::multi::MultiMounter;
-use tokio::process::Command;
+use tork::runtime::Runtime as RuntimeTrait;
 
 use tracing::{debug, warn};
 
@@ -50,21 +50,21 @@ fn parse_timeout_duration(s: &str) -> Option<std::time::Duration> {
     if s.is_empty() {
         return Some(std::time::Duration::from_secs(0));
     }
-    
+
     let (num_str, unit) = if s.ends_with("ms") {
-        (&s[..s.len()-2], "ms")
+        (&s[..s.len() - 2], "ms")
     } else if s.ends_with('s') {
-        (&s[..s.len()-1], "s")
+        (&s[..s.len() - 1], "s")
     } else if s.ends_with('m') {
-        (&s[..s.len()-1], "m")
+        (&s[..s.len() - 1], "m")
     } else if s.ends_with('h') {
-        (&s[..s.len()-1], "h")
+        (&s[..s.len() - 1], "h")
     } else {
         return None; // Invalid unit
     };
-    
+
     let num: u64 = num_str.parse().ok()?;
-    
+
     Some(match unit {
         "ms" => std::time::Duration::from_millis(num),
         "s" => std::time::Duration::from_secs(num),
@@ -163,7 +163,11 @@ pub fn read_limits() -> Limits {
         .ok()
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DEFAULT_TIMEOUT.to_string());
-    Limits { cpus, memory, timeout }
+    Limits {
+        cpus,
+        memory,
+        timeout,
+    }
 }
 
 // Boxed future type
@@ -205,15 +209,13 @@ pub mod runtime_type {
 /// Configuration for bind mount operations.
 ///
 /// Go parity: `type BindConfig struct { Allowed bool; Sources []string }`
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct BindConfig {
     /// Whether bind mounts are allowed
     pub allowed: bool,
     /// Allowed source directories (empty = all)
     pub sources: Vec<String>,
 }
-
 
 // =============================================================================
 // Mounter implementations
@@ -245,7 +247,10 @@ impl BindMounter {
         if self.cfg.sources.is_empty() {
             return true;
         }
-        self.cfg.sources.iter().any(|allow| allow.eq_ignore_ascii_case(src))
+        self.cfg
+            .sources
+            .iter()
+            .any(|allow| allow.eq_ignore_ascii_case(src))
     }
 }
 
@@ -434,16 +439,8 @@ impl ShellRuntimeAdapter {
         } else {
             cmd
         };
-        let uid = if uid.is_empty() {
-            "-".to_string()
-        } else {
-            uid
-        };
-        let gid = if gid.is_empty() {
-            "-".to_string()
-        } else {
-            gid
-        };
+        let uid = if uid.is_empty() { "-".to_string() } else { uid };
+        let gid = if gid.is_empty() { "-".to_string() } else { gid };
         Self {
             shell_cmd,
             uid,
@@ -470,9 +467,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
         if is_none_or_empty_vec(&task.mounts) {
             // mounts is None or empty — ok for shell
         } else {
-            return Box::pin(async {
-                Err(anyhow!("mounts are not supported on shell runtime"))
-            });
+            return Box::pin(async { Err(anyhow!("mounts are not supported on shell runtime")) });
         }
         if is_none_or_empty_vec(&task.entrypoint) {
             // ok
@@ -484,23 +479,17 @@ impl RuntimeTrait for ShellRuntimeAdapter {
         if is_none_or_empty(&task.image) {
             // ok
         } else {
-            return Box::pin(async {
-                Err(anyhow!("image is not supported on shell runtime"))
-            });
+            return Box::pin(async { Err(anyhow!("image is not supported on shell runtime")) });
         }
         if is_none_or_empty_vec(&task.cmd) {
             // ok
         } else {
-            return Box::pin(async {
-                Err(anyhow!("cmd is not supported on shell runtime"))
-            });
+            return Box::pin(async { Err(anyhow!("cmd is not supported on shell runtime")) });
         }
         if is_none_or_empty_vec(&task.sidecars) {
             // ok
         } else {
-            return Box::pin(async {
-                Err(anyhow!("sidecars are not supported on shell runtime"))
-            });
+            return Box::pin(async { Err(anyhow!("sidecars are not supported on shell runtime")) });
         }
 
         // Get the command to run
@@ -529,10 +518,10 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             );
 
             // Create a temporary script file
-            let temp_dir = tempfile::tempdir()
-                .map_err(|e| anyhow!("failed to create temp dir: {}", e))?;
+            let temp_dir =
+                tempfile::tempdir().map_err(|e| anyhow!("failed to create temp dir: {}", e))?;
             let script_path = temp_dir.path().join("script.sh");
-            
+
             // Write script with shebang
             let script_content = format!("#!/bin/bash\n{}", run_script);
             tokio::fs::write(&script_path, &script_content)
@@ -556,12 +545,12 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Build the command - run script directly (not via -c) so shebang works
             let mut cmd = Command::new(&shell_cmd[0]);
             cmd.arg(script_path.to_string_lossy().as_ref());
-            
+
             // Set environment
             for (key, value) in &env_vars {
                 cmd.env(key, value);
             }
-            
+
             // Set uid/gid if not default
             #[cfg(unix)]
             {
@@ -583,23 +572,19 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Use output() to avoid deadlock (wait() before reading stdout/stderr causes deadlock)
             // Apply timeout if task.timeout is set (Go parity: ctx.WithTimeout in doRunTask)
             let output = match timeout_duration {
-                Some(dur) => {
-                    tokio::time::timeout(dur, cmd.output())
-                        .await
-                        .map_err(|_| anyhow!("task timeout after {:?}", dur))?
-                        .map_err(|e| anyhow!("failed to spawn shell: {}", e))?
-                }
-                None => {
-                    cmd.output()
-                        .await
-                        .map_err(|e| anyhow!("failed to spawn shell: {}", e))?
-                }
+                Some(dur) => tokio::time::timeout(dur, cmd.output())
+                    .await
+                    .map_err(|_| anyhow!("task timeout after {:?}", dur))?
+                    .map_err(|e| anyhow!("failed to spawn shell: {}", e))?,
+                None => cmd
+                    .output()
+                    .await
+                    .map_err(|e| anyhow!("failed to spawn shell: {}", e))?,
             };
 
             // Log stdout
             if !output.stdout.is_empty() {
-                let stdout_str = std::str::from_utf8(&output.stdout)
-                    .unwrap_or_default();
+                let stdout_str = std::str::from_utf8(&output.stdout).unwrap_or_default();
                 for line in stdout_str.lines() {
                     debug!("[shell] {}", line);
                 }
@@ -607,8 +592,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
             // Log stderr
             if !output.stderr.is_empty() {
-                let stderr_str = std::str::from_utf8(&output.stderr)
-                    .unwrap_or_default();
+                let stderr_str = std::str::from_utf8(&output.stderr).unwrap_or_default();
                 for line in stderr_str.lines() {
                     warn!("[shell stderr] {}", line);
                 }
@@ -681,11 +665,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
         let env_vars: Vec<String> = task
             .env
             .as_ref()
-            .map(|e| {
-                e.iter()
-                    .map(|(k, v)| format!("{}={}", k, v))
-                    .collect()
-            })
+            .map(|e| e.iter().map(|(k, v)| format!("{}={}", k, v)).collect())
             .unwrap_or_default();
 
         // Get working directory
@@ -702,10 +682,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                 .map_err(|e| anyhow!("failed to connect to Docker: {}", e))?;
 
             // Pull image if needed
-            let image_exists = docker
-                .inspect_image(&image)
-                .await
-                .is_ok();
+            let image_exists = docker.inspect_image(&image).await.is_ok();
 
             if !image_exists {
                 debug!("[docker-runtime] pulling image {}", image);
@@ -756,10 +733,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
 
             // Create container
             let container_id = docker
-                .create_container(
-                    None::<CreateContainerOptions<String>>,
-                    config,
-                )
+                .create_container(None::<CreateContainerOptions<String>>, config)
                 .await
                 .map_err(|e| anyhow!("failed to create container: {}", e))?
                 .id;
@@ -777,12 +751,15 @@ impl RuntimeTrait for DockerRuntimeAdapter {
             let max_attempts = 60; // 60 seconds timeout
             for _ in 0..max_attempts {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                
+
                 // Check if container is still running
                 let info = docker
-                    .inspect_container(&container_id, None::<bollard::container::InspectContainerOptions>)
+                    .inspect_container(
+                        &container_id,
+                        None::<bollard::container::InspectContainerOptions>,
+                    )
                     .await;
-                
+
                 if let Ok(info) = info {
                     if let Some(state) = info.state {
                         if !state.running.unwrap_or(false) {
@@ -807,7 +784,9 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                 force: true,
                 ..Default::default()
             };
-            let _ = docker.remove_container(&container_id, Some(remove_options)).await;
+            let _ = docker
+                .remove_container(&container_id, Some(remove_options))
+                .await;
 
             if exit_code != 0 {
                 return Err(anyhow!(
@@ -1130,9 +1109,7 @@ async fn create_docker_runtime(
 /// Create a Shell runtime.
 ///
 /// Go parity: the `case runtime.Shell` branch of `initRuntime()`
-fn create_shell_runtime(
-    config: &RuntimeConfig,
-) -> Result<Box<dyn RuntimeTrait + Send + Sync>> {
+fn create_shell_runtime(config: &RuntimeConfig) -> Result<Box<dyn RuntimeTrait + Send + Sync>> {
     let cmd = if config.shell_cmd.is_empty() {
         vec!["bash".to_string(), "-c".to_string()]
     } else {
@@ -1198,9 +1175,7 @@ async fn create_podman_runtime(
 /// Go parity: `hostenv, err := task.NewHostEnv(conf.Strings("middleware.task.hostenv.vars")...)`
 ///
 /// Parses specs like `"VAR"` or `"HOST_VAR:TASK_VAR"` into a HashMap.
-pub fn create_hostenv_middleware(
-    vars: &[String],
-) -> Option<crate::engine::TaskMiddlewareFunc> {
+pub fn create_hostenv_middleware(vars: &[String]) -> Option<crate::engine::TaskMiddlewareFunc> {
     if vars.is_empty() {
         return None;
     }
@@ -1210,9 +1185,7 @@ pub fn create_hostenv_middleware(
         .filter_map(|var_spec| {
             let parts: Vec<&str> = var_spec.split(':').collect();
             match parts.len() {
-                1 if !parts[0].is_empty() => {
-                    Some((parts[0].to_string(), parts[0].to_string()))
-                }
+                1 if !parts[0].is_empty() => Some((parts[0].to_string(), parts[0].to_string())),
                 2 if !parts[0].is_empty() && !parts[1].is_empty() => {
                     Some((parts[0].to_string(), parts[1].to_string()))
                 }
@@ -1233,21 +1206,27 @@ pub fn create_hostenv_middleware(
     let middleware: crate::engine::TaskMiddlewareFunc = std::sync::Arc::new(
         move |next: crate::engine::TaskHandlerFunc| -> crate::engine::TaskHandlerFunc {
             let var_map = var_map.clone();
-            std::sync::Arc::new(move |_ctx: std::sync::Arc<()>, et: crate::engine::TaskEventType, task: &mut tork::task::Task| {
-                if et == crate::engine::TaskEventType::StateChange && task.state == tork::task::TASK_STATE_RUNNING {
-                    if task.env.is_none() {
-                        task.env = Some(HashMap::new());
-                    }
-                    if let Some(ref mut env_map) = task.env {
-                        for (host_name, task_name) in &var_map {
-                            if let Ok(value) = std::env::var(host_name) {
-                                env_map.insert(task_name.clone(), value);
+            std::sync::Arc::new(
+                move |_ctx: std::sync::Arc<()>,
+                      et: crate::engine::TaskEventType,
+                      task: &mut tork::task::Task| {
+                    if et == crate::engine::TaskEventType::StateChange
+                        && task.state == tork::task::TASK_STATE_RUNNING
+                    {
+                        if task.env.is_none() {
+                            task.env = Some(HashMap::new());
+                        }
+                        if let Some(ref mut env_map) = task.env {
+                            for (host_name, task_name) in &var_map {
+                                if let Ok(value) = std::env::var(host_name) {
+                                    env_map.insert(task_name.clone(), value);
+                                }
                             }
                         }
                     }
-                }
-                next(_ctx, et, task)
-            })
+                    next(_ctx, et, task)
+                },
+            )
         },
     );
 
@@ -1297,7 +1276,9 @@ pub async fn create_worker(
         .ok()
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "Worker".to_string());
-    let _address = std::env::var("TORK_WORKER_ADDRESS").ok().filter(|s| !s.is_empty());
+    let _address = std::env::var("TORK_WORKER_ADDRESS")
+        .ok()
+        .filter(|s| !s.is_empty());
 
     // Parse queues from environment
     // Go: conf.IntMap("worker.queues")
@@ -1518,7 +1499,7 @@ mod tests {
         std::env::remove_var("TORK_WORKER_LIMITS_CPUS");
         std::env::remove_var("TORK_WORKER_LIMITS_MEMORY");
         std::env::remove_var("TORK_WORKER_LIMITS_TIMEOUT");
-        
+
         let limits = read_limits();
         assert_eq!(limits.cpus, DEFAULT_CPUS_LIMIT);
         assert_eq!(limits.memory, DEFAULT_MEMORY_LIMIT);
@@ -1530,12 +1511,12 @@ mod tests {
         std::env::set_var("TORK_WORKER_LIMITS_CPUS", "4");
         std::env::set_var("TORK_WORKER_LIMITS_MEMORY", "2g");
         std::env::set_var("TORK_WORKER_LIMITS_TIMEOUT", "10m");
-        
+
         let limits = read_limits();
         assert_eq!(limits.cpus, "4");
         assert_eq!(limits.memory, "2g");
         assert_eq!(limits.timeout, "10m");
-        
+
         // Cleanup
         std::env::remove_var("TORK_WORKER_LIMITS_CPUS");
         std::env::remove_var("TORK_WORKER_LIMITS_MEMORY");
@@ -1549,7 +1530,6 @@ mod tests {
         assert!(limits.memory.is_empty());
         assert!(limits.timeout.is_empty());
     }
-
 
     #[test]
     fn test_runtime_config_default() {
@@ -1612,11 +1592,8 @@ mod tests {
     #[tokio::test]
     async fn test_shell_runtime_adapter_valid_task() {
         // Use just ["bash"] - bash reads file directly, bash -c expects command string
-        let adapter = ShellRuntimeAdapter::new(
-            vec!["bash".to_string()],
-            "-".to_string(),
-            "-".to_string(),
-        );
+        let adapter =
+            ShellRuntimeAdapter::new(vec!["bash".to_string()], "-".to_string(), "-".to_string());
         let mut task = tork::task::Task {
             id: Some("test-task".to_string()),
             run: Some("echo hello".to_string()),

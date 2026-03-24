@@ -126,12 +126,14 @@ pub type NodeHandlerFunc =
     Arc<dyn Fn(HandlerContext, &mut tork::node::Node) -> Result<(), HandlerError> + Send + Sync>;
 
 /// Handler function type for log events.
-pub type LogHandlerFunc =
-    Arc<dyn Fn(HandlerContext, &[tork::task::TaskLogPart]) -> Result<(), HandlerError> + Send + Sync>;
+pub type LogHandlerFunc = Arc<
+    dyn Fn(HandlerContext, &[tork::task::TaskLogPart]) -> Result<(), HandlerError> + Send + Sync,
+>;
 
 /// Handler function type for scheduled job events.
-pub type ScheduledJobHandlerFunc =
-    Arc<dyn Fn(HandlerContext, &mut tork::job::ScheduledJob) -> Result<(), HandlerError> + Send + Sync>;
+pub type ScheduledJobHandlerFunc = Arc<
+    dyn Fn(HandlerContext, &mut tork::job::ScheduledJob) -> Result<(), HandlerError> + Send + Sync,
+>;
 
 /// Errors that can occur in handlers.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -202,8 +204,8 @@ mod tests {
 
     #[test]
     fn test_noop_handlers() {
-        use tork::node::Node;
         use time::OffsetDateTime;
+        use tork::node::Node;
 
         let ctx = Arc::new(());
         let mut task = Task::default();

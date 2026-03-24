@@ -135,20 +135,15 @@ impl StartedHandler {
         match calculate_started_action(&job.state) {
             StartedAction::Cancel => {
                 // 2a. Job is not running — cancel the task via the node's queue
-                let node_id = task
-                    .node_id
-                    .as_deref()
-                    .ok_or_else(|| {
-                        HandlerError::Validation("node ID required for cancellation".into())
-                    })?;
+                let node_id = task.node_id.as_deref().ok_or_else(|| {
+                    HandlerError::Validation("node ID required for cancellation".into())
+                })?;
                 let node = self
                     .ds
                     .get_node_by_id(node_id.to_string())
                     .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| {
-                        HandlerError::NotFound(format!("node {node_id} not found"))
-                    })?;
+                    .ok_or_else(|| HandlerError::NotFound(format!("node {node_id} not found")))?;
                 let queue_name = node
                     .queue
                     .clone()
@@ -180,9 +175,7 @@ impl StartedHandler {
                     .get_task_by_id(task_id.to_string())
                     .await
                     .map_err(|e| HandlerError::Datastore(e.to_string()))?
-                    .ok_or_else(|| {
-                        HandlerError::NotFound(format!("task {task_id} not found"))
-                    })?;
+                    .ok_or_else(|| HandlerError::NotFound(format!("task {task_id} not found")))?;
 
                 let updated_task = prepare_task_start_update(&current, task);
                 self.ds
@@ -199,4 +192,3 @@ impl StartedHandler {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-

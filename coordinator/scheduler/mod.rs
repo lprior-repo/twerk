@@ -19,12 +19,19 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tork::broker::{queue, Broker};
 use tork::datastore::Datastore;
 use tork::job::JobDefaults;
 use tork::task::{Task, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
+
+/// Regex to match `{{ expr }}` template patterns.
+#[allow(clippy::expect_used)]
+static TEMPLATE_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\{\{\s*(.+?)\s*\}\}").expect("invalid template regex")
+});
 
 // ---------------------------------------------------------------------------
 // Pure calculations
@@ -189,7 +196,10 @@ impl Scheduler {
     /// # Errors
     ///
     /// Returns [`SchedulerError`] if any I/O operation fails.
-    pub async fn schedule_task(&self, task: &mut Task) -> Result<ScheduledTaskType, SchedulerError> {
+    pub async fn schedule_task(
+        &self,
+        task: &mut Task,
+    ) -> Result<ScheduledTaskType, SchedulerError> {
         let task_type = classify_task_type(task);
         let now = OffsetDateTime::now_utc();
 
@@ -231,9 +241,10 @@ impl Scheduler {
                 }
 
                 // 5. Publish to broker
-                let queue_name =
-                    task.queue.clone()
-                        .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+                let queue_name = task
+                    .queue
+                    .clone()
+                    .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
                 self.broker
                     .publish_task(queue_name, task)
                     .await
@@ -352,9 +363,10 @@ impl Scheduler {
             SchedulerError::Validation("parallel task has no parallel field".into())
         })?;
 
-        let tasks = parallel.tasks.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("parallel task has no tasks".into())
-        })?;
+        let tasks = parallel
+            .tasks
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("parallel task has no tasks".into()))?;
 
         let now = OffsetDateTime::now_utc();
 
@@ -412,20 +424,24 @@ impl Scheduler {
     /// Creates subtasks for an each (loop) task construct.
     ///
     /// Go parity: `scheduleEachTask` evaluates the list expression and creates
-    /// a subtask for each item in the list.
+    /// a subtask for each item in the list. Item values are injected into the
+    /// child task's context via template evaluation.
     async fn create_each_subtasks(&self, parent: &Task) -> Result<(), SchedulerError> {
-        let each = parent.each.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("each task has no each field".into())
-        })?;
+        let each = parent
+            .each
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("each task has no each field".into()))?;
 
-        let inner_task = each.task.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("each task has no inner task".into())
-        })?;
+        let inner_task = each
+            .task
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("each task has no inner task".into()))?;
 
         // Get the list expression
-        let list_expr = each.list.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("each task has no list expression".into())
-        })?;
+        let list_expr = each
+            .list
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("each task has no list expression".into()))?;
 
         // Build context for evaluating the list from job inputs
         let context = self.build_eval_context(parent).await;
@@ -438,8 +454,14 @@ impl Scheduler {
         let now = OffsetDateTime::now_utc();
 
         for (index, item) in items.iter().enumerate() {
-            // inner_task is &Box<Task>, clone gives Box<Task>, deref gives Task
-            let mut child_task = *inner_task.clone();
+            // Build a child-specific context with the loop variable injected
+            let mut child_context = context.clone();
+            child_context.insert(var_name.clone(), serde_json::Value::String(item.clone()));
+
+            // Evaluate the inner task template with the item value substituted
+            let mut child_task =
+                crate::handlers::job::eval::evaluate_task(inner_task, &child_context)
+                    .unwrap_or_else(|_| *inner_task.clone());
 
             // Set parent_id
             child_task.parent_id = parent.id.clone();
@@ -452,9 +474,8 @@ impl Scheduler {
             // Set position
             child_task.position = index as i64;
 
-            // Set the loop variable - substitute the item value into the task
-            // For simplicity, we set var which can be used in template evaluation
-            child_task.var = Some(format!("{{{{{var_name}:{}}}}}", item));
+            // Set the var field to the item value (Go parity: task.Var = item)
+            child_task.var = Some(item.clone());
 
             // Apply parent job_id and defaults
             child_task.job_id = parent.job_id.clone();
@@ -496,21 +517,23 @@ impl Scheduler {
     /// Creates subtasks for a sub-job task construct.
     ///
     /// Go parity: `scheduleAttachedSubJob` creates child jobs/tasks for
-    /// sub-jobs that are not detached.
+    /// sub-jobs that are not detached. For detached subjobs (`scheduleDetachedSubJob`),
+    /// a standalone job is created, persisted, and published — fire-and-forget.
     async fn create_subjob_tasks(&self, parent: &Task) -> Result<(), SchedulerError> {
-        let subjob = parent.subjob.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("subjob task has no subjob field".into())
-        })?;
+        let subjob = parent
+            .subjob
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("subjob task has no subjob field".into()))?;
 
-        // Skip detached subjobs - they run independently
+        // Detached subjob: create standalone job and publish (fire-and-forget)
         if subjob.detached {
-            tracing::debug!("skipping detached subjob task creation");
-            return Ok(());
+            return self.create_detached_subjob(parent, subjob).await;
         }
 
-        let tasks = subjob.tasks.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("subjob task has no tasks".into())
-        })?;
+        let tasks = subjob
+            .tasks
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("subjob task has no tasks".into()))?;
 
         let now = OffsetDateTime::now_utc();
 
@@ -561,15 +584,77 @@ impl Scheduler {
         Ok(())
     }
 
+    /// Handles detached subjob: creates a standalone job, persists it,
+    /// publishes it to the broker, and immediately completes the parent task.
+    ///
+    /// Go parity: `scheduleDetachedSubJob` — fire-and-forget pattern.
+    async fn create_detached_subjob(
+        &self,
+        parent: &Task,
+        subjob: &tork::task::SubJobTask,
+    ) -> Result<(), SchedulerError> {
+        let now = OffsetDateTime::now_utc();
+
+        // 1. Build a standalone Job from the subjob definition
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let new_job = tork::job::Job {
+            id: Some(job_id.clone()),
+            parent_id: parent.job_id.clone(),
+            name: subjob.name.clone(),
+            description: subjob.description.clone(),
+            state: tork::job::JOB_STATE_PENDING.to_string(),
+            created_at: now,
+            tasks: subjob.tasks.clone().unwrap_or_default(),
+            inputs: subjob.inputs.clone(),
+            secrets: subjob.secrets.clone(),
+            context: tork::job::JobContext {
+                inputs: subjob.inputs.clone(),
+                secrets: subjob.secrets.clone(),
+                ..tork::job::JobContext::default()
+            },
+            task_count: subjob.tasks.as_ref().map_or(0, |t| t.len() as i64),
+            auto_delete: subjob.auto_delete.clone(),
+            webhooks: subjob.webhooks.clone(),
+            ..tork::job::Job::default()
+        };
+
+        // 2. Persist the new job
+        self.ds
+            .create_job(new_job.clone())
+            .await
+            .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+
+        // 3. Publish the job to the broker
+        self.broker
+            .publish_job(&new_job)
+            .await
+            .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+
+        tracing::info!(
+            parent_task_id = parent.id.as_deref().unwrap_or("unknown"),
+            detached_job_id = %job_id,
+            "published detached subjob"
+        );
+
+        // 4. Immediately complete the parent task (fire-and-forget)
+        let mut completed_parent = parent.clone();
+        completed_parent.state = tork::task::TASK_STATE_COMPLETED.clone();
+        completed_parent.completed_at = Some(now);
+
+        self.broker
+            .publish_task(queue::QUEUE_COMPLETED.to_string(), &completed_parent)
+            .await
+            .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+
+        Ok(())
+    }
+
     // ---------------------------------------------------------------------------
     // Private: Build eval context from job inputs
     // ---------------------------------------------------------------------------
 
     /// Builds the evaluation context from job inputs and task variables.
-    async fn build_eval_context(
-        &self,
-        task: &Task,
-    ) -> HashMap<String, serde_json::Value> {
+    async fn build_eval_context(&self, task: &Task) -> HashMap<String, serde_json::Value> {
         let mut context = HashMap::new();
 
         // Load job context if we have a job_id
@@ -593,7 +678,10 @@ impl Scheduler {
 
         // Add task var if present (for each loop iteration)
         if let Some(var) = &task.var {
-            context.insert(var.clone(), serde_json::Value::String("{{item}}".to_string()));
+            context.insert(
+                var.clone(),
+                serde_json::Value::String("{{item}}".to_string()),
+            );
         }
 
         context
@@ -605,24 +693,90 @@ impl Scheduler {
 
     /// Parses a list expression and returns the items as strings.
     ///
-    /// Tries to evaluate as a JSON array first, then falls back to
-    /// comma-separated values.
+    /// Tries three strategies in order:
+    /// 1. JSON array parse (e.g. `["a","b","c"]`)
+    /// 2. Expression evaluation via evalexpr (e.g. `{{ sequence(1,5) }}`)
+    /// 3. Comma-separated fallback (e.g. `a,b,c`)
     async fn parse_list_expression(
         &self,
         list_expr: &str,
-        _context: &HashMap<String, serde_json::Value>,
+        context: &HashMap<String, serde_json::Value>,
     ) -> Vec<String> {
-        // Try to parse as JSON array first
+        // 1. Try to parse as JSON array first
         if let Ok(items) = serde_json::from_str::<Vec<String>>(list_expr) {
             return items;
         }
 
-        // Fall back to comma-separated values
+        // 2. Try expression evaluation via evalexpr
+        if let Some(items) = self.try_eval_list_expression(list_expr, context) {
+            return items;
+        }
+
+        // 3. Fall back to comma-separated values
         list_expr
             .split(',')
             .map(str::trim)
             .map(String::from)
             .collect()
+    }
+
+    /// Attempts to evaluate a list expression using evalexpr.
+    ///
+    /// Supports expressions like `{{ sequence(1,5) }}` or variables
+    /// that resolve to arrays. Returns `None` if evaluation fails
+    /// or the result is not a list.
+    fn try_eval_list_expression(
+        &self,
+        list_expr: &str,
+        context: &HashMap<String, serde_json::Value>,
+    ) -> Option<Vec<String>> {
+        // Build the evalexpr context (including built-in functions like sequence)
+        let evalexpr_ctx = crate::handlers::job::eval::create_eval_context(context).ok()?;
+
+        // Sanitize: strip {{ }} wrappers if present
+        let sanitized = list_expr.trim();
+        let inner = TEMPLATE_REGEX
+            .captures(sanitized)
+            .map_or_else(|| sanitized.to_string(), |caps| caps[1].trim().to_string());
+
+        if inner.is_empty() {
+            return None;
+        }
+
+        // Evaluate the expression
+        let result = evalexpr::eval_with_context(&inner, &evalexpr_ctx).ok()?;
+
+        // Convert result to a list of strings
+        eval_value_to_string_list(&result)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Converts an evalexpr Value to a list of strings, if it is a list/tuple.
+/// Returns `None` if the value cannot be interpreted as a list.
+fn eval_value_to_string_list(value: &evalexpr::Value) -> Option<Vec<String>> {
+    match value {
+        evalexpr::Value::Tuple(items) => {
+            let strings: Vec<String> = items
+                .iter()
+                .map(|v| match v {
+                    evalexpr::Value::String(s) => s.clone(),
+                    evalexpr::Value::Int(i) => i.to_string(),
+                    evalexpr::Value::Float(f) => f.to_string(),
+                    evalexpr::Value::Boolean(b) => b.to_string(),
+                    _ => v.to_string(),
+                })
+                .collect();
+            Some(strings)
+        }
+        evalexpr::Value::String(s) => {
+            // A single string — try parsing as JSON array
+            serde_json::from_str::<Vec<String>>(s).ok()
+        }
+        _ => None,
     }
 }
 
@@ -655,8 +809,8 @@ pub enum SchedulerError {
 
 #[cfg(test)]
 mod tests {
-    use tork::task::{EachTask, ParallelTask, SubJobTask};
     use super::*;
+    use tork::task::{EachTask, ParallelTask, SubJobTask};
 
     // -- classify_task_type (pure calc) ------------------------------------
 

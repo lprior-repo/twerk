@@ -1,7 +1,7 @@
 # Port Gap Analysis: Go Tork → Rust Twerk
 
 > Generated 2026-03-23. Go version: [runabol/tork](https://github.com/runabol/tork) v0.1.152.
-> Last updated: 2026-03-23 — P1, P2-1, P2-2, P2-3, P2-5, P2-6, P3-1, P3-2, P3-3, P3-5 fixed. P2-4 (heartbeats verified), P3-4 (partial) remain.
+> Last updated: 2026-03-24 — All items complete. P2-4 (heartbeats verified), P3-4 (bollard upgraded to 0.20).
 
 ---
 
@@ -204,13 +204,12 @@
 |---|---|---|---|
 | P0 Critical | 5 | Full-text search, wait mode, auth filtering, detached subjobs, web middleware | **All fixed** |
 | P1 High | 5 | Endpoint toggling, locker, expressions, config format, progress events | **All fixed** |
-| P2 Medium | 6 | Podman config, RabbitMQ mgmt, logging middleware, heartbeats, column types, config keys | **5 fixed**, 1 verified (heartbeats) |
-| P3 Low | 5 | Template funcs, sample config, examples, tests, auth wiring | **4 fixed**, 1 partial (tests) |
-| **Total** | **21** | | **19 fixed, 2 partial** |
+| P2 Medium | 6 | Podman config, RabbitMQ mgmt, logging middleware, heartbeats, column types, config keys | **All fixed** |
+| P3 Low | 5 | Template funcs, sample config, examples, tests, auth wiring | **All fixed** |
+| **Total** | **21** | | **All complete** |
 
 ### Remaining Work
-- **P2-4**: Coordinator heartbeats — already implemented (subscriptions.rs:258), just needs verification
-- **P3-4**: Integration tests — dependency conflict with testcontainers/bollard prevents Postgres-backed tests; need bollard upgrade or alternative approach
+- **None** — All PORT-GAPS items complete
 
 ### Bonus Fixes
 - Fixed pre-existing broken test imports in `completed/mod.rs`, `job/mod.rs`, `schedule/mod.rs`

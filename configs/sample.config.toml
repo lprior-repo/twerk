@@ -1,0 +1,187 @@
+# Twerk Sample Configuration
+# This file documents all configuration options with their defaults and descriptions.
+
+[cli]
+# Banner display mode: off | console | log
+banner.mode = "console"
+
+[client]
+# Coordinator endpoint URL for client connections
+endpoint = "http://localhost:8000"
+
+[logging]
+# Log level: debug | info | warn | error
+level = "debug"
+# Log format: pretty | json
+format = "pretty"
+
+[broker]
+# Broker type: inmemory | rabbitmq
+type = "inmemory"
+
+[broker.rabbitmq]
+# AMQP connection URL for RabbitMQ broker
+url = "amqp://guest:guest@localhost:5672/"
+# Timeout for consumer operations
+consumer.timeout = "30m"
+# Management plugin URL (defaults to http://{rabbit_host}:15672/ if empty)
+management.url = ""
+# Whether queues should be durable (survive broker restarts)
+durable.queues = false
+# Queue type: classic | quorum
+queue.type = "classic"
+
+[datastore]
+# Datastore type: postgres
+type = "postgres"
+
+[datastore.retention]
+# How long to retain job logs (default: 1 week)
+logs.duration = "168h"
+# How long to retain job records (default: 1 year)
+jobs.duration = "8760h"
+
+[datastore.encryption]
+# Encryption key for job secrets at rest (leave empty for no encryption)
+key = ""
+
+[datastore.postgres]
+# PostgreSQL connection string
+dsn = "host=localhost user=tork password=tork dbname=tork port=5432 sslmode=disable"
+# Maximum number of open connections to the database
+max_open_conns = 25
+# Maximum number of idle connections in the pool
+max_idle_conns = 25
+# Maximum lifetime of a connection (default: 1h)
+conn_max_lifetime = "1h"
+# Maximum time a connection can be idle before being closed (default: 5m)
+conn_max_idle_time = "5m"
+
+[coordinator]
+# Listen address for the coordinator server
+address = "localhost:8000"
+# Human-readable name for this coordinator
+name = "Coordinator"
+
+[coordinator.api]
+# Enable/disable individual API endpoints
+endpoints.health = true
+endpoints.jobs = true
+endpoints.tasks = true
+endpoints.nodes = true
+endpoints.queues = true
+endpoints.metrics = true
+endpoints.users = true
+
+[coordinator.queues]
+# Number of concurrent consumers for each queue type
+completed = 1
+error = 1
+pending = 1
+started = 1
+heartbeat = 1
+jobs = 1
+
+# Cross-Origin Resource Sharing middleware
+[middleware.web.cors]
+enabled = false
+origins = "*"
+methods = "*"
+credentials = false
+headers = "*"
+
+# Basic Authentication middleware
+[middleware.web.basicauth]
+enabled = false
+
+# API Key Authentication middleware
+[middleware.web.keyauth]
+enabled = false
+# API key (auto-generated and logged if left blank)
+key = ""
+
+[middleware.web]
+# Maximum request body size (supports K, M, G, T, P suffixes)
+bodylimit = "500K"
+
+# Rate limiting middleware
+[middleware.web.ratelimit]
+enabled = false
+# Requests per second per IP address
+rps = 20
+
+# Request logging middleware
+[middleware.web.logger]
+enabled = true
+# Log level: TRACE | DEBUG | INFO | WARN | ERROR
+level = "DEBUG"
+# URL patterns to skip logging (supports wildcards)
+skip = ["GET /health"]
+
+# Job output redaction middleware
+[middleware.job.redact]
+enabled = false
+
+# Host environment variable injection for tasks
+[middleware.task.hostenv]
+# List of host env vars to inject into tasks (supports aliases, e.g. SOME_HOST_VAR:OTHER_VAR)
+vars = []
+
+[worker]
+# Listen address for the worker server
+address = "localhost:8001"
+# Human-readable name for this worker
+name = "Worker"
+
+[worker.queues]
+# Default number of concurrent subscribers per queue
+default = 1
+
+# Default task limits (applied to all tasks unless overridden)
+[worker.limits]
+# CPU limit (supports fractions, e.g. "0.5" for half a CPU)
+cpus = ""
+# Memory limit (e.g. "100m" for 100 megabytes)
+memory = ""
+# Task timeout (e.g. "3h" for 3 hours)
+timeout = ""
+
+# Bind mount configuration
+[mounts.bind]
+# Whether bind mounts are allowed
+allowed = false
+# List of paths allowed as mount sources (empty allows all)
+sources = []
+
+# Temporary directory configuration
+[mounts.temp]
+# Temporary directory for task execution
+dir = "/tmp"
+
+# Runtime configuration
+[runtime]
+# Runtime type: docker | shell | podman
+type = "docker"
+
+# Shell runtime configuration
+[runtime.shell]
+# Shell command used to execute the run script
+cmd = ["bash", "-c"]
+# Set the UID for the task process (recommended for security)
+uid = ""
+# Set the GID for the task process (recommended for security)
+gid = ""
+
+# Docker runtime configuration
+[runtime.docker]
+# Docker config file path (empty uses default)
+config = ""
+# Run containers in privileged mode (not recommended for security)
+privileged = false
+# Time-to-live for cached images since their last use
+image.ttl = "24h"
+
+# Podman runtime configuration
+[runtime.podman]
+# Run containers in privileged mode (not recommended for security)
+privileged = false

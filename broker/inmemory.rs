@@ -443,9 +443,9 @@ impl Broker for InMemoryBroker {
             let result: Vec<QueueInfo> = queues
                 .iter()
                 .map(|(name, q)| {
-                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
-                    let unacked = q.unacked.load(Ordering::SeqCst) as i64;
-                    let size = q.size.load(Ordering::SeqCst) as i64;
+                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i32;
+                    let unacked = q.unacked.load(Ordering::SeqCst) as i32;
+                    let size = q.size.load(Ordering::SeqCst) as i32;
                     QueueInfo {
                         name: name.clone(),
                         size,
@@ -466,9 +466,9 @@ impl Broker for InMemoryBroker {
             queues
                 .get(&qname)
                 .map(|q| {
-                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i64;
-                    let unacked = q.unacked.load(Ordering::SeqCst) as i64;
-                    let size = q.size.load(Ordering::SeqCst) as i64;
+                    let sub_count = q.subs.lock().map_or(0, |s| s.len()) as i32;
+                    let unacked = q.unacked.load(Ordering::SeqCst) as i32;
+                    let size = q.size.load(Ordering::SeqCst) as i32;
                     QueueInfo {
                         name: qname,
                         size,

@@ -851,9 +851,9 @@ impl Broker for RabbitMQBroker {
                 .into_iter()
                 .map(|rq| QueueInfo {
                     name: rq.name,
-                    size: rq.messages,
-                    subscribers: rq.consumers,
-                    unacked: rq.messages_unacknowledged,
+                    size: rq.messages as i32,
+                    subscribers: rq.consumers as i32,
+                    unacked: rq.messages_unacknowledged as i32,
                 })
                 .collect())
         })
@@ -867,9 +867,9 @@ impl Broker for RabbitMQBroker {
                 .find(|rq| rq.name == qname)
                 .map(|rq| QueueInfo {
                     name: rq.name,
-                    size: rq.messages,
-                    subscribers: rq.consumers,
-                    unacked: rq.messages_unacknowledged,
+                    size: rq.messages as i32,
+                    subscribers: rq.consumers as i32,
+                    unacked: rq.messages_unacknowledged as i32,
                 })
                 .ok_or_else(|| anyhow::anyhow!("queue {} not found", qname))
         })

@@ -64,7 +64,7 @@ fn new_coordinator_id() -> String {
 // ---------------------------------------------------------------------------
 
 /// Topic for scheduled job events (Go: `broker.TOPIC_SCHEDULED_JOB`).
-const TOPIC_SCHEDULED_JOB: &str = "scheduled-job";
+const TOPIC_SCHEDULED_JOB: &str = "scheduled.job";
 
 /// Shutdown timeout in seconds (Go: 15 seconds).
 const SHUTDOWN_TIMEOUT_SECS: u64 = 15;

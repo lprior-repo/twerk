@@ -607,11 +607,11 @@ impl Broker for InMemoryBroker {
                 let subscribers = self
                     .handlers
                     .get(&qname)
-                    .map(|h| h.len() as i64)
+                    .map(|h| h.len() as i32)
                     .unwrap_or(0);
                 QueueInfo {
                     name: qname,
-                    size: task_list.len() as i64,
+                    size: task_list.len() as i32,
                     subscribers,
                     unacked: 0,
                 }
@@ -624,12 +624,12 @@ impl Broker for InMemoryBroker {
         let size = self
             .tasks
             .get(&qname)
-            .map(|entry| entry.len() as i64)
+            .map(|entry| entry.len() as i32)
             .unwrap_or(0);
         let subscribers = self
             .handlers
             .get(&qname)
-            .map(|entry| entry.len() as i64)
+            .map(|entry| entry.len() as i32)
             .unwrap_or(0);
         Box::pin(async move {
             Ok(QueueInfo {

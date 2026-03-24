@@ -67,7 +67,7 @@ fn new_coordinator_id() -> String {
 // ---------------------------------------------------------------------------
 
 /// Topic for scheduled job events (Go: `broker.TOPIC_SCHEDULED_JOB`).
-const TOPIC_SCHEDULED_JOB: &str = "scheduled-job";
+const TOPIC_SCHEDULED_JOB: &str = "scheduled.job";
 
 /// Shutdown timeout in seconds (Go: 15 seconds).
 const SHUTDOWN_TIMEOUT_SECS: u64 = 15;
@@ -1160,7 +1160,7 @@ mod tests {
 
     #[test]
     fn test_constants_match_go() {
-        assert_eq!(TOPIC_SCHEDULED_JOB, "scheduled-job");
+        assert_eq!(TOPIC_SCHEDULED_JOB, "scheduled.job");
         assert_eq!(SHUTDOWN_TIMEOUT_SECS, 15);
         assert_eq!(DEFAULT_QUEUE_CONCURRENCY, 1);
         assert_eq!(COORDINATOR_QUEUES.len(), 9);

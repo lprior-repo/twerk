@@ -15,8 +15,20 @@ pub type BoxedFuture<T> =
 /// Boxed handler future type
 pub type BoxedHandlerFuture = Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
 
+/// Broker provider function type (Go: type Provider func() (Broker, error))
+pub type Provider = Arc<dyn Fn() -> BoxedFuture<Box<dyn Broker + Send + Sync>> + Send + Sync>;
+
+/// Broker type constants (Go: BROKER_*)
+pub const BROKER_INMEMORY: &str = "inmemory";
+pub const BROKER_RABBITMQ: &str = "rabbitmq";
+
+/// Topic constants (Go: TOPIC_*)
+pub const TOPIC_JOB: &str = "job.*";
+pub const TOPIC_JOB_COMPLETED: &str = "job.completed";
+pub const TOPIC_JOB_FAILED: &str = "job.failed";
 /// Topic constant for job progress events
 pub const TOPIC_JOB_PROGRESS: &str = "job.progress";
+pub const TOPIC_SCHEDULED_JOB: &str = "scheduled.job";
 
 /// Queue names
 pub mod queue {
@@ -146,15 +158,15 @@ pub trait Broker: Send + Sync {
     fn shutdown(&self) -> BoxedFuture<()>;
 }
 
-/// Queue information
+/// Queue information (Go: int fields match i32)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct QueueInfo {
     /// Queue name
     pub name: String,
-    /// Queue size
-    pub size: i64,
-    /// Number of subscribers
-    pub subscribers: i64,
-    /// Number of unacked messages
-    pub unacked: i64,
+    /// Queue size (Go: int)
+    pub size: i32,
+    /// Number of subscribers (Go: int)
+    pub subscribers: i32,
+    /// Number of unacked messages (Go: int)
+    pub unacked: i32,
 }

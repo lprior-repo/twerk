@@ -1096,29 +1096,58 @@ impl PostgresDatastore {
 
         sqlx::query(
             r"
-            insert into scheduled_jobs (id, name, description, cron_expr, state, tasks, inputs,
-                defaults, webhooks, auto_delete, secrets, created_by, tags, created_at, output_)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            INSERT INTO scheduled_jobs (id, name, description, tags, cron_expr, inputs, output_,
+                tasks, defaults, webhooks, auto_delete, secrets, created_at, created_by, state)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             ",
         )
         .bind(id)
         .bind(&sj.name)
         .bind(&sj.description)
+        .bind(tags)
         .bind(&sj.cron)
-        .bind(&sj.state)
-        .bind(&tasks)
         .bind(&inputs)
+        .bind(&sj.output)
+        .bind(&tasks)
         .bind(&defaults)
         .bind(&webhooks)
         .bind(&auto_delete)
         .bind(&secrets_bytes)
-        .bind(created_by_id)
-        .bind(tags)
         .bind(sj.created_at)
-        .bind(&sj.output)
+        .bind(created_by_id)
+        .bind(&sj.state)
         .execute(&self.pool)
         .await
         .map_err(|e| DatastoreError::Database(format!("create scheduled job failed: {e}")))?;
+
+        // GAP6: Insert scheduled job permissions
+        if let Some(perms) = &sj.permissions {
+            for perm in perms {
+                let (user_id, role_id) = match (&perm.user, &perm.role) {
+                    (Some(u), None) => (u.id.clone(), None),
+                    (None, Some(r)) => (None, r.id.clone()),
+                    _ => continue,
+                };
+
+                let perm_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+
+                sqlx::query(
+                    r"
+                    INSERT INTO scheduled_jobs_perms (id, scheduled_job_id, user_id, role_id)
+                    VALUES ($1, $2, $3, $4)
+                    ",
+                )
+                .bind(&perm_id)
+                .bind(id)
+                .bind(&user_id)
+                .bind(&role_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| {
+                    DatastoreError::Database(format!("create scheduled job perm failed: {e}"))
+                })?;
+            }
+        }
 
         Ok(())
     }
@@ -1199,10 +1228,34 @@ impl PostgresDatastore {
             result.push(tork::job::new_scheduled_job_summary(&sj));
         }
 
-        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM scheduled_jobs")
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| DatastoreError::Database(format!("count scheduled jobs failed: {e}")))?;
+        // GAP7: Use permission-aware count query matching the SELECT CTE logic
+        let count: i64 = sqlx::query_scalar(
+            r"
+            WITH user_info AS (
+                SELECT id AS user_id FROM users WHERE username_ = $1
+            ),
+            role_info AS (
+                SELECT role_id FROM users_roles ur
+                JOIN user_info ui ON ur.user_id = ui.user_id
+            ),
+            job_perms_info AS (
+                SELECT scheduled_job_id FROM scheduled_jobs_perms jp
+                WHERE jp.user_id = (SELECT user_id FROM user_info)
+                OR jp.role_id IN (SELECT role_id FROM role_info)
+            ),
+            no_job_perms AS (
+                SELECT j.id as scheduled_job_id FROM scheduled_jobs j
+                WHERE NOT EXISTS (SELECT 1 FROM scheduled_jobs_perms jp WHERE j.id = jp.scheduled_job_id)
+            )
+            SELECT count(*) FROM scheduled_jobs j
+            WHERE ($1 = '' OR EXISTS (SELECT 1 FROM no_job_perms njp WHERE njp.scheduled_job_id=j.id) 
+                OR EXISTS (SELECT 1 FROM job_perms_info jpi WHERE jpi.scheduled_job_id = j.id))
+            ",
+        )
+        .bind(current_user)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DatastoreError::Database(format!("count scheduled jobs failed: {e}")))?;
 
         let total_pages = count / size + i64::from(count % size != 0);
         let result_size = result.len() as i64;
@@ -3026,5 +3079,1067 @@ mod tests {
 
         let result = ds.update_scheduled_job("nonexistent-id", |_| Ok(())).await;
         assert!(result.is_err());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GAP6: Scheduled Job Permissions Not Inserted
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_inserts_permissions_when_provided() {
+        use std::collections::HashMap;
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let creator_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let creator_username = format!("creator_perm_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let creator = User {
+            id: Some(creator_id.clone()),
+            username: Some(creator_username),
+            name: Some("Creator User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&creator).await.unwrap();
+
+        let perm_user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let perm_username = format!("perm_user_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let perm_user = User {
+            id: Some(perm_user_id.clone()),
+            username: Some(perm_username),
+            name: Some("Perm User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&perm_user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Test Scheduled Job".to_string()),
+            description: Some("Test description".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(creator),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            permissions: Some(vec![tork::task::Permission {
+                user: Some(perm_user),
+                role: None,
+            }]),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM scheduled_jobs_perms WHERE scheduled_job_id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(count, 1, "Expected 1 permission row to be inserted for scheduled job");
+
+        sqlx::query("DELETE FROM scheduled_jobs_perms WHERE scheduled_job_id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&creator_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&perm_user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_returns_error_when_id_is_none() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("user_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let scheduled_job = ScheduledJob {
+            id: None,
+            name: Some("Test".to_string()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            ..ScheduledJob::default()
+        };
+
+        let result = ds.create_scheduled_job(&scheduled_job).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string(), "invalid input: scheduled job id is required");
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_returns_error_when_created_by_is_none() {
+        let ds = setup_test_ds().await;
+
+        let scheduled_job = ScheduledJob {
+            id: Some(uuid::Uuid::new_v4().to_string().replace('-', "")),
+            name: Some("Test".to_string()),
+            created_at: time::OffsetDateTime::now_utc(),
+            created_by: None,
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            ..ScheduledJob::default()
+        };
+
+        let result = ds.create_scheduled_job(&scheduled_job).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string(), "invalid input: created_by is required");
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_returns_error_when_created_by_id_is_none() {
+        let ds = setup_test_ds().await;
+
+        let user = User {
+            id: None,
+            username: Some("test".to_string()),
+            name: Some("Test".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(time::OffsetDateTime::now_utc()),
+            disabled: false,
+            ..User::default()
+        };
+
+        let scheduled_job = ScheduledJob {
+            id: Some(uuid::Uuid::new_v4().to_string().replace('-', "")),
+            name: Some("Test".to_string()),
+            created_at: time::OffsetDateTime::now_utc(),
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            ..ScheduledJob::default()
+        };
+
+        let result = ds.create_scheduled_job(&scheduled_job).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string(), "invalid input: created_by.id is required");
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_succeeds_without_permissions() {
+        use std::collections::HashMap;
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("user_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Test Scheduled Job".to_string()),
+            description: Some("Test description".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            permissions: Some(vec![]),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM scheduled_jobs_perms WHERE scheduled_job_id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(count, 0, "Expected 0 permission rows when no permissions provided");
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GAP7: GetScheduledJobs Count Query Ignores Permissions
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn integration_get_scheduled_jobs_count_respects_permissions() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+
+        let alice_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let alice_username = format!("alice_gap7_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let alice = User {
+            id: Some(alice_id.clone()),
+            username: Some(alice_username.clone()),
+            name: Some("Alice".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&alice).await.unwrap();
+
+        let bob_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let bob_username = format!("bob_gap7_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let bob = User {
+            id: Some(bob_id.clone()),
+            username: Some(bob_username.clone()),
+            name: Some("Bob".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&bob).await.unwrap();
+
+        let sj1 = {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some("Job1".to_string()),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(alice.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+            sj_id
+        };
+        let sj2 = {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some("Job2".to_string()),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(alice.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+            sj_id
+        };
+        let sj3 = {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some("Job3".to_string()),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(alice.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+            sj_id
+        };
+        let _sj4 = {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some("Job4".to_string()),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(bob.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+            sj_id
+        };
+        let sj5 = {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some("Job5".to_string()),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(bob.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+            sj_id
+        };
+
+        sqlx::query("INSERT INTO scheduled_jobs_perms (id, scheduled_job_id, user_id) VALUES ($1, $2, $3)")
+            .bind(uuid::Uuid::new_v4().to_string().replace('-', ""))
+            .bind(&sj2)
+            .bind(&alice_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+
+        sqlx::query("INSERT INTO scheduled_jobs_perms (id, scheduled_job_id, user_id) VALUES ($1, $2, $3)")
+            .bind(uuid::Uuid::new_v4().to_string().replace('-', ""))
+            .bind(&sj3)
+            .bind(&alice_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+
+        sqlx::query("INSERT INTO scheduled_jobs_perms (id, scheduled_job_id, user_id) VALUES ($1, $2, $3)")
+            .bind(uuid::Uuid::new_v4().to_string().replace('-', ""))
+            .bind(&sj5)
+            .bind(&bob_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+
+        let alice_result = ds.get_scheduled_jobs(&alice_username, 1, 10).await.unwrap();
+        assert!(
+            alice_result.total_items >= 2,
+            "Alice should see at least 2 scheduled jobs (sj2, sj3) plus sj1 she created"
+        );
+
+        let bob_result = ds.get_scheduled_jobs(&bob_username, 1, 10).await.unwrap();
+        assert!(
+            bob_result.total_items >= 2,
+            "Bob should see at least 2 scheduled jobs (sj4 he created, sj5 with perms)"
+        );
+
+        for sj_id in [&sj1, &sj2, &sj3, &_sj4, &sj5] {
+            sqlx::query("DELETE FROM scheduled_jobs_perms WHERE scheduled_job_id = $1")
+                .bind(sj_id)
+                .execute(&ds.pool)
+                .await
+                .unwrap();
+            sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+                .bind(sj_id)
+                .execute(&ds.pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&alice_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&bob_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_get_scheduled_jobs_returns_correct_page_metadata() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let username = format!("pagemeta_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(username.clone()),
+            name: Some("Page Meta User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        for i in 0..25 {
+            let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+            let scheduled_job = ScheduledJob {
+                id: Some(sj_id.clone()),
+                name: Some(format!("Job_{}", i)),
+                description: Some("Test".to_string()),
+                cron: Some("0 0 * * *".to_string()),
+                created_at: now,
+                created_by: Some(user.clone()),
+                state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+                output: Some("".to_string()),
+                inputs: Some(HashMap::new()),
+                ..ScheduledJob::default()
+            };
+            ds.create_scheduled_job(&scheduled_job).await.unwrap();
+        }
+
+        let result = ds.get_scheduled_jobs(&username, 3, 10).await.unwrap();
+
+        assert_eq!(result.number, 3);
+        assert_eq!(result.size, 10);
+        assert_eq!(result.total_pages, 3);
+        assert_eq!(result.total_items, 25);
+
+        let all_sjs: Vec<String> = sqlx::query_scalar("SELECT id FROM scheduled_jobs WHERE created_by = $1")
+            .bind(&user_id)
+            .fetch_all(&ds.pool)
+            .await
+            .unwrap();
+        for sj_id in all_sjs {
+            sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+                .bind(&sj_id)
+                .execute(&ds.pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_get_scheduled_jobs_page_overflow_returns_empty_items() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let username = format!("overflow_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(username.clone()),
+            name: Some("Overflow User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Only Job".to_string()),
+            description: Some("Test".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(user.clone()),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            ..ScheduledJob::default()
+        };
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let result = ds.get_scheduled_jobs(&username, 100, 10).await.unwrap();
+
+        assert!(result.items.is_empty());
+        assert_eq!(result.number, 100);
+        assert_eq!(result.size, 10);
+        assert_eq!(result.total_items, 1);
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GAP9: Column Order Mismatch in create_scheduled_job
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_stores_cron_expr_correctly() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("cron_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Cron Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let cron_expr = "0 0 * * *".to_string();
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Cron Test".to_string()),
+            description: Some("Test cron".to_string()),
+            cron: Some(cron_expr.clone()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("output_value".to_string()),
+            inputs: Some(HashMap::new()),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let stored_cron: String = sqlx::query_scalar(
+            "SELECT cron_expr FROM scheduled_jobs WHERE id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(stored_cron, cron_expr, "cron_expr should be stored correctly");
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_stores_state_correctly() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("state_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("State Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("State Test".to_string()),
+            description: Some("Test state".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_PAUSED.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let stored_state: String = sqlx::query_scalar(
+            "SELECT state FROM scheduled_jobs WHERE id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(stored_state, tork::job::SCHEDULED_JOB_STATE_PAUSED, "state should be stored correctly");
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_stores_created_at_correctly() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("createdat_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("CreatedAt Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let created_at_val = now;
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("CreatedAt Test".to_string()),
+            description: Some("Test created_at".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: created_at_val,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let stored_created_at: time::OffsetDateTime = sqlx::query_scalar(
+            "SELECT created_at FROM scheduled_jobs WHERE id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        let diff = (stored_created_at - created_at_val).whole_seconds().abs();
+        assert!(
+            diff <= 1,
+            "created_at should be stored correctly (diff={} seconds)",
+            diff
+        );
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_stores_output_correctly() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("output_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Output Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let output_val = "test_output_value".to_string();
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Output Test".to_string()),
+            description: Some("Test output".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some(output_val.clone()),
+            inputs: Some(HashMap::new()),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let stored_output: String = sqlx::query_scalar(
+            "SELECT output_ FROM scheduled_jobs WHERE id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(stored_output, output_val, "output_ should be stored correctly");
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_create_scheduled_job_stores_tags_correctly() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("tags_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Tags Test User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let sj_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let tags = vec!["tag1".to_string(), "tag2".to_string()];
+        let scheduled_job = ScheduledJob {
+            id: Some(sj_id.clone()),
+            name: Some("Tags Test".to_string()),
+            description: Some("Test tags".to_string()),
+            cron: Some("0 0 * * *".to_string()),
+            created_at: now,
+            created_by: Some(user),
+            state: tork::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+            output: Some("".to_string()),
+            inputs: Some(HashMap::new()),
+            tags: Some(tags.clone()),
+            ..ScheduledJob::default()
+        };
+
+        ds.create_scheduled_job(&scheduled_job).await.unwrap();
+
+        let stored_tags: Vec<String> = sqlx::query_scalar(
+            "SELECT tags FROM scheduled_jobs WHERE id = $1"
+        )
+        .bind(&sj_id)
+        .fetch_one(&ds.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(stored_tags, tags, "tags should be stored correctly");
+
+        sqlx::query("DELETE FROM scheduled_jobs WHERE id = $1")
+            .bind(&sj_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GAP2/3/4: Update Methods Transaction Behavior
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn integration_update_job_commits_changes_when_modify_returns_ok() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("updjob_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Update Job User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let job = Job {
+            id: Some(job_id.clone()),
+            name: Some("Original Job".to_string()),
+            created_at: now,
+            created_by: Some(user.clone()),
+            state: tork::job::JOB_STATE_PENDING.to_string(),
+            task_count: 0,
+            ..Job::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
+        ds.update_job(&job_id, |j| {
+            j.name = Some("Modified Job".to_string());
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        let updated_job = ds.get_job_by_id(&job_id).await.unwrap();
+        assert_eq!(updated_job.name.as_deref(), Some("Modified Job"));
+
+        sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_update_job_rolls_back_on_modify_error() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("updjoberr_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Update Job Err User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let job = Job {
+            id: Some(job_id.clone()),
+            name: Some("Rollback Test".to_string()),
+            created_at: now,
+            created_by: Some(user.clone()),
+            state: tork::job::JOB_STATE_PENDING.to_string(),
+            task_count: 0,
+            ..Job::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
+        let original_name = job.name.clone();
+
+        let result = ds.update_job(&job_id, |j| {
+            j.name = Some("Modified Name".to_string());
+            Err(DatastoreError::InvalidInput("intentional error".to_string()))
+        }).await;
+
+        assert!(result.is_err());
+
+        let fetched_job = ds.get_job_by_id(&job_id).await.unwrap();
+        assert_eq!(fetched_job.name, original_name);
+
+        sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_update_task_rollback_on_modify_error() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("updtaskerr_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Update Task Err User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let job = Job {
+            id: Some(job_id.clone()),
+            name: Some("Task Rollback Test".to_string()),
+            created_at: now,
+            created_by: Some(user.clone()),
+            state: tork::job::JOB_STATE_PENDING.to_string(),
+            task_count: 1,
+            ..Job::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let task = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id.clone()),
+            created_at: Some(now),
+            state: tork::task::TASK_STATE_CREATED.clone(),
+            ..Task::default()
+        };
+        ds.create_task(&task).await.unwrap();
+
+        let original_state = task.state.clone();
+
+        let result = ds.update_task(&task_id, |t| {
+            t.state = tork::task::TASK_STATE_RUNNING.clone();
+            Err(DatastoreError::InvalidInput("intentional error".to_string()))
+        }).await;
+
+        assert!(result.is_err());
+
+        let fetched_task = ds.get_task_by_id(&task_id).await.unwrap();
+        assert_eq!(fetched_task.state.as_ref(), original_state.as_ref());
+
+        sqlx::query("DELETE FROM tasks WHERE id = $1")
+            .bind(&task_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM jobs WHERE id = $1")
+            .bind(&job_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Error Variant Coverage
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn integration_get_role_returns_role_not_found_when_not_exists() {
+        let ds = setup_test_ds().await;
+
+        let result = ds.get_role("nonexistent-role-id").await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), DatastoreError::RoleNotFound);
+    }
+
+    #[tokio::test]
+    async fn integration_get_user_roles_returns_empty_when_no_roles() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("noroles_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("No Roles User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            disabled: false,
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let roles = ds.get_user_roles(&user_id).await.unwrap();
+        assert!(roles.is_empty());
+
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_assign_role_returns_role_not_found_when_role_missing() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let user_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let user = User {
+            id: Some(user_id.clone()),
+            username: Some(format!("assign_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Assign User".to_string()),
+            password_hash: Some("".to_string()),
+            created_at: Some(now),
+            disabled: false,
+            ..User::default()
+        };
+        ds.create_user(&user).await.unwrap();
+
+        let result = ds.assign_role(&user_id, "nonexistent-role-id").await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), DatastoreError::RoleNotFound);
+
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(&user_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn integration_assign_role_returns_user_not_found_when_user_missing() {
+        let ds = setup_test_ds().await;
+
+        let now = time::OffsetDateTime::now_utc();
+        let role_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        let role = Role {
+            id: Some(role_id.clone()),
+            slug: Some(format!("role_{}", &uuid::Uuid::new_v4().to_string()[..8])),
+            name: Some("Test Role".to_string()),
+            created_at: Some(now),
+        };
+        ds.create_role(&role).await.unwrap();
+
+        let result = ds.assign_role("nonexistent-user-id", &role_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), DatastoreError::UserNotFound);
+
+        sqlx::query("DELETE FROM roles WHERE id = $1")
+            .bind(&role_id)
+            .execute(&ds.pool)
+            .await
+            .unwrap();
     }
 }

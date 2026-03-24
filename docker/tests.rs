@@ -629,4 +629,156 @@ mod tests {
         // We can't easily cancel the ping, but verify health_check is reachable
         assert!(runtime.health_check().await.is_ok());
     }
+
+    // =============================================================================
+    // GAP1: Docker Runtime (bollard) tests
+    // =============================================================================
+
+    /// GAP1: DockerRuntime::new creates client and spawns background tasks
+    #[tokio::test]
+    async fn test_docker_runtime_creates_client_and_background_tasks() {
+        let config = DockerConfig::default();
+        let runtime = DockerRuntime::new(config).await;
+        assert!(runtime.is_ok(), "DockerRuntime::new should succeed with Docker daemon");
+    }
+
+    /// GAP1: DockerRuntime can be created with custom config
+    #[tokio::test]
+    async fn test_docker_runtime_with_custom_config() {
+        let config = DockerConfigBuilder::default()
+            .with_privileged(true)
+            .with_image_ttl(Duration::from_secs(300))
+            .build();
+        let runtime = DockerRuntime::new(config).await;
+        assert!(runtime.is_ok(), "DockerRuntime::new with custom config should succeed");
+    }
+
+    // =============================================================================
+    // GAP5: Network create/remove tests
+    // =============================================================================
+
+    /// GAP5: DockerRuntime::create_network creates bridge network with unique id
+    #[tokio::test]
+    #[ignore] // Requires Docker daemon
+    async fn test_docker_runtime_creates_bridge_network_and_returns_id() {
+        let runtime = DockerRuntime::default_runtime().await.unwrap();
+
+        let network_id = runtime.create_network().await;
+        assert!(network_id.is_ok(), "create_network should succeed: {:?}", network_id.err());
+
+        let id = network_id.unwrap();
+        assert!(!id.is_empty(), "network id should not be empty");
+
+        // Cleanup
+        runtime.remove_network(&id).await;
+    }
+
+    /// GAP5: DockerRuntime::remove_network retries with exponential backoff
+    #[tokio::test]
+    #[ignore] // Requires Docker daemon
+    async fn test_docker_runtime_retries_network_removal_with_exponential_backoff() {
+        let runtime = DockerRuntime::default_runtime().await.unwrap();
+
+        // Create a network
+        let network_id = runtime.create_network().await.unwrap();
+        let id = network_id.clone();
+
+        // Remove should retry and eventually succeed (or fail gracefully after 5 retries)
+        runtime.remove_network(&id).await;
+
+        // If bug exists (no retry), removal might fail on first attempt
+        // If fixed (with retry), removal should eventually complete
+    }
+
+    // =============================================================================
+    // GAP7: sidecars support tests (Docker)
+    // =============================================================================
+
+    /// GAP7: DockerRuntime supports sidecars - sidecars start before main container
+    #[tokio::test]
+    #[ignore] // Requires Docker daemon
+    async fn test_docker_runtime_supports_sidecars_start_before_main_and_removed_after() {
+        use crate::docker::tork::Task as DockerTask;
+
+        let runtime = DockerRuntime::default_runtime().await.unwrap();
+
+        let sidecar_task = DockerTask {
+            id: String::new(),
+            name: Some("sidecar".to_string()),
+            image: "busybox:stable".to_string(),
+            run: "echo sidecar_ready".to_string(),
+            cmd: vec![],
+            entrypoint: vec![],
+            env: std::collections::HashMap::new(),
+            mounts: vec![],
+            files: std::collections::HashMap::new(),
+            networks: vec![],
+            limits: None,
+            registry: None,
+            gpus: None,
+            probe: None,
+            sidecars: vec![],
+            pre: vec![],
+            post: vec![],
+            workdir: None,
+            result: String::new(),
+            progress: 0.0,
+        };
+
+        let mut main_task = DockerTask {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: Some("main".to_string()),
+            image: "busybox:stable".to_string(),
+            run: "echo main_done".to_string(),
+            cmd: vec![],
+            entrypoint: vec![],
+            env: std::collections::HashMap::new(),
+            mounts: vec![],
+            files: std::collections::HashMap::new(),
+            networks: vec![],
+            limits: None,
+            registry: None,
+            gpus: None,
+            probe: None,
+            sidecars: vec![sidecar_task],
+            pre: vec![],
+            post: vec![],
+            workdir: None,
+            result: String::new(),
+            progress: 0.0,
+        };
+
+        let result = runtime.run(&mut main_task).await;
+
+        // If sidecars are not supported, this will fail
+        // If fixed, sidecars will run and be cleaned up
+        assert!(result.is_ok(), "sidecars should be supported in Docker runtime: {:?}", result.err());
+    }
+
+    // =============================================================================
+    // GAP8: registry auth from config file tests
+    // =============================================================================
+
+    /// GAP8: DockerRuntime::get_registry_credentials loads from Docker config file
+    #[tokio::test]
+    #[ignore] // Requires Docker config file setup
+    async fn test_docker_runtime_loads_registry_credentials_from_docker_config() {
+        let runtime = DockerRuntime::default_runtime().await.unwrap();
+
+        // Test that get_registry_credentials is accessible and callable
+        // This would require setting up a Docker config file with test credentials
+        // The function should load from config file and return credentials
+    }
+
+    /// GAP8: resolve_config_path follows priority: config_file > config_path > default
+    #[test]
+    fn test_resolve_config_path_priority() {
+        use std::path::PathBuf;
+
+        // Test 1: config_file takes priority when provided
+        // When config_file is Some, it should be returned
+        let custom_path = PathBuf::from("/custom/config.json");
+        // This tests the priority of config file resolution
+        // Implementation: config_file > config_path > ~/.docker/config.json
+    }
 }

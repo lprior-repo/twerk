@@ -625,3 +625,57 @@ async fn test_task_env_vars_passed() {
     assert!(result.is_ok(), "run should succeed: {:?}", result.err());
     assert_eq!("my_value", task.result);
 }
+
+// =============================================================================
+// GAP2: Shell stderr redirect tests
+// =============================================================================
+
+/// GAP2: Shell stderr should be merged into stdout (Go behavior: cmd.Stderr = cmd.Stdout)
+/// Current bug: cmd.stderr(Stdio::piped()) creates separate stderr pipe
+/// This test verifies stderr output appears in stdout stream
+#[tokio::test]
+async fn test_shell_runtime_merges_stderr_into_stdout_when_script_writes_to_stderr() {
+    let config = ShellConfig::default();
+    let rt = ShellRuntime::new(config);
+
+    let mut task = create_test_task();
+    task.run = r#"
+        echo "stdout_line" >&1
+        echo "stderr_line" >&2
+    "#.to_string();
+
+    let result = rt.run(create_no_cancel(), &mut task).await;
+
+    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+
+    // The combined output should contain both stdout and stderr content
+    // If bug exists: only stdout is captured in result
+    // If fixed: both are merged in result
+    let combined = task.result.clone();
+    assert!(
+        combined.contains("stdout_line") && combined.contains("stderr_line"),
+        "stderr should be merged into stdout. Got: {:?}",
+        combined
+    );
+}
+
+/// GAP2: Verify stderr redirect by checking error output appears in result
+#[tokio::test]
+async fn test_shell_runtime_captures_stderr_in_result() {
+    let config = ShellConfig::default();
+    let rt = ShellRuntime::new(config);
+
+    let mut task = create_test_task();
+    task.run = r#"echo "this is error" >&2 && echo "done" >&1"#.to_string();
+
+    let result = rt.run(create_no_cancel(), &mut task).await;
+
+    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+
+    // Both stdout and stderr should appear in result since they're merged
+    assert!(
+        task.result.contains("this is error") && task.result.contains("done"),
+        "stderr should be captured in result when merged. Got: {:?}",
+        task.result
+    );
+}

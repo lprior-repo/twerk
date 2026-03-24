@@ -135,7 +135,14 @@ impl Default for ShellConfig {
             cmd: vec!["bash".to_string(), "-c".to_string()],
             uid: DEFAULT_UID.to_string(),
             gid: DEFAULT_GID.to_string(),
-            reexec: None,
+            // GAP2 fix: use a working reexec that directly invokes bash
+            // The old reexec_default ran /proc/self/exe with argv[0]="shell"
+            // but there was no handler for "shell" mode, causing exit code 101.
+            reexec: Some(Box::new(|args: &[String]| {
+                let mut cmd = Command::new(&args[5]);
+                cmd.args(&args[6..]);
+                cmd
+            })),
             broker: None,
             mounter: None,
         }
@@ -288,6 +295,8 @@ impl ShellRuntime {
         }
         cmd.current_dir(&workdir);
         cmd.stdout(Stdio::piped());
+        // GAP2: stderr uses separate pipe (not directly mergeable in tokio safe API)
+        // The shell script must use 2>&1 for stderr to appear in stdout stream
         cmd.stderr(Stdio::piped());
 
         let mut child = cmd

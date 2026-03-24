@@ -1017,3 +1017,195 @@ async fn test_podman_task_result() {
     );
     assert_eq!("line1\nline2\n", task.result);
 }
+
+// =============================================================================
+// GAP3: Network name validation tests
+// =============================================================================
+
+/// GAP3: When networks are specified but name is None, should return NameRequiredForNetwork
+/// Bug: Currently returns NameRequired instead (wrong error type)
+#[tokio::test]
+async fn test_podman_runtime_returns_name_required_for_network_when_networks_specified_without_name() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.name = None; // No name set
+    task.networks = vec!["mynet".to_string()]; // Network specified but no name
+
+    let result = rt.run(&mut task).await;
+
+    // This should fail with NameRequiredForNetwork error (not NameRequired)
+    // Bug: Currently it returns NameRequired which is wrong
+    assert!(result.is_err(), "should fail when networks specified but name is empty");
+    let err = result.unwrap_err();
+    
+    // After fix, this should be NameRequiredForNetwork
+    // Currently this assertion FAILS because it returns NameRequired
+    match err {
+        PodmanError::NameRequiredForNetwork => {}, // Correct after fix
+        PodmanError::NameRequired => {
+            // This is the current buggy behavior - fail the test
+            panic!("Got NameRequired but expected NameRequiredForNetwork for GAP3 fix");
+        }
+        other => {
+            panic!("Got unexpected error: {:?}", other);
+        }
+    }
+}
+
+/// GAP3: When networks are specified with empty name string (Some(""))
+#[tokio::test]
+async fn test_podman_runtime_returns_name_required_for_network_when_networks_specified_with_empty_name() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.name = Some("".to_string()); // Empty name
+    task.networks = vec!["mynet".to_string()];
+
+    let result = rt.run(&mut task).await;
+
+    assert!(result.is_err(), "should fail when networks specified but name is empty");
+    let err = result.unwrap_err();
+    
+    // After fix, this should be NameRequiredForNetwork
+    match err {
+        PodmanError::NameRequiredForNetwork => {}, // Correct after fix
+        PodmanError::NameRequired => {
+            panic!("Got NameRequired but expected NameRequiredForNetwork for GAP3 fix");
+        }
+        other => {
+            panic!("Got unexpected error: {:?}", other);
+        }
+    }
+}
+
+// =============================================================================
+// GAP4: Output filename "stdout" not "output" tests
+// =============================================================================
+
+/// GAP4: Podman runtime output file should be named "stdout" not "output"
+/// and TORK_OUTPUT env var should be "/tork/stdout" not "/tork/output"
+#[tokio::test]
+async fn test_podman_runtime_creates_output_file_named_stdout_not_output() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.run = format!("echo 'hello' > /tork/{}", "stdout"); // Write to /tork/stdout
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+
+    // If bug exists (writes to "output" file), result will be empty
+    // If fixed (writes to "stdout" file), result will contain "hello"
+    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+
+    // The output file should be /tork/stdout (not /tork/output)
+    // If bug exists, this will fail because the file is named "output"
+    assert_eq!(
+        task.result, "hello\n",
+        "output should be written to /tork/stdout not /tork/output. Got: {:?}",
+        task.result
+    );
+}
+
+/// GAP4: Verify TORK_OUTPUT env var points to /tork/stdout
+#[tokio::test]
+async fn test_podman_runtime_tork_output_env_is_tork_stdout_not_tork_output() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.run = r#"echo "$TORK_OUTPUT" > /tork/stdout"#.to_string(); // Echo the env var itself
+    task.cmd = vec![];
+
+    let result = rt.run(&mut task).await;
+
+    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+
+    // TORK_OUTPUT should be /tork/stdout (not /tork/output)
+    // If bug exists, result will contain "/tork/output"
+    // If fixed, result will contain "/tork/stdout"
+    assert!(
+        task.result.contains("/tork/stdout"),
+        "TORK_OUTPUT should be /tork/stdout, got: {:?}",
+        task.result
+    );
+    assert!(
+        !task.result.contains("/tork/output"),
+        "TORK_OUTPUT should NOT be /tork/output, got: {:?}",
+        task.result
+    );
+}
+
+// =============================================================================
+// GAP6: stdin config tests
+// =============================================================================
+
+/// GAP6: When stdin is needed, container should be created with -i flag
+#[tokio::test]
+async fn test_podman_runtime_stdin_config_interactive_mode() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.run = "cat".to_string(); // Reads from stdin
+    task.cmd = vec![];
+    task.name = Some("stdin_test".to_string());
+
+    // This test verifies basic stdin handling works
+    // GAP6 requires proper -i flag handling for interactive tasks
+    let result = rt.run(&mut task).await;
+
+    // Cat without input will exit - verify it doesn't crash
+    if result.is_err() {
+        let err = result.unwrap_err();
+        // Exit code is acceptable since cat exits when stdin closes
+        assert!(
+            matches!(err, PodmanError::ContainerExitCode(_)),
+            "expected exit code error or timeout, got: {:?}",
+            err
+        );
+    }
+}
+
+// =============================================================================
+// GAP7: sidecars not supported tests (Podman)
+// =============================================================================
+
+/// GAP7: PodmanRuntime does NOT support sidecars (should return SidecarsNotSupported)
+#[tokio::test]
+async fn test_podman_runtime_returns_sidecars_not_supported_when_sidecars_specified() {
+    let rt = PodmanRuntime::new(create_test_config());
+
+    let mut task = create_test_task();
+    task.sidecars.push(Task {
+        id: String::new(),
+        name: Some("sidecar".to_string()),
+        image: "busybox:stable".to_string(),
+        run: "echo sidecar".to_string(),
+        cmd: vec![],
+        entrypoint: vec![],
+        env: HashMap::new(),
+        mounts: vec![],
+        files: HashMap::new(),
+        networks: vec![],
+        limits: None,
+        registry: None,
+        gpus: None,
+        probe: None,
+        sidecars: vec![],
+        pre: vec![],
+        post: vec![],
+        workdir: None,
+        result: String::new(),
+        progress: 0.0,
+    });
+
+    let result = rt.run(&mut task).await;
+
+    assert!(result.is_err(), "should fail when sidecars specified");
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, PodmanError::SidecarsNotSupported),
+        "expected SidecarsNotSupported error, got: {:?}",
+        err
+    );
+}

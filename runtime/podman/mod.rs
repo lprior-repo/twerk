@@ -51,6 +51,9 @@ pub enum PodmanError {
     #[error("task name is required")]
     NameRequired,
 
+    #[error("task name is required when networks are specified")]
+    NameRequiredForNetwork,
+
     #[error("sidecars are not supported in podman runtime")]
     SidecarsNotSupported,
 
@@ -511,6 +514,10 @@ impl PodmanRuntime {
             return Err(PodmanError::ImageRequired);
         }
         if task.name.as_ref().is_none_or(|n| n.is_empty()) {
+            // GAP3 fix: check networks before returning generic NameRequired
+            if !task.networks.is_empty() {
+                return Err(PodmanError::NameRequiredForNetwork);
+            }
             return Err(PodmanError::NameRequired);
         }
         if !task.sidecars.is_empty() {
@@ -591,7 +598,8 @@ impl PodmanRuntime {
             .map_err(|e| PodmanError::WorkdirCreation(e.to_string()))?;
 
         // Create output and progress files
-        let output_file = workdir.join("output");
+        // GAP4 fix: output file is named "stdout" not "output"
+        let output_file = workdir.join("stdout");
         let progress_file = workdir.join("progress");
 
         tokio::fs::File::create(&output_file)
@@ -672,7 +680,8 @@ impl PodmanRuntime {
             .iter()
             .map(|(k, v)| format!("{}={}", k, v))
             .chain([
-                "TORK_OUTPUT=/tork/output".to_string(),
+                // GAP4 fix: TORK_OUTPUT points to /tork/stdout not /tork/output
+                "TORK_OUTPUT=/tork/stdout".to_string(),
                 "TORK_PROGRESS=/tork/progress".to_string(),
             ])
             .collect();

@@ -32,6 +32,10 @@ use crate::handlers::HandlerError;
 // Re-export from calc module
 pub use calc::{calculate_schedule_action, create_job_from_scheduled, ScheduleAction};
 
+// Minimum time a scheduled job lock should be held.
+// Go: `minScheduledJobLockTTL = 10 * time.Second`
+const MIN_SCHEDULED_JOB_LOCK_TTL: std::time::Duration = std::time::Duration::from_secs(10);
+
 /// Schedule handler for processing scheduled job events.
 ///
 /// Manages cron-based scheduling of recurring jobs. On each cron tick,
@@ -145,6 +149,7 @@ impl ScheduleHandler {
             let sj_id = scheduled_job_id.clone();
             Box::pin(async move {
                 let lock_key = format!("schedule:{}", sj_id);
+                let lock_start = std::time::Instant::now();
                 let lock = match locker.acquire_lock(&lock_key).await {
                     Ok(lock) => lock,
                     Err(e) => {
@@ -200,6 +205,12 @@ impl ScheduleHandler {
                     );
                 }
 
+                // Go parity: ensure minimum lock hold time to prevent coordinator drift
+                // if elapsed < minScheduledJobLockTTL { time.Sleep(minScheduledJobLockTTL - elapsed) }
+                let elapsed = lock_start.elapsed();
+                if elapsed < MIN_SCHEDULED_JOB_LOCK_TTL {
+                    tokio::time::sleep(MIN_SCHEDULED_JOB_LOCK_TTL - elapsed).await;
+                }
                 lock.release_lock().await.ok();
             })
         })

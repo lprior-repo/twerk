@@ -177,9 +177,13 @@ impl JobHandler {
                 Ok(evaluated) => {
                     let delete_at = job.auto_delete.as_ref().and_then(|ad| {
                         ad.after.as_ref().and_then(|after| {
-                            parse_duration(after)
-                                .ok()
-                                .map(|dur| OffsetDateTime::now_utc() + dur)
+                            match parse_duration(after) {
+                                Ok(dur) => Some(OffsetDateTime::now_utc() + dur),
+                                Err(e) => {
+                                    error!(error = %e, duration = %after, "unable to parse auto delete duration");
+                                    None
+                                }
+                            }
                         })
                     });
                     (

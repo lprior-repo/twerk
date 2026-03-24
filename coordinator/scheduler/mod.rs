@@ -22,10 +22,10 @@ use std::sync::Arc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use tork::broker::{queue, Broker};
+use tork::broker::{queue, queue::QUEUE_ERROR, Broker};
+use tork::task::{Task, TASK_STATE_CREATED, TASK_STATE_FAILED, TASK_STATE_PENDING, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
 use tork::datastore::Datastore;
 use tork::job::JobDefaults;
-use tork::task::{Task, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
 
 /// Regex to match `{{ expr }}` template patterns.
 #[allow(clippy::expect_used)]
@@ -314,6 +314,31 @@ impl Scheduler {
         let now = OffsetDateTime::now_utc();
         apply_each_transition(task, now);
 
+        // Get the each task details
+        let each = task.each.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("each task has no each field".into())
+        })?;
+
+        // Get concurrency limit (0 means unlimited)
+        let concurrency = each.concurrency;
+
+        // Build context for evaluating the list from job inputs
+        let context = self.build_eval_context(task).await;
+
+        // Get the list expression
+        let list_expr = each.list.as_ref().ok_or_else(|| {
+            SchedulerError::Validation("each task has no list expression".into())
+        })?;
+
+        // Evaluate the list expression to get items
+        let items = self.parse_list_expression(list_expr, &context).await;
+
+        // Update parent's each.size and each.index (Go parity: u.Each.Size = len(list); u.Each.Index = u.Each.Concurrency)
+        if let Some(ref mut e) = task.each {
+            e.size = items.len() as i64;
+            e.index = concurrency;
+        }
+
         // Create subtasks for each construct
         self.create_each_subtasks(task).await?;
 
@@ -381,8 +406,8 @@ impl Scheduler {
                 child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
             }
 
-            // Set position
-            child_task.position = index as i64;
+            // Set position to parent's position (Go parity: pt.Position = t.Position)
+            child_task.position = parent.position;
 
             // Apply parent job_id and defaults
             child_task.job_id = parent.job_id.clone();
@@ -453,15 +478,36 @@ impl Scheduler {
         let var_name = each.var.clone().unwrap_or_else(|| "item".to_string());
         let now = OffsetDateTime::now_utc();
 
+        // Get concurrency limit (0 means unlimited)
+        let concurrency = each.concurrency;
+
         for (index, item) in items.iter().enumerate() {
-            // Build a child-specific context with the loop variable injected
+            // Build a child-specific context with the loop variable injected as an object with index and value
+            // Go parity: cx[eachVar] = map[string]any{"index": fmt.Sprintf("%d", ix), "value": item}
             let mut child_context = context.clone();
-            child_context.insert(var_name.clone(), serde_json::Value::String(item.clone()));
+            child_context.insert(
+                var_name.clone(),
+                serde_json::json!({
+                    "index": index.to_string(),
+                    "value": item.clone()
+                }),
+            );
 
             // Evaluate the inner task template with the item value substituted
-            let mut child_task =
-                crate::handlers::job::eval::evaluate_task(inner_task, &child_context)
-                    .unwrap_or_else(|_| *inner_task.clone());
+            // Go parity: if err := eval.EvaluateTask(et, cx); err != nil { t.Error = err.Error(); t.State = tork.TaskStateFailed; return s.broker.PublishTask(ctx, broker.QUEUE_ERROR, t) }
+            let mut child_task = match crate::handlers::job::eval::evaluate_task(inner_task, &child_context) {
+                Ok(ct) => ct,
+                Err(e) => {
+                    // Failed to evaluate task template - fail the parent task
+                    let mut failed_parent = parent.clone();
+                    failed_parent.state = TASK_STATE_FAILED.clone();
+                    failed_parent.error = Some(e.clone());
+                    if let Err(pub_err) = self.broker.publish_task(QUEUE_ERROR.into(), &failed_parent).await {
+                        tracing::error!(error = %pub_err, "failed to publish failed each task to error queue");
+                    }
+                    return Err(SchedulerError::Task(e));
+                }
+            };
 
             // Set parent_id
             child_task.parent_id = parent.id.clone();
@@ -471,8 +517,8 @@ impl Scheduler {
                 child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
             }
 
-            // Set position
-            child_task.position = index as i64;
+            // Set position to parent's position (Go parity: et.Position = t.Position)
+            child_task.position = parent.position;
 
             // Set the var field to the item value (Go parity: task.Var = item)
             child_task.var = Some(item.clone());
@@ -487,8 +533,15 @@ impl Scheduler {
                 }
             }
 
-            // Apply state transition
-            apply_regular_transition(&mut child_task, now);
+            // Determine if this task should be published based on concurrency
+            // Go parity: if t.Each.Concurrency == 0 || ix < t.Each.Concurrency { et.State = tork.TaskStatePending } else { et.State = tork.TaskStateCreated }
+            let should_publish = concurrency == 0 || index < concurrency as usize;
+            
+            if should_publish {
+                child_task.state = TASK_STATE_PENDING.clone();
+            } else {
+                child_task.state = TASK_STATE_CREATED.clone();
+            }
 
             // Create the subtask in datastore
             self.ds
@@ -496,15 +549,17 @@ impl Scheduler {
                 .await
                 .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
 
-            // Publish subtask to broker
-            let queue_name = child_task
-                .queue
-                .clone()
-                .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
-            self.broker
-                .publish_task(queue_name, &child_task)
-                .await
-                .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+            // Only publish to broker if within concurrency limit (Go parity: if t.Each.Concurrency == 0 || ix < t.Each.Concurrency { s.broker.PublishTask(ctx, broker.QUEUE_PENDING, et) })
+            if should_publish {
+                let queue_name = child_task
+                    .queue
+                    .clone()
+                    .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
+                self.broker
+                    .publish_task(queue_name, &child_task)
+                    .await
+                    .map_err(|e| SchedulerError::Broker(e.to_string()))?;
+            }
         }
 
         Ok(())

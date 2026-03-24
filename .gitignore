@@ -1,3 +1,8 @@
+# Rust build artifacts
+/target/
+*/target/
+**/target/
+
 # Cargo lock files (we use Cargo.toml for deps)
 Cargo.lock
 **/Cargo.lock

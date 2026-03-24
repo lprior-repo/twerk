@@ -56,6 +56,7 @@ async-trait = "0.1"
 # Expression evaluation
 evalexpr = "13"
 regex = "1"
+rand = "0.9"
 
 # Password hashing (user creation)
 bcrypt = "0.17"

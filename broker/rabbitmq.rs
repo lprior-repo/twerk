@@ -300,7 +300,11 @@ impl RabbitMQBroker {
         }
 
         let (url, username, password) = if let Some(ref mgmt_url) = self.management_url {
-            (format!("{}/api/queues/", mgmt_url), String::new(), String::new())
+            (
+                format!("{}/api/queues/", mgmt_url),
+                String::new(),
+                String::new(),
+            )
         } else {
             // Parse host from AMQP URL for default management API endpoint
             let parsed = url::Url::parse(&self.url)?;
@@ -320,7 +324,12 @@ impl RabbitMQBroker {
         if !username.is_empty() {
             req = req.basic_auth(username, Some(password));
         }
-        let resp = req.send().await?.error_for_status()?.json::<Vec<ApiResponse>>().await?;
+        let resp = req
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<Vec<ApiResponse>>()
+            .await?;
 
         Ok(resp
             .into_iter()

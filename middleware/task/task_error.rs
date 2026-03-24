@@ -48,6 +48,14 @@ pub enum TaskMiddlewareError {
     /// A generic middleware error.
     #[error("middleware error: {0}")]
     Middleware(String),
+
+    /// Context was cancelled.
+    #[error("context cancelled")]
+    ContextCancelled,
+
+    /// Context deadline was exceeded.
+    #[error("context deadline exceeded")]
+    ContextDeadlineExceeded,
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for TaskMiddlewareError {

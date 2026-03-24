@@ -819,4 +819,158 @@ mod tests {
         let result = hm(ctx, EventType::Progress, &mut job);
         assert!(result.is_ok());
     }
+
+    // =====================================================================
+    // GAP 8: Webhook Event Matching Tests (RED PHASE)
+    // These tests verify the fix for the bug where Progress + empty/default
+    // event incorrectly fired webhooks. Empty/default should ONLY match StateChange.
+    // Truth table from contract:
+    // | Webhook\Event | StateChange | Progress | Read |
+    // |---------------|-------------|----------|------|
+    // | None/""       | TRUE        | FALSE    | FALSE|
+    // | EVENT_DEFAULT | TRUE        | FALSE    | FALSE|
+    // | EVENT_STATE_CHANGE | TRUE   | FALSE    | FALSE|
+    // | EVENT_PROGRESS     | FALSE| TRUE     | FALSE|
+    // =====================================================================
+
+    #[test]
+    fn should_fire_webhook_state_change_none_event_returns_true() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: None,
+            r#if: None,
+        };
+        assert!(should_fire_webhook(EventType::StateChange, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_state_change_empty_string_event_returns_true() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some("".to_string()),
+            r#if: None,
+        };
+        assert!(should_fire_webhook(EventType::StateChange, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_state_change_event_default_returns_true() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some(EVENT_DEFAULT.to_string()),
+            r#if: None,
+        };
+        assert!(should_fire_webhook(EventType::StateChange, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_state_change_state_change_event_returns_true() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some(EVENT_JOB_STATE_CHANGE.to_string()),
+            r#if: None,
+        };
+        assert!(should_fire_webhook(EventType::StateChange, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_state_change_progress_event_returns_false() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some(EVENT_JOB_PROGRESS.to_string()),
+            r#if: None,
+        };
+        assert!(!should_fire_webhook(EventType::StateChange, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_progress_none_event_returns_false_gap8_fix() {
+        // GAP 8 FIX: Progress + None/empty/default event should return FALSE
+        // Bug was: Progress + None returned true (empty matched Progress)
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: None,
+            r#if: None,
+        };
+        assert!(!should_fire_webhook(EventType::Progress, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_progress_empty_string_event_returns_false_gap8_fix() {
+        // GAP 8 FIX: Progress + empty string event should return FALSE
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some("".to_string()),
+            r#if: None,
+        };
+        assert!(!should_fire_webhook(EventType::Progress, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_progress_default_event_returns_false_gap8_fix() {
+        // GAP 8 FIX: Progress + EVENT_DEFAULT should return FALSE
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some(EVENT_DEFAULT.to_string()),
+            r#if: None,
+        };
+        assert!(!should_fire_webhook(EventType::Progress, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_progress_progress_event_returns_true() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some(EVENT_JOB_PROGRESS.to_string()),
+            r#if: None,
+        };
+        assert!(should_fire_webhook(EventType::Progress, &wh));
+    }
+
+    #[test]
+    fn should_fire_webhook_read_any_event_returns_false() {
+        // EventType::Read should never trigger any webhook
+        let cases = vec![
+            None,
+            Some("".to_string()),
+            Some(EVENT_DEFAULT.to_string()),
+            Some(EVENT_JOB_STATE_CHANGE.to_string()),
+            Some(EVENT_JOB_PROGRESS.to_string()),
+        ];
+        for event in cases {
+            let wh = Webhook {
+                url: Some("http://example.com".to_string()),
+                headers: None,
+                event: event.clone(),
+                r#if: None,
+            };
+            assert!(
+                !should_fire_webhook(EventType::Read, &wh),
+                "Read should never fire, event={:?}",
+                event
+            );
+        }
+    }
+
+    #[test]
+    fn should_fire_webhook_state_change_task_event_returns_false() {
+        // task.* events should not match any job event type
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: Some("task.StateChange".to_string()),
+            r#if: None,
+        };
+        assert!(!should_fire_webhook(EventType::StateChange, &wh));
+        assert!(!should_fire_webhook(EventType::Progress, &wh));
+    }
 }

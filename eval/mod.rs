@@ -578,6 +578,120 @@ pub fn valid_expr(expr: &str) -> bool {
     evaluate_expr(&sanitized, &context).is_ok()
 }
 
+/// Evaluates a condition expression against a job summary.
+///
+/// Returns Ok(true) if the expression evaluates to true, Ok(false) if false.
+/// Returns Err(String) if the expression is invalid or doesn't evaluate to a boolean.
+///
+/// This function provides the flattened context style expected by GAP 3 & 4:
+/// - `job_state` key contains the job's state string
+/// - `job_id` key contains the job's ID
+/// - `job_name` key contains the job's name (if present)
+/// - `job_error` key contains the job's error message (if present)
+pub fn evaluate_condition(expr: &str, summary: &tork::job::JobSummary) -> Result<bool, String> {
+    let mut context = HashMap::new();
+    context.insert(
+        "job_state".to_string(),
+        serde_json::Value::String(summary.state.to_string()),
+    );
+    context.insert(
+        "job_id".to_string(),
+        serde_json::json!(summary.id.as_deref().unwrap_or("")),
+    );
+    if let Some(name) = &summary.name {
+        context.insert(
+            "job_name".to_string(),
+            serde_json::Value::String(name.to_string()),
+        );
+    }
+    if let Some(error) = &summary.error {
+        context.insert(
+            "job_error".to_string(),
+            serde_json::Value::String(error.to_string()),
+        );
+    }
+
+    let sanitized = sanitize_expr(expr);
+    if sanitized.is_empty() {
+        return Ok(true); // Empty expression is treated as true (no condition)
+    }
+
+    let transformed = transform_operators(&sanitized);
+    let ctx = create_context(&context).map_err(|e| e.to_string())?;
+
+    match eval_with_context(&transformed, &ctx) {
+        Ok(val) => {
+            let json_val = eval_value_to_json(&val);
+            match json_val.as_bool() {
+                Some(b) => Ok(b),
+                None => Err(format!(
+                    "expression did not evaluate to a boolean, got: {}",
+                    json_val
+                )),
+            }
+        }
+        Err(e) => Err(format!("expression evaluation failed: {}", e)),
+    }
+}
+
+/// Evaluates a condition expression against a task summary and job summary.
+///
+/// Returns Ok(true) if the expression evaluates to true, Ok(false) if false.
+/// Returns Err(String) if the expression is invalid or doesn't evaluate to a boolean.
+///
+/// This function provides the flattened context style expected by GAP 3 & 4:
+/// - `job_state`, `job_id`, `job_name`, `job_error` keys for job context
+/// - `task_state`, `task_id` keys for task context
+pub fn evaluate_task_condition(
+    expr: &str,
+    task_summary: &tork::task::TaskSummary,
+    job_summary: &tork::job::JobSummary,
+) -> Result<bool, String> {
+    let mut context = HashMap::new();
+
+    // Flattened job context
+    context.insert(
+        "job_state".to_string(),
+        serde_json::Value::String(job_summary.state.to_string()),
+    );
+    context.insert(
+        "job_id".to_string(),
+        serde_json::json!(job_summary.id.as_deref().unwrap_or("")),
+    );
+
+    // Flattened task context
+    context.insert(
+        "task_state".to_string(),
+        serde_json::Value::String(task_summary.state.to_string()),
+    );
+    context.insert(
+        "task_id".to_string(),
+        serde_json::json!(task_summary.id.as_deref().unwrap_or("")),
+    );
+
+    let sanitized = sanitize_expr(expr);
+    if sanitized.is_empty() {
+        return Ok(true); // Empty expression is treated as true (no condition)
+    }
+
+    let transformed = transform_operators(&sanitized);
+    let ctx = create_context(&context).map_err(|e| e.to_string())?;
+
+    match eval_with_context(&transformed, &ctx) {
+        Ok(val) => {
+            let json_val = eval_value_to_json(&val);
+            match json_val.as_bool() {
+                Some(b) => Ok(b),
+                None => Err(format!(
+                    "expression did not evaluate to a boolean, got: {}",
+                    json_val
+                )),
+            }
+        }
+        Err(e) => Err(format!("expression evaluation failed: {}", e)),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -898,5 +1012,203 @@ mod tests {
         let ctx = HashMap::new();
         let result = evaluate_expr("", &ctx).unwrap();
         assert!(result.is_null());
+    }
+
+    // =====================================================================
+    // GAP 3 & 4: Expression Evaluation Tests (RED PHASE)
+    // These tests verify evaluate_condition and evaluate_task_condition functions.
+    // =====================================================================
+
+    #[test]
+    fn test_evaluate_condition_returns_ok_true_when_expression_evaluates_to_true() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            name: Some("Test Job".to_string()),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        let result = evaluate_condition("true", &summary);
+        assert_eq!(result, Ok(true));
+    }
+
+    #[test]
+    fn test_evaluate_condition_returns_ok_false_when_expression_evaluates_to_false() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_PENDING};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: JOB_STATE_PENDING.to_string(),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        let result = evaluate_condition("false", &summary);
+        assert_eq!(result, Ok(false));
+    }
+
+    #[test]
+    fn test_evaluate_condition_returns_err_for_malformed_expression() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        let result = evaluate_condition("1 +", &summary);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_evaluate_condition_returns_err_when_expr_returns_non_boolean() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        // "1 + 1" evaluates to a number, not a boolean
+        let result = evaluate_condition("1 + 1", &summary);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("boolean"),
+            "expected boolean error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_evaluate_condition_includes_job_state_in_context() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        // Uses flattened context key: job_state
+        let result = evaluate_condition("job_state == \"COMPLETED\"", &summary);
+        assert_eq!(result, Ok(true));
+    }
+
+    #[test]
+    fn test_evaluate_condition_includes_job_id_in_context() {
+        use tork::job::{new_job_summary, Job};
+
+        let job = Job {
+            id: Some("test-123".to_string()),
+            state: "PENDING".to_string(),
+            ..Default::default()
+        };
+        let summary = new_job_summary(&job);
+
+        // Uses flattened context key: job_id
+        let result = evaluate_condition("job_id == \"test-123\"", &summary);
+        assert_eq!(result, Ok(true));
+    }
+
+    #[test]
+    fn test_evaluate_task_condition_returns_ok_true_when_expression_evaluates_to_true() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+        use tork::task::{new_task_summary, Task, TASK_STATE_COMPLETED};
+
+        let job = Job {
+            id: Some("job-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        };
+        let job_summary = new_job_summary(&job);
+
+        let task = Task {
+            id: Some("task-456".to_string()),
+            state: TASK_STATE_COMPLETED,
+            ..Default::default()
+        };
+        let task_summary = new_task_summary(&task);
+
+        let result = evaluate_task_condition("true", &task_summary, &job_summary);
+        assert_eq!(result, Ok(true));
+    }
+
+    #[test]
+    fn test_evaluate_task_condition_returns_ok_false_when_expression_evaluates_to_false() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_PENDING};
+        use tork::task::{new_task_summary, Task, TASK_STATE_PENDING};
+
+        let job = Job {
+            id: Some("job-123".to_string()),
+            state: JOB_STATE_PENDING.to_string(),
+            ..Default::default()
+        };
+        let job_summary = new_job_summary(&job);
+
+        let task = Task {
+            id: Some("task-456".to_string()),
+            state: TASK_STATE_PENDING,
+            ..Default::default()
+        };
+        let task_summary = new_task_summary(&task);
+
+        let result = evaluate_task_condition("false", &task_summary, &job_summary);
+        assert_eq!(result, Ok(false));
+    }
+
+    #[test]
+    fn test_evaluate_task_condition_returns_err_for_invalid_expression() {
+        use tork::job::{new_job_summary, Job};
+        use tork::task::{new_task_summary, Task};
+
+        let job = Job {
+            id: Some("job-123".to_string()),
+            state: "PENDING".to_string(),
+            ..Default::default()
+        };
+        let job_summary = new_job_summary(&job);
+
+        let task = Task {
+            id: Some("task-456".to_string()),
+            state: tork::task::TASK_STATE_PENDING,
+            ..Default::default()
+        };
+        let task_summary = new_task_summary(&task);
+
+        let result = evaluate_task_condition("{{invalid", &task_summary, &job_summary);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_evaluate_task_condition_includes_task_and_job_keys_in_context() {
+        use tork::job::{new_job_summary, Job, JOB_STATE_COMPLETED};
+        use tork::task::{new_task_summary, Task, TASK_STATE_PENDING};
+
+        let job = Job {
+            id: Some("job-123".to_string()),
+            state: JOB_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        };
+        let job_summary = new_job_summary(&job);
+
+        let task = Task {
+            id: Some("task-456".to_string()),
+            state: TASK_STATE_PENDING,
+            ..Default::default()
+        };
+        let task_summary = new_task_summary(&task);
+
+        // With flat context, uses job_state and task_state
+        let result = evaluate_task_condition("job_state == \"COMPLETED\"", &task_summary, &job_summary);
+        assert_eq!(result, Ok(true));
     }
 }

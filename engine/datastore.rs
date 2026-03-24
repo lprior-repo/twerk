@@ -801,7 +801,7 @@ impl Datastore for InMemoryDatastore {
         Box::pin(async move {
             let summaries: Vec<JobSummary> = jobs
                 .iter()
-                .filter_map(|e| Some(tork::job::new_job_summary(e.value())))
+                .map(|e| tork::job::new_job_summary(e.value()))
                 .collect();
             Ok(Self::paginate(summaries, page, size))
         })
@@ -839,7 +839,7 @@ impl Datastore for InMemoryDatastore {
         Box::pin(async move {
             let summaries: Vec<ScheduledJobSummary> = scheduled_jobs
                 .iter()
-                .filter_map(|e| Some(tork::job::new_scheduled_job_summary(e.value())))
+                .map(|e| tork::job::new_scheduled_job_summary(e.value()))
                 .collect();
             Ok(Self::paginate(summaries, page, size))
         })

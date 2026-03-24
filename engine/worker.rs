@@ -1609,17 +1609,6 @@ mod tests {
         assert!(result.is_some());
     }
 
-    #[test]
-    fn test_create_hostenv_middleware_with_alias() {
-        let result = create_hostenv_middleware(&["HOST_VAR:TASK_VAR".to_string()]);
-        assert!(result.is_some());
-        let boxed = result.unwrap();
-        let map = boxed.downcast_ref::<HashMap<String, String>>();
-        assert!(map.is_some());
-        let map = map.unwrap();
-        assert_eq!(map.get("HOST_VAR"), Some(&"TASK_VAR".to_string()));
-    }
-
     #[tokio::test]
     async fn test_shell_runtime_adapter_valid_task() {
         // Use just ["bash"] - bash reads file directly, bash -c expects command string

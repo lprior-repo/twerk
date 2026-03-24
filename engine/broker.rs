@@ -514,28 +514,76 @@ impl Broker for RabbitMQBroker {
 
 // ── In-memory broker ───────────────────────────────────────────
 
+use dashmap::DashMap;
+
 /// In-memory broker implementation for testing and single-process usage.
-#[derive(Debug, Default)]
-pub struct InMemoryBroker;
+///
+/// This is a proper fake implementation that:
+/// - Stores published tasks in queues
+/// - Tracks subscribers per queue
+/// - Invokes registered handlers when tasks are published
+pub struct InMemoryBroker {
+    /// Queue name -> list of tasks
+    tasks: DashMap<String, Vec<Arc<Task>>>,
+    /// Queue name -> list of task handlers
+    handlers: DashMap<String, Vec<TaskHandler>>,
+}
+
+impl Default for InMemoryBroker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl InMemoryBroker {
     /// Creates a new in-memory broker.
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            tasks: DashMap::new(),
+            handlers: DashMap::new(),
+        }
     }
 }
 
 impl Broker for InMemoryBroker {
-    fn publish_task(&self, _qname: String, _task: &Task) -> BoxedFuture<()> {
+    fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
+        let task = Arc::new(task.clone());
+
+        // Store the task
+        self.tasks
+            .entry(qname.clone())
+            .or_insert_with(Vec::new)
+            .push(Arc::clone(&task));
+
+        // Collect handlers for this queue before spawning tasks
+        // (we must clone the Arc<TaskHandler> refs to avoid borrow issues)
+        let handlers: Vec<TaskHandler> = self
+            .handlers
+            .get(&qname)
+            .map(|entry| entry.value().clone())
+            .unwrap_or_default();
+
+        // Invoke all registered handlers for this queue
+        for handler in handlers {
+            let task_clone = Arc::clone(&task);
+            tokio::spawn(async move {
+                let _ = handler(task_clone).await;
+            });
+        }
+
         Box::pin(async { Ok(()) })
     }
 
     fn subscribe_for_tasks(
         &self,
-        _qname: String,
-        _handler: TaskHandler,
+        qname: String,
+        handler: TaskHandler,
     ) -> BoxedFuture<()> {
+        self.handlers
+            .entry(qname)
+            .or_insert_with(Vec::new)
+            .push(handler);
         Box::pin(async { Ok(()) })
     }
 
@@ -600,21 +648,52 @@ impl Broker for InMemoryBroker {
     }
 
     fn queues(&self) -> BoxedFuture<Vec<QueueInfo>> {
-        Box::pin(async { Ok(Vec::new()) })
+        let queues = self
+            .tasks
+            .iter()
+            .map(|entry| {
+                let qname = entry.key().clone();
+                let task_list = entry.value();
+                let subscribers = self
+                    .handlers
+                    .get(&qname)
+                    .map(|h| h.len() as i64)
+                    .unwrap_or(0);
+                QueueInfo {
+                    name: qname,
+                    size: task_list.len() as i64,
+                    subscribers,
+                    unacked: 0,
+                }
+            })
+            .collect();
+        Box::pin(async { Ok(queues) })
     }
 
     fn queue_info(&self, qname: String) -> BoxedFuture<QueueInfo> {
-        Box::pin(async {
+        let size = self
+            .tasks
+            .get(&qname)
+            .map(|entry| entry.len() as i64)
+            .unwrap_or(0);
+        let subscribers = self
+            .handlers
+            .get(&qname)
+            .map(|entry| entry.len() as i64)
+            .unwrap_or(0);
+        Box::pin(async move {
             Ok(QueueInfo {
                 name: qname,
-                size: 0,
-                subscribers: 0,
+                size,
+                subscribers,
                 unacked: 0,
             })
         })
     }
 
-    fn delete_queue(&self, _qname: String) -> BoxedFuture<()> {
+    fn delete_queue(&self, qname: String) -> BoxedFuture<()> {
+        self.tasks.remove(&qname);
+        self.handlers.remove(&qname);
         Box::pin(async { Ok(()) })
     }
 

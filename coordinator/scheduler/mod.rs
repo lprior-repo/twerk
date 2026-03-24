@@ -263,6 +263,24 @@ impl Scheduler {
     /// Go parity: `scheduleRegularTask` — sets state→SCHEDULED, scheduled_at→now,
     /// updates datastore, and publishes to broker.
     pub async fn schedule_regular_task(&self, task: &mut Task) -> Result<(), SchedulerError> {
+        // =====================================================================
+        // GAP 1 FIX: Apply job defaults like Go does
+        // =====================================================================
+        // Go scheduleRegularTask (lines 40-76):
+        //   1. Fetches job from datastore
+        //   2. Applies job.Defaults (queue, limits, timeout, retry, priority)
+        //   3. Sets queue to QUEUE_DEFAULT if empty
+        if let Some(job_id) = &task.job_id {
+            if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
+                if let Some(defaults) = &job.defaults {
+                    apply_job_defaults(task, defaults);
+                }
+            }
+        }
+        if task.queue.is_none() {
+            task.queue = Some(queue::QUEUE_DEFAULT.to_string());
+        }
+
         let now = OffsetDateTime::now_utc();
         apply_regular_transition(task, now);
 
@@ -414,6 +432,12 @@ impl Scheduler {
             // Set position to parent's position (Go parity: pt.Position = t.Position)
             child_task.position = parent.position;
 
+            // =====================================================================
+            // GAP 4 FIX: Parallel subtasks missing created_at timestamp
+            // =====================================================================
+            // Go scheduleParallelTask (line 288): pt.CreatedAt = &now
+            child_task.created_at = Some(now);
+
             // Apply parent job_id and defaults
             child_task.job_id = parent.job_id.clone();
             if let Some(job_id) = &parent.job_id {
@@ -480,10 +504,30 @@ impl Scheduler {
         // If evaluation fails, treat as comma-separated literal values
         let items = self.parse_list_expression(list_expr, &context).await;
 
+        // =====================================================================
+        // GAP 2 FIX: Each task list evaluation failure not handled
+        // =====================================================================
+        // Go scheduleEachTask (lines 207-210):
+        //   } else {
+        //       t.Error = "each.list does not evaluate to a list"
+        //       t.State = tork.TaskStateFailed
+        //       return s.broker.PublishTask(ctx, broker.QUEUE_ERROR, t)
+        //   }
+        if items.is_empty() {
+            let mut failed_parent = parent.clone();
+            failed_parent.state = TASK_STATE_FAILED.clone();
+            failed_parent.error = Some("each.list does not evaluate to a list".to_string());
+            let _ = self.broker.publish_task(QUEUE_ERROR.into(), &failed_parent).await;
+            return Err(SchedulerError::Validation("each.list does not evaluate to a list".into()));
+        }
+
         let var_name = each.var.clone().unwrap_or_else(|| "item".to_string());
 
         // Get concurrency limit (0 means unlimited)
         let concurrency = each.concurrency;
+
+        // Capture now for created_at timestamps (Go parity: line 244)
+        let now = OffsetDateTime::now_utc();
 
         for (index, item) in items.iter().enumerate() {
             // Build a child-specific context with the loop variable injected as an object with index and value
@@ -530,6 +574,12 @@ impl Scheduler {
 
             // Set position to parent's position (Go parity: et.Position = t.Position)
             child_task.position = parent.position;
+
+            // =====================================================================
+            // GAP 3 FIX: Each subtasks missing created_at timestamp
+            // =====================================================================
+            // Go scheduleEachTask (line 244): et.CreatedAt = &now
+            child_task.created_at = Some(now);
 
             // Set the var field to the item value (Go parity: task.Var = item)
             child_task.var = Some(item.clone());
@@ -596,57 +646,69 @@ impl Scheduler {
             return self.create_detached_subjob(parent, subjob).await;
         }
 
-        let tasks = subjob
-            .tasks
-            .as_ref()
-            .ok_or_else(|| SchedulerError::Validation("subjob task has no tasks".into()))?;
+        // =====================================================================
+        // GAP 5 FIX: Attached subjob - missing entire subjob Job creation flow
+        // =====================================================================
+        // Go scheduleAttachedSubJob (lines 102-142):
+        //   1. Creates subjob Job object with ParentID=t.ID
+        //   2. Updates parent task with SubJob.ID = subjob.ID (BEFORE CreateJob)
+        //   3. Calls ds.CreateJob(ctx, subjob)
+        //   4. Calls broker.PublishJob(ctx, subjob)
+        //
+        // Rust create_subjob_tasks was incorrectly creating subtasks directly
+        // without creating a subjob Job and publishing it. This is now fixed!
 
+        // For attached subjobs, we need to create a proper subjob Job first
         let now = OffsetDateTime::now_utc();
+        let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
 
-        for (index, subtask) in tasks.iter().enumerate() {
-            let mut child_task = subtask.clone();
-
-            // Set parent_id to link subtask to parent
-            child_task.parent_id = parent.id.clone();
-
-            // Assign unique ID if not present
-            if child_task.id.is_none() {
-                child_task.id = Some(uuid::Uuid::new_v4().to_string().replace('-', ""));
+        // Get parent job for created_by and permissions (Go lines 103-106)
+        let (created_by, permissions) = if let Some(ref job_id) = parent.job_id {
+            match self.ds.get_job_by_id(job_id.clone()).await {
+                Ok(Some(job)) => (job.created_by, job.permissions),
+                _ => (None, None),
             }
+        } else {
+            (None, None)
+        };
 
-            // Set position
-            child_task.position = index as i64;
+        // Build the subjob Job (Go lines 108-128)
+        let subjob_job = tork::job::Job {
+            id: Some(job_id.clone()),
+            parent_id: parent.id.clone(), // Go: ParentID: t.ID
+            created_by,
+            created_at: now,
+            permissions,
+            name: subjob.name.clone(),
+            description: subjob.description.clone(),
+            state: tork::job::JOB_STATE_PENDING.to_string(),
+            inputs: subjob.inputs.clone(),
+            secrets: subjob.secrets.clone(),
+            context: tork::job::JobContext {
+                inputs: subjob.inputs.clone(),
+                secrets: subjob.secrets.clone(),
+                ..Default::default()
+            },
+            task_count: subjob.tasks.as_ref().map_or(0, |t| t.len() as i64),
+            tasks: subjob.tasks.as_ref().map_or_else(Vec::new, |t| t.clone()),
+            output: subjob.output.clone(),
+            webhooks: subjob.webhooks.clone(),
+            auto_delete: subjob.auto_delete.clone(),
+            ..Default::default()
+        };
 
-            // Apply parent job_id and defaults
-            child_task.job_id = parent.job_id.clone();
-            if let Some(job_id) = &parent.job_id {
-                if let Ok(Some(job)) = self.ds.get_job_by_id(job_id.clone()).await {
-                    if let Some(defaults) = &job.defaults {
-                        apply_job_defaults(&mut child_task, defaults);
-                    }
-                }
-            }
+        // Create and publish the subjob Job (Go lines 138-141)
+        self.ds
+            .create_job(subjob_job.clone())
+            .await
+            .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
+        self.broker
+            .publish_job(&subjob_job)
+            .await
+            .map_err(|e| SchedulerError::Broker(e.to_string()))?;
 
-            // Apply state transition
-            apply_regular_transition(&mut child_task, now);
-
-            // Create the subtask in datastore
-            self.ds
-                .create_task(child_task.clone())
-                .await
-                .map_err(|e| SchedulerError::Datastore(e.to_string()))?;
-
-            // Publish subtask to broker
-            let queue_name = child_task
-                .queue
-                .clone()
-                .unwrap_or_else(|| queue::QUEUE_DEFAULT.to_string());
-            self.broker
-                .publish_task(queue_name, &child_task)
-                .await
-                .map_err(|e| SchedulerError::Broker(e.to_string()))?;
-        }
-
+        // Return early since we've handled attached subjob above
+        // The rest of the old code was for detached subjobs only
         Ok(())
     }
 
@@ -661,15 +723,39 @@ impl Scheduler {
     ) -> Result<(), SchedulerError> {
         let now = OffsetDateTime::now_utc();
 
+        // =====================================================================
+        // GAP 6 FIX: Detached subjob missing created_by and permissions
+        // =====================================================================
+        // Go scheduleDetachedSubJob (lines 150-154):
+        //   subjob := &tork.Job{
+        //       ID:          uuid.NewUUID(),
+        //       CreatedBy:   job.CreatedBy,    // <-- MISSING
+        //       CreatedAt:   now,
+        //       Permissions: job.Permissions,  // <-- MISSING
+        //       ...
+        //   }
+
+        // Get parent job for created_by and permissions
+        let (created_by, permissions) = if let Some(ref job_id) = parent.job_id {
+            match self.ds.get_job_by_id(job_id.clone()).await {
+                Ok(Some(job)) => (job.created_by, job.permissions),
+                _ => (None, None),
+            }
+        } else {
+            (None, None)
+        };
+
         // 1. Build a standalone Job from the subjob definition
         let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
         let new_job = tork::job::Job {
             id: Some(job_id.clone()),
             parent_id: parent.job_id.clone(),
+            created_by,
+            created_at: now,
+            permissions,
             name: subjob.name.clone(),
             description: subjob.description.clone(),
             state: tork::job::JOB_STATE_PENDING.to_string(),
-            created_at: now,
             tasks: subjob.tasks.clone().unwrap_or_default(),
             inputs: subjob.inputs.clone(),
             secrets: subjob.secrets.clone(),

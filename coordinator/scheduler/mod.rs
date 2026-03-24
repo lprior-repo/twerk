@@ -395,7 +395,7 @@ impl Scheduler {
 
         let now = OffsetDateTime::now_utc();
 
-        for (index, subtask) in tasks.iter().enumerate() {
+        for (_index, subtask) in tasks.iter().enumerate() {
             let mut child_task = subtask.clone();
 
             // Set parent_id to link subtask to parent
@@ -476,7 +476,6 @@ impl Scheduler {
         let items = self.parse_list_expression(list_expr, &context).await;
 
         let var_name = each.var.clone().unwrap_or_else(|| "item".to_string());
-        let now = OffsetDateTime::now_utc();
 
         // Get concurrency limit (0 means unlimited)
         let concurrency = each.concurrency;

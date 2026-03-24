@@ -45,7 +45,7 @@ pub async fn pull_image(client: &Docker, config: &crate::docker::config::DockerC
     if image_exists_locally(client, image).await? { tracing::debug!(image, "image found locally"); let mut cache = images.write().await; cache.insert(image.to_string(), std::time::Instant::now()); return Ok(()); }
     tracing::debug!(image, "pulling image");
     let credentials = get_registry_credentials(config, image).await?;
-    let options = CreateImageOptions { from_image: image, ..Default::default() };
+    let options = CreateImageOptions { from_image: Some(image.to_string()), ..Default::default() };
     let mut stream = client.create_image(Some(options), None, credentials);
     while let Some(result) = stream.next().await { match result { Ok(_) => {}, Err(e) => return Err(DockerError::ImagePull(e.to_string())), } }
     if config.image_verify { if let Err(_e) = verify_image(client, image).await { let _ = client.remove_image(image, None::<bollard::image::RemoveImageOptions>, None::<DockerCredentials>).await; return Err(DockerError::CorruptedImage(image.to_string())); } }

@@ -11,10 +11,9 @@
 
 use crate::broker::BrokerProxy;
 use anyhow::{anyhow, Result};
-use bollard::container::{
-    Config as ContainerConfig, CreateContainerOptions, RemoveContainerOptions,
-};
-use bollard::image::CreateImageOptions;
+use bollard::query_parameters::{CreateContainerOptions, RemoveContainerOptions};
+use bollard::models::ContainerCreateBody;
+use bollard::query_parameters::CreateImageOptions;
 use bollard::Docker;
 use futures_util::StreamExt;
 use std::collections::HashMap;
@@ -687,7 +686,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
             if !image_exists {
                 debug!("[docker-runtime] pulling image {}", image);
                 let options = CreateImageOptions {
-                    from_image: image.clone(),
+                    from_image: Some(image.clone()),
                     ..Default::default()
                 };
                 let mut stream = docker.create_image(Some(options), None, None);
@@ -711,7 +710,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
             }
 
             // Build container config with all required fields
-            let config = ContainerConfig::<String> {
+            let config = ContainerCreateBody {
                 image: Some(image.clone()),
                 cmd: if cmd_args.is_empty() {
                     None
@@ -724,7 +723,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                     Some(env_vars)
                 },
                 working_dir: workdir,
-                host_config: Some(bollard::secret::HostConfig {
+                host_config: Some(bollard::models::HostConfig {
                     privileged: Some(privileged),
                     ..Default::default()
                 }),
@@ -733,7 +732,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
 
             // Create container
             let container_id = docker
-                .create_container(None::<CreateContainerOptions<String>>, config)
+                .create_container(None::<CreateContainerOptions>, config)
                 .await
                 .map_err(|e| anyhow!("failed to create container: {}", e))?
                 .id;
@@ -742,7 +741,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
 
             // Start container
             docker
-                .start_container::<String>(&container_id, None)
+                .start_container(&container_id, None)
                 .await
                 .map_err(|e| anyhow!("failed to start container: {}", e))?;
 
@@ -756,7 +755,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                 let info = docker
                     .inspect_container(
                         &container_id,
-                        None::<bollard::container::InspectContainerOptions>,
+                        None::<bollard::query_parameters::InspectContainerOptions>,
                     )
                     .await;
 

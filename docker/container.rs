@@ -28,7 +28,7 @@ impl Container {
     #[allow(dead_code)]
     pub async fn start(&self) -> Result<(), DockerError> {
         tracing::debug!(container_id = %self.id, "Starting container");
-        self.client.start_container::<String>(&self.id, None).await
+        self.client.start_container(&self.id, None).await
             .map_err(|e| DockerError::ContainerStart(format!("{}: {}", self.id, e)))?;
         self.probe_container().await?;
         Ok(())

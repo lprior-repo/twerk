@@ -11,20 +11,19 @@
 
 use crate::broker::BrokerProxy;
 use anyhow::{anyhow, Result};
-use bollard::container::{
-    Config as ContainerConfig, CreateContainerOptions, RemoveContainerOptions,
+use bollard::query_parameters::{
+    CreateContainerOptions, CreateImageOptions, RemoveContainerOptions,
 };
-use bollard::image::CreateImageOptions;
 use bollard::Docker;
 use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::process::Stdio;
+use tokio::process::Command;
 use tork::mount::Mount;
-use tork::runtime::Runtime as RuntimeTrait;
 use tork::runtime::mount::{MountError, Mounter};
 use tork::runtime::multi::MultiMounter;
-use tokio::process::Command;
+use tork::runtime::Runtime as RuntimeTrait;
 
 use tracing::{debug, warn};
 
@@ -50,21 +49,21 @@ fn parse_timeout_duration(s: &str) -> Option<std::time::Duration> {
     if s.is_empty() {
         return Some(std::time::Duration::from_secs(0));
     }
-    
+
     let (num_str, unit) = if s.ends_with("ms") {
-        (&s[..s.len()-2], "ms")
+        (&s[..s.len() - 2], "ms")
     } else if s.ends_with('s') {
-        (&s[..s.len()-1], "s")
+        (&s[..s.len() - 1], "s")
     } else if s.ends_with('m') {
-        (&s[..s.len()-1], "m")
+        (&s[..s.len() - 1], "m")
     } else if s.ends_with('h') {
-        (&s[..s.len()-1], "h")
+        (&s[..s.len() - 1], "h")
     } else {
         return None; // Invalid unit
     };
-    
+
     let num: u64 = num_str.parse().ok()?;
-    
+
     Some(match unit {
         "ms" => std::time::Duration::from_millis(num),
         "s" => std::time::Duration::from_secs(num),
@@ -163,7 +162,11 @@ pub fn read_limits() -> Limits {
         .ok()
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DEFAULT_TIMEOUT.to_string());
-    Limits { cpus, memory, timeout }
+    Limits {
+        cpus,
+        memory,
+        timeout,
+    }
 }
 
 // Boxed future type
@@ -205,15 +208,13 @@ pub mod runtime_type {
 /// Configuration for bind mount operations.
 ///
 /// Go parity: `type BindConfig struct { Allowed bool; Sources []string }`
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct BindConfig {
     /// Whether bind mounts are allowed
     pub allowed: bool,
     /// Allowed source directories (empty = all)
     pub sources: Vec<String>,
 }
-
 
 // =============================================================================
 // Mounter implementations

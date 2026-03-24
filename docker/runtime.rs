@@ -262,7 +262,7 @@ impl DockerRuntime {
             let credentials = Self::get_registry_credentials(config, image).await?;
 
             let options = CreateImageOptions {
-                from_image: image,
+                from_image: Some(image),
                 ..Default::default()
             };
             let mut stream = client.create_image(Some(options), None, credentials);

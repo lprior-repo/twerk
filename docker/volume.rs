@@ -9,6 +9,8 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use bollard::models::VolumeCreateRequest;
+use bollard::query_parameters::{ListVolumesOptions, RemoveVolumeOptions};
 use crate::docker::tork::Mount;
 use thiserror::Error;
 
@@ -79,15 +81,16 @@ impl VolumeMounter {
 
         // Create the volume (we don't need the response since we use the generated name)
         let _volume = client
-            .create_volume(bollard::volume::CreateVolumeOptions {
-                name: name.clone(),
-                driver: "local".to_string(),
-                driver_opts: mnt
+            .create_volume(VolumeCreateRequest {
+                name: Some(name.clone()),
+                driver: Some("local".to_string()),
+                driver_opts: Some(mnt
                     .opts
                     .iter()
                     .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect::<std::collections::HashMap<String, String>>(),
-                labels: std::collections::HashMap::new(),
+                    .collect::<std::collections::HashMap<String, String>>()),
+                labels: Some(std::collections::HashMap::new()),
+                cluster_volume_spec: None,
             })
             .await
             .map_err(|e| VolumeMounterError::VolumeCreate(e.to_string()))?;
@@ -120,10 +123,10 @@ impl VolumeMounter {
 
         // List volumes to verify it exists
         let volumes = client
-            .list_volumes(Some(bollard::volume::ListVolumesOptions {
-                filters: vec![("name".to_string(), vec![source.clone()])]
+            .list_volumes(Some(ListVolumesOptions {
+                filters: Some(vec![("name".to_string(), vec![source.clone()])]
                     .into_iter()
-                    .collect(),
+                    .collect()),
             }))
             .await
             .map_err(|e| VolumeMounterError::VolumeList(e.to_string()))?;
@@ -136,7 +139,7 @@ impl VolumeMounter {
         client
             .remove_volume(
                 source,
-                Some(bollard::volume::RemoveVolumeOptions { force: true }),
+                Some(RemoveVolumeOptions { force: true }),
             )
             .await
             .map_err(|e| VolumeMounterError::VolumeRemove(e.to_string()))?;

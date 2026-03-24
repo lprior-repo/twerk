@@ -13,7 +13,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use bollard::container::RemoveContainerOptions;
+use bollard::query_parameters::RemoveContainerOptions;
 
 use super::docker::{DockerConfigBuilder, DockerRuntime, Task};
 use super::tork::{mount_type, Mount, Probe, TaskLimits};

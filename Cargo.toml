@@ -75,7 +75,7 @@ base64 = "0.22"
 tar = "0.4"
 tempfile = "3.14"
 dirs = "5.0"
-bollard = "0.18"
+bollard = "0.20"
 bytes = "1.9"
 
 # Unix syscalls (setuid/setgid)

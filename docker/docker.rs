@@ -11,17 +11,21 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bytes::Bytes;
+
 use bollard::auth::DockerCredentials;
-use bollard::container::{
-    Config as BollardConfig, DownloadFromContainerOptions, LogOutput, LogsOptions,
-    NetworkingConfig as BollardNetworkingConfig, RemoveContainerOptions, UploadToContainerOptions,
-    WaitContainerOptions,
+use bollard::body_full;
+use bollard::container::LogOutput;
+use bollard::models::{
+    ContainerCreateBody as BollardConfig, DeviceRequest, EndpointSettings, HealthConfig,
+    HostConfig, Mount as BollardMount, MountTypeEnum,
+    NetworkingConfig as BollardNetworkingConfig, NetworkCreateRequest, PortBinding,
+    VolumeCreateRequest,
 };
-use bollard::image::CreateImageOptions;
-use bollard::network::CreateNetworkOptions;
-use bollard::secret::{
-    DeviceRequest, EndpointSettings, HealthConfig, HostConfig, Mount as BollardMount,
-    MountTypeEnum, PortBinding,
+use bollard::query_parameters::{
+    CreateImageOptions, DownloadFromContainerOptions, ListImagesOptions, LogsOptions,
+    RemoveContainerOptions, RemoveImageOptions, RemoveVolumeOptions, UploadToContainerOptions,
+    WaitContainerOptions,
 };
 use bollard::Docker;
 use futures_util::StreamExt;
@@ -637,7 +641,7 @@ impl DockerRuntime {
                         .await;
                     if let Some(source) = sidecar_torkdir {
                         let _ = sc
-                            .remove_volume(&source, None::<bollard::volume::RemoveVolumeOptions>)
+                            .remove_volume(&source, None::<RemoveVolumeOptions>)
                             .await;
                     }
                 });
@@ -664,7 +668,7 @@ impl DockerRuntime {
             )
             .await;
         if let Some(source) = torkdir_source {
-            let _ = self.client.remove_volume(&source, None).await;
+            let _ = self.client.remove_volume(&source, None::<RemoveVolumeOptions>).await;
         }
 
         result
@@ -725,7 +729,7 @@ impl DockerRuntime {
             let credentials = Self::get_registry_credentials(config, image).await?;
 
             let options = CreateImageOptions {
-                from_image: image,
+                from_image: Some(image.to_string()),
                 ..Default::default()
             };
             let mut stream = client.create_image(Some(options), None, credentials);
@@ -743,7 +747,7 @@ impl DockerRuntime {
                 let _ = client
                     .remove_image(
                         image,
-                        None::<bollard::image::RemoveImageOptions>,
+                        None::<RemoveImageOptions>,
                         None::<DockerCredentials>,
                     )
                     .await;
@@ -762,7 +766,7 @@ impl DockerRuntime {
 
     /// Checks if an image exists locally.
     async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, DockerError> {
-        let options = bollard::image::ListImagesOptions::<String> {
+        let options = ListImagesOptions {
             all: true,
             ..Default::default()
         };
@@ -780,12 +784,12 @@ impl DockerRuntime {
     /// Go parity: `verifyImage` — creates container with `cmd: ["true"]`.
     async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerError> {
         let config = BollardConfig {
-            image: Some(image),
-            cmd: Some(vec!["true"]),
+            image: Some(image.to_string()),
+            cmd: Some(vec!["true".to_string()]),
             ..Default::default()
         };
         let response = client
-            .create_container::<String, &str>(None, config)
+            .create_container(None, config)
             .await
             .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
 
@@ -844,10 +848,9 @@ impl DockerRuntime {
     /// Creates a network for sidecar communication.
     async fn create_network(&self) -> Result<String, DockerError> {
         let id = uuid::Uuid::new_v4().to_string();
-        let options = CreateNetworkOptions {
+        let options = NetworkCreateRequest {
             name: id.clone(),
-            driver: "bridge".to_string(),
-            check_duplicate: true,
+            driver: Some("bridge".to_string()),
             ..Default::default()
         };
         let response = self
@@ -936,9 +939,9 @@ impl DockerRuntime {
         let torkdir_volume_name = uuid::Uuid::new_v4().to_string();
         let _ = self
             .client
-            .create_volume(bollard::volume::CreateVolumeOptions {
-                name: torkdir_volume_name.clone(),
-                driver: "local".to_string(),
+            .create_volume(VolumeCreateRequest {
+                name: Some(torkdir_volume_name.clone()),
+                driver: Some("local".to_string()),
                 ..Default::default()
             })
             .await
@@ -977,14 +980,14 @@ impl DockerRuntime {
         };
 
         // Probe port configuration (Go parity: exposed ports + port bindings)
-        let mut exposed_ports: HashMap<String, HashMap<(), ()>> = HashMap::new();
+        let mut exposed_ports: Vec<String> = Vec::new();
         let mut port_bindings: HashMap<String, Option<Vec<PortBinding>>> = HashMap::new();
         let mut healthcheck: Option<HealthConfig> = None;
 
         if let Some(ref probe) = task.probe {
             if let Some(port) = probe.port {
                 let port_key = format!("{}/tcp", port);
-                exposed_ports.insert(port_key.clone(), HashMap::new());
+                exposed_ports.push(port_key.clone());
                 port_bindings.insert(
                     port_key,
                     Some(vec![PortBinding {
@@ -1048,7 +1051,7 @@ impl DockerRuntime {
                 );
             }
             Some(BollardNetworkingConfig {
-                endpoints_config: endpoints,
+                endpoints_config: Some(endpoints),
             })
         };
 
@@ -1095,7 +1098,7 @@ impl DockerRuntime {
         let create_response = tokio::time::timeout(
             Duration::from_secs(30),
             self.client
-                .create_container::<String, String>(None, container_config),
+                .create_container(None, container_config),
         )
         .await
         .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
@@ -1135,7 +1138,7 @@ impl DockerRuntime {
             let _ = cleanup_client
                 .remove_volume(
                     &torkdir_volume,
-                    None::<bollard::volume::RemoveVolumeOptions>,
+                    None::<RemoveVolumeOptions>,
                 )
                 .await;
             return Err(e);
@@ -1157,7 +1160,7 @@ impl DockerRuntime {
             let _ = cleanup_client
                 .remove_volume(
                     &torkdir_volume,
-                    None::<bollard::volume::RemoveVolumeOptions>,
+                    None::<RemoveVolumeOptions>,
                 )
                 .await;
             return Err(e);
@@ -1284,7 +1287,7 @@ impl DockerRuntime {
             let _ = client
                 .remove_image(
                     &image,
-                    None::<bollard::image::RemoveImageOptions>,
+                    None::<RemoveImageOptions>,
                     None::<DockerCredentials>,
                 )
                 .await;
@@ -1377,7 +1380,7 @@ impl Container {
     pub async fn start(&self) -> Result<(), DockerError> {
         tracing::debug!(container_id = %self.id, "Starting container");
         self.client
-            .start_container::<String>(&self.id, None)
+            .start_container(&self.id, None)
             .await
             .map_err(|e| DockerError::ContainerStart(format!("{}: {}", self.id, e)))?;
 
@@ -1540,7 +1543,7 @@ impl Container {
         let Some(broker) = broker else { return };
 
         // Use tail: "all" to get existing logs, follow: true for real-time streaming
-        let options = LogsOptions::<String> {
+        let options = LogsOptions {
             stdout: true,
             stderr: true,
             follow: true,
@@ -1615,7 +1618,7 @@ impl Container {
     /// Read progress from /tork/progress.
     async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerError> {
         let options = DownloadFromContainerOptions {
-            path: "/tork/progress",
+            path: "/tork/progress".to_string(),
         };
         let mut stream = client.download_from_container(cid, Some(options));
         let bytes = stream
@@ -1635,7 +1638,7 @@ impl Container {
     /// Read /tork/stdout.
     async fn read_output(&self) -> Result<String, DockerError> {
         let options = DownloadFromContainerOptions {
-            path: "/tork/stdout",
+            path: "/tork/stdout".to_string(),
         };
         let mut stream = self.client.download_from_container(&self.id, Some(options));
         match stream.next().await {
@@ -1671,11 +1674,11 @@ impl Container {
             .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
 
         let options = UploadToContainerOptions {
-            path: "/tork/",
+            path: "/tork/".to_string(),
             ..Default::default()
         };
         self.client
-            .upload_to_container(&self.id, Some(options), contents.into())
+            .upload_to_container(&self.id, Some(options), body_full(Bytes::from(contents)))
             .await
             .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive
@@ -1711,11 +1714,11 @@ impl Container {
             .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
 
         let options = UploadToContainerOptions {
-            path: workdir,
+            path: workdir.to_string(),
             ..Default::default()
         };
         self.client
-            .upload_to_container(&self.id, Some(options), contents.into())
+            .upload_to_container(&self.id, Some(options), body_full(Bytes::from(contents)))
             .await
             .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive
@@ -1750,7 +1753,7 @@ impl Container {
                 .client
                 .remove_volume(
                     source,
-                    Some(bollard::volume::RemoveVolumeOptions { force: true }),
+                    Some(RemoveVolumeOptions { force: true }),
                 )
                 .await;
         }

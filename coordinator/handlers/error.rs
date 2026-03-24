@@ -176,16 +176,19 @@ impl ErrorHandler {
         let job_handler = JobHandler::new(ds, broker);
         // Create a sync wrapper around the async job handler
         // Note: This spawns the async work without waiting for completion
-        let on_job: JobHandlerFunc = Arc::new(move |ctx: HandlerContext, et: JobEventType, job: &mut tork::job::Job| {
-            let job_clone = job.clone();
-            let ctx_clone = ctx;
-            // Spawn the async job handler - fire and forget like Go's goroutine
-            // Errors are logged by the job handler itself
-            tokio::spawn(async move {
-                let _ = job_handler.clone().handle(et, job_clone).await;
-            });
-            Ok(())
-        });
+        let on_job: JobHandlerFunc = Arc::new(
+            move |ctx: HandlerContext, et: JobEventType, job: &mut tork::job::Job| {
+                let mut job_clone = job.clone();
+                // Clone handler before async block to avoid moving out of closure capture
+                let handler_clone = job_handler.clone();
+                // Spawn the async job handler - fire and forget like Go's goroutine
+                // Errors are logged by the job handler itself
+                tokio::spawn(async move {
+                    let _ = handler_clone.handle(et, &mut job_clone).await;
+                });
+                Ok(())
+            },
+        );
         Self {
             handler: noop_task_handler(),
             on_job,

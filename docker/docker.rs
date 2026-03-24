@@ -18,9 +18,8 @@ use bollard::body_full;
 use bollard::container::LogOutput;
 use bollard::models::{
     ContainerCreateBody as BollardConfig, DeviceRequest, EndpointSettings, HealthConfig,
-    HostConfig, Mount as BollardMount, MountTypeEnum,
-    NetworkingConfig as BollardNetworkingConfig, NetworkCreateRequest, PortBinding,
-    VolumeCreateRequest,
+    HostConfig, Mount as BollardMount, MountTypeEnum, NetworkCreateRequest,
+    NetworkingConfig as BollardNetworkingConfig, PortBinding, VolumeCreateRequest,
 };
 use bollard::query_parameters::{
     CreateImageOptions, DownloadFromContainerOptions, ListImagesOptions, LogsOptions,
@@ -640,9 +639,7 @@ impl DockerRuntime {
                         )
                         .await;
                     if let Some(source) = sidecar_torkdir {
-                        let _ = sc
-                            .remove_volume(&source, None::<RemoveVolumeOptions>)
-                            .await;
+                        let _ = sc.remove_volume(&source, None::<RemoveVolumeOptions>).await;
                     }
                 });
             }
@@ -668,7 +665,10 @@ impl DockerRuntime {
             )
             .await;
         if let Some(source) = torkdir_source {
-            let _ = self.client.remove_volume(&source, None::<RemoveVolumeOptions>).await;
+            let _ = self
+                .client
+                .remove_volume(&source, None::<RemoveVolumeOptions>)
+                .await;
         }
 
         result
@@ -745,11 +745,7 @@ impl DockerRuntime {
         if config.image_verify {
             if let Err(_e) = Self::verify_image(client, image).await {
                 let _ = client
-                    .remove_image(
-                        image,
-                        None::<RemoveImageOptions>,
-                        None::<DockerCredentials>,
-                    )
+                    .remove_image(image, None::<RemoveImageOptions>, None::<DockerCredentials>)
                     .await;
                 return Err(DockerError::CorruptedImage(image.to_string()));
             }
@@ -1097,8 +1093,7 @@ impl DockerRuntime {
         // Create container with 30s timeout (Go parity: createCtx)
         let create_response = tokio::time::timeout(
             Duration::from_secs(30),
-            self.client
-                .create_container(None, container_config),
+            self.client.create_container(None, container_config),
         )
         .await
         .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
@@ -1136,10 +1131,7 @@ impl DockerRuntime {
                 )
                 .await;
             let _ = cleanup_client
-                .remove_volume(
-                    &torkdir_volume,
-                    None::<RemoveVolumeOptions>,
-                )
+                .remove_volume(&torkdir_volume, None::<RemoveVolumeOptions>)
                 .await;
             return Err(e);
         }
@@ -1158,10 +1150,7 @@ impl DockerRuntime {
                 )
                 .await;
             let _ = cleanup_client
-                .remove_volume(
-                    &torkdir_volume,
-                    None::<RemoveVolumeOptions>,
-                )
+                .remove_volume(&torkdir_volume, None::<RemoveVolumeOptions>)
                 .await;
             return Err(e);
         }
@@ -1751,10 +1740,7 @@ impl Container {
         if let Some(ref source) = self.torkdir_source {
             let _ = self
                 .client
-                .remove_volume(
-                    source,
-                    Some(RemoveVolumeOptions { force: true }),
-                )
+                .remove_volume(source, Some(RemoveVolumeOptions { force: true }))
                 .await;
         }
     }

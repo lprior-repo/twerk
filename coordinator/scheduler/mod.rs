@@ -23,9 +23,12 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tork::broker::{queue, queue::QUEUE_ERROR, Broker};
-use tork::task::{Task, TASK_STATE_CREATED, TASK_STATE_FAILED, TASK_STATE_PENDING, TASK_STATE_RUNNING, TASK_STATE_SCHEDULED};
 use tork::datastore::Datastore;
 use tork::job::JobDefaults;
+use tork::task::{
+    Task, TASK_STATE_CREATED, TASK_STATE_FAILED, TASK_STATE_PENDING, TASK_STATE_RUNNING,
+    TASK_STATE_SCHEDULED,
+};
 
 /// Regex to match `{{ expr }}` template patterns.
 #[allow(clippy::expect_used)]
@@ -315,9 +318,10 @@ impl Scheduler {
         apply_each_transition(task, now);
 
         // Get the each task details
-        let each = task.each.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("each task has no each field".into())
-        })?;
+        let each = task
+            .each
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("each task has no each field".into()))?;
 
         // Get concurrency limit (0 means unlimited)
         let concurrency = each.concurrency;
@@ -326,9 +330,10 @@ impl Scheduler {
         let context = self.build_eval_context(task).await;
 
         // Get the list expression
-        let list_expr = each.list.as_ref().ok_or_else(|| {
-            SchedulerError::Validation("each task has no list expression".into())
-        })?;
+        let list_expr = each
+            .list
+            .as_ref()
+            .ok_or_else(|| SchedulerError::Validation("each task has no list expression".into()))?;
 
         // Evaluate the list expression to get items
         let items = self.parse_list_expression(list_expr, &context).await;
@@ -494,14 +499,21 @@ impl Scheduler {
 
             // Evaluate the inner task template with the item value substituted
             // Go parity: if err := eval.EvaluateTask(et, cx); err != nil { t.Error = err.Error(); t.State = tork.TaskStateFailed; return s.broker.PublishTask(ctx, broker.QUEUE_ERROR, t) }
-            let mut child_task = match crate::handlers::job::eval::evaluate_task(inner_task, &child_context) {
+            let mut child_task = match crate::handlers::job::eval::evaluate_task(
+                inner_task,
+                &child_context,
+            ) {
                 Ok(ct) => ct,
                 Err(e) => {
                     // Failed to evaluate task template - fail the parent task
                     let mut failed_parent = parent.clone();
                     failed_parent.state = TASK_STATE_FAILED.clone();
                     failed_parent.error = Some(e.clone());
-                    if let Err(pub_err) = self.broker.publish_task(QUEUE_ERROR.into(), &failed_parent).await {
+                    if let Err(pub_err) = self
+                        .broker
+                        .publish_task(QUEUE_ERROR.into(), &failed_parent)
+                        .await
+                    {
                         tracing::error!(error = %pub_err, "failed to publish failed each task to error queue");
                     }
                     return Err(SchedulerError::Task(e));
@@ -535,7 +547,7 @@ impl Scheduler {
             // Determine if this task should be published based on concurrency
             // Go parity: if t.Each.Concurrency == 0 || ix < t.Each.Concurrency { et.State = tork.TaskStatePending } else { et.State = tork.TaskStateCreated }
             let should_publish = concurrency == 0 || index < concurrency as usize;
-            
+
             if should_publish {
                 child_task.state = TASK_STATE_PENDING.clone();
             } else {

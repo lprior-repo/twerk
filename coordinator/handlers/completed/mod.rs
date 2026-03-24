@@ -40,11 +40,17 @@ impl CompletedHandler {
         Self {
             ds,
             broker,
-            on_job: Arc::new(|_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(())),
+            on_job: Arc::new(
+                |_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(()),
+            ),
         }
     }
 
-    pub fn with_on_job(ds: Arc<dyn Datastore>, broker: Arc<dyn Broker>, on_job: JobHandlerFunc) -> Self {
+    pub fn with_on_job(
+        ds: Arc<dyn Datastore>,
+        broker: Arc<dyn Broker>,
+        on_job: JobHandlerFunc,
+    ) -> Self {
         Self { ds, broker, on_job }
     }
 
@@ -432,7 +438,11 @@ impl CompletedHandler {
                 .map_err(|e| HandlerError::Datastore(e.to_string()))?;
             // Call onJob with StateChange on job completion (GAP 7 - Go: c.onJob(ctx, job.StateChange, j))
             let mut job_for_callback = completed_job;
-            (self.on_job)(Arc::new(()), JobEventType::StateChange, &mut job_for_callback)?;
+            (self.on_job)(
+                Arc::new(()),
+                JobEventType::StateChange,
+                &mut job_for_callback,
+            )?;
         }
 
         Ok(())

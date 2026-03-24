@@ -38,6 +38,7 @@ const TOPIC_JOB_FAILED: &str = "job.failed";
 ///
 /// Holds datastore and broker references for I/O operations.
 /// Ported from Go `internal/coordinator/handlers/job.go`.
+#[derive(Clone)]
 pub struct JobHandler {
     ds: Arc<dyn Datastore>,
     broker: Arc<dyn Broker>,

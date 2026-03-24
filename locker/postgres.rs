@@ -135,9 +135,8 @@ impl SyncPostgresPool {
                 }
 
                 // SAFETY: self is valid for lifetime of PooledClient
-                let pool_ref = unsafe {
-                    PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool))
-                };
+                let pool_ref =
+                    unsafe { PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool)) };
                 return Ok(PooledClient {
                     pool: pool_ref,
                     client: Some(pooled.client),
@@ -160,9 +159,7 @@ impl SyncPostgresPool {
         let client = self.connect_with_timeout()?;
 
         // SAFETY: self is valid for lifetime of PooledClient
-        let pool_ref = unsafe {
-            PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool))
-        };
+        let pool_ref = unsafe { PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool)) };
 
         Ok(PooledClient {
             pool: pool_ref,
@@ -305,7 +302,7 @@ impl Lock for PostgresLock {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
         // ManuallyDrop prevents Drop from running on this
         let this = ManuallyDrop::new(*Pin::into_inner(self));
-        
+
         // SAFETY: We're consuming self and putting it in ManuallyDrop, so
         // we take full ownership. We won't use this again after moving out.
         let client = unsafe { std::ptr::read(&this.client) };
@@ -323,11 +320,9 @@ impl Lock for PostgresLock {
         });
 
         Box::pin(async move {
-            let client = tokio::task::spawn_blocking(move || {
-                handle.join().unwrap_or(None)
-            })
-            .await
-            .unwrap_or(None);
+            let client = tokio::task::spawn_blocking(move || handle.join().unwrap_or(None))
+                .await
+                .unwrap_or(None);
 
             if let Some(c) = client {
                 pool.put(c, created_at);

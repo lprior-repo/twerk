@@ -11,9 +11,9 @@
 
 use crate::broker::BrokerProxy;
 use anyhow::{anyhow, Result};
-use bollard::query_parameters::{CreateContainerOptions, RemoveContainerOptions};
 use bollard::models::ContainerCreateBody;
 use bollard::query_parameters::CreateImageOptions;
+use bollard::query_parameters::{CreateContainerOptions, RemoveContainerOptions};
 use bollard::Docker;
 use futures_util::StreamExt;
 use std::collections::HashMap;

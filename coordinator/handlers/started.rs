@@ -108,7 +108,9 @@ impl StartedHandler {
         Self {
             ds,
             broker,
-            on_job: Arc::new(|_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(())),
+            on_job: Arc::new(
+                |_ctx: HandlerContext, _et: JobEventType, _job: &mut tork::job::Job| Ok(()),
+            ),
         }
     }
 

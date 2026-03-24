@@ -9,9 +9,9 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::docker::tork::Mount;
 use bollard::models::VolumeCreateRequest;
 use bollard::query_parameters::{ListVolumesOptions, RemoveVolumeOptions};
-use crate::docker::tork::Mount;
 use thiserror::Error;
 
 /// Errors from volume mount operations.
@@ -84,11 +84,12 @@ impl VolumeMounter {
             .create_volume(VolumeCreateRequest {
                 name: Some(name.clone()),
                 driver: Some("local".to_string()),
-                driver_opts: Some(mnt
-                    .opts
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect::<std::collections::HashMap<String, String>>()),
+                driver_opts: Some(
+                    mnt.opts
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<std::collections::HashMap<String, String>>(),
+                ),
                 labels: Some(std::collections::HashMap::new()),
                 cluster_volume_spec: None,
             })
@@ -124,9 +125,11 @@ impl VolumeMounter {
         // List volumes to verify it exists
         let volumes = client
             .list_volumes(Some(ListVolumesOptions {
-                filters: Some(vec![("name".to_string(), vec![source.clone()])]
-                    .into_iter()
-                    .collect()),
+                filters: Some(
+                    vec![("name".to_string(), vec![source.clone()])]
+                        .into_iter()
+                        .collect(),
+                ),
             }))
             .await
             .map_err(|e| VolumeMounterError::VolumeList(e.to_string()))?;
@@ -137,10 +140,7 @@ impl VolumeMounter {
 
         // Remove the volume
         client
-            .remove_volume(
-                source,
-                Some(RemoveVolumeOptions { force: true }),
-            )
+            .remove_volume(source, Some(RemoveVolumeOptions { force: true }))
             .await
             .map_err(|e| VolumeMounterError::VolumeRemove(e.to_string()))?;
 

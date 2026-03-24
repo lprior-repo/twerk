@@ -99,7 +99,8 @@ fn should_fire_webhook(et: EventType, wh: &Webhook) -> bool {
         EventType::StateChange => {
             event.is_empty() || event == EVENT_JOB_STATE_CHANGE || event == EVENT_DEFAULT
         }
-        EventType::Progress => event.is_empty() || event == EVENT_JOB_PROGRESS,
+        // GAP 1 FIX: Empty/default event should NOT match Progress - only StateChange
+        EventType::Progress => event == EVENT_JOB_PROGRESS,
         _ => false,
     }
 }
@@ -581,6 +582,23 @@ mod tests {
             r#if: None,
         };
         assert!(should_fire_webhook(EventType::Progress, &wh));
+    }
+
+    // =====================================================================
+    // GAP 1 REGRESSION TEST: Progress + default/empty event should NOT fire
+    // =====================================================================
+    // Go parity: empty event only matches StateChange, NOT Progress
+    // Bug: Rust incorrectly allowed Progress to match empty/default event
+    #[test]
+    fn test_should_not_fire_webhook_progress_default_event() {
+        let wh = Webhook {
+            url: Some("http://example.com".to_string()),
+            headers: None,
+            event: None, // EMPTY/DEFAULT - the GAP 1 regression case
+            r#if: None,
+        };
+        // GAP 1: Progress event type with empty/default webhook event should NOT fire
+        assert!(!should_fire_webhook(EventType::Progress, &wh));
     }
 
     #[test]

@@ -517,8 +517,13 @@ impl Scheduler {
             let mut failed_parent = parent.clone();
             failed_parent.state = TASK_STATE_FAILED.clone();
             failed_parent.error = Some("each.list does not evaluate to a list".to_string());
-            let _ = self.broker.publish_task(QUEUE_ERROR.into(), &failed_parent).await;
-            return Err(SchedulerError::Validation("each.list does not evaluate to a list".into()));
+            let _ = self
+                .broker
+                .publish_task(QUEUE_ERROR.into(), &failed_parent)
+                .await;
+            return Err(SchedulerError::Validation(
+                "each.list does not evaluate to a list".into(),
+            ));
         }
 
         let var_name = each.var.clone().unwrap_or_else(|| "item".to_string());
@@ -596,7 +601,7 @@ impl Scheduler {
 
             // Determine if this task should be published based on concurrency
             // Go parity: if t.Each.Concurrency == 0 || ix < t.Each.Concurrency { et.State = tork.TaskStatePending } else { et.State = tork.TaskStateCreated }
-            let should_publish = concurrency == 0 || index < concurrency as usize;
+            let should_publish = concurrency == 0 || (index as i64) < concurrency;
 
             if should_publish {
                 child_task.state = TASK_STATE_PENDING.clone();
@@ -673,7 +678,7 @@ impl Scheduler {
         };
 
         // Build the subjob Job (Go lines 108-128)
-        let subjob_job = tork::job::Job {
+        let mut subjob_job = tork::job::Job {
             id: Some(job_id.clone()),
             parent_id: parent.id.clone(), // Go: ParentID: t.ID
             created_by,
@@ -692,10 +697,10 @@ impl Scheduler {
             task_count: subjob.tasks.as_ref().map_or(0, |t| t.len() as i64),
             tasks: subjob.tasks.as_ref().map_or_else(Vec::new, |t| t.clone()),
             output: subjob.output.clone(),
-            webhooks: subjob.webhooks.clone(),
-            auto_delete: subjob.auto_delete.clone(),
             ..Default::default()
         };
+        subjob_job.webhooks = subjob.webhooks.clone();
+        subjob_job.auto_delete = subjob.auto_delete.clone();
 
         // Create and publish the subjob Job (Go lines 138-141)
         self.ds
@@ -747,7 +752,7 @@ impl Scheduler {
 
         // 1. Build a standalone Job from the subjob definition
         let job_id = uuid::Uuid::new_v4().to_string().replace('-', "");
-        let new_job = tork::job::Job {
+        let mut new_job = tork::job::Job {
             id: Some(job_id.clone()),
             parent_id: parent.job_id.clone(),
             created_by,
@@ -765,10 +770,10 @@ impl Scheduler {
                 ..tork::job::JobContext::default()
             },
             task_count: subjob.tasks.as_ref().map_or(0, |t| t.len() as i64),
-            auto_delete: subjob.auto_delete.clone(),
-            webhooks: subjob.webhooks.clone(),
             ..tork::job::Job::default()
         };
+        new_job.webhooks = subjob.webhooks.clone();
+        new_job.auto_delete = subjob.auto_delete.clone();
 
         // 2. Persist the new job
         self.ds
@@ -843,33 +848,39 @@ impl Scheduler {
     // Private: Parse list expression
     // ---------------------------------------------------------------------------
 
-    /// Parses a list expression and returns the items as strings.
-    ///
-    /// Tries three strategies in order:
-    /// 1. JSON array parse (e.g. `["a","b","c"]`)
-    /// 2. Expression evaluation via evalexpr (e.g. `{{ sequence(1,5) }}`)
-    /// 3. Comma-separated fallback (e.g. `a,b,c`)
+    /// Evaluates the list expression to get items
     async fn parse_list_expression(
         &self,
         list_expr: &str,
         context: &HashMap<String, serde_json::Value>,
     ) -> Vec<String> {
+        let sanitized = list_expr.trim();
+
         // 1. Try to parse as JSON array first
-        if let Ok(items) = serde_json::from_str::<Vec<String>>(list_expr) {
-            return items;
+        if let Ok(items) = serde_json::from_str::<Vec<serde_json::Value>>(sanitized) {
+            return items.into_iter().map(|v| v.to_string().replace('"', "")).collect();
         }
 
         // 2. Try expression evaluation via evalexpr
-        if let Some(items) = self.try_eval_list_expression(list_expr, context) {
-            return items;
+        if sanitized.starts_with("{{") && sanitized.ends_with("}}") {
+            if let Some(items) = self.try_eval_list_expression(sanitized, context) {
+                return items;
+            }
+            // If it was an expression and failed, return empty to trigger error
+            return vec![];
         }
 
-        // 3. Fall back to comma-separated values
-        list_expr
-            .split(',')
-            .map(str::trim)
-            .map(String::from)
-            .collect()
+        // 3. Fall back to comma-separated values ONLY if it contains a comma
+        if sanitized.contains(',') {
+            return sanitized
+                .split(',')
+                .map(str::trim)
+                .map(String::from)
+                .collect();
+        }
+
+        // 4. Not a list
+        vec![]
     }
 
     /// Attempts to evaluate a list expression using evalexpr.
@@ -1028,7 +1039,7 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task::default();
         apply_regular_transition(&mut task, now);
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
+        assert_eq!(task.state.as_ref(), TASK_STATE_SCHEDULED);
         assert_eq!(task.scheduled_at, Some(now));
     }
 
@@ -1037,7 +1048,7 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task::default();
         apply_parallel_transition(&mut task, now);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
         assert_eq!(task.scheduled_at, Some(now));
         assert_eq!(task.started_at, Some(now));
     }
@@ -1047,7 +1058,7 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task::default();
         apply_each_transition(&mut task, now);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
         assert_eq!(task.scheduled_at, Some(now));
         assert_eq!(task.started_at, Some(now));
     }
@@ -1057,7 +1068,7 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut task = Task::default();
         apply_subjob_transition(&mut task, now);
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
         assert_eq!(task.scheduled_at, Some(now));
         assert_eq!(task.started_at, Some(now));
     }
@@ -1222,7 +1233,7 @@ mod tests {
         assert_eq!(task.name.as_deref(), Some("build"));
         assert_eq!(task.position, 5);
         assert_eq!(task.queue.as_deref(), Some("my-queue"));
-        assert_eq!(task.state, *TASK_STATE_SCHEDULED);
+        assert_eq!(task.state.as_ref(), TASK_STATE_SCHEDULED);
     }
 
     #[test]
@@ -1239,7 +1250,7 @@ mod tests {
         apply_parallel_transition(&mut task, now);
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert!(task.parallel.is_some());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
     }
 
     #[test]
@@ -1261,7 +1272,7 @@ mod tests {
         apply_each_transition(&mut task, now);
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert!(task.each.is_some());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
     }
 
     #[test]
@@ -1286,7 +1297,7 @@ mod tests {
         apply_subjob_transition(&mut task, now);
         assert_eq!(task.id.as_deref(), Some("t1"));
         assert!(task.subjob.is_some());
-        assert_eq!(task.state, *TASK_STATE_RUNNING);
+        assert_eq!(task.state.as_ref(), TASK_STATE_RUNNING);
     }
 
     // Go: SchedulerError variants
@@ -1329,5 +1340,649 @@ mod tests {
         let started = task.started_at.expect("should have started_at");
         assert!(scheduled >= before && scheduled <= after);
         assert!(started >= before && started <= after);
+    }
+
+    // -- Parity tests from Go scheduler_test.go ----------------------------
+
+    use dashmap::DashMap;
+    use tork::job::Job;
+
+    struct TestDatastore {
+        jobs: Arc<DashMap<String, Job>>,
+        tasks: Arc<DashMap<String, Task>>,
+    }
+
+    impl TestDatastore {
+        fn new() -> Self {
+            Self {
+                jobs: Arc::new(DashMap::new()),
+                tasks: Arc::new(DashMap::new()),
+            }
+        }
+    }
+
+    impl Datastore for TestDatastore {
+        fn create_task(&self, task: Task) -> tork::datastore::BoxedFuture<()> {
+            let id = task.id.clone().expect("task id required");
+            self.tasks.insert(id, task);
+            Box::pin(async { Ok(()) })
+        }
+        fn update_task(&self, id: String, task: Task) -> tork::datastore::BoxedFuture<()> {
+            self.tasks.insert(id, task);
+            Box::pin(async { Ok(()) })
+        }
+        fn get_task_by_id(&self, id: String) -> tork::datastore::BoxedFuture<Option<Task>> {
+            let task = self.tasks.get(&id).map(|r| r.value().clone());
+            Box::pin(async move { Ok(task) })
+        }
+        fn get_active_tasks(&self, _job_id: String) -> tork::datastore::BoxedFuture<Vec<Task>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_next_task(&self, _parent_task_id: String) -> tork::datastore::BoxedFuture<Option<Task>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn create_task_log_part(&self, _part: tork::task::TaskLogPart) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_task_log_parts(
+            &self,
+            _task_id: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 10,
+                })
+            })
+        }
+        fn create_node(&self, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn update_node(&self, _id: String, _node: tork::node::Node) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_node_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::node::Node>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_active_nodes(&self) -> tork::datastore::BoxedFuture<Vec<tork::node::Node>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn create_job(&self, job: Job) -> tork::datastore::BoxedFuture<()> {
+            let id = job.id.clone().expect("job id required");
+            self.jobs.insert(id, job);
+            Box::pin(async { Ok(()) })
+        }
+        fn update_job(&self, id: String, job: Job) -> tork::datastore::BoxedFuture<()> {
+            self.jobs.insert(id, job);
+            Box::pin(async { Ok(()) })
+        }
+        fn get_job_by_id(&self, id: String) -> tork::datastore::BoxedFuture<Option<Job>> {
+            let job = self.jobs.get(&id).map(|r| r.value().clone());
+            Box::pin(async move { Ok(job) })
+        }
+        fn get_job_log_parts(
+            &self,
+            _job_id: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::task::TaskLogPart>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 10,
+                })
+            })
+        }
+        fn get_jobs(
+            &self,
+            _current_user: String,
+            _q: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::JobSummary>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 10,
+                })
+            })
+        }
+        fn create_scheduled_job(&self, _sj: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_active_scheduled_jobs(&self) -> tork::datastore::BoxedFuture<Vec<tork::job::ScheduledJob>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_scheduled_jobs(
+            &self,
+            _current_user: String,
+            _page: i64,
+            _size: i64,
+        ) -> tork::datastore::BoxedFuture<tork::datastore::Page<tork::job::ScheduledJobSummary>> {
+            Box::pin(async {
+                Ok(tork::datastore::Page {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                    size: 10,
+                })
+            })
+        }
+        fn get_scheduled_job_by_id(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::job::ScheduledJob>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn update_scheduled_job(&self, _id: String, _sj: tork::job::ScheduledJob) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn delete_scheduled_job(&self, _id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn create_user(&self, _user: tork::user::User) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_user(&self, _username: String) -> tork::datastore::BoxedFuture<Option<tork::user::User>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn create_role(&self, _role: tork::role::Role) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_role(&self, _id: String) -> tork::datastore::BoxedFuture<Option<tork::role::Role>> {
+            Box::pin(async { Ok(None) })
+        }
+        fn get_roles(&self) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn get_user_roles(&self, _user_id: String) -> tork::datastore::BoxedFuture<Vec<tork::role::Role>> {
+            Box::pin(async { Ok(vec![]) })
+        }
+        fn assign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn unassign_role(&self, _user_id: String, _role_id: String) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn get_metrics(&self) -> tork::datastore::BoxedFuture<tork::stats::Metrics> {
+            Box::pin(async { Ok(tork::stats::Metrics::default()) })
+        }
+        fn health_check(&self) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn shutdown(&self) -> tork::datastore::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_schedule_regular_task() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks("test-queue".to_string(), Arc::new(move |_task: Arc<Task>| {
+            let tx = tx.clone();
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j1).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            queue: Some("test-queue".to_string()),
+            job_id: Some(job_id),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_regular_task(&mut tk).await.unwrap();
+
+        // Wait for processing
+        rx.recv().await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_SCHEDULED);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_regular_task_job_defaults() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j1 = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            defaults: Some(JobDefaults {
+                queue: Some("some-queue".to_string()),
+                retry: Some(tork::task::TaskRetry {
+                    limit: 5,
+                    attempts: 0,
+                }),
+                limits: Some(tork::task::TaskLimits {
+                    cpus: Some(".5".to_string()),
+                    memory: Some("10m".to_string()),
+                }),
+                timeout: Some("5s".to_string()),
+                priority: 3,
+            }),
+            ..Default::default()
+        };
+        ds.create_job(j1).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_regular_task(&mut tk).await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_SCHEDULED);
+        assert_eq!(tk.queue.as_deref(), Some("some-queue"));
+        assert_eq!(tk.retry.as_ref().map(|r| r.limit), Some(5));
+        assert_eq!(tk.limits.as_ref().and_then(|l| l.cpus.as_deref()), Some(".5"));
+        assert_eq!(tk.limits.as_ref().and_then(|l| l.memory.as_deref()), Some("10m"));
+        assert_eq!(tk.timeout.as_deref(), Some("5s"));
+        assert_eq!(tk.priority, 3);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_parallel_task() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks("test-queue".to_string(), Arc::new(move |tk: Arc<Task>| {
+            let tx = tx.clone();
+            assert_eq!(tk.queue.as_deref(), Some("test-queue"));
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            parallel: Some(ParallelTask {
+                tasks: Some(vec![Task {
+                    name: Some("my parallel task".to_string()),
+                    queue: Some("test-queue".to_string()),
+                    ..Default::default()
+                }]),
+                completions: 0,
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_parallel_task(&mut tk).await.unwrap();
+
+        // wait for the task to get processed
+        rx.recv().await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(2);
+        b.subscribe_for_tasks("test-queue".to_string(), Arc::new(move |tk: Arc<Task>| {
+            let tx = tx.clone();
+            assert_eq!(tk.queue.as_deref(), Some("test-queue"));
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            each: Some(EachTask {
+                list: Some("{{ sequence(1,3) }}".to_string()),
+                task: Some(Box::new(Task {
+                    queue: Some("test-queue".to_string()),
+                    env: Some(HashMap::from([
+                        ("ITEM_INDEX".to_string(), "{{item.index}}".to_string()),
+                        ("ITEM_VAL".to_string(), "{{item.value}}".to_string()),
+                    ])),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_each_task(&mut tk).await.unwrap();
+
+        // wait for the tasks to get processed
+        rx.recv().await.unwrap();
+        rx.recv().await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_subjob_task() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_jobs(Arc::new(move |j: tork::job::Job| {
+            let tx = tx.clone();
+            assert!(j.parent_id.is_some());
+            assert_eq!(j.inputs.as_ref().and_then(|i: &HashMap<String, String>| i.get("some_input")), Some(&"https://example.com".to_string()));
+            assert_eq!(j.secrets.as_ref().and_then(|s: &HashMap<String, String>| s.get("some_secret")), Some(&"password".to_string()));
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            subjob: Some(SubJobTask {
+                name: Some("my sub job".to_string()),
+                inputs: Some(HashMap::from([("some_input".to_string(), "https://example.com".to_string())])),
+                secrets: Some(HashMap::from([("some_secret".to_string(), "password".to_string())])),
+                tasks: Some(vec![Task {
+                    name: Some("some task".to_string()),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_subjob_task(&mut tk).await.unwrap();
+
+        // wait for the task to get processed
+        rx.recv().await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_detached_subjob_task() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx_job, mut rx_job) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_jobs(Arc::new(move |j: tork::job::Job| {
+            let tx = tx_job.clone();
+            assert!(j.parent_id.is_some());
+            assert_eq!(j.webhooks.as_ref().and_then(|w| w.first()).map(|w| w.url.as_deref()), Some(Some("http://example.com/callback")));
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let (tx_comp, mut rx_comp) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks(tork::broker::queue::QUEUE_COMPLETED.to_string(), Arc::new(move |_tk: Arc<Task>| {
+            let tx = tx_comp.clone();
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            subjob: Some(SubJobTask {
+                name: Some("my sub job".to_string()),
+                detached: true,
+                tasks: Some(vec![Task {
+                    name: Some("some task".to_string()),
+                    ..Default::default()
+                }]),
+                webhooks: Some(vec![tork::task::Webhook {
+                    url: Some("http://example.com/callback".to_string()),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_subjob_task(&mut tk).await.unwrap();
+
+        // wait for the job to get processed
+        rx_job.recv().await.unwrap();
+
+        // wait for the completion task
+        rx_comp.recv().await.unwrap();
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task_concurrency() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks("test-queue".to_string(), Arc::new(move |tk: Arc<Task>| {
+            let tx = tx.clone();
+            assert_eq!(tk.queue.as_deref(), Some("test-queue"));
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            each: Some(EachTask {
+                list: Some("{{ sequence(1,3) }}".to_string()),
+                concurrency: 1,
+                task: Some(Box::new(Task {
+                    queue: Some("test-queue".to_string()),
+                    env: Some(HashMap::from([
+                        ("ITEM_INDEX".to_string(), "{{item.index}}".to_string()),
+                        ("ITEM_VAL".to_string(), "{{item.value}}".to_string()),
+                    ])),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        s.schedule_each_task(&mut tk).await.unwrap();
+
+        // wait for one task to get processed
+        rx.recv().await.unwrap();
+
+        // check that the other task is NOT in the broker yet (due to concurrency=1)
+        
+        let subtasks: Vec<Task> = ds.tasks.iter().filter(|e| e.value().parent_id.as_deref() == Some(&task_id)).map(|e| e.value().clone()).collect();
+        assert_eq!(subtasks.len(), 2);
+        
+        let pending = subtasks.iter().filter(|t| t.state.as_ref() == TASK_STATE_PENDING).count();
+        let created = subtasks.iter().filter(|t| t.state.as_ref() == TASK_STATE_CREATED).count();
+        
+        assert_eq!(pending, 1);
+        assert_eq!(created, 1);
+
+        let tk = ds.get_task_by_id(task_id).await.unwrap().unwrap();
+        assert_eq!(tk.state.as_ref(), TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task_not_a_list() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks(tork::broker::queue::QUEUE_ERROR.to_string(), Arc::new(move |_tk: Arc<Task>| {
+            let tx = tx.clone();
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            each: Some(EachTask {
+                list: Some("1".to_string()),
+                task: Some(Box::new(Task::default())),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        // should fail since "1" is not a list
+        let result = s.schedule_each_task(&mut tk).await;
+        assert!(result.is_err());
+
+        // wait for the error task to be published
+        rx.recv().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task_bad_expression() {
+        let b = Arc::new(tork_runtime::broker::inmemory::new_in_memory_broker());
+        let ds = Arc::new(TestDatastore::new());
+        let s = Scheduler::new(ds.clone(), b.clone());
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        b.subscribe_for_tasks(tork::broker::queue::QUEUE_ERROR.to_string(), Arc::new(move |_tk: Arc<Task>| {
+            let tx = tx.clone();
+            Box::pin(async move {
+                let _ = tx.send(()).await;
+            })
+        })).await.unwrap();
+
+        let job_id = uuid::Uuid::new_v4().to_string();
+        let j = Job {
+            id: Some(job_id.clone()),
+            name: Some("test job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(j).await.unwrap();
+
+        let task_id = uuid::Uuid::new_v4().to_string();
+        let mut tk = Task {
+            id: Some(task_id.clone()),
+            job_id: Some(job_id),
+            each: Some(EachTask {
+                list: Some("{{ bad_expression }}".to_string()),
+                task: Some(Box::new(Task::default())),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        ds.create_task(tk.clone()).await.unwrap();
+
+        // should fail due to bad expression
+        let result = s.schedule_each_task(&mut tk).await;
+        assert!(result.is_err());
+
+        // wait for the error task to be published
+        rx.recv().await.unwrap();
     }
 }

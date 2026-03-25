@@ -72,9 +72,11 @@ hostname = "0.4"
 datastore = { path = "../datastore" }
 tork-runtime = { path = ".." }
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres"] }
+dashmap = "6.0"
 
 tokio-test = "0.4"
 mockito = "1"
+tempfile = "3"
 
 [lib]
 path = "lib.rs"

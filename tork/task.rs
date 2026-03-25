@@ -287,7 +287,7 @@ pub struct TaskLogPart {
 }
 
 /// SubJobTask represents a sub-job task
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SubJobTask {
     pub id: Option<String>,
@@ -312,7 +312,7 @@ pub struct SubJobTask {
 }
 
 /// ParallelTask represents a task that runs subtasks in parallel
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -322,7 +322,7 @@ pub struct ParallelTask {
 }
 
 /// EachTask represents a for-each style loop task
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct EachTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -384,7 +384,7 @@ pub struct Probe {
 }
 
 /// Webhook holds webhook configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Webhook {
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use twerk_core::task::{Probe, TaskLimits, Task};
-use twerk_infrastructure::runtime::docker::docker::DockerRuntime;
+use twerk_infrastructure::runtime::docker::DockerRuntime;
 use twerk_infrastructure::runtime::podman::{PodmanRuntime, PodmanConfig, Task as PodmanTask, Mount as PodmanMount, MountType as PodmanMountType, TaskLimits as PodmanTaskLimits, Probe as PodmanProbe, Broker as PodmanBroker};
 use twerk_infrastructure::runtime::Runtime;
 

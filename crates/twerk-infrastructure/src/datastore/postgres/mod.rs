@@ -157,9 +157,9 @@ impl Datastore for PostgresDatastore {
         let tasks = serde_json::to_vec(&job.tasks).map_err(|e| DatastoreError::Serialization(format!("job.tasks: {e}")))?;
         let inputs = serde_json::to_vec(&job.inputs).map_err(|e| DatastoreError::Serialization(format!("job.inputs: {e}")))?;
         let context = serde_json::to_vec(&job.context).map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
-        let defaults = serde_json::to_vec(&job.defaults).map_err(|e| DatastoreError::Serialization(format!("job.defaults: {e}")))?;
-        let webhooks = serde_json::to_vec(&job.webhooks).map_err(|e| DatastoreError::Serialization(format!("job.webhooks: {e}")))?;
-        let auto_delete = serde_json::to_vec(&job.auto_delete).map_err(|e| DatastoreError::Serialization(format!("job.auto_delete: {e}")))?;
+        let defaults: Option<Vec<u8>> = job.defaults.as_ref().map(|d| serde_json::to_vec(d).map_err(|e| DatastoreError::Serialization(format!("job.defaults: {e}")))).transpose()?;
+        let webhooks: Option<Vec<u8>> = job.webhooks.as_ref().filter(|w| !w.is_empty()).map(|w| serde_json::to_vec(w).map_err(|e| DatastoreError::Serialization(format!("job.webhooks: {e}")))).transpose()?;
+        let auto_delete: Option<Vec<u8>> = job.auto_delete.as_ref().map(|d| serde_json::to_vec(d).map_err(|e| DatastoreError::Serialization(format!("job.auto_delete: {e}")))).transpose()?;
         let mut secrets_bytes = None;
         if let Some(secrets) = &job.secrets {
             let encrypted = encrypt::encrypt_secrets(secrets, encryption_key.as_deref())?;
@@ -250,18 +250,19 @@ impl Datastore for PostgresDatastore {
     async fn create_task(&self, task: &Task) -> DatastoreResult<()> {
         let id = task.id.as_ref().ok_or(DatastoreError::InvalidInput("task ID is required".to_string()))?;
         let job_id = task.job_id.as_ref().ok_or(DatastoreError::InvalidInput("job ID is required".to_string()))?;
-        let registry = serde_json::to_vec(&task.registry).map_err(|e| DatastoreError::Serialization(format!("task.registry: {e}")))?;
-        let env = serde_json::to_vec(&task.env).map_err(|e| DatastoreError::Serialization(format!("task.env: {e}")))?;
-        let files = serde_json::to_vec(&task.files).map_err(|e| DatastoreError::Serialization(format!("task.files: {e}")))?;
-        let pre = serde_json::to_vec(&task.pre).map_err(|e| DatastoreError::Serialization(format!("task.pre: {e}")))?;
-        let post = serde_json::to_vec(&task.post).map_err(|e| DatastoreError::Serialization(format!("task.post: {e}")))?;
-        let sidecars = serde_json::to_vec(&task.sidecars).map_err(|e| DatastoreError::Serialization(format!("task.sidecars: {e}")))?;
-        let mounts = serde_json::to_vec(&task.mounts).map_err(|e| DatastoreError::Serialization(format!("task.mounts: {e}")))?;
-        let retry = serde_json::to_vec(&task.retry).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))?;
-        let limits = serde_json::to_vec(&task.limits).map_err(|e| DatastoreError::Serialization(format!("task.limits: {e}")))?;
-        let parallel = serde_json::to_vec(&task.parallel).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))?;
-        let each = serde_json::to_vec(&task.each).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))?;
-        let subjob = serde_json::to_vec(&task.subjob).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))?;
+        // Serialize optional fields: None → SQL NULL (not JSON null bytes)
+        let registry: Option<Vec<u8>> = task.registry.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.registry: {e}")))).transpose()?;
+        let env: Option<Vec<u8>> = task.env.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.env: {e}")))).transpose()?;
+        let files: Option<Vec<u8>> = task.files.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.files: {e}")))).transpose()?;
+        let pre: Option<Vec<u8>> = task.pre.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.pre: {e}")))).transpose()?;
+        let post: Option<Vec<u8>> = task.post.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.post: {e}")))).transpose()?;
+        let sidecars: Option<Vec<u8>> = task.sidecars.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.sidecars: {e}")))).transpose()?;
+        let mounts: Option<Vec<u8>> = task.mounts.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.mounts: {e}")))).transpose()?;
+        let retry: Option<Vec<u8>> = task.retry.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))).transpose()?;
+        let limits: Option<Vec<u8>> = task.limits.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.limits: {e}")))).transpose()?;
+        let parallel: Option<Vec<u8>> = task.parallel.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))).transpose()?;
+        let each: Option<Vec<u8>> = task.each.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))).transpose()?;
+        let subjob: Option<Vec<u8>> = task.subjob.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))).transpose()?;
         
         let q = r"INSERT INTO tasks (id, job_id, position, name, state, created_at, scheduled_at, started_at, completed_at, failed_at, cmd, entrypoint, run_script, image, registry, env, files_, queue, error_, pre_tasks, post_tasks, sidecars, mounts, node_id, retry, limits, timeout, result, var, parallel, parent_id, each_, description, subjob, networks, gpus, if_, tags, priority, workdir, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41)";
         let query = sqlx::query(q).bind(&**id).bind(&**job_id).bind(task.position).bind(&task.name).bind(task.state.as_str()).bind(task.created_at).bind(task.scheduled_at).bind(task.started_at).bind(task.completed_at).bind(task.failed_at).bind(&task.cmd).bind(&task.entrypoint).bind(&task.run).bind(&task.image).bind(&registry).bind(&env).bind(&files).bind(&task.queue).bind(&task.error).bind(&pre).bind(&post).bind(&sidecars).bind(&mounts).bind(task.node_id.as_ref().map(|id| id.as_str())).bind(&retry).bind(&limits).bind(&task.timeout).bind(&task.result).bind(&task.var).bind(&parallel).bind(task.parent_id.as_ref().map(|id| id.as_str())).bind(&each).bind(&task.description).bind(&subjob).bind(&task.networks).bind(&task.gpus).bind(&task.r#if).bind(&task.tags).bind(task.priority).bind(&task.workdir).bind(task.progress);
@@ -288,10 +289,10 @@ impl Datastore for PostgresDatastore {
                 let record: TaskRecord = sqlx::query_as::<Postgres, TaskRecord>("SELECT * FROM tasks WHERE id = $1 FOR UPDATE").bind(id).fetch_optional(&mut *tx).await.map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))? .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
-                let retry = serde_json::to_vec(&task.retry).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))?;
-                let parallel = serde_json::to_vec(&task.parallel).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))?;
-                let each = serde_json::to_vec(&task.each).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))?;
-                let subjob = serde_json::to_vec(&task.subjob).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))?;
+                let retry: Option<Vec<u8>> = task.retry.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))).transpose()?;
+                let parallel: Option<Vec<u8>> = task.parallel.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))).transpose()?;
+                let each: Option<Vec<u8>> = task.each.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))).transpose()?;
+                let subjob: Option<Vec<u8>> = task.subjob.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))).transpose()?;
                 sqlx::query(r"UPDATE tasks SET state = $1, scheduled_at = $2, started_at = $3, completed_at = $4, failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9, parallel = $10, each_ = $11, subjob = $12, progress = $13, priority = $14 WHERE id = $15").bind(task.state.as_str()).bind(task.scheduled_at).bind(task.started_at).bind(task.completed_at).bind(task.failed_at).bind(&task.error).bind(task.node_id.as_ref().map(|id| id.as_str())).bind(&retry).bind(&task.result).bind(&parallel).bind(&each).bind(&subjob).bind(task.progress).bind(task.priority).bind(id).execute(&mut *tx).await.map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
                 tx.commit().await.map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
             }
@@ -300,10 +301,10 @@ impl Datastore for PostgresDatastore {
                 let record: TaskRecord = sqlx::query_as::<Postgres, TaskRecord>("SELECT * FROM tasks WHERE id = $1 FOR UPDATE").bind(id).fetch_optional(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))? .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
-                let retry = serde_json::to_vec(&task.retry).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))?;
-                let parallel = serde_json::to_vec(&task.parallel).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))?;
-                let each = serde_json::to_vec(&task.each).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))?;
-                let subjob = serde_json::to_vec(&task.subjob).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))?;
+                let retry: Option<Vec<u8>> = task.retry.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.retry: {e}")))).transpose()?;
+                let parallel: Option<Vec<u8>> = task.parallel.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.parallel: {e}")))).transpose()?;
+                let each: Option<Vec<u8>> = task.each.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.each: {e}")))).transpose()?;
+                let subjob: Option<Vec<u8>> = task.subjob.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("task.subjob: {e}")))).transpose()?;
                 sqlx::query(r"UPDATE tasks SET state = $1, scheduled_at = $2, started_at = $3, completed_at = $4, failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9, parallel = $10, each_ = $11, subjob = $12, progress = $13, priority = $14 WHERE id = $15").bind(task.state.as_str()).bind(task.scheduled_at).bind(task.started_at).bind(task.completed_at).bind(task.failed_at).bind(&task.error).bind(task.node_id.as_ref().map(|id| id.as_str())).bind(&retry).bind(&task.result).bind(&parallel).bind(&each).bind(&subjob).bind(task.progress).bind(task.priority).bind(id).execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
             }
         }
@@ -398,9 +399,9 @@ impl Datastore for PostgresDatastore {
         let encryption_key = self.encryption_key.clone();
         let tasks = serde_json::to_vec(&sj.tasks).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.tasks: {e}")))?;
         let inputs = serde_json::to_vec(&sj.inputs).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.inputs: {e}")))?;
-        let defaults = serde_json::to_vec(&sj.defaults).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.defaults: {e}")))?;
-        let webhooks = serde_json::to_vec(&sj.webhooks).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.webhooks: {e}")))?;
-        let auto_delete = serde_json::to_vec(&sj.auto_delete).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.auto_delete: {e}")))?;
+        let defaults: Option<Vec<u8>> = sj.defaults.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.defaults: {e}")))).transpose()?;
+        let webhooks: Option<Vec<u8>> = sj.webhooks.as_ref().filter(|w| !w.is_empty()).map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.webhooks: {e}")))).transpose()?;
+        let auto_delete: Option<Vec<u8>> = sj.auto_delete.as_ref().map(|v| serde_json::to_vec(v).map_err(|e| DatastoreError::Serialization(format!("scheduled_job.auto_delete: {e}")))).transpose()?;
         let mut secrets_bytes = None;
         if let Some(secrets) = &sj.secrets {
             let encrypted = encrypt::encrypt_secrets(secrets, encryption_key.as_deref())?;

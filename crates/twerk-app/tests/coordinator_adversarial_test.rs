@@ -149,10 +149,14 @@ struct FailableBroker {
 
 impl Broker for FailableBroker {
     fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
-        if self.config.blocking_read().fail_publish_task {
-            return Box::pin(async { Err(anyhow!("simulated publish_task failure")) });
-        }
-        self.inner.publish_task(qname, task)
+        let config = Arc::clone(&self.config);
+        let inner_fut = self.inner.publish_task(qname, task);
+        Box::pin(async move {
+            if config.read().await.fail_publish_task {
+                return Err(anyhow!("simulated publish_task failure"));
+            }
+            inner_fut.await
+        })
     }
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
         self.inner.subscribe_for_tasks(qname, handler)
@@ -170,10 +174,14 @@ impl Broker for FailableBroker {
         self.inner.subscribe_for_heartbeats(handler)
     }
     fn publish_job(&self, job: &Job) -> BoxedFuture<()> {
-        if self.config.blocking_read().fail_publish_job {
-            return Box::pin(async { Err(anyhow!("simulated publish_job failure")) });
-        }
-        self.inner.publish_job(job)
+        let config = Arc::clone(&self.config);
+        let inner_fut = self.inner.publish_job(job);
+        Box::pin(async move {
+            if config.read().await.fail_publish_job {
+                return Err(anyhow!("simulated publish_job failure"));
+            }
+            inner_fut.await
+        })
     }
     fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()> {
         self.inner.subscribe_for_jobs(handler)
@@ -316,10 +324,13 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
         ..Default::default()
     };
 
-    // 1. Set fail_publish_task to true
+    // 1. Create job in datastore (coordinator's start_job handler reads it from there)
+    datastore.create_job(&job).await?;
+
+    // 2. Set fail_publish_task to true so the task dispatch fails
     fail_config.write().await.fail_publish_task = true;
 
-    // 2. Publish the job directly to the broker to trigger the coordinator's handler
+    // 3. Publish the job event to trigger the coordinator's start_job handler
     broker.publish_job(&job).await?;
 
     // 3. Poll with channel-based timeout until job state transitions

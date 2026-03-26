@@ -1,0 +1,26 @@
+[package]
+name = "twerk-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+twerk-common.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+evalexpr.workspace = true
+regex.workspace = true
+cron.workspace = true
+async-trait.workspace = true
+rand.workspace = true
+itertools.workspace = true
+tap.workspace = true
+rpds.workspace = true
+thiserror.workspace = true
+time.workspace = true
+futures-util.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+ureq.workspace = true

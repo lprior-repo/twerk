@@ -1,0 +1,480 @@
+//! RabbitMQ broker implementation using `lapin`.
+
+use std::sync::Arc;
+use std::time::Duration;
+use anyhow::{anyhow, Result};
+use lapin::{
+    options::{BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, BasicQosOptions, QueueDeclareOptions, QueueDeleteOptions},
+    types::FieldTable,
+    BasicProperties, Connection, ConnectionProperties,
+};
+use tokio::sync::RwLock;
+use serde_json::Value;
+
+use twerk_core::task::{Task, TaskLogPart};
+use twerk_core::node::Node;
+use twerk_core::job::Job;
+use super::{Broker, BoxedFuture, BoxedHandlerFuture, TaskHandler, TaskProgressHandler, HeartbeatHandler, JobHandler, EventHandler, TaskLogPartHandler, QueueInfo, queue, RabbitMQOptions};
+
+/// AMQP message type constants
+const MSG_TYPE_TASK: &str = "*twerk.Task";
+const MSG_TYPE_JOB: &str = "*twerk.Job";
+const MSG_TYPE_NODE: &str = "*twerk.Node";
+const MSG_TYPE_TASK_LOG_PART: &str = "*twerk.TaskLogPart";
+const MSG_TYPE_EVENT: &str = "*twerk.Event";
+
+/// RabbitMQ-backed broker implementation.
+pub struct RabbitMQBroker {
+    url: String,
+    conn_pool: Arc<RwLock<Vec<Arc<Connection>>>>,
+    management_url: Option<String>,
+    durable_queues: bool,
+    queue_type: String,
+    consumer_timeout: Option<Duration>,
+    shutting_down: Arc<RwLock<bool>>,
+    declared_queues: Arc<RwLock<std::collections::HashMap<String, String>>>,
+}
+
+impl RabbitMQBroker {
+    /// Create a new `RabbitMQ` broker with the given URL and options.
+    pub async fn new(url: &str, opts: RabbitMQOptions) -> Result<Self> {
+        let conn = Connection::connect(url, ConnectionProperties::default())
+            .await
+            .map_err(|e| anyhow!("RabbitMQ connection failed: {e}"))?;
+        
+        let ch = conn.create_channel().await?;
+        ch.exchange_declare(
+            "amq.topic",
+            lapin::ExchangeKind::Topic,
+            lapin::options::ExchangeDeclareOptions {
+                durable: true,
+                ..lapin::options::ExchangeDeclareOptions::default()
+            },
+            FieldTable::default(),
+        )
+        .await?;
+
+        let durable = opts.durable_queues || opts.queue_type == "quorum";
+        ch.queue_declare(
+            queue::QUEUE_REDELIVERIES,
+            lapin::options::QueueDeclareOptions {
+                durable,
+                ..lapin::options::QueueDeclareOptions::default()
+            },
+            FieldTable::default(),
+        )
+        .await?;
+
+        Ok(Self {
+            url: url.to_string(),
+            conn_pool: Arc::new(RwLock::new(vec![Arc::new(conn)])),
+            management_url: opts.management_url,
+            durable_queues: opts.durable_queues,
+            queue_type: opts.queue_type,
+            consumer_timeout: opts.consumer_timeout,
+            shutting_down: Arc::new(RwLock::new(false)),
+            declared_queues: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        })
+    }
+
+    async fn get_connection(&self) -> Result<Arc<Connection>> {
+        let pool = self.conn_pool.read().await;
+        if let Some(conn) = pool.get(0) {
+            if conn.status().connected() {
+                return Ok(Arc::clone(conn));
+            }
+        }
+        drop(pool);
+        let mut pool = self.conn_pool.write().await;
+        let conn = Connection::connect(&self.url, ConnectionProperties::default()).await?;
+        let conn_arc = Arc::new(conn);
+        if pool.is_empty() {
+            pool.push(Arc::clone(&conn_arc));
+        } else {
+            pool[0] = Arc::clone(&conn_arc);
+        }
+        Ok(conn_arc)
+    }
+
+    fn queue_args(&self, qname: &str) -> FieldTable {
+        let mut args = FieldTable::default();
+        if self.queue_type == "quorum" {
+            args.insert(
+                "x-queue-type".into(),
+                lapin::types::AMQPValue::LongString("quorum".into()),
+            );
+        }
+        if super::is_worker_queue(qname) {
+            args.insert("x-max-priority".into(), lapin::types::AMQPValue::ShortInt(10));
+        }
+        if let Some(timeout) = self.consumer_timeout {
+            args.insert(
+                "x-consumer-timeout".into(),
+                lapin::types::AMQPValue::LongLongInt(timeout.as_millis() as i64),
+            );
+        }
+        args
+    }
+
+    async fn declare_queue(&self, ch: &lapin::Channel, qname: &str) -> Result<()> {
+        let mut declared = self.declared_queues.write().await;
+        if declared.contains_key(qname) {
+            return Ok(());
+        }
+        let durable = self.durable_queues || self.queue_type == "quorum";
+        ch.queue_declare(
+            qname,
+            QueueDeclareOptions {
+                durable,
+                ..QueueDeclareOptions::default()
+            },
+            self.queue_args(qname),
+        )
+        .await?;
+        declared.insert(qname.to_string(), qname.to_string());
+        Ok(())
+    }
+
+    async fn is_shutting_down(&self) -> bool {
+        *self.shutting_down.read().await
+    }
+
+    async fn publish_raw(
+        &self,
+        exchange: &str,
+        routing_key: &str,
+        data: Vec<u8>,
+        msg_type: &str,
+        priority: u8,
+    ) -> Result<()> {
+        let conn = self.get_connection().await?;
+        let ch = conn.create_channel().await?;
+        let props = BasicProperties::default()
+            .with_type(msg_type.into())
+            .with_priority(priority);
+        ch.basic_publish(
+            exchange,
+            routing_key,
+            BasicPublishOptions::default(),
+            &data,
+            props,
+        )
+        .await?
+        .await?;
+        Ok(())
+    }
+
+    async fn subscribe_raw(&self, qname: &str, handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>) -> Result<()> {
+        self.subscribe_with_binding("", "", qname, handler).await
+    }
+
+    async fn subscribe_with_binding(&self, exchange: &str, routing_key: &str, qname: &str, handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>) -> Result<()> {
+        let conn = self.get_connection().await?;
+        let ch = conn.create_channel().await?;
+        self.declare_queue(&ch, qname).await?;
+        if !exchange.is_empty() {
+            ch.queue_bind(qname, exchange, routing_key, lapin::options::QueueBindOptions::default(), FieldTable::default()).await?;
+        }
+        ch.basic_qos(1, BasicQosOptions::default()).await?;
+        let mut consumer = ch.basic_consume(qname, "", BasicConsumeOptions::default(), FieldTable::default()).await?;
+        let b = self.clone();
+        tokio::spawn(async move {
+            while let Some(delivery) = futures_util::StreamExt::next(&mut consumer).await {
+                if b.is_shutting_down().await { break; }
+                if let Ok(delivery) = delivery {
+                    if delivery.redelivered {
+                        let msg_type = delivery.properties.kind().as_ref().map_or("", |s| s.as_str());
+                        let _ = b.publish_raw("", queue::QUEUE_REDELIVERIES, delivery.data.clone(), msg_type, 0).await;
+                        let _ = delivery.ack(BasicAckOptions::default()).await;
+                        continue;
+                    }
+                    if let Ok(val) = serde_json::from_slice(&delivery.data) {
+                        let _ = handler(val).await;
+                    }
+                    let _ = delivery.ack(BasicAckOptions::default()).await;
+                }
+            }
+        });
+        Ok(())
+    }
+}
+
+impl Broker for RabbitMQBroker {
+    fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
+        let task = task.clone();
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&task)?;
+            b.publish_raw("", &qname, data, MSG_TYPE_TASK, task.priority as u8)
+                .await
+        })
+    }
+
+    fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            b.subscribe_raw(
+                &qname,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        if let Ok(task) = serde_json::from_value::<Task>(val) {
+                            handler(Arc::new(task)).await?;
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn publish_task_progress(&self, task: &Task) -> BoxedFuture<()> {
+        let task = task.clone();
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&task)?;
+            b.publish_raw("", queue::QUEUE_PROGRESS, data, MSG_TYPE_TASK, 0)
+                .await
+        })
+    }
+
+    fn subscribe_for_task_progress(&self, handler: TaskProgressHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            b.subscribe_raw(
+                queue::QUEUE_PROGRESS,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        if let Ok(task) = serde_json::from_value::<Task>(val) {
+                            handler(task).await?;
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn publish_heartbeat(&self, node: Node) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&node)?;
+            b.publish_raw("", queue::QUEUE_HEARTBEAT, data, MSG_TYPE_NODE, 0)
+                .await
+        })
+    }
+
+    fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            b.subscribe_raw(
+                queue::QUEUE_HEARTBEAT,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        if let Ok(node) = serde_json::from_value::<Node>(val) {
+                            handler(node).await?;
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn publish_job(&self, job: &Job) -> BoxedFuture<()> {
+        let job = job.clone();
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&job)?;
+            b.publish_raw("", queue::QUEUE_JOBS, data, MSG_TYPE_JOB, 0)
+                .await
+        })
+    }
+
+    fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            b.subscribe_raw(
+                queue::QUEUE_JOBS,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        if let Ok(job) = serde_json::from_value::<Job>(val) {
+                            handler(job).await?;
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn publish_event(&self, topic: String, event: Value) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&event)?;
+            b.publish_raw("amq.topic", &topic, data, MSG_TYPE_EVENT, 0)
+                .await
+        })
+    }
+
+    fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let qname = format!("{}.{}", queue::QUEUE_EXCLUSIVE_PREFIX, twerk_core::uuid::new_short_uuid());
+            b.subscribe_with_binding(
+                "amq.topic",
+                &pattern,
+                &qname,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        handler(val).await?;
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()> {
+        let part = part.clone();
+        let b = self.clone();
+        Box::pin(async move {
+            let data = serde_json::to_vec(&part)?;
+            b.publish_raw("", queue::QUEUE_TASK_LOG_PART, data, MSG_TYPE_TASK_LOG_PART, 0)
+                .await
+        })
+    }
+
+    fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            b.subscribe_raw(
+                queue::QUEUE_TASK_LOG_PART,
+                Arc::new(move |val| {
+                    let handler = handler.clone();
+                    Box::pin(async move {
+                        if let Ok(part) = serde_json::from_value::<TaskLogPart>(val) {
+                            handler(part).await?;
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await
+        })
+    }
+
+    fn queues(&self) -> BoxedFuture<Vec<QueueInfo>> {
+        let b = self.clone();
+        Box::pin(async move {
+            if let Some(mgmt_url) = &b.management_url {
+                let client = reqwest::Client::new();
+                let url = format!("{}/api/queues", mgmt_url);
+                let res = client
+                    .get(&url)
+                    .send()
+                    .await?
+                    .json::<Vec<serde_json::Value>>()
+                    .await?;
+                let queues = res
+                    .into_iter()
+                    .map(|q| {
+                        let name = q["name"].as_str().map_or(String::new(), |s| s.to_string());
+                        let size = q["messages"].as_i64().map_or(0, |v| v) as i32;
+                        let subscribers = q["consumers"].as_i64().map_or(0, |v| v) as i32;
+                        let unacked = q["messages_unacknowledged"].as_i64().map_or(0, |v| v) as i32;
+                        QueueInfo {
+                            name,
+                            size,
+                            subscribers,
+                            unacked,
+                        }
+                    })
+                    .collect();
+                Ok(queues)
+            } else {
+                Ok(Vec::new())
+            }
+        })
+    }
+
+    fn queue_info(&self, qname: String) -> BoxedFuture<QueueInfo> {
+        let b = self.clone();
+        Box::pin(async move {
+            if let Some(mgmt_url) = &b.management_url {
+                let client = reqwest::Client::new();
+                let url = format!("{}/api/queues/%2f/{}", mgmt_url, qname);
+                let q = client.get(&url).send().await?.json::<serde_json::Value>().await?;
+                let name = q["name"].as_str().map_or(String::new(), |s| s.to_string());
+                let size = q["messages"].as_i64().map_or(0, |v| v) as i32;
+                let subscribers = q["consumers"].as_i64().map_or(0, |v| v) as i32;
+                let unacked = q["messages_unacknowledged"].as_i64().map_or(0, |v| v) as i32;
+                Ok(QueueInfo {
+                    name,
+                    size,
+                    subscribers,
+                    unacked,
+                })
+            } else {
+                Ok(QueueInfo {
+                    name: qname,
+                    size: 0,
+                    subscribers: 0,
+                    unacked: 0,
+                })
+            }
+        })
+    }
+
+    fn delete_queue(&self, qname: String) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let conn = b.get_connection().await?;
+            let ch = conn.create_channel().await?;
+            ch.queue_delete(&qname, QueueDeleteOptions::default())
+                .await?;
+            Ok(())
+        })
+    }
+
+    fn health_check(&self) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let _conn = b.get_connection().await?;
+            Ok(())
+        })
+    }
+
+    fn shutdown(&self) -> BoxedFuture<()> {
+        let b = self.clone();
+        Box::pin(async move {
+            let mut sd = b.shutting_down.write().await;
+            *sd = true;
+            Ok(())
+        })
+    }
+}
+
+impl Clone for RabbitMQBroker {
+    fn clone(&self) -> Self {
+        Self {
+            url: self.url.clone(),
+            conn_pool: Arc::clone(&self.conn_pool),
+            management_url: self.management_url.clone(),
+            durable_queues: self.durable_queues,
+            queue_type: self.queue_type.clone(),
+            consumer_timeout: self.consumer_timeout,
+            shutting_down: Arc::clone(&self.shutting_down),
+            declared_queues: Arc::clone(&self.declared_queues),
+        }
+    }
+}

@@ -1,6 +1,6 @@
 services:
   # PostgreSQL runs on the host (port 5432), not in Docker.
-  # User/db: tork/tork created manually.
+  # User/db: twerk/twerk created manually.
 
   rabbitmq:
     image: rabbitmq:3-management-alpine

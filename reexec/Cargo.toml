@@ -1,8 +1,0 @@
-[package]
-name = "reexec"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-tap = "1.0"
-thiserror = "2.0"

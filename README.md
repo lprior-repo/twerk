@@ -1,6 +1,6 @@
 # Twerk
 
-> The Rust rewrite of [Tork](https://github.com/runabol/tork) — a distributed task execution system
+> The Rust rewrite of [Twerk](https://github.com/runabol/twerk) — a distributed task execution system
 
 ---
 
@@ -9,9 +9,9 @@
 
 ## Overview
 
-Twerk is a port of the Tork distributed task execution system from Go to Rust. The goal is to bring Tork's functionality to Rust with proper type safety, async-first design, and zero-cost abstractions.
+Twerk is a port of the Twerk distributed task execution system from Go to Rust. The goal is to bring Twerk's functionality to Rust with proper type safety, async-first design, and zero-cost abstractions.
 
-Tork handles workflow execution across Docker, Podman, and Shell environments. Twerk aims to provide the same capabilities with Rust's compile-time safety guarantees.
+Twerk handles workflow execution across Docker, Podman, and Shell environments. Twerk aims to provide the same capabilities with Rust's compile-time safety guarantees.
 
 ## Features
 
@@ -29,14 +29,14 @@ Tork handles workflow execution across Docker, Podman, and Shell environments. T
 git clone https://github.com/lprior-repo/twerk.git
 cd twerk
 cargo build --release
-cargo run --bin tork -- help
+cargo run --bin twerk -- help
 ```
 
 ## Project Structure
 
 ```
 twerk/
-├── tork/              # Core domain types
+├── twerk/              # Core domain types
 ├── locker/            # Distributed locking
 ├── engine/            # Orchestration engine
 ├── broker/            # Message broker (RabbitMQ + in-memory)

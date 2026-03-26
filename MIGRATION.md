@@ -1,199 +1,59 @@
-# Migration Guide: Go Tork → Rust Twerk
+# Tork to Twerk Migration Guide
 
-## Configuration Format
+This document details the architectural and behavioral migration from the original Go implementation (**Tork**) to the modern Rust implementation (**Twerk**).
 
-### TOML Configuration (Rust Twerk)
+## 1. Project Identity & Branding
+- **Project Name**: Tork -> **Twerk**
+- **Crate Prefix**: `twerk-*`
+- **Environment Variables**: `TORK_` -> `TWERK_` (e.g., `TWERK_DATASTORE_TYPE`)
+- **Default Workdir**: `/tork/workdir` -> `/twerk/workdir`
 
-Rust Twerk uses TOML format for configuration, matching the Go version's `knadh/koanf` TOML parser. The configuration file is typically named `config.toml` and supports dot-notation keys.
+## 2. Architectural Structure (Hard-Boundary DDD)
+Twerk uses a Rust Workspace with strict compilation-level isolation between layers.
 
-**Default config file search paths (in order):**
-1. `config.local.toml` (local override)
-2. `config.toml` (project root)
-3. `~/tork/config.toml` (user home directory)
-4. `/etc/tork/config.toml` (system-wide)
+| Rust Crate | Layer | Responsibilities |
+| :--- | :--- | :--- |
+| `twerk-common` | Common | Logging, configuration loading, sync primitives, short UUIDs. |
+| `twerk-core` | Domain | Entities (Job, Task, Node), Repository traits, Expression evaluation. |
+| `twerk-infrastructure` | Infrastructure | Postgres (SQLx), RabbitMQ (lapin), Runtimes (Docker/Podman), Reexec. |
+| `twerk-app` | Application | Engine, Coordinator state machine, Worker consumer loop, Scheduler. |
+| `twerk-web` | Presentation | Axum handlers, API middleware, HTTP responses. |
+| `twerk-cli` | Presentation | CLI entry point, argument parsing, binary orchestration. |
 
-**Custom config path:** Set `TORK_CONFIG` environment variable to specify a custom config file path.
+## 3. Behavioral Parity & Fixed Gaps
 
-### Environment Variable Overrides
+### Datastore (Postgres)
+- **Cascading Deletes**: Fixed a critical gap where job deletion in Rust didn't clean up tasks or logs. The schema now uses `ON DELETE CASCADE`.
+- **Priority Updates**: Task priority is now correctly persisted during `update_task`.
+- **Permission Fallbacks**: Resolved foreign key violations by aligning user/role fallback logic with the Go implementation.
+- **Timestamping**: Migrated from Go's `timestamp` to Rust's `timestamptz` for absolute UTC precision.
 
-All TOML config keys can be overridden via environment variables using the `TORK_` prefix. Keys are converted to uppercase with dots replaced by underscores.
+### Broker (RabbitMQ)
+- **Redelivery Handling**: Implemented Go's "poison pill" protection. Messages with the `redelivered` flag are moved to an `x-redeliveries` queue for auditing.
+- **Queue Naming**: System queues are now prefixed with `x-` (e.g., `x-pending`, `x-progress`) to match the Tork standard.
+- **Exchange Alignment**: Switched from custom `twerk.events` to the standard `amq.topic` exchange for wildcard routing parity.
 
-**Examples:**
-- `broker.rabbitmq.consumer.timeout` → `TORK_BROKER_RABBITMQ_CONSUMER_TIMEOUT`
-- `middleware.web.logger.enabled` → `TORK_MIDDLEWARE_WEB_LOGGER_ENABLED`
-- `runtime.podman.privileged` → `TORK_RUNTIME_PODMAN_PRIVILEGED`
+### Runtimes (Docker & Podman)
+- **Digital Twin Tests**: Integration tests now use `testcontainers-rs` to spin up "Digital Twin" environments for every run.
+- **Lifecycle Sequence**: Strictly follows `Pre -> Main -> Post` task execution with identical exponential backoff for network cleanup.
+- **Log Streaming**: (Pending) Plan to align log initiation to occur *before* health probes to match Go's startup visibility.
 
-### Sample Configuration
+### Engine (Coordinator & Worker)
+- **State Machine**: Fully ported the `PENDING` -> `SCHEDULED` -> `RUNNING` -> `COMPLETED` transitions.
+- **Complex Scheduling**: Implemented logic for `parallel` tasks, `each` (iteration), and `subjob` (nesting).
+- **Consumer Loops**: The Worker now correctly subscribes to work queues and reports heartbeats (CPU/Host stats) to the coordinator.
 
-```toml
-[broker.rabbitmq]
-url = "amqp://guest:guest@localhost:5672/"
-consumer.timeout = "30m"
-management.url = ""
-durable.queues = false
-queue.type = "classic"
-
-[worker.limits]
-cpus = ""    # supports fractions
-memory = ""  # e.g. 100m
-timeout = "" # e.g. 3h
-
-[mounts.bind]
-allowed = false
-sources = [] # a list of paths that are allowed as mount sources
-
-[mounts.temp]
-dir = "/tmp"
-
-[runtime]
-type = "docker" # docker | shell
-
-[runtime.docker]
-config = ""
-privileged = false
-image.ttl = "24h"
-
-[runtime.podman]
-privileged = false
-host.network = false
-
-[middleware.web.logger]
-enabled = true
-level = "DEBUG"        # TRACE|DEBUG|INFO|WARN|ERROR
-skip_paths = ["GET /health"] # supports wildcards (*)
-
-[middleware.web.cors]
-enabled = false
-origins = "*"
-methods = "*"
-credentials = false
-headers = "*"
-
-[middleware.web.ratelimit]
-enabled = false
-rps = 20
-```
-
-### Config Keys Reference
-
-| Config Key | Type | Default | Description |
-|---|---|---|---|
-| `broker.rabbitmq.url` | string | `amqp://guest:guest@localhost:5672/` | RabbitMQ connection URL |
-| `broker.rabbitmq.consumer.timeout` | duration | `30m` | Consumer timeout (e.g., `30m`, `1h`) |
-| `broker.rabbitmq.management.url` | string | `""` | RabbitMQ Management API URL |
-| `broker.rabbitmq.durable.queues` | bool | `false` | Whether queues should be durable |
-| `broker.rabbitmq.queue.type` | string | `"classic"` | Queue type (`"classic"` or `"quorum"`) |
-| `worker.limits.cpus` | string | `""` | Default CPU limit (e.g., `"1"`, `"2"`) |
-| `worker.limits.memory` | string | `""` | Default memory limit (e.g., `"512m"`) |
-| `worker.limits.timeout` | string | `""` | Default timeout (e.g., `"5m"`) |
-| `mounts.bind.allowed` | bool | `false` | Whether bind mounts are allowed |
-| `mounts.bind.sources` | list | `[]` | Allowed bind mount source paths |
-| `mounts.temp.dir` | string | `"/tmp"` | Temp directory for mounts |
-| `runtime.type` | string | `"docker"` | Runtime type (`"docker"`, `"shell"`, `"podman"`) |
-| `runtime.docker.privileged` | bool | `false` | Run containers in privileged mode |
-| `runtime.docker.image.ttl` | duration | `24h` | Image cache TTL |
-| `runtime.podman.privileged` | bool | `false` | Run containers in privileged mode |
-| `runtime.podman.host.network` | bool | `false` | Use host network for Podman |
-| `middleware.web.logger.enabled` | bool | `true` | Enable request logging |
-| `middleware.web.logger.level` | string | `"info"` | Log level |
-| `middleware.web.logger.skip_paths` | list | `[]` | Paths to skip logging |
-
-### Duration Format
-
-Durations support the following units:
-- `ns` - nanoseconds
-- `us` - microseconds
-- `ms` - milliseconds
-- `s` - seconds
-- `m` - minutes
-- `h` - hours
-- `d` - days
-
-**Examples:** `5m`, `1h`, `30s`, `24h`, `7d`
-
-### List Format
-
-Lists can be specified as TOML arrays or comma-separated strings:
+## 4. Configuration Mapping
+Dependencies are centralized in the root `Cargo.toml` using **Workspace Inheritance**.
 
 ```toml
-# TOML array format
-skip_paths = ["GET /health", "GET /metrics"]
-
-# Comma-separated string format (via environment variable)
-# TORK_MIDDLEWARE_WEB_LOGGER_SKIP_PATHS="GET /health,GET /metrics"
+# Use in sub-crates
+[dependencies]
+twerk-common = { workspace = true }
+tokio = { workspace = true }
 ```
 
-### Wildcard Patterns
-
-The logger's `skip_paths` supports wildcard patterns using `*`:
-
-```toml
-skip_paths = ["GET /health*", "POST /api/*"]
-```
-
-This will skip:
-- `GET /health`
-- `GET /healthcheck`
-- `POST /api/users`
-- etc.
-
-## Go → Rust Differences
-
-### Configuration API
-
-**Go (knadh/koanf):**
-```go
-conf.String("broker.rabbitmq.url")
-conf.Bool("runtime.podman.privileged")
-conf.DurationDefault("broker.rabbitmq.consumer.timeout", 30*time.Minute)
-```
-
-**Rust (tork-runtime/conf):**
-```rust
-conf::string("broker.rabbitmq.url")
-conf::runtime_podman_privileged()
-conf::broker_rabbitmq_consumer_timeout()
-```
-
-### Key Naming Conventions
-
-The Rust version uses snake_case function names that map to the dot-notation config keys:
-
-| Go Config Key | Rust Function |
-|---|---|
-| `broker.rabbitmq.url` | `conf::string("broker.rabbitmq.url")` |
-| `broker.rabbitmq.consumer.timeout` | `conf::broker_rabbitmq_consumer_timeout()` |
-| `runtime.podman.privileged` | `conf::runtime_podman_privileged()` |
-| `middleware.web.logger.skip` | `conf::middleware_web_logger_skip_paths()` |
-
-### Custom Helper Functions
-
-For commonly-used config keys, dedicated helper functions are provided:
-
-```rust
-// Broker RabbitMQ
-pub fn broker_rabbitmq_consumer_timeout() -> time::Duration
-pub fn broker_rabbitmq_durable_queues() -> bool
-pub fn broker_rabbitmq_queue_type() -> String
-
-// Worker Limits
-pub fn worker_limits() -> WorkerLimits  // struct with cpus, memory, timeout
-
-// Mounts
-pub fn mounts_bind_allowed() -> bool
-pub fn mounts_bind_sources() -> Vec<String>
-pub fn mounts_temp_dir() -> String
-
-// Runtime Docker
-pub fn runtime_docker_privileged() -> bool
-pub fn runtime_docker_image_ttl() -> time::Duration
-
-// Runtime Podman
-pub fn runtime_podman_privileged() -> bool
-pub fn runtime_podman_host_network() -> bool
-
-// Middleware Web Logger
-pub fn middleware_web_logger_enabled() -> bool
-pub fn middleware_web_logger_level() -> String
-pub fn middleware_web_logger_skip_paths() -> Vec<String>
-```
+## 5. Next Steps for Development
+1. **Web API Parity**: Align error formats (`{"message": "..."}` vs `{"error": "..."}`) and implement the `Wait` parameter for job creation.
+2. **Specialized Middleware**: Port the `onReadJob` and `onReadTask` hooks for secret masking.
+3. **Advanced RabbitMQ**: Implement connection pooling (Go uses 3-connection RR) to handle high-throughput workloads.

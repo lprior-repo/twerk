@@ -47,7 +47,7 @@ key = ""
 
 [datastore.postgres]
 # PostgreSQL connection string
-dsn = "host=localhost user=tork password=tork dbname=tork port=5432 sslmode=disable"
+dsn = "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable"
 # Maximum number of open connections to the database
 max_open_conns = 25
 # Maximum number of idle connections in the pool

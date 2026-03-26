@@ -1,0 +1,60 @@
+[package]
+name = "twerk-infrastructure"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+twerk-common.workspace = true
+twerk-core.workspace = true
+
+# Infrastructure & I/O
+sqlx.workspace = true
+lapin.workspace = true
+bollard.workspace = true
+reqwest.workspace = true
+sysinfo.workspace = true
+tempfile = "3.14" # Not in workspace yet? Let's check
+hostname.workspace = true
+url.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+itertools.workspace = true
+tap.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+postgres.workspace = true
+libc.workspace = true
+tar.workspace = true
+futures-util.workspace = true
+futures-lite.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+uuid.workspace = true
+slug = "0.1"
+
+# Security & Crypto
+bcrypt.workspace = true
+aes-gcm.workspace = true
+sha2.workspace = true
+base64.workspace = true
+rand.workspace = true
+
+# Configuration
+config.workspace = true
+toml.workspace = true
+dirs = "5.0"
+time.workspace = true
+
+[dev-dependencies]
+testcontainers.workspace = true
+testcontainers-modules = { workspace = true, features = ["postgres", "rabbitmq"] }
+rstest.workspace = true
+tokio = { workspace = true, features = ["full", "test-util"] }

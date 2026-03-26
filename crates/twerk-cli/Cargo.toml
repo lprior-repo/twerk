@@ -1,0 +1,28 @@
+[package]
+name = "twerk-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+twerk-common.workspace = true
+twerk-core.workspace = true
+twerk-app.workspace = true
+twerk-infrastructure.workspace = true
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+config.workspace = true
+time.workspace = true
+itertools.workspace = true
+tap.workspace = true
+futures-util.workspace = true
+reqwest.workspace = true
+

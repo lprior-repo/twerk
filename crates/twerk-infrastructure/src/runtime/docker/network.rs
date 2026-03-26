@@ -1,19 +1,18 @@
 //! Network operations for Docker runtime.
 
 use std::time::Duration;
-use bollard::network::CreateNetworkOptions;
+use bollard::models::NetworkCreateRequest;
 use bollard::Docker;
 use crate::runtime::docker::error::DockerError;
 
 pub async fn create_network(client: &Docker) -> Result<String, DockerError> {
     let id = uuid::Uuid::new_v4().to_string();
-    let options = CreateNetworkOptions {
+    let request = NetworkCreateRequest {
         name: id.clone(),
-        driver: "bridge".to_string(),
-        check_duplicate: true,
+        driver: Some("bridge".to_string()),
         ..Default::default()
     };
-    let response = client.create_network(options).await
+    let response = client.create_network(request).await
         .map_err(|e| DockerError::NetworkCreate(e.to_string()))?;
     Ok(response.id)
 }

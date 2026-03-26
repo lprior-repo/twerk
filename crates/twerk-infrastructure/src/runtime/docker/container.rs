@@ -1,9 +1,10 @@
 //! Container operations for Docker runtime.
 
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::Arc;
-use bollard::container::{DownloadFromContainerOptions, LogsOptions, RemoveContainerOptions, UploadToContainerOptions, WaitContainerOptions};
-use bollard::Docker;
+use bollard::query_parameters::{DownloadFromContainerOptions, LogsOptions, RemoveContainerOptions, UploadToContainerOptions, WaitContainerOptions};
+use bollard::{body_full, Docker};
 use futures_util::StreamExt;
 use tokio::time::sleep;
 use crate::runtime::docker::archive::Archive;
@@ -16,13 +17,13 @@ const DEFAULT_PROBE_PATH: &str = "/";
 const DEFAULT_PROBE_TIMEOUT: &str = "1m";
 
 #[allow(dead_code)]
-pub struct Container {
-    pub id: String,
-    pub client: Docker,
-    twerkdir_source: Option<String>,
-    task_id: TaskId,
-    probe: Option<Probe>,
-    broker: Option<Arc<dyn crate::broker::Broker>>,
+ pub struct Container {
+     pub id: String,
+     pub client: Docker,
+     pub twerkdir_source: Option<String>,
+     pub task_id: TaskId,
+     pub probe: Option<Probe>,
+     pub broker: Option<Arc<dyn crate::broker::Broker>>,
 }
 
 impl Container {
@@ -73,7 +74,7 @@ impl Container {
     async fn probe_container(&self) -> Result<(), DockerError> {
         use std::time::Duration;
         let probe = match &self.probe { Some(p) => p, None => return Ok(()) };
-        let port = match probe.port { Some(p) => p, None => return Ok(()) };
+        let port = probe.port;
         let path = probe.path.as_deref().map_or(DEFAULT_PROBE_PATH, |p| p);
         let timeout_str = probe.timeout.as_deref().map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
         let timeout = parse_go_duration(timeout_str).map_err(|e| DockerError::ProbeTimeout(format!("invalid timeout: {}", e)))?;
@@ -108,7 +109,7 @@ impl Container {
 
     async fn stream_logs(client: Docker, container_id: String, task_id: TaskId, broker: Option<Arc<dyn crate::broker::Broker>>) {
         let Some(broker) = broker else { return };
-        let options = LogsOptions::<String> { stdout: true, stderr: true, follow: true, tail: "all".to_string(), ..Default::default() };
+        let options = LogsOptions { stdout: true, stderr: true, follow: true, tail: "all".to_string(), ..Default::default() };
         let mut stream = client.logs(&container_id, Some(options));
         let mut part_num = 0i64;
         while let Some(result) = stream.next().await {
@@ -143,7 +144,7 @@ impl Container {
     }
 
     async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerError> {
-        let options = DownloadFromContainerOptions { path: "/twerk/progress" };
+        let options = DownloadFromContainerOptions { path: "/twerk/progress".to_string() };
         let mut stream = client.download_from_container(cid, Some(options));
         let bytes = stream.next().await.ok_or_else(|| DockerError::CopyFromContainer("empty".to_string()))?
             .map_err(|e| DockerError::CopyFromContainer(e.to_string()))?;
@@ -154,12 +155,12 @@ impl Container {
     }
 
     async fn read_output(&self) -> Result<String, DockerError> {
-        let options = DownloadFromContainerOptions { path: "/twerk/stdout" };
+        let options = DownloadFromContainerOptions { path: "/twerk/stdout".to_string() };
         let mut stream = self.client.download_from_container(&self.id, Some(options));
         match stream.next().await { Some(Ok(bytes)) => Ok(parse_tar_contents(&bytes.to_vec())), Some(Err(e)) => Err(DockerError::CopyFromContainer(e.to_string())), None => Ok(String::new()) }
     }
 
-    async fn init_twerkdir(&self, run_script: Option<&str>) -> Result<(), DockerError> {
+    pub(crate) async fn init_twerkdir(&self, run_script: Option<&str>) -> Result<(), DockerError> {
         let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive.write_file("stdout", 0o222, &[]).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive.write_file("progress", 0o222, &[]).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
@@ -167,23 +168,23 @@ impl Container {
         archive.finish().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         let mut reader = archive.reader().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         let mut contents = Vec::new();
-        std::io::Read::read_to_end(&mut reader, &mut contents).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
-        let options = UploadToContainerOptions { path: "/twerk/", ..Default::default() };
-        self.client.upload_to_container(&self.id, Some(options), contents.into()).await.map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        reader.read_to_end(&mut contents).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        let options = UploadToContainerOptions { path: "/twerk/".to_string(), ..Default::default() };
+        self.client.upload_to_container(&self.id, Some(options), body_full(contents.into())).await.map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive.remove().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         Ok(())
     }
 
-    async fn init_workdir(&self, files: &HashMap<String, String>, workdir: &str) -> Result<(), DockerError> {
+    pub(crate) async fn init_workdir(&self, files: &HashMap<String, String>, workdir: &str) -> Result<(), DockerError> {
         if files.is_empty() { return Ok(()); }
         let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         for (name, data) in files { archive.write_file(name, 0o444, data.as_bytes()).map_err(|e| DockerError::CopyToContainer(e.to_string()))?; }
         archive.finish().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         let mut reader = archive.reader().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         let mut contents = Vec::new();
-        std::io::Read::read_to_end(&mut reader, &mut contents).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
-        let options = UploadToContainerOptions { path: workdir, ..Default::default() };
-        self.client.upload_to_container(&self.id, Some(options), contents.into()).await.map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        reader.read_to_end(&mut contents).map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        let options = UploadToContainerOptions { path: workdir.to_string(), ..Default::default() };
+        self.client.upload_to_container(&self.id, Some(options), body_full(contents.into())).await.map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         archive.remove().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
         Ok(())
     }
@@ -192,6 +193,9 @@ impl Container {
     pub async fn remove(&self) {
         tracing::debug!(container_id = %self.id, "Removing container");
         let _ = self.client.remove_container(&self.id, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
-        if let Some(ref source) = self.twerkdir_source { let _ = self.client.remove_volume(source, Some(bollard::volume::RemoveVolumeOptions { force: true })).await; }
+        if let Some(ref source) = self.twerkdir_source { 
+            use bollard::query_parameters::RemoveVolumeOptions;
+            let _ = self.client.remove_volume(source, Some(RemoveVolumeOptions { force: true })).await; 
+        }
     }
 }

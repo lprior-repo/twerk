@@ -1,8 +1,8 @@
 //! Image pull operations for Docker runtime.
 
 use bollard::auth::DockerCredentials;
-use bollard::container::{Config as BollardConfig, RemoveContainerOptions};
-use bollard::image::CreateImageOptions;
+use bollard::models::ContainerCreateBody;
+use bollard::query_parameters::{CreateContainerOptions, CreateImageOptions, RemoveContainerOptions};
 use bollard::Docker;
 use futures_util::StreamExt;
 use crate::runtime::docker::auth::{config_path, Config as AuthConfig};
@@ -11,15 +11,16 @@ use crate::runtime::docker::reference::parse as parse_reference;
 use twerk_core::task::Registry;
 
 pub async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, DockerError> {
-    let options = bollard::image::ListImagesOptions::<String> { all: true, ..Default::default() };
+    use bollard::query_parameters::ListImagesOptions;
+    let options = ListImagesOptions { all: true, ..Default::default() };
     let image_list = client.list_images(Some(options)).await
         .map_err(|e| DockerError::ImagePull(e.to_string()))?;
     Ok(image_list.iter().any(|img| img.repo_tags.iter().any(|tag| tag == name)))
 }
 
 pub async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerError> {
-    let config = BollardConfig { image: Some(image.to_string()), cmd: Some(vec!["true".to_string()]), ..Default::default() };
-    let response = client.create_container::<String, String>(None, config).await
+    let config = ContainerCreateBody { image: Some(image.to_string()), cmd: Some(vec!["true".to_string()]), ..Default::default() };
+    let response = client.create_container(Some(CreateContainerOptions { name: None, platform: String::new() }), config).await
         .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
     let _ = client.remove_container(&response.id, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
     Ok(())
@@ -48,7 +49,13 @@ pub async fn pull_image(client: &Docker, config: &crate::runtime::docker::config
     let options = CreateImageOptions { from_image: Some(image.to_string()), ..Default::default() };
     let mut stream = client.create_image(Some(options), None, credentials);
     while let Some(result) = stream.next().await { match result { Ok(_) => {}, Err(e) => return Err(DockerError::ImagePull(e.to_string())), } }
-    if config.image_verify { if let Err(_e) = verify_image(client, image).await { let _ = client.remove_image(image, None::<bollard::image::RemoveImageOptions>, None::<DockerCredentials>).await; return Err(DockerError::CorruptedImage(image.to_string())); } }
+    if config.image_verify { 
+        if let Err(_e) = verify_image(client, image).await { 
+            use bollard::query_parameters::RemoveImageOptions;
+            let _ = client.remove_image(image, None::<RemoveImageOptions>, None::<DockerCredentials>).await; 
+            return Err(DockerError::CorruptedImage(image.to_string())); 
+        } 
+    }
     { let mut cache = images.write().await; cache.insert(image.to_string(), std::time::Instant::now()); }
     Ok(())
 }

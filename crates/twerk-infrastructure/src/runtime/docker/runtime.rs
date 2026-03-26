@@ -1,4 +1,127 @@
 // ----------------------------------------------------------------------------
+// Imports and Type Definitions
+// ----------------------------------------------------------------------------
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+
+use bollard::Docker;
+
+use bollard::config::NetworkingConfig;
+use bollard::models::HostConfig;
+use bollard::models::{Mount as BollardMount, MountTypeEnum, PortBinding, EndpointSettings, HealthConfig, DeviceRequest};
+use bollard::models::NetworkCreateRequest as CreateNetworkOptions;
+
+use bollard::query_parameters::{
+    CreateContainerOptions, CreateImageOptions, RemoveContainerOptions, RemoveImageOptions, RemoveVolumeOptions,
+    ListImagesOptions,
+};
+use futures_util::StreamExt;
+use tokio::sync::{mpsc, RwLock};
+use tokio::time::{interval, sleep};
+
+use super::config::DockerConfig;
+use super::error::DockerError;
+use super::mounters::{CompositeMounter, Mounter};
+
+use super::helpers::{parse_go_duration, parse_memory_bytes, slugify};
+use super::container::Container;
+use super::reference::parse as parse_reference;
+use super::auth::{config_path, Config as DockerConfigFile};
+use twerk_core::mount::mount_type;
+use twerk_core::id::TaskId;
+
+use twerk_core::task::{Registry, TaskLimits, Task};
+use twerk_core::uuid::new_uuid;
+
+// ----------------------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------------------
+
+const DEFAULT_WORKDIR: &str = "/workspace";
+const DEFAULT_CMD: &[&str] = &["/bin/sh", "-c"];
+const RUN_ENTRYPOINT: &[&str] = &["sh", "-c"];
+const DEFAULT_PROBE_PATH: &str = "/";
+const DEFAULT_PROBE_TIMEOUT: &str = "1m";
+
+// ----------------------------------------------------------------------------
+// Type Aliases
+// ----------------------------------------------------------------------------
+
+// Networking config type - using HashMap directly as the type
+
+// ----------------------------------------------------------------------------
+// Type Definitions
+// ----------------------------------------------------------------------------
+// Type Aliases
+// ----------------------------------------------------------------------------
+
+
+
+// ----------------------------------------------------------------------------
+// Type Definitions
+// ----------------------------------------------------------------------------
+
+struct PullRequest {
+    image: String,
+    registry: Option<Registry>,
+    logger: Box<dyn std::io::Write + Send>,
+    result_tx: tokio::sync::oneshot::Sender<Result<(), DockerError>>,
+}
+
+/// Docker runtime for executing tasks in containers.
+pub struct DockerRuntime {
+    pub client: Docker,
+    config: DockerConfig,
+    images: Arc<RwLock<HashMap<String, std::time::Instant>>>,
+    pull_tx: mpsc::Sender<PullRequest>,
+    tasks: Arc<RwLock<usize>>,
+    pruner_cancel: tokio::sync::oneshot::Sender<()>,
+    mounter: Arc<dyn Mounter>,
+}
+
+impl crate::runtime::Runtime for DockerRuntime {
+    fn run(&self, task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<()> {
+        let mut task_clone = task.clone();
+        let client = self.client.clone();
+        let images = Arc::clone(&self.images);
+        let pull_tx = self.pull_tx.clone();
+        let tasks = Arc::clone(&self.tasks);
+        let config = self.config.clone();
+        let mounter = Arc::clone(&self.mounter);
+        let (pruner_cancel, _) = tokio::sync::oneshot::channel::<()>();
+        
+        Box::pin(async move {
+            let runtime = DockerRuntime {
+                client,
+                config,
+                images,
+                pull_tx,
+                tasks,
+                pruner_cancel,
+                mounter,
+            };
+            runtime.run(&mut task_clone).await.map_err(|e| anyhow::anyhow!(e))
+        })
+    }
+
+    fn stop(&self, _task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
+        Box::pin(async move {
+            // Docker runtime stop - returns success as no-op for now
+            Ok(Ok(std::process::ExitCode::SUCCESS))
+        })
+    }
+
+    fn health_check(&self) -> crate::runtime::BoxedFuture<()> {
+        let client = self.client.clone();
+        Box::pin(async move {
+            client.ping().await.map(|_| ()).map_err(|e| anyhow::anyhow!(e))
+        })
+    }
+}
+
+// ----------------------------------------------------------------------------
 // Implementation
 // ----------------------------------------------------------------------------
 
@@ -102,31 +225,43 @@ impl DockerRuntime {
         let _guard = Guard(self.tasks.clone());
 
         // If the task has sidecars, create a network
-        let network_id = if !task.sidecars.is_empty() {
-            let id = self.create_network().await?;
-            task.networks.push(id.clone());
-            Some(id)
+        let network_id = if let Some(ref sidecars) = task.sidecars {
+            if !sidecars.is_empty() {
+                let id = self.create_network().await?;
+                if let Some(ref mut networks) = task.networks {
+                    networks.push(id.clone());
+                }
+                Some(id)
+            } else {
+                None
+            }
         } else {
             None
         };
 
         // Prepare mounts
         let mut mounted_mounts = Vec::new();
-        for mnt in &task.mounts {
-            let mut mnt = mnt.clone();
-            mnt.id = Some(new_uuid());
-            if let Err(e) = self.mounter.mount(&mnt).await {
-                return Err(DockerError::Mount(e));
+        if let Some(ref mounts) = task.mounts {
+            for mnt in mounts {
+                let mut mnt = mnt.clone();
+                mnt.id = Some(new_uuid());
+                if let Err(e) = self.mounter.mount(&mnt).await {
+                    return Err(DockerError::Mount(e));
+                }
+                mounted_mounts.push(mnt);
             }
-            mounted_mounts.push(mnt);
         }
-        task.mounts = mounted_mounts.clone();
+        task.mounts = Some(mounted_mounts.clone());
 
         // Execute pre-tasks
-        let pre_tasks: Vec<Task> = task.pre.iter().cloned().collect();
+        let pre_tasks: Vec<Task> = if let Some(ref pre) = task.pre {
+            pre.iter().cloned().collect()
+        } else {
+            Vec::new()
+        };
         for mut pre_task in pre_tasks {
             pre_task.id = Some(TaskId::new(new_uuid()));
-            pre_task.mounts = mounted_mounts.clone();
+            pre_task.mounts = Some(mounted_mounts.clone());
             pre_task.networks = task.networks.clone();
             pre_task.limits = task.limits.clone();
             self.run_task(&mut pre_task).await?;
@@ -136,10 +271,14 @@ impl DockerRuntime {
         self.run_task(task).await?;
 
         // Execute post-tasks
-        let post_tasks: Vec<Task> = task.post.iter().cloned().collect();
+        let post_tasks: Vec<Task> = if let Some(ref post) = task.post {
+            post.iter().cloned().collect()
+        } else {
+            Vec::new()
+        };
         for mut post_task in post_tasks {
             post_task.id = Some(TaskId::new(new_uuid()));
-            post_task.mounts = mounted_mounts.clone();
+            post_task.mounts = Some(mounted_mounts.clone());
             post_task.networks = task.networks.clone();
             post_task.limits = task.limits.clone();
             self.run_task(&mut post_task).await?;
@@ -172,31 +311,33 @@ impl DockerRuntime {
 
         let result = async {
             // Start sidecars
-            for sidecar in &task.sidecars {
-                let mut sidecar_task = sidecar.clone();
-                sidecar_task.id = Some(TaskId::new(new_uuid()));
-                sidecar_task.mounts = task.mounts.clone();
-                sidecar_task.networks = task.networks.clone();
-                sidecar_task.limits = task.limits.clone();
+            if let Some(ref sidecars) = task.sidecars {
+                for sidecar in sidecars {
+                    let mut sidecar_task = sidecar.clone();
+                    sidecar_task.id = Some(TaskId::new(new_uuid()));
+                    sidecar_task.mounts = task.mounts.clone();
+                    sidecar_task.networks = task.networks.clone();
+                    sidecar_task.limits = task.limits.clone();
 
-                let sidecar_container = self.create_container(&sidecar_task).await?;
-                let sidecar_id = sidecar_container.id.clone();
-                let sidecar_twerkdir = sidecar_container.twerkdir_source.clone();
+                    let sidecar_container = self.create_container(&sidecar_task).await?;
+                    let sidecar_id = sidecar_container.id.clone();
+                    let sidecar_twerkdir = sidecar_container.twerkdir_source.clone();
 
-                sidecar_container.start().await
+                    sidecar_container.start().await
                     .map_err(|e| DockerError::ContainerStart(e.to_string()))?;
 
-                // Defer sidecar removal
-                let sc = self.client.clone();
-                tokio::spawn(async move {
-                    let _ = sc.remove_container(
-                        &sidecar_id,
-                        Some(RemoveContainerOptions { force: true, ..Default::default() }),
-                    ).await;
-                    if let Some(source) = sidecar_twerkdir {
-                        let _ = sc.remove_volume(&source, None::<bollard::volume::RemoveVolumeOptions>).await;
-                    }
-                });
+                    // Defer sidecar removal
+                    let sc = self.client.clone();
+                    tokio::spawn(async move {
+                        let _ = sc.remove_container(
+                            &sidecar_id,
+                            Some(RemoveContainerOptions { force: true, ..Default::default() }),
+                        ).await;
+                        if let Some(source) = sidecar_twerkdir {
+                            let _ = sc.remove_volume(&source, None::<RemoveVolumeOptions>).await;
+                        }
+                    });
+                }
             }
 
             // Start main container (includes probe if configured)
@@ -213,7 +354,7 @@ impl DockerRuntime {
             Some(RemoveContainerOptions { force: true, ..Default::default() }),
         ).await;
         if let Some(source) = twerkdir_source {
-            let _ = self.client.remove_volume(&source, None).await;
+            let _ = self.client.remove_volume(&source, None::<RemoveVolumeOptions>).await;
         }
 
         result
@@ -265,7 +406,7 @@ impl DockerRuntime {
             let credentials = Self::get_registry_credentials(config, image).await?;
 
             let options = CreateImageOptions {
-                from_image: Some(image),
+                from_image: Some(image.to_string()),
                 ..Default::default()
             };
             let mut stream = client.create_image(Some(options), None, credentials);
@@ -280,7 +421,7 @@ impl DockerRuntime {
         // Verify if enabled (Go parity: verifyImage)
         if config.image_verify {
             if let Err(_e) = Self::verify_image(client, image).await {
-                let _ = client.remove_image(image, None::<bollard::image::RemoveImageOptions>, None::<DockerCredentials>).await;
+                let _ = client.remove_image(image, None::<RemoveImageOptions>, None::<bollard::auth::DockerCredentials>).await;
                 return Err(DockerError::CorruptedImage(image.to_string()));
             }
         }
@@ -296,7 +437,7 @@ impl DockerRuntime {
 
     /// Checks if an image exists locally.
     async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, DockerError> {
-        let options = bollard::image::ListImagesOptions::<String> {
+        let options = ListImagesOptions {
             all: true,
             ..Default::default()
         };
@@ -309,13 +450,16 @@ impl DockerRuntime {
     ///
     /// Go parity: `verifyImage` — creates container with `cmd: ["true"]`.
     async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerError> {
-        let config = BollardConfig {
-            image: Some(image),
-            cmd: Some(vec!["true"]),
+        let config = bollard::models::ContainerCreateBody {
+            image: Some(image.to_string()),
+            cmd: Some(vec!["true".to_string()]),
             ..Default::default()
         };
         let response = client
-            .create_container::<String, &str>(None, config)
+            .create_container(
+                Some(CreateContainerOptions { name: None, platform: String::new() }),
+                config,
+            )
             .await
             .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
 
@@ -332,7 +476,7 @@ impl DockerRuntime {
     async fn get_registry_credentials(
         config: &DockerConfig,
         image: &str,
-    ) -> Result<Option<DockerCredentials>, DockerError> {
+    ) -> Result<Option<bollard::auth::DockerCredentials>, DockerError> {
         let reference = parse_reference(image)
             .map_err(|e| DockerError::ImagePull(e.to_string()))?;
 
@@ -342,11 +486,11 @@ impl DockerRuntime {
 
         // Load auth config: config_file takes priority, then config_path, then default path
         let auth_config = match (&config.config_file, &config.config_path) {
-            (Some(path), _) | (_, Some(path)) => AuthConfig::load_from_path(path)
+            (Some(path), _) | (_, Some(path)) => DockerConfigFile::load_from_path(path)
                 .map_err(|e| DockerError::ImagePull(e.to_string()))?,
             (None, None) => {
                 let path = config_path().map_err(|e| DockerError::ImagePull(e.to_string()))?;
-                AuthConfig::load_from_path(&path)
+                DockerConfigFile::load_from_path(&path)
                     .map_err(|e| DockerError::ImagePull(e.to_string()))?
             }
         };
@@ -359,7 +503,7 @@ impl DockerRuntime {
             return Ok(None);
         }
 
-        Ok(Some(DockerCredentials {
+        Ok(Some(bollard::auth::DockerCredentials {
             username: Some(username),
             password: Some(password),
             ..Default::default()
@@ -371,8 +515,7 @@ impl DockerRuntime {
         let id = new_uuid();
         let options = CreateNetworkOptions {
             name: id.clone(),
-            driver: "bridge".to_string(),
-            check_duplicate: true,
+            driver: Some("bridge".to_string()),
             ..Default::default()
         };
         let response = self.client.create_network(options).await
@@ -384,7 +527,7 @@ impl DockerRuntime {
     ///
     /// Go parity: `removeNetwork` — exponential backoff 200ms→3200ms, 5 retries.
     async fn remove_network(&self, network_id: &str) {
-        let mut delay = Duration::from_millis(200);
+        let mut delay = std::time::Duration::from_millis(200);
         for i in 0..5u32 {
             match self.client.remove_network(network_id).await {
                 Ok(()) => return,
@@ -408,55 +551,63 @@ impl DockerRuntime {
     /// workdir, and file initialization.
     #[allow(dead_code)] // used in integration tests
     pub async fn create_container(&self, task: &Task) -> Result<Container, DockerError> {
-        if task.id.is_empty() {
+        if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(DockerError::TaskIdRequired);
         }
 
         // Pull image
-        self.pull_image(&task.image, task.registry.as_ref()).await?;
+        let image = task.image.as_ref().ok_or_else(|| DockerError::ImageRequired)?;
+        self.pull_image(image, task.registry.as_ref()).await?;
         // Build env (Go parity: iterates t.Env HashMap, formats KEY=VALUE, adds TWERK_OUTPUT and TWERK_PROGRESS)
-        let env: Vec<String> = task.env.iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .chain(std::iter::once("TWERK_OUTPUT=/twerk/stdout".to_string()))
-            .chain(std::iter::once("TWERK_PROGRESS=/twerk/progress".to_string()))
-            .collect();
+        let mut env: Vec<String> = if let Some(ref env_map) = task.env {
+            env_map.iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        env.push("TWERK_OUTPUT=/twerk/stdout".to_string());
+        env.push("TWERK_PROGRESS=/twerk/progress".to_string());
 
         // Build mounts with validation (Go parity: mount type validation)
         let mut mounts: Vec<BollardMount> = Vec::new();
-        for mnt in &task.mounts {
-            let typ = match mnt.mount_type.as_str() {
-                mount_type::VOLUME => {
-                    if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
-                        return Err(DockerError::VolumeTargetRequired);
+        if let Some(ref mounts_list) = task.mounts {
+            for mnt in mounts_list {
+                let typ = match mnt.mount_type.as_deref() {
+                    Some(mount_type::VOLUME) => {
+                        if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
+                            return Err(DockerError::VolumeTargetRequired);
+                        }
+                        MountTypeEnum::VOLUME
                     }
-                    MountTypeEnum::VOLUME
-                }
-                mount_type::BIND => {
-                    if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
-                        return Err(DockerError::BindTargetRequired);
+                    Some(mount_type::BIND) => {
+                        if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
+                            return Err(DockerError::BindTargetRequired);
+                        }
+                        if mnt.source.as_ref().is_none_or(|s| s.is_empty()) {
+                            return Err(DockerError::BindSourceRequired);
+                        }
+                        MountTypeEnum::BIND
                     }
-                    if mnt.source.as_ref().is_none_or(|s| s.is_empty()) {
-                        return Err(DockerError::BindSourceRequired);
-                    }
-                    MountTypeEnum::BIND
-                }
-                mount_type::TMPFS => MountTypeEnum::TMPFS,
-                other => return Err(DockerError::UnknownMountType(other.to_string())),
-            };
-            tracing::debug!(source = ?mnt.source, target = ?mnt.target, "Mounting");
-            mounts.push(BollardMount {
-                target: mnt.target.clone(),
-                source: mnt.source.clone(),
-                typ: Some(typ),
-                ..Default::default()
-            });
+                    Some(mount_type::TMPFS) => MountTypeEnum::TMPFS,
+                    Some(other) => return Err(DockerError::UnknownMountType(other.to_string())),
+                    None => return Err(DockerError::UnknownMountType("none".to_string())),
+                };
+                tracing::debug!(source = ?mnt.source, target = ?mnt.target, "Mounting");
+                mounts.push(BollardMount {
+                    target: mnt.target.clone(),
+                    source: mnt.source.clone(),
+                    typ: Some(typ),
+                    ..Default::default()
+                });
+            }
         }
 
         // Create twerkdir volume
         let twerkdir_volume_name = new_uuid();
-        let _ = self.client.create_volume(bollard::volume::CreateVolumeOptions {
-            name: twerkdir_volume_name.clone(),
-            driver: "local".to_string(),
+        let _ = self.client.create_volume(bollard::models::VolumeCreateRequest {
+            name: Some(twerkdir_volume_name.clone()),
+            driver: Some("local".to_string()),
             ..Default::default()
         }).await
             .map_err(|e| DockerError::VolumeCreate(e.to_string()))?;
@@ -474,61 +625,60 @@ impl DockerRuntime {
         // Working directory
         let workdir = if task.workdir.is_some() {
             task.workdir.clone()
-        } else if !task.files.is_empty() {
-            Some(DEFAULT_WORKDIR.to_string())
-        } else {
+        } else if task.files.as_ref().is_none_or(|f| f.is_empty()) {
             None
+        } else {
+            Some(DEFAULT_WORKDIR.to_string())
         };
 
         // Entrypoint auto-detection (Go parity)
-        let cmd: Vec<String> = if task.cmd.is_empty() {
+        let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(|c| c.is_empty()) {
             DEFAULT_CMD.iter().map(|s| s.to_string()).collect()
         } else {
-            task.cmd.clone()
+            task.cmd.clone().unwrap_or_default()
         };
 
-        let entrypoint: Vec<String> = if task.entrypoint.is_empty() && task.run.is_some() {
+        let entrypoint: Vec<String> = if task.entrypoint.as_ref().is_none_or(|e| e.is_empty()) && task.run.is_some() {
             RUN_ENTRYPOINT.iter().map(|s| s.to_string()).collect()
         } else {
-            task.entrypoint.clone()
+            task.entrypoint.clone().unwrap_or_default()
         };
 
         // Probe port configuration (Go parity: exposed ports + port bindings)
-        let mut exposed_ports: HashMap<String, HashMap<(), ()>> = HashMap::new();
+        let mut exposed_ports: Vec<String> = Vec::new();
         let mut port_bindings: HashMap<String, Option<Vec<PortBinding>>> = HashMap::new();
         let mut healthcheck: Option<HealthConfig> = None;
 
         if let Some(ref probe) = task.probe {
-            if let Some(port) = probe.port {
-                let port_key = format!("{}/tcp", port);
-                exposed_ports.insert(port_key.clone(), HashMap::new());
-                port_bindings.insert(port_key, Some(vec![PortBinding {
-                    host_ip: Some("127.0.0.1".to_string()),
-                    host_port: Some("0".to_string()),
-                }]));
+            let port = probe.port;
+            let port_key = format!("{}/tcp", port);
+            exposed_ports.push(port_key.clone());
+            port_bindings.insert(port_key, Some(vec![PortBinding {
+                host_ip: Some("127.0.0.1".to_string()),
+                host_port: Some("0".to_string()),
+            }]));
 
-                // Build Docker HEALTHCHECK for native container health monitoring
-                let probe_path = probe.path.as_deref().map_or(DEFAULT_PROBE_PATH, |p| p);
-                let timeout_str = probe.timeout.as_deref().map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
-                let timeout = parse_go_duration(timeout_str)
-                    .map_or(Duration::from_secs(60), |v| v);
-                let interval = Duration::from_secs(30);
+            // Build Docker HEALTHCHECK for native container health monitoring
+            let probe_path = probe.path.as_deref().map_or(DEFAULT_PROBE_PATH, |p| p);
+            let timeout_str = probe.timeout.as_deref().map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
+            let timeout = parse_go_duration(timeout_str)
+                .map_or(Duration::from_secs(60), |v| v);
+            let interval = Duration::from_secs(30);
 
-                healthcheck = Some(HealthConfig {
-                    test: Some(vec![
-                        "CMD".to_string(),
-                        "curl".to_string(),
-                        "-f".to_string(),
-                        "-s".to_string(),
-                        format!("http://localhost:{}{}", port, probe_path),
-                    ]),
-                    interval: Some(interval.as_nanos() as i64),
-                    timeout: Some(timeout.as_nanos() as i64),
-                    retries: Some(3),
-                    start_period: Some(0),
-                    start_interval: Some(0),
-                });
-            }
+            healthcheck = Some(HealthConfig {
+                test: Some(vec![
+                    "CMD".to_string(),
+                    "curl".to_string(),
+                    "-f".to_string(),
+                    "-s".to_string(),
+                    format!("http://localhost:{}{}", port, probe_path),
+                ]),
+                interval: Some(interval.as_nanos() as i64),
+                timeout: Some(timeout.as_nanos() as i64),
+                retries: Some(3),
+                start_period: Some(0),
+                start_interval: Some(0),
+            });
         }
 
         // GPU device requests (Go parity: `gpuOpts.Set(t.GPUs)`)
@@ -537,7 +687,11 @@ impl DockerRuntime {
             .transpose()?;
 
         // Host network mode detection (Go parity: `network == hostNetworkName`)
-        let host_network_mode = task.networks.iter().any(|n| n == "host");
+        let host_network_mode = if let Some(ref networks) = task.networks {
+            networks.iter().any(|n| n == "host")
+        } else {
+            false
+        };
         
         // Validate host network usage
         if host_network_mode && !self.config.host_network {
@@ -546,28 +700,34 @@ impl DockerRuntime {
 
         // Networking config with aliases (Go parity: `slug.Make(t.Name)`)
         // Note: Network aliases are not supported with host networking
-        let networking_config = if task.networks.is_empty() || host_network_mode {
+        let networking_config = if task.networks.as_ref().is_none_or(|n| n.is_empty()) || host_network_mode {
             None
         } else {
             let mut endpoints = HashMap::new();
-            for nw in &task.networks {
-                let alias = slugify(task.name.as_deref().map_or(task.id.as_str(), |n| n));
-                endpoints.insert(nw.clone(), EndpointSettings {
-                    aliases: Some(vec![alias]),
-                    ..Default::default()
-                });
+            if let Some(ref networks) = task.networks {
+                for nw in networks {
+                    let alias = slugify(task.name.as_deref().map_or(task.id.as_ref().map(|id| id.as_str()).unwrap_or("unknown"), |n| n));
+                    endpoints.insert(nw.clone(), EndpointSettings {
+                        aliases: Some(vec![alias]),
+                        ..Default::default()
+                    });
+                }
             }
-            Some(BollardNetworkingConfig { endpoints_config: endpoints })
+              Some(NetworkingConfig {
+                endpoints_config: Some(endpoints),
+            })
         };
 
-        // Build container config
-        let container_config = BollardConfig {
-            image: Some(task.image.clone()),
+      // Build container config
+        let container_config = bollard::models::ContainerCreateBody {
+            image: task.image.clone(),
             env: Some(env),
             cmd: Some(cmd),
             entrypoint: if entrypoint.is_empty() { None } else { Some(entrypoint) },
             working_dir: workdir.clone(),
-            exposed_ports: if exposed_ports.is_empty() { None } else { Some(exposed_ports) },
+            exposed_ports: if exposed_ports.is_empty() { None } else { 
+                Some(exposed_ports) 
+            },
             host_config: Some(HostConfig {
                 mounts: Some(mounts),
                 nano_cpus,
@@ -586,11 +746,15 @@ impl DockerRuntime {
         // Create container with 30s timeout (Go parity: createCtx)
         let create_response = tokio::time::timeout(
             Duration::from_secs(30),
-            self.client.create_container::<String, String>(None, container_config),
+            self.client.create_container(
+                Some(CreateContainerOptions { name: None, platform: String::new() }),
+                container_config,
+            ),
         ).await
             .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
             .map_err(|e| {
-                tracing::error!(image = %task.image, error = %e, "Error creating container");
+                let image_str = task.image.as_deref().unwrap_or("unknown");
+                tracing::error!(image = image_str, error = %e, "Error creating container");
                 DockerError::ContainerCreate(e.to_string())
             })?;
 
@@ -601,7 +765,7 @@ impl DockerRuntime {
             id: create_response.id,
             client: self.client.clone(),
             twerkdir_source: Some(twerkdir_volume_name),
-            task_id: task.id.clone(),
+            task_id: task.id.clone().expect("Task ID must be set"),
             probe: task.probe.clone(),
             broker: self.config.broker.clone(),
         };
@@ -620,7 +784,7 @@ impl DockerRuntime {
                 )
                 .await;
             let _ = cleanup_client
-                .remove_volume(&twerkdir_volume, None::<bollard::volume::RemoveVolumeOptions>)
+                .remove_volume(&twerkdir_volume, None::<RemoveVolumeOptions>)
                 .await;
             return Err(e);
         }
@@ -628,7 +792,8 @@ impl DockerRuntime {
         let effective_workdir = workdir.as_deref().map_or(DEFAULT_WORKDIR, |w| w);
 
         // Clean up container and volume on initialization failure (Go parity: defer tc.Remove)
-        if let Err(e) = container.init_workdir(&task.files, effective_workdir).await {
+        let files = task.files.as_ref().cloned().unwrap_or_default();
+        if let Err(e) = container.init_workdir(&files, effective_workdir).await {
             let _ = cleanup_client
                 .remove_container(
                     &container_id,
@@ -636,7 +801,7 @@ impl DockerRuntime {
                 )
                 .await;
             let _ = cleanup_client
-                .remove_volume(&twerkdir_volume, None::<bollard::volume::RemoveVolumeOptions>)
+                .remove_volume(&twerkdir_volume, None::<RemoveVolumeOptions>)
                 .await;
             return Err(e);
         }
@@ -745,7 +910,7 @@ impl DockerRuntime {
         };
 
         for image in to_remove {
-            let _ = client.remove_image(&image, None::<bollard::image::RemoveImageOptions>, None::<DockerCredentials>).await;
+            let _ = client.remove_image(&image, None::<RemoveImageOptions>, None::<bollard::auth::DockerCredentials>).await;
             if let Ok(mut cache) = images.try_write() {
                 cache.remove(&image);
                 tracing::debug!(image = %image, "pruned image");

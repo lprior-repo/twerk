@@ -11,6 +11,9 @@ pub enum DockerError {
     #[error("task ID is required")]
     TaskIdRequired,
 
+    #[error("image is required")]
+    ImageRequired,
+
     #[error("volume target is required")]
     VolumeTargetRequired,
 

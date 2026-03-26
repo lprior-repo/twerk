@@ -90,13 +90,15 @@ impl CompositeMounter {
 impl Mounter for CompositeMounter {
     fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
-        let mounter = self.mounter_for(&mnt.mount_type);
+        let mount_type = mnt.mount_type.as_deref().unwrap_or("volume");
+        let mounter = self.mounter_for(mount_type);
         Box::pin(async move { mounter.mount(&mnt).await })
     }
 
     fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
-        let mounter = self.mounter_for(&mnt.mount_type);
+        let mount_type = mnt.mount_type.as_deref().unwrap_or("volume");
+        let mounter = self.mounter_for(mount_type);
         Box::pin(async move { mounter.unmount(&mnt).await })
     }
 }

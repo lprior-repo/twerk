@@ -1,6 +1,6 @@
 //! Credential helper integration following functional-rust conventions.
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::Write;
 use std::process::{Command, Stdio};
 
 use thiserror::Error;
@@ -31,7 +31,7 @@ pub enum CredentialHelperError {
 }
 
 /// Credentials returned from a helper.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Credentials {
     pub username: String,
     pub secret: String,

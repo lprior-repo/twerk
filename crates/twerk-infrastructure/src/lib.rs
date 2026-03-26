@@ -1,6 +1,6 @@
 pub mod broker;
 pub mod cache;
-pub mod config;
+pub use twerk_common::conf as config;
 pub mod datastore;
 pub mod encryption;
 pub mod locker;

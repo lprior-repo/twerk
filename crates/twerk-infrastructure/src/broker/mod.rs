@@ -86,3 +86,4 @@ pub trait Broker: Send + Sync {
 }
 
 pub mod rabbitmq;
+pub mod inmemory;

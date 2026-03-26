@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use bollard::models::ContainerCreateBody;
 use bollard::query_parameters::{CreateContainerOptions, CreateImageOptions, RemoveContainerOptions};
 use bollard::Docker;
@@ -8,7 +8,8 @@ use std::sync::Arc;
 use tracing::debug;
 use twerk_core::id::TaskId;
 use twerk_core::task::Task;
-use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait};
+use std::process::ExitCode;
+use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
 
 #[derive(Debug, Default)]
 pub struct DockerRuntimeAdapter {
@@ -60,7 +61,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
         })
     }
 
-    fn stop(&self, task: &Task) -> BoxedFuture<()> {
+    fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let tid = task.id.clone().unwrap_or_default();
         let active = self.active_tasks.clone();
         Box::pin(async move {
@@ -69,7 +70,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                 let _ = d.stop_container(&cid, None).await;
                 let _ = d.remove_container(&cid, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
             }
-            Ok(())
+            Ok(Ok(ExitCode::SUCCESS))
         })
     }
 

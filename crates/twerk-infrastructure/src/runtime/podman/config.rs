@@ -1,9 +1,14 @@
-//! Configuration and traits for podman runtime.
+//! Podman configuration and traits
 
-use std::time::Duration;
+use std::sync::Arc;
 
-use super::domain::{Mount, RegistryCredentials};
-use super::state::PodmanError;
+use tokio::sync::oneshot;
+
+use crate::runtime::podman::types::Mount;
+
+use super::errors::PodmanError;
+
+// ── Config ──────────────────────────────────────────────────────
 
 #[derive(Default)]
 pub struct PodmanConfig {
@@ -12,7 +17,7 @@ pub struct PodmanConfig {
     pub host_network: bool,
     pub mounter: Option<Box<dyn Mounter + Send + Sync>>,
     pub image_verify: bool,
-    pub image_ttl: Option<Duration>,
+    pub image_ttl: Option<std::time::Duration>,
 }
 
 impl std::fmt::Debug for PodmanConfig {
@@ -28,6 +33,9 @@ impl std::fmt::Debug for PodmanConfig {
     }
 }
 
+// ── Traits ──────────────────────────────────────────────────────
+
+/// Broker trait for streaming logs and progress
 pub trait Broker: Send + Sync {
     fn clone_box(&self) -> Box<dyn Broker + Send + Sync>;
     fn ship_log(&self, task_id: &str, line: &str);
@@ -45,14 +53,16 @@ pub trait Mounter: Send + Sync {
     fn unmount(&self, mount: &Mount) -> Result<(), anyhow::Error>;
 }
 
-pub struct PullRequest {
-    pub respond_to: tokio::sync::oneshot::Sender<Result<(), PodmanError>>,
-    pub image: String,
-    pub registry: Option<RegistryCredentials>,
+// ── Pull request ────────────────────────────────────────────────
+
+struct PullRequest {
+    respond_to: oneshot::Sender<Result<(), PodmanError>>,
+    image: String,
+    registry: Option<RegistryCredentials>,
 }
 
 #[derive(Debug, Clone)]
-pub struct RegistryCredentials {
-    pub username: String,
-    pub password: String,
+struct RegistryCredentials {
+    username: String,
+    password: String,
 }

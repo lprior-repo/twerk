@@ -8,6 +8,9 @@
 //! # Architecture
 //!
 //! - **Data**: `Reference` struct holds parsed components
+#![allow(clippy::expect_used)]
+// NOTE: expect_used is allowed for static regex initialization at startup.
+// Invalid regex is a configuration error and should fail fast.
 //! - **Calc**: Pure parsing functions with regex
 //! - **Actions**: I/O pushed to boundary (file loading, etc.)
 
@@ -70,6 +73,12 @@ impl Reference {
 // ----------------------------------------------------------------------------
 // Regex patterns - compiled once at startup using once_cell::Lazy
 // ----------------------------------------------------------------------------
+//
+// NOTE: Using .expect() on regex compilation is acceptable because:
+// 1. Compilation happens at module load time (not runtime)
+// 2. Invalid regex = application configuration error
+// 3. Application should fail fast at startup with clear error message
+// 4. These are hardcoded patterns, not user input
 
 /// Matches alphanumeric characters (lowercase only).
 static ALPHA_NUMERIC_REGEX: Lazy<Regex> =

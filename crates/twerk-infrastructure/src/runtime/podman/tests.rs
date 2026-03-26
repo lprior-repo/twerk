@@ -870,7 +870,7 @@ async fn test_stop_container_helper() {
     assert!(!container_id.is_empty());
 
     // Now stop it using our helper
-    let result = PodmanRuntime::stop_container(&container_id).await;
+    let result = PodmanRuntime::stop_container_static(&container_id).await;
     assert!(
         result.is_ok(),
         "stop_container should succeed: {:?}",

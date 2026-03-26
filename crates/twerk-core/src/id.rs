@@ -65,3 +65,5 @@ define_id!(JobId);
 define_id!(TaskId);
 define_id!(NodeId);
 define_id!(ScheduledJobId);
+define_id!(UserId);
+define_id!(RoleId);

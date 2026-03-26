@@ -3,9 +3,8 @@
 use std::future::Future;
 use std::pin::Pin;
 use thiserror::Error;
-use axum::http::{Request, Response, StatusCode};
+use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
-use std::sync::Arc;
 
 #[derive(Debug, Error)]
 pub enum WebError {

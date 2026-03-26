@@ -31,9 +31,10 @@ pub mod volume;
 
 pub use archive::{Archive, ArchiveEntry, ArchiveError};
 pub use auth::{
-    config_path, decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config,
+    decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config,
     KubernetesConfig, ProxyConfig,
 };
+pub use auth::config_path;
 pub use bind::{BindConfig, BindMounter, BindMounterError};
 pub use reference::{parse, Reference, ReferenceError};
 pub use tmpfs::{TmpfsMounter, TmpfsMounterError};

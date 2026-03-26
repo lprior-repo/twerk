@@ -7,8 +7,8 @@ use twerk_core::task::Task;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 
-#[tokio::test]
-async fn test_job_completion() -> Result<()> {
+#[tokio::test(start_paused = true)]
+async fn job_completes_when_tasks_are_finished() -> Result<()> {
     // Set up in-memory datastore
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
 
@@ -22,7 +22,7 @@ async fn test_job_completion() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("test-job-2".to_string()),
+        id: Some("test-job-2".into()),
         name: Some("test job 2".to_string()),
         state: JOB_STATE_PENDING.to_string(),
         tasks: Some(vec![Task {
@@ -38,13 +38,16 @@ async fn test_job_completion() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for task to be created
-    let mut attempts = 0;
-    let mut tasks = datastore.get_active_tasks("test-job-2").await?;
-    while tasks.is_empty() && attempts < 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        tasks = datastore.get_active_tasks("test-job-2").await?;
-        attempts += 1;
-    }
+    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let tasks = datastore.get_active_tasks("test-job-2").await?;
+            if !tasks.is_empty() {
+                return Ok::<_, anyhow::Error>(tasks);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("timeout waiting for tasks")?;
 
     assert_eq!(tasks.len(), 1);
     let task = tasks[0].clone();
@@ -57,13 +60,16 @@ async fn test_job_completion() -> Result<()> {
     broker.publish_task_progress(&completed_task).await?;
 
     // Wait for job to be completed
-    let mut persisted = datastore.get_job_by_id("test-job-2").await?;
-    attempts = 0;
-    while persisted.state != "COMPLETED" && attempts < 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        persisted = datastore.get_job_by_id("test-job-2").await?;
-        attempts += 1;
-    }
+    let persisted = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let persisted = datastore.get_job_by_id("test-job-2").await?;
+            if persisted.state == "COMPLETED" {
+                return Ok::<_, anyhow::Error>(persisted);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("timeout waiting for job completion")?;
 
     assert_eq!(persisted.state, "COMPLETED");
     assert!(persisted.completed_at.is_some());
@@ -71,8 +77,8 @@ async fn test_job_completion() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_parallel_scheduling() -> Result<()> {
+#[tokio::test(start_paused = true)]
+async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     // Set up in-memory datastore
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
 
@@ -86,7 +92,7 @@ async fn test_parallel_scheduling() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("parallel-job".to_string()),
+        id: Some("parallel-job".into()),
         state: JOB_STATE_PENDING.to_string(),
         tasks: Some(vec![Task {
             name: Some("parallel task".to_string()),
@@ -112,14 +118,16 @@ async fn test_parallel_scheduling() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for the parallel task to be "running" and subtasks to be "pending"
-    let mut attempts = 0;
-    let mut tasks = datastore.get_active_tasks("parallel-job").await?;
-    // We expect 3 active tasks: 1 parallel (running) + 2 subtasks (pending)
-    while tasks.len() < 3 && attempts < 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        tasks = datastore.get_active_tasks("parallel-job").await?;
-        attempts += 1;
-    }
+    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let tasks = datastore.get_active_tasks("parallel-job").await?;
+            if tasks.len() >= 3 {
+                return Ok::<_, anyhow::Error>(tasks);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("timeout waiting for parallel tasks")?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -138,8 +146,8 @@ async fn test_parallel_scheduling() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_each_scheduling() -> Result<()> {
+#[tokio::test(start_paused = true)]
+async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     // Set up in-memory datastore
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
 
@@ -152,14 +160,14 @@ async fn test_each_scheduling() -> Result<()> {
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
     coordinator.start().await?;
 
-    let mut context_map = std::collections::HashMap::new();
-    context_map.insert("list".to_string(), serde_json::json!(["a", "b"]));
+    let mut inputs = std::collections::HashMap::new();
+    inputs.insert("list".to_string(), "[\"a\", \"b\"]".to_string());
 
     let job = Job {
-        id: Some("each-job".to_string()),
+        id: Some("each-job".into()),
         state: JOB_STATE_PENDING.to_string(),
         context: Some(twerk_core::job::JobContext {
-            inputs: Some(std::collections::HashMap::new()), // not used for eval in this test
+            inputs: Some(inputs),
             ..Default::default()
         }),
         tasks: Some(vec![Task {
@@ -178,42 +186,19 @@ async fn test_each_scheduling() -> Result<()> {
         ..Default::default()
     };
 
-    // We need to inject "list" into the job context as a Value
-    // But JobContext only takes HashMap<String, String>.
-    // Wait! evaluate_task takes HashMap<String, Value> as context.
-    // In start_job:
-    // let job_ctx = job.context.as_ref().map(|c| c.as_map()).unwrap_or_default();
-
-    // So if I put it in JobContext.inputs, it will be in the map as Value::String.
-    let mut inputs = std::collections::HashMap::new();
-    inputs.insert("list".to_string(), "[\"a\", \"b\"]".to_string());
-
-    let mut job = job;
-    job.context.as_mut().unwrap().inputs = Some(inputs);
-
     coordinator.submit_job(job).await?;
 
     // Wait for the each task to be "running" and subtasks to be "scheduled"
-    let mut attempts = 0;
-    let mut tasks = datastore.get_active_tasks("each-job").await?;
-    while tasks.len() < 3 && attempts < 10 {
-        // If empty, check why
-        if tasks.is_empty() {
-            let all_tasks = datastore.get_active_tasks("each-job").await?;
-            println!("Current tasks: {:?}", all_tasks);
+    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let tasks = datastore.get_active_tasks("each-job").await?;
+            if tasks.len() >= 3 {
+                return Ok::<_, anyhow::Error>(tasks);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        tasks = datastore.get_active_tasks("each-job").await?;
-        attempts += 1;
-    }
-
-    // Check if task failed
-    let all_tasks = datastore.get_active_tasks("each-job").await?;
-    if all_tasks.len() < 3 {
-        // Maybe it's not active because it failed?
-        // Check all tasks for the job
-        // I don't have get_all_tasks, but I can check by id if I knew it.
-    }
+    }).await.expect("timeout waiting for each tasks")?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -232,8 +217,8 @@ async fn test_each_scheduling() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_subjob_scheduling() -> Result<()> {
+#[tokio::test(start_paused = true)]
+async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     // Set up in-memory datastore
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
 
@@ -247,7 +232,7 @@ async fn test_subjob_scheduling() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("parent-job".to_string()),
+        id: Some("parent-job".into()),
         state: JOB_STATE_PENDING.to_string(),
         tasks: Some(vec![Task {
             name: Some("subjob task".to_string()),
@@ -268,13 +253,16 @@ async fn test_subjob_scheduling() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for the subjob task to be "running"
-    let mut attempts = 0;
-    let mut tasks = datastore.get_active_tasks("parent-job").await?;
-    while (tasks.is_empty() || tasks[0].state != "RUNNING") && attempts < 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        tasks = datastore.get_active_tasks("parent-job").await?;
-        attempts += 1;
-    }
+    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let tasks = datastore.get_active_tasks("parent-job").await?;
+            if !tasks.is_empty() && tasks[0].state == "RUNNING" {
+                return Ok::<_, anyhow::Error>(tasks);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("timeout waiting for subjob task")?;
 
     assert_eq!(tasks.len(), 1);
     let subjob_task = &tasks[0];
@@ -291,14 +279,19 @@ async fn test_subjob_scheduling() -> Result<()> {
     assert_eq!(subjob.name.as_deref(), Some("my subjob"));
 
     // Subjob should be scheduled because coordinator handles PENDING jobs
-    attempts = 0;
-    let mut persisted_sj = subjob;
-    while persisted_sj.state == "PENDING" && attempts < 10 {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        persisted_sj = datastore.get_job_by_id(&subjob_id).await?;
-        attempts += 1;
-    }
+    let persisted_sj = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let persisted = datastore.get_job_by_id(&subjob_id).await?;
+            if persisted.state == "SCHEDULED" {
+                return Ok::<_, anyhow::Error>(persisted);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("timeout waiting for subjob scheduling")?;
+    
     assert_eq!(persisted_sj.state, "SCHEDULED");
 
     Ok(())
 }
+

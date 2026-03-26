@@ -1,26 +1,4 @@
 {
-  "testModules": [
-    {
-      "moduleId": "compilation",
-      "tests": [
-        {
-          "name": "build",
-          "fullName": "compilation::build",
-          "state": "failed",
-          "errors": [
-            {
-              "message": "coordinator/config.rs:42:5: :ErrorHandler`, `heartbeat::HeartbeatHandler as NodeHeartbeatHandler`, `job::JobHandler as JobEventHandler`, `log::LogHandler`, `pending::PendingHandler`, `progress::ProgressHandler`, `redelivered::RedeliveredHandler`, `schedule::ScheduleHandler`, and `started::StartedHandler`",
-              "location": "coordinator/config.rs:42:5"
-            },
-            {
-              "message": "coordinator/config.rs:169:8: :ErrorHandler,",
-              "location": "coordinator/config.rs:169:8",
-              "note": "to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`"
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "reason": "failed"
+  "testModules": [],
+  "reason": "passed"
 }

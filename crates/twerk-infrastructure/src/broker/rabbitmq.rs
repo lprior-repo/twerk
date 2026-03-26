@@ -1,6 +1,6 @@
 //! RabbitMQ broker implementation using `lapin`.
 
-use std::sync::Arc;
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 use std::time::Duration;
 use anyhow::{anyhow, Result};
 use lapin::{
@@ -26,7 +26,8 @@ const MSG_TYPE_EVENT: &str = "*twerk.Event";
 /// RabbitMQ-backed broker implementation.
 pub struct RabbitMQBroker {
     url: String,
-    conn_pool: Arc<RwLock<Vec<Arc<Connection>>>>,
+    conn_pool: Arc<Vec<Arc<Connection>>>,
+    last_conn_idx: Arc<AtomicUsize>,
     management_url: Option<String>,
     durable_queues: bool,
     queue_type: String,
@@ -37,12 +38,24 @@ pub struct RabbitMQBroker {
 
 impl RabbitMQBroker {
     /// Create a new `RabbitMQ` broker with the given URL and options.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the connection to RabbitMQ fails.
     pub async fn new(url: &str, opts: RabbitMQOptions) -> Result<Self> {
-        let conn = Connection::connect(url, ConnectionProperties::default())
+        let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
-            .map_err(|e| anyhow!("RabbitMQ connection failed: {e}"))?;
+            .map_err(|e| anyhow!("RabbitMQ connection 1 failed: {e}"))?;
         
-        let ch = conn.create_channel().await?;
+        let conn2 = Connection::connect(url, ConnectionProperties::default())
+            .await
+            .map_err(|e| anyhow!("RabbitMQ connection 2 failed: {e}"))?;
+
+        let conn3 = Connection::connect(url, ConnectionProperties::default())
+            .await
+            .map_err(|e| anyhow!("RabbitMQ connection 3 failed: {e}"))?;
+
+        let ch = conn1.create_channel().await?;
         ch.exchange_declare(
             "amq.topic",
             lapin::ExchangeKind::Topic,
@@ -67,7 +80,8 @@ impl RabbitMQBroker {
 
         Ok(Self {
             url: url.to_string(),
-            conn_pool: Arc::new(RwLock::new(vec![Arc::new(conn)])),
+            conn_pool: Arc::new(vec![Arc::new(conn1), Arc::new(conn2), Arc::new(conn3)]),
+            last_conn_idx: Arc::new(AtomicUsize::new(0)),
             management_url: opts.management_url,
             durable_queues: opts.durable_queues,
             queue_type: opts.queue_type,
@@ -78,22 +92,20 @@ impl RabbitMQBroker {
     }
 
     async fn get_connection(&self) -> Result<Arc<Connection>> {
-        let pool = self.conn_pool.read().await;
-        if let Some(conn) = pool.get(0) {
-            if conn.status().connected() {
-                return Ok(Arc::clone(conn));
-            }
+        let idx = self.last_conn_idx.fetch_add(1, Ordering::SeqCst) % self.conn_pool.len();
+        let conn = self.conn_pool.get(idx).ok_or_else(|| anyhow!("Connection pool index out of bounds"))?;
+        
+        if conn.status().connected() {
+            return Ok(Arc::clone(conn));
         }
-        drop(pool);
-        let mut pool = self.conn_pool.write().await;
-        let conn = Connection::connect(&self.url, ConnectionProperties::default()).await?;
-        let conn_arc = Arc::new(conn);
-        if pool.is_empty() {
-            pool.push(Arc::clone(&conn_arc));
-        } else {
-            pool[0] = Arc::clone(&conn_arc);
-        }
-        Ok(conn_arc)
+
+        // If connection is dead, we could try to reconnect, but for high-throughput 
+        // with 3 connections, we just fail and let the next one handle it, 
+        // or we could try the other 2 in the pool.
+        self.conn_pool.iter()
+            .find(|c| c.status().connected())
+            .map(Arc::clone)
+            .ok_or_else(|| anyhow!("All RabbitMQ connections are down"))
     }
 
     fn queue_args(&self, qname: &str) -> FieldTable {
@@ -108,9 +120,10 @@ impl RabbitMQBroker {
             args.insert("x-max-priority".into(), lapin::types::AMQPValue::ShortInt(10));
         }
         if let Some(timeout) = self.consumer_timeout {
+            let timeout_ms = i64::try_from(timeout.as_millis()).map_or(30 * 60 * 1000, |v| v);
             args.insert(
                 "x-consumer-timeout".into(),
-                lapin::types::AMQPValue::LongLongInt(timeout.as_millis() as i64),
+                lapin::types::AMQPValue::LongLongInt(timeout_ms),
             );
         }
         args
@@ -205,7 +218,8 @@ impl Broker for RabbitMQBroker {
         let b = self.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&task)?;
-            b.publish_raw("", &qname, data, MSG_TYPE_TASK, task.priority as u8)
+            let priority = u8::try_from(task.priority).map_or(0, |v| v);
+            b.publish_raw("", &qname, data, MSG_TYPE_TASK, priority)
                 .await
         })
     }
@@ -469,6 +483,7 @@ impl Clone for RabbitMQBroker {
         Self {
             url: self.url.clone(),
             conn_pool: Arc::clone(&self.conn_pool),
+            last_conn_idx: Arc::clone(&self.last_conn_idx),
             management_url: self.management_url.clone(),
             durable_queues: self.durable_queues,
             queue_type: self.queue_type.clone(),

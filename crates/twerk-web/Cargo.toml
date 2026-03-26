@@ -26,3 +26,10 @@ base64.workspace = true
 time.workspace = true
 bytes.workspace = true
 serde_yml.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true, features = ["json"] }
+serde_json = { workspace = true }
+tower = { workspace = true }
+http-body-util = "0.1"

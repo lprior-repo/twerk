@@ -164,6 +164,9 @@ impl DockerRuntime {
     async fn run_task(&self, task: &mut Task) -> Result<(), DockerError> {
         let container = self.create_container(task).await?;
 
+        // Start monitoring (logs & progress) immediately after creation
+        container.start_monitoring();
+
         let container_id = container.id.clone();
         let twerkdir_source = container.twerkdir_source.clone();
 

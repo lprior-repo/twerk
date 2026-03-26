@@ -10,6 +10,7 @@ use tower_http::cors::CorsLayer;
 
 pub mod handlers;
 pub mod error;
+pub mod redact;
 
 /// Configuration for the API server.
 #[derive(Debug, Clone)]

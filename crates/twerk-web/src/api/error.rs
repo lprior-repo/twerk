@@ -33,7 +33,7 @@ impl IntoResponse for ApiError {
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
         };
         let body = axum::Json(json!({
-            "error": msg
+            "message": msg
         }));
         (status, body).into_response()
     }
@@ -44,6 +44,18 @@ impl From<twerk_infrastructure::datastore::Error> for ApiError {
         match err {
             twerk_infrastructure::datastore::Error::UserNotFound => {
                 Self::NotFound("user not found".to_string())
+            }
+            twerk_infrastructure::datastore::Error::JobNotFound => {
+                Self::NotFound("job not found".to_string())
+            }
+            twerk_infrastructure::datastore::Error::TaskNotFound => {
+                Self::NotFound("task not found".to_string())
+            }
+            twerk_infrastructure::datastore::Error::ScheduledJobNotFound => {
+                Self::NotFound("scheduled job not found".to_string())
+            }
+            twerk_infrastructure::datastore::Error::NodeNotFound => {
+                Self::NotFound("node not found".to_string())
             }
             _ => Self::Internal(err.to_string()),
         }

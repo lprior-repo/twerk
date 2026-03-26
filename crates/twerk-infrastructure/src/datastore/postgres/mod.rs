@@ -21,6 +21,10 @@ use records::{
     JobPermRecord, JobRecord, NodeRecord, RoleRecord, ScheduledJobRecord, ScheduledPermRecord,
     TaskLogPartRecord, TaskRecord, UserRecord,
 };
+use records::{
+    JobRecordExt, NodeRecordExt, RoleRecordExt, ScheduledJobRecordExt, TaskLogPartRecordExt,
+    TaskRecordExt, UserRecordExt,
+};
 use twerk_core::job::{
     Job, JobSummary, ScheduledJob, ScheduledJobSummary, JOB_STATE_COMPLETED, JOB_STATE_FAILED,
 };
@@ -164,7 +168,7 @@ impl Datastore for PostgresDatastore {
         let created_by = job.created_by.as_ref().and_then(|u| u.id.clone()).ok_or(DatastoreError::InvalidInput("job.created_by.id is required".to_string(),))?;
         
         let q = r"INSERT INTO jobs (id, name, description, tags, state, created_at, created_by, tasks, position, inputs, context, task_count, output_, defaults, webhooks, auto_delete, secrets, progress, scheduled_job_id, started_at, completed_at, failed_at, delete_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)";
-        let query = sqlx::query(q).bind(&**id).bind(&job.name).bind(&job.description).bind(&job.tags).bind(&job.state).bind(job.created_at).bind(&created_by).bind(&tasks).bind(job.position).bind(&inputs).bind(&context).bind(job.task_count).bind(&job.output).bind(&defaults).bind(&webhooks).bind(&auto_delete).bind(&secrets_bytes).bind(job.progress).bind(job.schedule.as_ref().and_then(|s| s.id.as_ref().map(|id| id.to_string()))).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.delete_at);
+        let query = sqlx::query(q).bind(&**id).bind(&job.name).bind(&job.description).bind(&job.tags).bind(&job.state).bind(job.created_at).bind(&*created_by).bind(&tasks).bind(job.position).bind(&inputs).bind(&context).bind(job.task_count).bind(&job.output).bind(&defaults).bind(&webhooks).bind(&auto_delete).bind(&secrets_bytes).bind(job.progress).bind(job.schedule.as_ref().and_then(|s| s.id.as_ref().map(|id| id.to_string()))).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.delete_at);
 
         match &self.executor {
             Executor::Pool(p) => {
@@ -405,7 +409,7 @@ impl Datastore for PostgresDatastore {
         let created_by = sj.created_by.as_ref().and_then(|u| u.id.clone()).ok_or(DatastoreError::InvalidInput("scheduled_job.created_by.id is required".to_string(),))?;
         
         let q = r"INSERT INTO scheduled_jobs (id, name, description, created_at, tasks, inputs, output_, defaults, webhooks, created_by, tags, auto_delete, secrets, cron_expr, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)";
-        let query = sqlx::query(q).bind(&**id).bind(&sj.name).bind(&sj.description).bind(sj.created_at).bind(&tasks).bind(&inputs).bind(&sj.output).bind(&defaults).bind(&webhooks).bind(&created_by).bind(&sj.tags).bind(&auto_delete).bind(&secrets_bytes).bind(&sj.cron).bind(&sj.state);
+        let query = sqlx::query(q).bind(&**id).bind(&sj.name).bind(&sj.description).bind(sj.created_at).bind(&tasks).bind(&inputs).bind(&sj.output).bind(&defaults).bind(&webhooks).bind(&*created_by).bind(&sj.tags).bind(&auto_delete).bind(&secrets_bytes).bind(&sj.cron).bind(&sj.state);
 
         match &self.executor {
             Executor::Pool(p) => {
@@ -541,7 +545,7 @@ impl Datastore for PostgresDatastore {
         let password_hash = user.password_hash.as_ref().ok_or(DatastoreError::InvalidInput("password hash is required".to_string()))?;
         let created_at = user.created_at.ok_or(DatastoreError::InvalidInput("created_at is required".to_string(),))?;
         let q = r"INSERT INTO users (id, name, username_, password_, created_at, is_disabled) VALUES ($1, $2, $3, $4, $5, $6)";
-        let query = sqlx::query(q).bind(id).bind(name).bind(username).bind(password_hash).bind(created_at).bind(user.disabled);
+        let query = sqlx::query(q).bind(&**id).bind(name).bind(username).bind(password_hash).bind(created_at).bind(user.disabled);
         match &self.executor {
             Executor::Pool(p) => { query.execute(p).await.map_err(|e| DatastoreError::Database(format!("create user failed: {e}")))?; }
             Executor::Tx(tx) => { let mut tx = tx.lock().await; query.execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("create user failed: {e}")))?; }
@@ -563,7 +567,7 @@ impl Datastore for PostgresDatastore {
         let name = role.name.as_ref().ok_or(DatastoreError::InvalidInput("role name is required".to_string()))?;
         let created_at = role.created_at.ok_or(DatastoreError::InvalidInput("created_at is required".to_string(),))?;
         let q = r"INSERT INTO roles (id, slug, name, created_at) VALUES ($1, $2, $3, $4)";
-        let query = sqlx::query(q).bind(id).bind(slug).bind(name).bind(created_at);
+        let query = sqlx::query(q).bind(&**id).bind(slug).bind(name).bind(created_at);
         match &self.executor {
             Executor::Pool(p) => { query.execute(p).await.map_err(|e| DatastoreError::Database(format!("create role failed: {e}")))?; }
             Executor::Tx(tx) => { let mut tx = tx.lock().await; query.execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("create role failed: {e}")))?; }

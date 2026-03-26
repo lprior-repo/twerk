@@ -1,4 +1,8 @@
-//! Writer that adapts io::Write to tracing
+//! Writer that adapts `io::Write` to tracing
+//!
+//! - **Data**: `TracingWriter` struct holds the level
+//! - **Calculations**: None (mostly I/O)
+//! - **Actions**: `write` and `flush` implementations
 
 use std::io;
 
@@ -34,7 +38,7 @@ impl From<Level> for tracing::Level {
 }
 
 impl TracingWriter {
-    /// Create a new TracingWriter.
+    /// Create a new `TracingWriter`.
     ///
     /// # Arguments
     ///

@@ -1,8 +1,8 @@
-//! Thread-safe map implementation using DashMap.
+//! Thread-safe map implementation using `DashMap`.
 //!
 //! # Architecture
 //!
-//! - **Data**: `Map` struct wraps DashMap for concurrent access
+//! - **Data**: `Map` struct wraps `DashMap` for concurrent access
 //! - **Calc**: Pure getter operations with Option handling
 //! - **Actions**: All operations are thread-safe by design
 
@@ -19,7 +19,7 @@ use std::cmp::Eq;
 use std::hash::Hash;
 use std::sync::Arc;
 
-/// A thread-safe map wrapper around DashMap.
+/// A thread-safe map wrapper around `DashMap`.
 ///
 /// This provides a similar interface to Go's sync.Map with
 /// Get, Set, Delete, and Iterate operations.
@@ -74,8 +74,8 @@ where
     K: Hash + Eq + Clone,
 {
     /// Deletes a key from the map.
-    pub fn delete(&self, key: K) {
-        self.inner.remove(&key);
+    pub fn delete(&self, key: &K) {
+        self.inner.remove(key);
     }
 }
 
@@ -101,7 +101,9 @@ where
             .map(|pair| (pair.key().clone(), pair.value().clone()))
             .collect();
 
-        entries.into_iter().for_each(|(k, v)| f(k, v));
+        for (k, v) in entries {
+            f(k, v);
+        }
     }
 }
 
@@ -151,7 +153,7 @@ mod tests {
         m.set("somekey".to_string(), 100);
         let v = m.get(&"somekey".to_string());
         assert_eq!(Some(100), v);
-        m.delete("somekey".to_string());
+        m.delete(&"somekey".to_string());
         let v = m.get(&"somekey".to_string());
         assert!(v.is_none());
     }

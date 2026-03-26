@@ -140,11 +140,8 @@ impl Archive {
     }
 }
 
-impl Default for Archive {
-    fn default() -> Self {
-        Self::new().expect("Archive should be creatable")
-    }
-}
+// NOTE: Default impl removed - Archive::new() can fail and Default cannot return Result.
+// Callers should use Archive::new() directly and handle the Result.
 
 impl Read for Archive {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {

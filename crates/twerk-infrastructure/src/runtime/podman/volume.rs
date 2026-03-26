@@ -11,7 +11,7 @@ use std::os::unix::fs::PermissionsExt;
 use anyhow::Context;
 use tracing::debug;
 
-use super::{Mount, Mounter};
+use super::{types::Mount, types::Mounter};
 
 /// VolumeMounter creates temporary directories for volume mounts
 #[derive(Debug, Default)]
@@ -63,7 +63,7 @@ mod tests {
     /// Mirrors Go's TestCreateVolume:
     /// Verifies mount creates a directory, it exists, and unmount removes it.
     #[test]
-    fn test_create_volume() {
+    fn volume_mount_creates_directory_when_mounted() {
         let vm = VolumeMounter::new();
         let mut mount = Mount {
             id: "test".to_string(),
@@ -73,8 +73,7 @@ mod tests {
             opts: None,
         };
 
-        let result = vm.mount(&mut mount);
-        assert!(result.is_ok());
+        vm.mount(&mut mount).expect("mount should succeed");
         assert_eq!("/somevol", mount.target);
         assert!(!mount.source.is_empty(), "source should be populated");
 
@@ -91,8 +90,7 @@ mod tests {
         }
 
         // Unmount should remove the directory
-        let result = vm.unmount(&mount);
-        assert!(result.is_ok());
+        vm.unmount(&mount).expect("unmount should succeed");
 
         // Verify directory no longer exists
         let metadata = std::fs::metadata(&mount.source);
@@ -105,7 +103,7 @@ mod tests {
     /// Mirrors Go's TestCreateMountVolume:
     /// Verifies mount populates source for a volume mount type.
     #[test]
-    fn test_create_mount_volume() {
+    fn volume_mount_populates_source_when_type_is_volume() {
         let vm = VolumeMounter::new();
         let mut mount = Mount {
             id: "test".to_string(),
@@ -115,8 +113,7 @@ mod tests {
             opts: None,
         };
 
-        let result = vm.mount(&mut mount);
-        assert!(result.is_ok());
+        vm.mount(&mut mount).expect("mount should succeed");
 
         // Cleanup
         let _ = vm.unmount(&mount);
@@ -126,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unmount_nonexistent() {
+    fn volume_unmount_succeeds_when_path_nonexistent() {
         let vm = VolumeMounter::new();
         let mount = Mount {
             id: "test".to_string(),
@@ -137,12 +134,12 @@ mod tests {
         };
 
         // Should not error on nonexistent path
-        let result = vm.unmount(&mount);
-        assert!(result.is_ok());
+        vm.unmount(&mount)
+            .expect("unmount of nonexistent path should succeed");
     }
 
     #[test]
-    fn test_unmount_empty_source() {
+    fn volume_unmount_succeeds_when_source_empty() {
         let vm = VolumeMounter::new();
         let mount = Mount {
             id: "test".to_string(),
@@ -152,13 +149,13 @@ mod tests {
             opts: None,
         };
 
-        let result = vm.unmount(&mount);
-        assert!(result.is_ok());
+        vm.unmount(&mount)
+            .expect("unmount with empty source should succeed");
     }
 
     /// Verifies that multiple mount/unmount cycles work correctly.
     #[test]
-    fn test_multiple_mount_unmount_cycles() {
+    fn volume_mount_unmount_succeeds_across_multiple_cycles() {
         let vm = VolumeMounter::new();
 
         for _ in 0..5 {

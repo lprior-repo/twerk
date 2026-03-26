@@ -6,6 +6,7 @@
 #![allow(clippy::pedantic)]
 
 pub mod postgres;
+pub mod inmemory;
 
 use async_trait::async_trait;
 use thiserror::Error;

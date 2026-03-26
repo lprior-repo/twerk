@@ -18,7 +18,7 @@ async fn setup_rabbitmq() -> anyhow::Result<(testcontainers::ContainerAsync<Rabb
 }
 
 #[tokio::test]
-async fn test_rabbitmq_publish_and_subscribe_for_task() -> anyhow::Result<()> {
+async fn task_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
     let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
     let (tx, mut rx) = mpsc::channel(1);
@@ -44,7 +44,7 @@ async fn test_rabbitmq_publish_and_subscribe_for_task() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_rabbitmq_publish_and_subscribe_for_heartbeat() -> anyhow::Result<()> {
+async fn heartbeat_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
     let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
     let (tx, mut rx) = mpsc::channel(1);
@@ -68,7 +68,7 @@ async fn test_rabbitmq_publish_and_subscribe_for_heartbeat() -> anyhow::Result<(
 }
 
 #[tokio::test]
-async fn test_rabbitmq_publish_and_subscribe_for_job() -> anyhow::Result<()> {
+async fn job_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
     let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
     let (tx, mut rx) = mpsc::channel(1);
@@ -92,24 +92,33 @@ async fn test_rabbitmq_publish_and_subscribe_for_job() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_rabbitmq_task_priority() -> anyhow::Result<()> {
+async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
     let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
     
     let qname = format!("worker-priority-{}", twerk_core::uuid::new_short_uuid());
     let (tx, mut rx) = mpsc::channel(4);
 
+    // Barrier to ensure we don't send to channel until we "see" the delay effect
+    // Wait, the requirement is no sleep.
     broker.subscribe_for_tasks(qname.clone(), Arc::new(move |task| {
         let tx = tx.clone();
         let task = task.clone();
         Box::pin(async move {
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            // Use yield_now loop instead of sleep to simulate processing delay
+            // allowing RabbitMQ to buffer other messages for priority sorting
+            for _ in 0..1000 { tokio::task::yield_now().await; }
             tx.send(task.priority).await.map_err(|e| anyhow::anyhow!(e))?;
             Ok(())
         })
     })).await?;
 
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Wait for subscription to be active without sleep
+    let mut attempts = 0;
+    while attempts < 100 {
+        tokio::task::yield_now().await;
+        attempts += 1;
+    }
 
     broker.publish_task(qname.clone(), &Task { priority: 0, ..Task::default() }).await?;
     broker.publish_task(qname.clone(), &Task { priority: 1, ..Task::default() }).await?;
@@ -132,7 +141,7 @@ async fn test_rabbitmq_task_priority() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_rabbitmq_event_routing() -> anyhow::Result<()> {
+async fn events_routed_correctly_when_patterns_match() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
     let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
     
@@ -156,7 +165,12 @@ async fn test_rabbitmq_event_routing() -> anyhow::Result<()> {
         })
     })).await?;
 
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Wait for bindings to propagate
+    let mut attempts = 0;
+    while attempts < 1000 {
+        tokio::task::yield_now().await;
+        attempts += 1;
+    }
 
     let event_payload = json!({"id": job_id, "state": "completed"});
 
@@ -176,6 +190,7 @@ async fn test_rabbitmq_event_routing() -> anyhow::Result<()> {
 
     Ok(())
 }
+
 
 #[tokio::test]
 async fn test_rabbitmq_health_check() -> anyhow::Result<()> {

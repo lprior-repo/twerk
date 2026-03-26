@@ -67,7 +67,7 @@ async fn test_postgres_all() {
     
     // 1. Create and get task
     let j1 = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -82,7 +82,7 @@ async fn test_postgres_all() {
     assert_eq!(j2.created_by.as_ref().unwrap().username.as_ref().unwrap(), "guest");
 
     let t1 = Task {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         created_at: Some(now),
         job_id: j1.id.clone(),
         description: Some("some description".to_string()),
@@ -117,7 +117,7 @@ async fn test_postgres_all() {
 
     // 2. Parallel task
     let t_para = Task {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         created_at: Some(now),
         job_id: j1.id.clone(),
         parallel: Some(twerk_core::task::ParallelTask {
@@ -144,7 +144,7 @@ async fn test_postgres_all() {
         twerk_core::task::TASK_STATE_FAILED,
     ];
     let j_active = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -156,7 +156,7 @@ async fn test_postgres_all() {
     ds.create_job(&j_active).await.expect("failed to create j_active");
     for state in states {
         let t = Task {
-            id: Some(Uuid::new_v4().to_string().replace('-', "")),
+            id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
             state: state.to_string(),
             created_at: Some(now),
             job_id: j_active.id.clone(),
@@ -183,7 +183,7 @@ async fn test_postgres_all() {
 
     // 4b. Test cascading cleanup
     let j_cascade = Job {
-        id: Some("job_cascade".to_string()),
+        id: Some("job_cascade".into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -194,15 +194,15 @@ async fn test_postgres_all() {
     };
     ds.create_job(&j_cascade).await.expect("failed to create job_cascade");
     let t_cascade = Task {
-        id: Some("task_cascade".to_string()),
-        job_id: Some("job_cascade".to_string()),
+        id: Some("task_cascade".into()),
+        job_id: Some("job_cascade".into()),
         created_at: Some(now),
         ..Task::default()
     };
     ds.create_task(&t_cascade).await.expect("failed to create task_cascade");
     let l_cascade = TaskLogPart {
         id: Some("log_cascade".to_string()),
-        task_id: Some("task_cascade".to_string()),
+        task_id: Some("task_cascade".into()),
         number: 1,
         contents: Some("log message".to_string()),
         created_at: Some(now),
@@ -220,7 +220,7 @@ async fn test_postgres_all() {
 
     // 5. Create job with user
     let u = User {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         username: Some(format!("u{}", Uuid::new_v4().to_string()[..8].to_string())),
         name: Some("Tester".to_string()),
         created_at: Some(now),
@@ -229,7 +229,7 @@ async fn test_postgres_all() {
     };
     ds.create_user(&u).await.expect("failed to create user");
     let j_u = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         created_by: Some(u.clone()),
         tags: Some(vec!["tag-a".to_string(), "tag-b".to_string()]),
         auto_delete: Some(twerk_core::task::AutoDelete {
@@ -249,7 +249,7 @@ async fn test_postgres_all() {
 
     // 6. Node CRUD
     let n1 = Node {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         name: Some("some node".to_string()),
         hostname: Some("some-name".to_string()),
         port: Some(1234),
@@ -273,7 +273,7 @@ async fn test_postgres_all() {
 
     // 7. Active nodes
     let n_active = Node {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         status: Some(NodeStatus::UP),
         last_heartbeat_at: Some(OffsetDateTime::now_utc() - Duration::seconds(20)),
         name: Some("n_active".to_string()),
@@ -290,7 +290,7 @@ async fn test_postgres_all() {
     // 8. Pagination
     for i in 0..15 {
         let j = Job {
-            id: Some(format!("job_pag_{}", i)),
+            id: Some(format!("job_pag_{}", i).into()),
             name: Some(format!("Job {}", i)),
             created_by: Some(guest.clone()),
             tags: Some(vec![]),
@@ -308,7 +308,7 @@ async fn test_postgres_all() {
 
     // 9. Task logs
     let part1 = TaskLogPart {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         task_id: t1.id.clone(),
         number: 1,
         contents: Some("line 1".to_string()),
@@ -325,7 +325,7 @@ async fn test_postgres_all() {
 
     // 11. Search
     let j_search = Job {
-        id: Some("job_search_1".to_string()),
+        id: Some("job_search_1".into()),
         name: Some("Searchable Job".to_string()),
         description: Some("This is a searchable description".to_string()),
         created_by: Some(guest.clone()),
@@ -346,7 +346,7 @@ async fn test_postgres_all() {
 
     // 12. Scheduled Jobs
     let sj = twerk_core::job::ScheduledJob {
-        id: Some(Uuid::new_v4().to_string().replace('-', "")),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         name: Some("Test Scheduled Job".to_string()),
         description: Some("Test description".to_string()),
         cron: Some("* * * * *".to_string()),
@@ -369,7 +369,7 @@ async fn test_postgres_all() {
 
     // 13. Retention/Cleanup
     let j_expired = Job {
-        id: Some("job_expired".to_string()),
+        id: Some("job_expired".into()),
         created_by: Some(guest.clone()),
         state: twerk_core::job::JOB_STATE_COMPLETED.to_string(),
         created_at: Some(now - Duration::days(400)),
@@ -392,7 +392,7 @@ async fn test_postgres_all() {
 
     // 14. Transactions
     let j_tx = Job {
-        id: Some("job_tx".to_string()),
+        id: Some("job_tx".into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -418,7 +418,7 @@ async fn test_postgres_all() {
 
     // 15. Concurrency
     let j_conc = Job {
-        id: Some("job_conc".to_string()),
+        id: Some("job_conc".into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),

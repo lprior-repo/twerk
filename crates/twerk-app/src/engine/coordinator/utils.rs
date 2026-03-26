@@ -7,61 +7,20 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
-/// Matches a string against a wildcard pattern where `*` matches any sequence
-pub fn wildcard_match(pattern: &str, s: &str) -> bool {
-    if pattern.is_empty() {
-        return s.is_empty();
-    }
-    if pattern == "*" {
-        return true;
-    }
-    if !pattern.contains('*') {
-        return pattern == s;
-    }
-
-    // Simple DP approach for wildcard matching
-    let pattern_chars: Vec<char> = pattern.chars().collect();
-    let s_chars: Vec<char> = s.chars().collect();
-    let lp = pattern_chars.len();
-    let ls = s_chars.len();
-
-    let mut dp = vec![false; (lp + 1) * (ls + 1)];
-    dp[0] = true;
-
-    for i in 0..lp {
-        let idx = (i + 1) * (ls + 1);
-        dp[idx] = if pattern_chars[i] == '*' {
-            dp[i * (ls + 1)]
-        } else {
-            false
-        };
-    }
-
-    for (i, &pc) in pattern_chars.iter().enumerate() {
-        for j in 0..ls {
-            let idx = (i + 1) * (ls + 1) + (j + 1);
-            dp[idx] = match pc {
-                '*' => {
-                    dp[i * (ls + 1) + j] || dp[i * (ls + 1) + (j + 1)] || dp[(i + 1) * (ls + 1) + j]
-                }
-                _ if pc == s_chars[j] => dp[i * (ls + 1) + j],
-                _ => false,
-            };
-        }
-    }
-
-    dp[lp * (ls + 1) + ls]
-}
+pub use twerk_common::wildcard::wildcard_match;
 
 /// Base64 decode helper
 pub(crate) fn base64_decode(input: &str) -> Option<String> {
     // Use base64 crate from workspace
     use base64::{engine::general_purpose::STANDARD, Engine};
 
-    STANDARD
-        .decode(input)
-        .ok()
-        .and_then(|bytes| String::from_utf8(bytes).ok())
+    match STANDARD.decode(input) {
+        Ok(bytes) => match String::from_utf8(bytes) {
+            Ok(s) => Some(s),
+            Err(_) => None,
+        },
+        Err(_) => None,
+    }
 }
 
 /// Check password against bcrypt hash
@@ -76,19 +35,23 @@ pub(crate) fn parse_body_limit(s: &str) -> Option<usize> {
         return None;
     }
 
-    let multiplier = if s.ends_with('K') {
-        1024
-    } else if s.ends_with('M') {
-        1024 * 1024
-    } else if s.ends_with('G') {
-        1024 * 1024 * 1024
+    let (num_str, multiplier) = if let Some(stripped) = s.strip_suffix('K') {
+        (stripped, 1024)
+    } else if let Some(stripped) = s.strip_suffix('M') {
+        (stripped, 1024 * 1024)
+    } else if let Some(stripped) = s.strip_suffix('G') {
+        (stripped, 1024 * 1024 * 1024)
     } else {
-        return s.parse().ok();
+        return match s.parse() {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        };
     };
 
-    let num_str = &s[..s.len() - 1];
-    let num: usize = num_str.parse().ok()?;
-    num.checked_mul(multiplier)
+    match num_str.parse::<usize>() {
+        Ok(num) => num.checked_mul(multiplier),
+        Err(_) => None,
+    }
 }
 
 #[cfg(test)]

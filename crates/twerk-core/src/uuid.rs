@@ -33,8 +33,7 @@ fn encode_base57(bytes: &[u8; 16]) -> String {
 
     // Pad to 22 characters with the first alphabet character (matches Go)
     let padding = 22usize.saturating_sub(digits.len());
-    std::iter::repeat(BASE57_ALPHABET[0])
-        .take(padding)
+    std::iter::repeat_n(BASE57_ALPHABET[0], padding)
         .chain(digits.into_iter().rev())
         .map(|b| b as char)
         .collect()

@@ -33,7 +33,7 @@ impl PodmanBroker for FakeBroker {
 
 fn make_task(id: &str) -> Task {
     Task {
-        id: Some(id.to_string()),
+        id: Some(id.into()),
         name: Some(format!("test-task-{}", id)),
         image: Some("busybox:stable".to_string()),
         cmd: Some(vec!["echo".to_string(), "hello".to_string()]),
@@ -57,7 +57,7 @@ echo "1.0" > /twerk/progress
 echo "done" > /twerk/stdout
 "#;
     Task {
-        id: Some(id.to_string()),
+        id: Some(id.into()),
         name: Some(format!("test-progress-{}", id)),
         image: Some("busybox:stable".to_string()),
         cmd: Some(vec!["sh".to_string(), "-c".to_string(), script.to_string()]),

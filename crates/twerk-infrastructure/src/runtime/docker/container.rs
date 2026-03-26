@@ -37,16 +37,6 @@ impl Container {
 
     #[allow(dead_code)]
     pub async fn wait(&self) -> Result<String, DockerError> {
-        let progress_client = self.client.clone();
-        let progress_id = self.id.clone();
-        let progress_task_id = self.task_id.clone();
-        let progress_broker = self.broker.clone();
-        tokio::spawn(async move { Self::report_progress(progress_client, progress_id, progress_task_id, progress_broker).await; });
-        let log_client = self.client.clone();
-        let log_id = self.id.clone();
-        let log_task_id = self.task_id.clone();
-        let log_broker = self.broker.clone();
-        tokio::spawn(async move { Self::stream_logs(log_client, log_id, log_task_id, log_broker).await; });
         let options = WaitContainerOptions { condition: "not-running".to_string() };
         let result = self.client.wait_container(&self.id, Some(options)).next().await
             .ok_or_else(|| DockerError::ContainerWait("no wait result".to_string()))?
@@ -63,6 +53,21 @@ impl Container {
         let stdout = self.read_output().await?;
         tracing::debug!(status_code, task_id = %self.task_id, "task completed");
         Ok(stdout)
+    }
+
+    #[allow(dead_code)]
+    pub fn start_monitoring(&self) {
+        let progress_client = self.client.clone();
+        let progress_id = self.id.clone();
+        let progress_task_id = self.task_id.clone();
+        let progress_broker = self.broker.clone();
+        tokio::spawn(async move { Self::report_progress(progress_client, progress_id, progress_task_id, progress_broker).await; });
+        
+        let log_client = self.client.clone();
+        let log_id = self.id.clone();
+        let log_task_id = self.task_id.clone();
+        let log_broker = self.broker.clone();
+        tokio::spawn(async move { Self::stream_logs(log_client, log_id, log_task_id, log_broker).await; });
     }
 
     async fn probe_container(&self) -> Result<(), DockerError> {

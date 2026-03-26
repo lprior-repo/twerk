@@ -1,5 +1,6 @@
 //! Task record types and conversions to domain types.
 
+use serde::de::DeserializeOwned;
 use sqlx::FromRow;
 
 use crate::datastore::Error as DatastoreError;
@@ -62,29 +63,36 @@ pub trait TaskRecordExt {
 
 impl TaskRecordExt for TaskRecord {
     fn to_task(&self) -> Result<Task, DatastoreError> {
-        let parse_bytes = |label: &'static str,
-                           bytes: Option<&Vec<u8>>|
-         -> std::result::Result<Option<_>, DatastoreError> {
+        fn parse_bytes<'a, T: DeserializeOwned>(
+            label: &'static str,
+            bytes: Option<&'a Vec<u8>>,
+        ) -> std::result::Result<Option<T>, DatastoreError> {
             bytes
                 .map(|b| {
                     serde_json::from_slice(b)
                         .map_err(|e| DatastoreError::Serialization(format!("task.{label}: {e}")))
                 })
                 .transpose()
-        };
+        }
 
-        let env = parse_bytes("env", self.env.as_ref())?.flatten();
-        let files = parse_bytes("files", self.files_.as_ref())?.flatten();
-        let pre = parse_bytes("pre_tasks", self.pre_tasks.as_ref())?.flatten();
-        let post = parse_bytes("post_tasks", self.post_tasks.as_ref())?.flatten();
-        let sidecars = parse_bytes("sidecars", self.sidecars.as_ref())?.flatten();
-        let retry = parse_bytes("retry", self.retry.as_ref())?;
-        let limits = parse_bytes("limits", self.limits.as_ref())?;
-        let parallel = parse_bytes("parallel", self.parallel.as_ref())?;
-        let each = parse_bytes("each", self.each_.as_ref())?;
-        let subjob = parse_bytes("subjob", self.subjob.as_ref())?;
-        let registry = parse_bytes("registry", self.registry.as_ref())?;
-        let mounts = parse_bytes("mounts", self.mounts.as_ref())?.flatten();
+        let env =
+            parse_bytes::<std::collections::HashMap<String, String>>("env", self.env.as_ref())?;
+        let files = parse_bytes::<std::collections::HashMap<String, String>>(
+            "files",
+            self.files_.as_ref(),
+        )?;
+        let pre = parse_bytes::<Vec<Task>>("pre_tasks", self.pre_tasks.as_ref())?;
+        let post = parse_bytes::<Vec<Task>>("post_tasks", self.post_tasks.as_ref())?;
+        let sidecars = parse_bytes::<Vec<Task>>("sidecars", self.sidecars.as_ref())?;
+        let retry = parse_bytes::<twerk_core::task::TaskRetry>("retry", self.retry.as_ref())?;
+        let limits = parse_bytes::<twerk_core::task::TaskLimits>("limits", self.limits.as_ref())?;
+        let parallel =
+            parse_bytes::<twerk_core::task::ParallelTask>("parallel", self.parallel.as_ref())?;
+        let each = parse_bytes::<Box<twerk_core::task::EachTask>>("each", self.each_.as_ref())?;
+        let subjob = parse_bytes::<twerk_core::task::SubJobTask>("subjob", self.subjob.as_ref())?;
+        let registry =
+            parse_bytes::<twerk_core::task::Registry>("registry", self.registry.as_ref())?;
+        let mounts = parse_bytes::<Vec<twerk_core::mount::Mount>>("mounts", self.mounts.as_ref())?;
 
         Ok(Task {
             id: Some(TaskId::new(self.id.clone())),

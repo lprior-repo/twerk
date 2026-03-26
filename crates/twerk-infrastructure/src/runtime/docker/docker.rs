@@ -402,7 +402,6 @@ impl crate::runtime::Runtime for DockerRuntime {
     }
 
     fn stop(&self, _task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
-        let this = self.clone();
         Box::pin(async move {
             // Docker runtime stop - returns success as no-op for now
             Ok(Ok(std::process::ExitCode::SUCCESS))
@@ -604,11 +603,11 @@ impl DockerRuntime {
     fn parse_limits(limits: Option<&TaskLimits>) -> std::result::Result<(Option<i64>, Option<i64>), DockerError> {
         let limits = match limits { Some(l) => l, None => return Ok((None, None)) };
         let nano_cpus = limits.cpus.as_ref()
-            .map(|c| c.parse::<f64>().map_err(|e| DockerError::InvalidInput(format!("cpus: {e}"))))
+            .map(|c| c.parse::<f64>().map_err(|e| DockerError::InvalidCpus(format!("cpus: {e}"))))
             .transpose()?
             .map(|c| (c * 1e9) as i64);
         let memory = limits.memory.as_ref()
-            .map(|m| m.parse::<i64>().map_err(|e| DockerError::InvalidInput(format!("memory: {e}"))))
+            .map(|m| m.parse::<i64>().map_err(|e| DockerError::InvalidMemory(format!("memory: {e}"))))
             .transpose()?;
         Ok((nano_cpus, memory))
     }

@@ -18,9 +18,9 @@ pub struct User {
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     pub password_hash: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub password: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<OffsetDateTime>,
@@ -306,9 +306,9 @@ mod tests {
         assert_eq!(restored.username, user.username);
         assert_eq!(restored.created_at, user.created_at);
         assert_eq!(restored.disabled, user.disabled);
-        // password_hash roundtrips because serde(skip) is on password, not password_hash
-        assert_eq!(restored.password_hash, user.password_hash);
-        // password is skipped
+        // password_hash is skip_serializing — not emitted to JSON, so not restored after roundtrip
+        assert!(restored.password_hash.is_none());
+        // password is fully skipped (both serialization and deserialization)
         assert!(restored.password.is_none());
     }
 

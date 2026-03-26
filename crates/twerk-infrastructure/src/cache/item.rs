@@ -1,7 +1,7 @@
 //! Cache item implementation.
 
 use parking_lot::{Mutex, MutexGuard};
-use std::time::Instant;
+use tokio::time::Instant;
 
 /// A cache item storing a value with an optional expiration time.
 ///
@@ -76,32 +76,30 @@ pub type MutexGuardAlias<'a, V> = MutexGuard<'a, V>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
-    #[test]
-    fn test_item_never_expires() {
+    #[tokio::test]
+    async fn test_item_never_expires() {
         let item = Item::new(42, None);
         assert!(!item.is_expired());
         let value = item.get().expect("should get lock");
         assert_eq!(*value, 42);
     }
 
-    #[test]
-    fn test_item_expired() {
-        let item = Item::new(42, Some(Instant::now() - std::time::Duration::from_secs(1)));
+    #[tokio::test]
+    async fn test_item_expired() {
+        let item = Item::new(42, Some(Instant::now() - Duration::from_secs(1)));
         assert!(item.is_expired());
     }
 
-    #[test]
-    fn test_item_not_yet_expired() {
-        let item = Item::new(
-            42,
-            Some(Instant::now() + std::time::Duration::from_secs(100)),
-        );
+    #[tokio::test]
+    async fn test_item_not_yet_expired() {
+        let item = Item::new(42, Some(Instant::now() + Duration::from_secs(100)));
         assert!(!item.is_expired());
     }
 
-    #[test]
-    fn test_clone() {
+    #[tokio::test]
+    async fn test_clone() {
         let item = Item::new(vec![1, 2, 3], None);
         let cloned = item.clone();
         let orig = item.get().expect("should get lock");
@@ -109,10 +107,8 @@ mod tests {
         assert_eq!(*orig, *clone);
     }
 
-    #[test]
-    fn test_get_returns_none_on_poison() {
-        // This test verifies that get() returns Option
-        // We can't easily test poison, but we can verify the API works
+    #[tokio::test]
+    async fn test_get_returns_none_on_poison() {
         let item = Item::new(42, None);
         let value = item.get();
         assert!(value.is_some());

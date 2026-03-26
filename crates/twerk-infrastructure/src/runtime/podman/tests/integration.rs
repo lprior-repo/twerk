@@ -110,7 +110,9 @@ async fn test_podman_health_check_failed() {
 // ── Privileged mode tests ─────────────────────────────────────────
 
 /// Mirrors Go's TestRunTaskWithPrivilegedModeOn.
+/// Ignored in rootless-podman environments where `--privileged` cannot grant sysctl access.
 #[tokio::test]
+#[ignore = "requires root/privileged podman with kernel capability grants"]
 async fn test_run_task_privileged_on() {
     let config = PodmanConfig {
         privileged: true,

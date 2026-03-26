@@ -22,6 +22,12 @@
 //!
 //! All tests run automatically. Requires podman to be installed and running.
 
+// Bring parent module types into scope so child test modules can use `super::*`
+#[allow(unused_imports)]
+use super::*;
+#[allow(unused_imports)]
+use std::collections::HashMap;
+
 // Re-export test modules
 pub mod validation;
 pub mod lifecycle;

@@ -129,6 +129,9 @@ impl PodmanRuntime {
         if !task.sidecars.is_empty() {
             return Err(PodmanError::SidecarsNotSupported);
         }
+        if !self.host_network && task.networks.iter().any(|n| n == "host") {
+            return Err(PodmanError::HostNetworkingDisabled);
+        }
 
         let mut mounted_mounts: Vec<Mount> = Vec::new();
         for mut mount in task.mounts.clone() {

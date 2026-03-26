@@ -168,7 +168,7 @@ where
     ///
     /// If the key already existed, the old item is returned.
     pub fn insert(&self, key: K, value: V, expiration: Option<Duration>) -> Option<Item<V>> {
-        let expiration = expiration.map(|d| std::time::Instant::now() + d);
+        let expiration = expiration.map(|d| tokio::time::Instant::now() + d);
         self.items.insert(key, Item::new(value, expiration))
     }
 
@@ -215,7 +215,7 @@ where
     ///
     /// Returns `true` if the key existed and was not expired, `false` otherwise.
     pub fn set_expiration(&self, key: &K, duration: Duration) -> bool {
-        let expiration = Some(std::time::Instant::now() + duration);
+        let expiration = Some(tokio::time::Instant::now() + duration);
         self.items
             .get_mut(key)
             .map(|mut entry| {

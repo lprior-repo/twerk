@@ -24,15 +24,19 @@ fn get_config() -> Result<ConfigState, ConfigError> {
 pub fn string(key: &str) -> String {
     get_config()
         .ok()
-        .and_then(|c| c.get_str(key))
-        .map_or_else(String::new, |v| v.to_string())
+        .and_then(|c| c.get_str(key).map(|v| v.to_string()))
+        .unwrap_or_default()
 }
 
 /// Get a string configuration value with a default.
 #[must_use]
 pub fn string_default(key: &str, default: &str) -> String {
     let s = string(key);
-    s.map_or_else(|| default.to_string(), |s| s.to_string())
+    if s.is_empty() {
+        default.to_string()
+    } else {
+        s
+    }
 }
 
 /// Get a boolean configuration value.
@@ -41,7 +45,7 @@ pub fn bool(key: &str) -> bool {
     get_config()
         .ok()
         .and_then(|c| c.get_bool(key))
-        .map_or(false, |v| v)
+        .is_some_and(|v| v)
 }
 
 /// Get a boolean configuration value with a default.
@@ -82,7 +86,7 @@ pub fn int_default(key: &str, default: i64) -> i64 {
 pub fn int_map(key: &str) -> HashMap<String, i64> {
     get_config()
         .map(|c| c.int_map_for_key(key))
-        .map_or_else(|_| HashMap::new(), |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a string-to-boolean map configuration.
@@ -90,7 +94,7 @@ pub fn int_map(key: &str) -> HashMap<String, i64> {
 pub fn bool_map(key: &str) -> HashMap<String, bool> {
     get_config()
         .map(|c| c.bool_map_for_key(key))
-        .map_or_else(|_| HashMap::new(), |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a string-to-string map configuration.
@@ -98,7 +102,7 @@ pub fn bool_map(key: &str) -> HashMap<String, bool> {
 pub fn string_map(key: &str) -> HashMap<String, String> {
     get_config()
         .map(|c| c.string_map_for_key(key))
-        .map_or_else(|_| HashMap::new(), |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a list of strings configuration.
@@ -106,14 +110,18 @@ pub fn string_map(key: &str) -> HashMap<String, String> {
 pub fn strings(key: &str) -> Vec<String> {
     get_config()
         .map(|c| c.strings_for_key_or_string(key))
-        .map_or_else(|_| Vec::new(), |v| v)
+        .unwrap_or_else(|_| Vec::new())
 }
 
 /// Get a list of strings with a default fallback.
 #[must_use]
 pub fn strings_default(key: &str, default: &[&str]) -> Vec<String> {
     let v = strings(key);
-    v.map_or_else(|| default.iter().map(ToString::to_string).collect(), |v| v)
+    if v.is_empty() {
+        default.iter().map(ToString::to_string).collect()
+    } else {
+        v
+    }
 }
 
 /// Parse a duration string (e.g., "1h30m", "30s", "1d").
@@ -158,13 +166,13 @@ fn parse_single_duration(s: &str) -> Option<Duration> {
 fn parse_single_duration_with_value(val: &str, unit: &str) -> Option<Duration> {
     let val = val.trim();
     Some(match unit {
-        "ns" => val.parse::<i64>().ok()?.into(),
-        "us" => val.parse::<i64>().ok()?.into(),
-        "ms" => val.parse::<i64>().ok()?.into(),
-        "s" => val.parse::<f64>().ok()?.into(),
-        "m" => val.parse::<i64>().ok()?.into(),
-        "h" => val.parse::<i64>().ok()?.into(),
-        "d" => val.parse::<i64>().ok()?.into(),
+        "ns" => Duration::nanoseconds(val.parse::<i64>().ok()?),
+        "us" => Duration::microseconds(val.parse::<i64>().ok()?),
+        "ms" => Duration::milliseconds(val.parse::<i64>().ok()?),
+        "s" => Duration::seconds(val.parse::<f64>().ok()?.round() as i64),
+        "m" => Duration::minutes(val.parse::<i64>().ok()?),
+        "h" => Duration::hours(val.parse::<i64>().ok()?),
+        "d" => Duration::days(val.parse::<i64>().ok()?),
         _ => return None,
     })
 }
@@ -221,41 +229,38 @@ pub fn unmarshal<T: for<'de> serde::Deserialize<'de>>(key: &str) -> Result<T, Co
                         .try_into::<T>()
                         .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
                 })
-                .map_or_else(
-                    || {
-                        let table = c.build_table_from_flat(key);
-                        if table.is_empty() {
-                            c.get_str(key)
-                                .map(|s| {
-                                    toml::Value::String(s.to_string()).try_into::<T>().map_err(
-                                        |e: toml::de::Error| {
-                                            ConfigError::UnmarshalError(e.to_string())
-                                        },
-                                    )
-                                })
-                                .unwrap_or_else(|| {
-                                    c.get_array(key)
-                                        .map(|a: &toml::value::Array| {
-                                            toml::Value::Array(a.clone()).try_into::<T>().map_err(
-                                                |e: toml::de::Error| {
-                                                    ConfigError::UnmarshalError(e.to_string())
-                                                },
-                                            )
-                                        })
-                                        .unwrap_or_else(|| {
-                                            Err(ConfigError::UnmarshalError(
-                                                "key not found or unsupported type".to_string(),
-                                            ))
-                                        })
-                                })
-                        } else {
-                            toml::Value::Table(table).try_into::<T>().map_err(
-                                |e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()),
-                            )
-                        }
-                    },
-                    |v| v,
-                )
+                .unwrap_or_else(|| {
+                    let table = c.build_table_from_flat(key);
+                    if table.is_empty() {
+                        c.get_str(key)
+                            .map(|s| {
+                                toml::Value::String(s.to_string()).try_into::<T>().map_err(
+                                    |e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()),
+                                )
+                            })
+                            .unwrap_or_else(|| {
+                                c.get_array(key)
+                                    .map(|a: &toml::value::Array| {
+                                        toml::Value::Array(a.clone()).try_into::<T>().map_err(
+                                            |e: toml::de::Error| {
+                                                ConfigError::UnmarshalError(e.to_string())
+                                            },
+                                        )
+                                    })
+                                    .unwrap_or_else(|| {
+                                        Err(ConfigError::UnmarshalError(
+                                            "key not found or unsupported type".to_string(),
+                                        ))
+                                    })
+                            })
+                    } else {
+                        toml::Value::Table(table)
+                            .try_into::<T>()
+                            .map_err(|e: toml::de::Error| {
+                                ConfigError::UnmarshalError(e.to_string())
+                            })
+                    }
+                })
         })
 }
 
@@ -349,5 +354,9 @@ pub fn middleware_web_logger_level() -> String {
 #[must_use]
 pub fn middleware_web_logger_skip_paths() -> Vec<String> {
     let paths = strings("middleware.web.logger.skip_paths");
-    paths.map_or_else(|| strings("middleware.web.logger.skip"), |paths| paths)
+    if paths.is_empty() {
+        strings("middleware.web.logger.skip")
+    } else {
+        paths
+    }
 }

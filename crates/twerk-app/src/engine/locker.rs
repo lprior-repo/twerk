@@ -133,5 +133,105 @@ fn env_duration_default(key: &str, default: Duration) -> Duration {
     }
 }
 
-// #[cfg(test)]
-// mod locker_test;
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::{
+        create_locker, env_duration_default, env_int_default, env_string_default, LOCKER_INMEMORY,
+    };
+
+    // ── create_locker ─────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn create_locker_inmemory_returns_ok() {
+        let locker = create_locker(LOCKER_INMEMORY).await;
+        assert!(locker.is_ok(), "inmemory locker creation must succeed");
+    }
+
+    #[tokio::test]
+    async fn create_locker_unknown_type_returns_err() {
+        let result = create_locker("unsupported-locker-type").await;
+        match result {
+            Ok(_) => panic!("expected error for unknown locker type"),
+            Err(e) => {
+                let msg = format!("{e}");
+                assert!(
+                    msg.contains("unknown locker type"),
+                    "error message should mention 'unknown locker type', got: {msg}"
+                );
+            }
+        }
+    }
+
+    // ── env_string_default ────────────────────────────────────────────────────
+
+    #[test]
+    fn env_string_default_returns_default_when_unset() {
+        let got = env_string_default("twerk.test.definitely_not_set_abc123", "fallback");
+        assert_eq!(got, "fallback");
+    }
+
+    #[test]
+    fn env_string_default_returns_env_value_when_set() {
+        let env_key = "TWERK_TEST_LOCKER_STR";
+        std::env::set_var(env_key, "from-env");
+        let got = env_string_default("test.locker.str", "fallback");
+        std::env::remove_var(env_key);
+        assert_eq!(got, "from-env");
+    }
+
+    // ── env_int_default ───────────────────────────────────────────────────────
+
+    #[test]
+    fn env_int_default_returns_default_when_unset() {
+        let got = env_int_default("twerk.test.definitely_not_set_int_abc123", 42);
+        assert_eq!(got, 42);
+    }
+
+    #[test]
+    fn env_int_default_parses_valid_integer_from_env() {
+        let env_key = "TWERK_TEST_LOCKER_INT";
+        std::env::set_var(env_key, "99");
+        let got = env_int_default("test.locker.int", 0);
+        std::env::remove_var(env_key);
+        assert_eq!(got, 99);
+    }
+
+    #[test]
+    fn env_int_default_falls_back_on_invalid_value() {
+        let env_key = "TWERK_TEST_LOCKER_INT_BAD";
+        std::env::set_var(env_key, "not-a-number");
+        let got = env_int_default("test.locker.int.bad", 7);
+        std::env::remove_var(env_key);
+        assert_eq!(got, 7);
+    }
+
+    // ── env_duration_default ──────────────────────────────────────────────────
+
+    #[test]
+    fn env_duration_default_returns_default_when_unset() {
+        let default = Duration::from_secs(60);
+        let got = env_duration_default("twerk.test.definitely_not_set_dur_abc123", default);
+        assert_eq!(got, default);
+    }
+
+    #[test]
+    fn env_duration_default_parses_seconds_from_env() {
+        let env_key = "TWERK_TEST_LOCKER_DUR";
+        std::env::set_var(env_key, "120");
+        let got = env_duration_default("test.locker.dur", Duration::from_secs(0));
+        std::env::remove_var(env_key);
+        assert_eq!(got, Duration::from_secs(120));
+    }
+
+    #[test]
+    fn env_duration_default_falls_back_on_invalid_value() {
+        let env_key = "TWERK_TEST_LOCKER_DUR_BAD";
+        let default = Duration::from_secs(30);
+        std::env::set_var(env_key, "not-a-duration");
+        let got = env_duration_default("test.locker.dur.bad", default);
+        std::env::remove_var(env_key);
+        assert_eq!(got, default);
+    }
+}

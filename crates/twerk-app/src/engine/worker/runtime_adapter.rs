@@ -49,7 +49,7 @@ pub async fn create_runtime_from_config(
                 .map_err(|e| anyhow!("{e}"))?;
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
                 .map_err(|e| anyhow!("{e}"))?;
-            Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged)))
+            Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged, config.docker_image_ttl_secs)))
         }
         runtime_type::SHELL => {
             Ok(Box::new(ShellRuntimeAdapter::new(
@@ -71,6 +71,7 @@ pub fn read_runtime_config() -> RuntimeConfig {
     RuntimeConfig {
         runtime_type: rt,
         docker_privileged: config_bool("runtime.docker.privileged"),
+        docker_image_ttl_secs: config_u64("runtime.docker.image.ttl"),
         docker_image_verify: config_bool("runtime.docker.image.verify"),
         docker_config: config_string_default("runtime.docker.config", ""),
         shell_cmd: config_strings("runtime.shell.cmd"),
@@ -119,6 +120,11 @@ fn config_strings(k: &str) -> Vec<String> {
             .map(|s| s.trim().to_string())
             .collect()
     }
+}
+
+fn config_u64(k: &str) -> u64 {
+    let v = config_string(k);
+    v.parse().unwrap_or(0)
 }
 
 #[derive(Debug)]

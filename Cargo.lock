@@ -5231,6 +5231,7 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
+ "twerk-app",
  "twerk-common",
  "twerk-core",
  "twerk-infrastructure",

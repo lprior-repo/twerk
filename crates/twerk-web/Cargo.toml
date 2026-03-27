@@ -10,6 +10,7 @@ license.workspace = true
 twerk-common.workspace = true
 twerk-core.workspace = true
 twerk-infrastructure.workspace = true
+twerk-app.workspace = true
 axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true

@@ -14,13 +14,14 @@ use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, Shutdo
 #[derive(Debug, Default)]
 pub struct DockerRuntimeAdapter {
     privileged: bool,
+    image_ttl_secs: u64,
     active_tasks: Arc<DashMap<TaskId, String>>,
 }
 
 impl DockerRuntimeAdapter {
     #[must_use]
-    pub fn new(privileged: bool) -> Self {
-        Self { privileged, active_tasks: Arc::new(DashMap::new()) }
+    pub fn new(privileged: bool, image_ttl_secs: u64) -> Self {
+        Self { privileged, image_ttl_secs, active_tasks: Arc::new(DashMap::new()) }
     }
 }
 

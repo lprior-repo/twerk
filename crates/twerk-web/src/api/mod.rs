@@ -4,6 +4,7 @@ use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashMap;
 use std::sync::Arc;
+use twerk_app::engine::coordinator::auth::{basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use tower_http::cors::CorsLayer;
@@ -13,7 +14,7 @@ pub mod error;
 pub mod redact;
 
 /// Configuration for the API server.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Config {
     /// Address to listen on (e.g. "0.0.0.0:8000")
     pub address: String,
@@ -21,6 +22,10 @@ pub struct Config {
     pub enabled: HashMap<String, bool>,
     /// CORS origins (empty means allow all)
     pub cors_origins: Vec<String>,
+    /// Basic auth configuration
+    pub basic_auth: Option<BasicAuthConfig>,
+    /// Key auth configuration
+    pub key_auth: Option<KeyAuthConfig>,
 }
 
 impl Default for Config {
@@ -29,6 +34,8 @@ impl Default for Config {
             address: "0.0.0.0:8000".to_string(),
             enabled: HashMap::new(),
             cors_origins: vec![],
+            basic_auth: None,
+            key_auth: None,
         }
     }
 }
@@ -58,12 +65,26 @@ impl AppState {
 }
 
 /// Create a new router with the given state and configured endpoints.
+#[allow(clippy::type_complexity)]
 pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
 
     let mut router = Router::new();
 
-    // Apply layers (CORS, etc.) - simplified for now
+    if let Some(basic_auth_config) = state.config.basic_auth.clone() {
+        let layer = axum::middleware::from_fn_with_state(basic_auth_config, |state, req, next| {
+            Box::pin(async move { basic_auth_middleware(state, req, next).await })
+        });
+        router = router.layer(layer);
+    }
+
+    if let Some(key_auth_config) = state.config.key_auth.clone() {
+        let layer = axum::middleware::from_fn_with_state(key_auth_config, |state, req, next| {
+            Box::pin(async move { key_auth_middleware(state, req, next).await })
+        });
+        router = router.layer(layer);
+    }
+
     router = router.layer(CorsLayer::permissive());
 
     // Health

@@ -8,11 +8,14 @@
 
 use anyhow::Result;
 use std::sync::Arc;
-use tracing::{debug, error, info};
-use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_PENDING};
+use tracing::{debug, error, info, warn};
+use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING};
 use crate::engine::TOPIC_JOB_COMPLETED;
 use crate::engine::coordinator::scheduler::Scheduler;
+use crate::engine::coordinator::webhook::fire_job_webhooks;
 use twerk_core::eval::evaluate_task;
+use twerk_core::task::{TaskLogPart, TASK_STATE_RUNNING};
+use twerk_core::node::NodeStatus;
 
 /// Handles job events from the broker.
 /// # Errors
@@ -78,7 +81,8 @@ async fn start_job(
         u.position = 1;
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update job: {e}"))?;
-    
+
+    fire_job_webhooks(&job, "job.Scheduled");
     broker.publish_task(QUEUE_PENDING.to_string(), &first_task).await?;
     Ok(())
 }
@@ -97,7 +101,11 @@ async fn complete_job(
         u.completed_at = Some(now);
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update job: {e}"))?;
-    
+
+    let updated_job = ds.get_job_by_id(&job_id).await
+        .map_err(|e| anyhow::anyhow!("failed to get job: {e}"))?;
+    fire_job_webhooks(&updated_job, "job.Completed");
+
     if let Some(parent_id) = &job.parent_id {
         let mut parent = ds.get_task_by_id(parent_id).await
             .map_err(|e| anyhow::anyhow!("failed to get parent task: {e}"))?;
@@ -284,5 +292,105 @@ async fn handle_each_subtask_completed(
         parent.completed_at = Some(time::OffsetDateTime::now_utc());
         broker.publish_task(QUEUE_COMPLETED.to_string(), &parent).await?;
     }
+    Ok(())
+}
+
+/// Handles redelivered tasks.
+/// # Errors
+/// Returns an error if publishing to the broker fails.
+pub async fn handle_redelivered(
+    _ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    debug!("Handling redelivered task {} (redelivered={})", task.id.as_deref().unwrap_or("unknown"), task.redelivered);
+    let mut task = task;
+    task.redelivered += 1;
+    broker.publish_task(QUEUE_PENDING.to_string(), &task).await?;
+    Ok(())
+}
+
+/// Handles task started event.
+/// # Errors
+/// Returns an error if updating the task in the datastore fails.
+pub async fn handle_started(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    info!("Task {} started", task.id.as_deref().unwrap_or("unknown"));
+    let task_id = task.id.clone().unwrap_or_default();
+    let now = time::OffsetDateTime::now_utc();
+    ds.update_task(&task_id, Box::new(move |mut u| {
+        u.state = TASK_STATE_RUNNING.to_string();
+        u.started_at = Some(now);
+        Ok(u)
+    })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+    Ok(())
+}
+
+/// Handles task error event.
+/// # Errors
+/// Returns an error if updating the task or publishing to the broker fails.
+pub async fn handle_error(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    mut task: twerk_core::task::Task,
+) -> Result<()> {
+    error!("Task {} failed: {}", task.id.as_deref().unwrap_or("unknown"), task.error.as_deref().unwrap_or("unknown error"));
+    let task_id = task.id.clone().unwrap_or_default();
+    let now = time::OffsetDateTime::now_utc();
+    let task_error = task.error.clone();
+    let task_result = task.result.clone();
+    ds.update_task(&task_id, Box::new(move |mut u| {
+        u.state = twerk_core::task::TASK_STATE_FAILED.to_string();
+        u.failed_at = Some(now);
+        u.error.clone_from(&task_error);
+        u.result.clone_from(&task_result);
+        Ok(u)
+    })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+    task.state = twerk_core::task::TASK_STATE_FAILED.to_string();
+    broker.publish_task(QUEUE_FAILED.to_string(), &task).await?;
+    Ok(())
+}
+
+/// Handles node heartbeat.
+/// # Errors
+/// Returns an error if updating or creating the node in the datastore fails.
+pub async fn handle_heartbeat(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    node: twerk_core::node::Node,
+) -> Result<()> {
+    debug!("Received heartbeat from node {}", node.name.as_deref().unwrap_or("unknown"));
+    if let Some(node_id) = &node.id {
+        let node_id_str = node_id.to_string();
+        ds.update_node(&node_id_str, Box::new(move |mut u| {
+            u.last_heartbeat_at = node.last_heartbeat_at;
+            u.cpu_percent = node.cpu_percent;
+            u.task_count = node.task_count;
+            u.status = Some(NodeStatus::UP);
+            Ok(u)
+        })).await.map_err(|e| anyhow::anyhow!("failed to update node: {e}"))?;
+    } else {
+        warn!("Received heartbeat from node without ID, creating new node");
+        let mut new_node = node;
+        new_node.status = Some(NodeStatus::UP);
+        new_node.last_heartbeat_at = Some(time::OffsetDateTime::now_utc());
+        ds.create_node(&new_node).await.map_err(|e| anyhow::anyhow!("failed to create node: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Handles task log part.
+/// # Errors
+/// Returns an error if storing the log part in the datastore fails.
+pub async fn handle_log_part(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    part: TaskLogPart,
+) -> Result<()> {
+    debug!("Received log part {} for task {}", part.number, part.task_id.as_deref().unwrap_or("unknown"));
+    ds.create_task_log_part(&part).await.map_err(|e| anyhow::anyhow!("failed to store log part: {e}"))?;
     Ok(())
 }

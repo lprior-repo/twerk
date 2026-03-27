@@ -9,6 +9,7 @@ pub mod stats;
 pub mod task;
 pub mod user;
 pub mod uuid;
+pub mod validation;
 pub mod webhook;
 
 pub use repository::{Repository, Result as RepoResult};

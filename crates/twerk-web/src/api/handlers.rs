@@ -7,6 +7,7 @@ use serde_json::json;
 use std::sync::Arc;
 use twerk_core::job::{new_job_summary, new_scheduled_job_summary, Job, ScheduledJob, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED};
 use twerk_core::user::UsernameValue;
+use twerk_core::validation::validate_job;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -130,6 +131,10 @@ pub async fn create_job_handler(
 
     if job.id.is_none() {
         job.id = Some(twerk_core::uuid::new_short_uuid().into());
+    }
+
+    if let Err(errors) = validate_job(job.name.as_ref(), job.tasks.as_ref(), job.defaults.as_ref(), job.output.as_ref()) {
+        return Err(ApiError::bad_request(errors.join("; ")));
     }
 
     if cq.wait.unwrap_or(false) {
@@ -404,16 +409,24 @@ pub async fn create_scheduled_job_handler(
     };
 
     let cron = sj_input.cron.ok_or_else(|| ApiError::bad_request("cron is required"))?;
-    let tasks = sj_input.tasks.ok_or_else(|| ApiError::bad_request("tasks is required"))?;
+    let tasks = sj_input.tasks.as_ref().ok_or_else(|| ApiError::bad_request("tasks is required"))?;
+
+    use twerk_core::validation::{validate_cron, validate_job};
+    if let Err(e) = validate_cron(&cron) {
+        return Err(ApiError::bad_request(e.to_string()));
+    }
+    if let Err(errors) = validate_job(sj_input.name.as_ref(), sj_input.tasks.as_ref(), sj_input.defaults.as_ref(), sj_input.output.as_ref()) {
+        return Err(ApiError::bad_request(errors.join("; ")));
+    }
 
     let sj = ScheduledJob {
         id: Some(twerk_core::id::ScheduledJobId::new(twerk_core::uuid::new_short_uuid())),
         name: sj_input.name,
         description: sj_input.description,
-        cron: Some(cron),
+        cron: Some(cron.clone()),
         state: SCHEDULED_JOB_STATE_ACTIVE.to_string(),
         inputs: sj_input.inputs,
-        tasks: Some(tasks),
+        tasks: Some(tasks.clone()),
         created_by: None,
         defaults: sj_input.defaults,
         auto_delete: sj_input.auto_delete,
@@ -476,7 +489,7 @@ pub async fn pause_scheduled_job_handler(
         return Err(ApiError::bad_request("scheduled job is not active"));
     }
 
-    let updated_sj = state
+    state
         .ds
         .update_scheduled_job(&id, Box::new(|mut sj| {
             sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
@@ -487,7 +500,7 @@ pub async fn pause_scheduled_job_handler(
 
     state
         .broker
-        .publish_event("scheduled.job".to_string(), serde_json::to_value(&updated_sj).unwrap())
+        .publish_event("scheduled.job".to_string(), serde_json::to_value(()).unwrap())
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -508,7 +521,7 @@ pub async fn resume_scheduled_job_handler(
         return Err(ApiError::bad_request("scheduled job is not paused"));
     }
 
-    let updated_sj = state
+    state
         .ds
         .update_scheduled_job(&id, Box::new(|mut sj| {
             sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
@@ -519,7 +532,7 @@ pub async fn resume_scheduled_job_handler(
 
     state
         .broker
-        .publish_event("scheduled.job".to_string(), serde_json::to_value(&updated_sj).unwrap())
+        .publish_event("scheduled.job".to_string(), serde_json::to_value(()).unwrap())
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 

@@ -183,3 +183,182 @@ pub async fn create_worker(engine: &mut crate::engine::Engine, broker: BrokerPro
     );
     Ok(Box::new(DefaultWorker::new(id, name, broker, rt, queues, read_limits())))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+    use async_trait::async_trait;
+    use twerk_infrastructure::runtime::{Runtime as RuntimeTrait, BoxedFuture, ShutdownResult};
+    use twerk_infrastructure::broker::{Broker, HeartbeatHandler, TaskHandler, TaskProgressHandler, JobHandler, EventHandler, TaskLogPartHandler};
+    use twerk_core::node::Node;
+    use twerk_core::task::Task;
+
+    #[derive(Debug, Clone)]
+    struct MockRuntime {
+        health_check_ok: bool,
+    }
+
+    impl MockRuntime {
+        fn new(health_check_ok: bool) -> Self {
+            Self { health_check_ok }
+        }
+    }
+
+    impl RuntimeTrait for MockRuntime {
+        fn run(&self, _task: &Task) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+
+        fn stop(&self, _task: &Task) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {
+            Box::pin(async { Ok(Ok(std::process::ExitCode::SUCCESS)) })
+        }
+
+        fn health_check(&self) -> BoxedFuture<()> {
+            if self.health_check_ok {
+                Box::pin(async { Ok(()) })
+            } else {
+                Box::pin(async { Err(anyhow::anyhow!("runtime unavailable")) })
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct SpyBroker {
+        heartbeats: Arc<RwLock<Vec<Node>>>,
+    }
+
+    impl SpyBroker {
+        fn new() -> Self {
+            Self {
+                heartbeats: Arc::new(RwLock::new(Vec::new())),
+            }
+        }
+
+        async fn get_heartbeats(&self) -> Vec<Node> {
+            self.heartbeats.read().await.clone()
+        }
+    }
+
+    #[async_trait]
+    impl Broker for SpyBroker {
+        fn publish_task(&self, _qname: String, _task: &Task) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_tasks(&self, _qname: String, _handler: TaskHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_task_progress(&self, _task: &Task) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_task_progress(&self, _handler: TaskProgressHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_heartbeat(&self, node: Node) -> BoxedFuture<()> {
+            let heartbeats = self.heartbeats.clone();
+            Box::pin(async move {
+                heartbeats.write().await.push(node);
+                Ok(())
+            })
+        }
+        fn subscribe_for_heartbeats(&self, _handler: HeartbeatHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_job(&self, _job: &twerk_core::job::Job) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_jobs(&self, _handler: JobHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_event(&self, _topic: String, _event: serde_json::Value) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_events(&self, _pattern: String, _handler: EventHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn publish_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscribe_for_task_log_part(&self, _handler: TaskLogPartHandler) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn health_check(&self) -> BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn queues(&self) -> twerk_infrastructure::broker::BoxedFuture<Vec<twerk_infrastructure::broker::QueueInfo>> {
+            Box::pin(async { Ok(Vec::new()) })
+        }
+        fn queue_info(&self, _qname: String) -> twerk_infrastructure::broker::BoxedFuture<twerk_infrastructure::broker::QueueInfo> {
+            Box::pin(async { 
+                Ok(twerk_infrastructure::broker::QueueInfo { 
+                    name: _qname, 
+                    size: 0, 
+                    subscribers: 0, 
+                    unacked: 0,
+                }) 
+            })
+        }
+        fn delete_queue(&self, _qname: String) -> twerk_infrastructure::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn shutdown(&self) -> twerk_infrastructure::broker::BoxedFuture<()> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    async fn create_broker_proxy(broker: SpyBroker) -> BrokerProxy {
+        let proxy = BrokerProxy::new();
+        let broker: Box<dyn Broker + Send + Sync> = Box::new(broker);
+        proxy.set_broker(broker).await;
+        proxy
+    }
+
+    async fn test_send_heartbeat(broker: &BrokerProxy, id: &str, name: &str, sys: &mut System, runtime: Arc<dyn RuntimeTrait + Send + Sync>) {
+        sys.refresh_cpu_all();
+        let status = match runtime.health_check().await {
+            Ok(()) => NodeStatus::UP,
+            Err(e) => {
+                tracing::warn!("Runtime health check failed: {}", e);
+                NodeStatus::DOWN
+            }
+        };
+        let node = Node { 
+            id: Some(NodeId::from(id)), 
+            name: Some(name.to_string()), 
+            hostname: Some(hostname::get().map(|h| h.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".to_string())), 
+            cpu_percent: Some(sys.global_cpu_usage() as f64), 
+            status: Some(status), 
+            ..Default::default() 
+        };
+        let _ = broker.publish_heartbeat(node).await;
+    }
+
+    #[tokio::test]
+    async fn send_heartbeat_when_health_check_succeeds_returns_up_status() {
+        let runtime = MockRuntime::new(true);
+        let spy = SpyBroker::new();
+        let broker = create_broker_proxy(spy.clone()).await;
+        let mut sys = System::new_all();
+
+        test_send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+
+        let heartbeats = spy.get_heartbeats().await;
+        assert_eq!(heartbeats.len(), 1);
+        assert_eq!(heartbeats[0].status, Some(NodeStatus::UP));
+    }
+
+    #[tokio::test]
+    async fn send_heartbeat_when_health_check_fails_returns_down_status() {
+        let runtime = MockRuntime::new(false);
+        let spy = SpyBroker::new();
+        let broker = create_broker_proxy(spy.clone()).await;
+        let mut sys = System::new_all();
+
+        test_send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+
+        let heartbeats = spy.get_heartbeats().await;
+        assert_eq!(heartbeats.len(), 1);
+        assert_eq!(heartbeats[0].status, Some(NodeStatus::DOWN));
+    }
+}

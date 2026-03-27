@@ -13,6 +13,7 @@ pub mod limits;
 pub mod middleware;
 pub mod scheduler;
 pub mod utils;
+pub mod webhook;
 
 use anyhow::Result;
 use std::pin::Pin;
@@ -20,7 +21,7 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use tracing::{info, debug};
-use twerk_infrastructure::broker::queue::QUEUE_PENDING;
+use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING, QUEUE_REDELIVERIES, QUEUE_STARTED};
 use twerk_infrastructure::config;
 
 use crate::engine::BrokerProxy;
@@ -133,6 +134,7 @@ impl CoordinatorImpl {
 }
 
 impl Coordinator for CoordinatorImpl {
+    #[allow(clippy::too_many_lines)]
     fn start(&self) -> BoxedFuture<()> {
         let broker = self.broker.clone();
         let ds = self.datastore.clone();
@@ -190,6 +192,112 @@ impl Coordinator for CoordinatorImpl {
                 Box::pin(async move {
                     if st.is_cancelled() { return Ok(()); }
                     tr.spawn(handlers::handle_pending_task(ds, b, task));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to completed tasks
+            let ds_c = ds.clone();
+            let b_c = broker.clone();
+            let st_c = stop_token.clone();
+            let tr_c = tracker.clone();
+            broker.subscribe_for_tasks(QUEUE_COMPLETED.to_string(), Arc::new(move |task| {
+                let ds = ds_c.clone();
+                let b = b_c.clone();
+                let task = (*task).clone();
+                let st = st_c.clone();
+                let tr = tr_c.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_task_completed(ds, b, task));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to failed tasks
+            let ds_f = ds.clone();
+            let b_f = broker.clone();
+            let st_f = stop_token.clone();
+            let tr_f = tracker.clone();
+            broker.subscribe_for_tasks(QUEUE_FAILED.to_string(), Arc::new(move |task| {
+                let ds = ds_f.clone();
+                let b = b_f.clone();
+                let task = (*task).clone();
+                let st = st_f.clone();
+                let tr = tr_f.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_error(ds, b, task));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to started tasks
+            let ds_s = ds.clone();
+            let b_s = broker.clone();
+            let st_s = stop_token.clone();
+            let tr_s = tracker.clone();
+            broker.subscribe_for_tasks(QUEUE_STARTED.to_string(), Arc::new(move |task| {
+                let ds = ds_s.clone();
+                let b = b_s.clone();
+                let task = (*task).clone();
+                let st = st_s.clone();
+                let tr = tr_s.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_started(ds, b, task));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to redelivered tasks
+            let ds_r = ds.clone();
+            let b_r = broker.clone();
+            let st_r = stop_token.clone();
+            let tr_r = tracker.clone();
+            broker.subscribe_for_tasks(QUEUE_REDELIVERIES.to_string(), Arc::new(move |task| {
+                let ds = ds_r.clone();
+                let b = b_r.clone();
+                let task = (*task).clone();
+                let st = st_r.clone();
+                let tr = tr_r.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_redelivered(ds, b, task));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to heartbeats
+            let ds_h = ds.clone();
+            let b_h = broker.clone();
+            let st_h = stop_token.clone();
+            let tr_h = tracker.clone();
+            broker.subscribe_for_heartbeats(Arc::new(move |node| {
+                let ds = ds_h.clone();
+                let b = b_h.clone();
+                let st = st_h.clone();
+                let tr = tr_h.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_heartbeat(ds, b, node));
+                    Ok(())
+                })
+            })).await?;
+
+            // Subscribe to task log parts
+            let ds_l = ds.clone();
+            let b_l = broker.clone();
+            let st_l = stop_token.clone();
+            let tr_l = tracker.clone();
+            broker.subscribe_for_task_log_part(Arc::new(move |part| {
+                let ds = ds_l.clone();
+                let b = b_l.clone();
+                let st = st_l.clone();
+                let tr = tr_l.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    tr.spawn(handlers::handle_log_part(ds, b, part));
                     Ok(())
                 })
             })).await?;

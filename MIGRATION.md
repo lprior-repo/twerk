@@ -36,7 +36,7 @@ Twerk uses a Rust Workspace with strict compilation-level isolation between laye
 ### Runtimes (Docker & Podman)
 - **Digital Twin Tests**: Integration tests now use `testcontainers-rs` to spin up "Digital Twin" environments for every run.
 - **Lifecycle Sequence**: Strictly follows `Pre -> Main -> Post` task execution with identical exponential backoff for network cleanup.
-- **Log Streaming**: (Pending) Plan to align log initiation to occur *before* health probes to match Go's startup visibility.
+- **Log Streaming**: Log streaming now initiates *before* health probes to match Go's startup visibility.
 
 ### Engine (Coordinator & Worker)
 - **State Machine**: Fully ported the `PENDING` -> `SCHEDULED` -> `RUNNING` -> `COMPLETED` transitions.
@@ -53,7 +53,30 @@ twerk-common = { workspace = true }
 tokio = { workspace = true }
 ```
 
-## 5. Next Steps for Development
-1. **Web API Parity**: Align error formats (`{"message": "..."}` vs `{"error": "..."}`) and implement the `Wait` parameter for job creation.
-2. **Specialized Middleware**: Port the `onReadJob` and `onReadTask` hooks for secret masking.
-3. **Advanced RabbitMQ**: Implement connection pooling (Go uses 3-connection RR) to handle high-throughput workloads.
+## 5. Completed Items
+1. **Web API Parity**: Error formats aligned (`{"message": "..."}`) and `Wait` parameter implemented for job creation.
+2. **Specialized Middleware**: `onReadJob` and `onReadTask` hooks implemented for secret masking.
+3. **Advanced RabbitMQ**: Connection pooling implemented (3-connection RR) for high-throughput workloads.
+4. **Log Streaming**: Fixed to initiate before health probes for startup visibility parity.
+5. **Scheduled Jobs API**: All 6 handlers implemented (create, list, get, pause, resume, delete).
+
+## 6. Remaining Gaps
+
+### Critical
+- **Input Validation**: Job/task input validation not fully ported from Go
+- **Webhook Middleware**: Core webhook library exists but middleware triggering not wired up
+- **Expression Evaluation**: Missing `fromJSON()`, `split()`, `toJSON()` functions
+- **HTTP Auth Middleware**: Exists but NOT applied to HTTP routes
+- **Worker Runtime Health**: Always reports `UP` without checking runtime health
+- **In-Memory Broker**: 4 methods are no-ops (heartbeat/publish methods)
+- **Coordinator Queue Subscriptions**: Missing 6 queue handlers
+
+### Medium
+- Docker Runtime (not implemented)
+- Network Create/Remove (not implemented)
+- Sidecars Support (may be incomplete)
+- Registry Auth from Config File (not implemented)
+- Shell stderr redirect (broken)
+- `docker.image.ttl` config not being read
+- CLI reexec init not integrated
+- Shell runtime reexec UID/GID not integrated

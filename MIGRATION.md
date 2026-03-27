@@ -59,24 +59,24 @@ tokio = { workspace = true }
 3. **Advanced RabbitMQ**: Connection pooling implemented (3-connection RR) for high-throughput workloads.
 4. **Log Streaming**: Fixed to initiate before health probes for startup visibility parity.
 5. **Scheduled Jobs API**: All 6 handlers implemented (create, list, get, pause, resume, delete).
+6. **Input Validation**: Full validation module with cron, duration, queue, retry, priority validators.
+7. **Webhook Middleware**: Wired to fire on job state changes (Scheduled, Completed, Failed).
+8. **Expression Evaluation**: Added `fromJSON()`, `split()`, `toJSON()` functions.
+9. **HTTP Auth Middleware**: BasicAuth and KeyAuth wired to API routes with /health skip.
+10. **Worker Runtime Health**: Health check called before reporting node status (UP/DOWN).
+11. **In-Memory Broker**: Heartbeat and task log part methods fully implemented.
+12. **Coordinator Queue Subscriptions**: All 9 queues subscribed (was 3, now 9).
+13. **Docker Runtime**: Fully implemented with bollard.
+14. **Network Create/Remove**: Implemented with retry logic.
+15. **Sidecars Support**: Docker sidecars fully implemented.
+16. **Registry Auth from Config File**: Fully implemented.
+17. **Shell stderr redirect**: Uses Stdio::inherit to match Go behavior.
+18. **`docker.image.ttl` config**: Config wired and passed to runtime adapter.
+19. **CLI reexec init**: Integrated at startup.
+20. **Shell runtime reexec UID/GID**: Integrated via reexec pattern.
 
-## 6. Remaining Gaps
+## 6. Remaining Minor Items
 
-### Critical
-- **Input Validation**: Job/task input validation not fully ported from Go
-- **Webhook Middleware**: Core webhook library exists but middleware triggering not wired up
-- **Expression Evaluation**: Missing `fromJSON()`, `split()`, `toJSON()` functions
-- **HTTP Auth Middleware**: Exists but NOT applied to HTTP routes
-- **Worker Runtime Health**: Always reports `UP` without checking runtime health
-- **In-Memory Broker**: 4 methods are no-ops (heartbeat/publish methods)
-- **Coordinator Queue Subscriptions**: Missing 6 queue handlers
-
-### Medium
-- Docker Runtime (not implemented)
-- Network Create/Remove (not implemented)
-- Sidecars Support (may be incomplete)
-- Registry Auth from Config File (not implemented)
-- Shell stderr redirect (broken)
-- `docker.image.ttl` config not being read
-- CLI reexec init not integrated
-- Shell runtime reexec UID/GID not integrated
+### Low Priority
+- **Podman sidecars**: Intentionally unsupported per GAP7 contract
+- **TTL-based image caching**: Config wired but full cache pruning not implemented

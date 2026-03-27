@@ -1,7 +1,7 @@
 //! Container setup logic for Podman runtime
 
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tokio::process::Command;
 
@@ -57,7 +57,7 @@ impl PodmanRuntime {
 
     /// Write task files to workdir
     pub(crate) async fn write_task_files(
-        workdir: &PathBuf,
+        workdir: &Path,
         files: &std::collections::HashMap<String, String>,
     ) -> Result<(), PodmanError> {
         if files.is_empty() {
@@ -86,7 +86,7 @@ impl PodmanRuntime {
 
     /// Build podman create command with all options
     pub(crate) fn build_create_command(
-        workdir: &PathBuf,
+        workdir: &Path,
         task: &Task,
         entrypoint: Vec<String>,
     ) -> Command {

@@ -98,7 +98,7 @@ pub fn init() -> bool {
 pub fn naive_self() -> PathBuf {
     let name = env::args()
         .next()
-        .map_or_else(|| "/proc/self/exe".to_string(), |v| v);
+        .unwrap_or_else(|| "/proc/self/exe".to_string());
     resolve_naive_self(&name)
 }
 

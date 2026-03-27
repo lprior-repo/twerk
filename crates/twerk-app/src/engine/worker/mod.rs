@@ -36,7 +36,7 @@ pub const DEFAULT_TIMEOUT: &str = "5m";
 
 pub struct DefaultWorker {
     id: String, name: String, broker: BrokerProxy, runtime: Arc<dyn RuntimeTrait + Send + Sync>,
-    queues: HashMap<String, i32>, limits: Limits, terminate_tx: broadcast::Sender<()>, active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
+    queues: HashMap<String, i32>, #[allow(dead_code)] limits: Limits, terminate_tx: broadcast::Sender<()>, active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
 }
 
 impl DefaultWorker {
@@ -111,7 +111,7 @@ async fn send_heartbeat(broker: &BrokerProxy, id: &str, name: &str, sys: &mut Sy
 
 async fn execute_task(task: Arc<Task>, runtime: Arc<dyn RuntimeTrait + Send + Sync>, broker: BrokerProxy, active_tasks: Arc<DashMap<TaskId, Arc<Task>>>) -> Result<()> {
     let mut t = (*task).clone();
-    let tid = t.id.clone().map_or_else(TaskId::default, |id| id);
+    let tid = t.id.clone().unwrap_or_default();
     active_tasks.insert(tid.clone(), task.clone());
     t.state = TASK_STATE_RUNNING.to_string();
     t.started_at = Some(time::OffsetDateTime::now_utc());
@@ -146,9 +146,9 @@ pub fn create_hostenv_middleware(vars: &[String]) -> Option<crate::engine::TaskM
 
 pub fn read_limits() -> Limits {
     Limits {
-        cpus: std::env::var("TWERK_WORKER_LIMITS_CPUS").map_or_else(|_| DEFAULT_CPUS_LIMIT.to_string(), |v| v),
-        memory: std::env::var("TWERK_WORKER_LIMITS_MEMORY").map_or_else(|_| DEFAULT_MEMORY_LIMIT.to_string(), |v| v),
-        timeout: std::env::var("TWERK_WORKER_LIMITS_TIMEOUT").map_or_else(|_| DEFAULT_TIMEOUT.to_string(), |v| v),
+        cpus: std::env::var("TWERK_WORKER_LIMITS_CPUS").unwrap_or_else(|_| DEFAULT_CPUS_LIMIT.to_string()),
+        memory: std::env::var("TWERK_WORKER_LIMITS_MEMORY").unwrap_or_else(|_| DEFAULT_MEMORY_LIMIT.to_string()),
+        timeout: std::env::var("TWERK_WORKER_LIMITS_TIMEOUT").unwrap_or_else(|_| DEFAULT_TIMEOUT.to_string()),
     }
 }
 
@@ -157,8 +157,8 @@ pub async fn create_worker(engine: &mut crate::engine::Engine, broker: BrokerPro
     let config = read_runtime_config();
     let rt = match runtime { Some(r) => Arc::from(r), None => Arc::from(create_runtime_from_config(&config).await?) };
     if let Some(h) = create_hostenv_middleware(&config.hostenv_vars) { engine.register_task_middleware(h); }
-    let id = std::env::var("TWERK_WORKER_ID").map_or_else(|_| twerk_core::uuid::new_uuid(), |v| v);
-    let name = std::env::var("TWERK_WORKER_NAME").map_or_else(|_| "Worker".to_string(), |v| v);
+    let id = std::env::var("TWERK_WORKER_ID").unwrap_or_else(|_| twerk_core::uuid::new_uuid());
+    let name = std::env::var("TWERK_WORKER_NAME").unwrap_or_else(|_| "Worker".to_string());
     let queues = std::env::var("TWERK_WORKER_QUEUES").ok().map_or_else(
         || {
             let mut m = HashMap::new();

@@ -71,7 +71,6 @@ impl VolumeMounter {
     /// # Errors
     ///
     /// Returns `VolumeMounterError` if the volume cannot be created.
-    #[must_use]
     pub async fn mount(&self, mnt: &Mount) -> Result<Mount, VolumeMounterError> {
         // Generate a unique name for the volume
         let name = uuid::Uuid::new_v4().to_string();

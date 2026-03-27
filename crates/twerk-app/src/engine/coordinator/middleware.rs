@@ -68,8 +68,7 @@ pub async fn http_log_middleware(
         .get("X-Forwarded-For")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.split(',').next())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".to_string());
+        .map(str::trim).map_or_else(|| "unknown".to_string(), std::string::ToString::to_string);
 
     let span = tracing::info_span!(
         "http_request",
@@ -91,11 +90,13 @@ pub async fn http_log_middleware(
             &config.level
         };
 
+        #[allow(clippy::cast_possible_truncation)]
+        let elapsed_ms = elapsed.as_millis() as u64;
         match log_level {
-            "ERROR" => error!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=elapsed.as_millis() as u64, "HTTP Request"),
-            "WARN" => tracing::warn!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=elapsed.as_millis() as u64, "HTTP Request"),
-            "INFO" => info!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=elapsed.as_millis() as u64, "HTTP Request"),
-            _ => debug!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=elapsed.as_millis() as u64, "HTTP Request"),
+            "ERROR" => error!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=%elapsed_ms, "HTTP Request"),
+            "WARN" => tracing::warn!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=%elapsed_ms, "HTTP Request"),
+            "INFO" => info!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=%elapsed_ms, "HTTP Request"),
+            _ => debug!(method=%method, uri=%uri, status=%status.as_u16(), remote_ip=%client_ip, elapsed_ms=%elapsed_ms, "HTTP Request"),
         }
         response
     }
@@ -119,6 +120,7 @@ pub fn create_web_middlewares(
     let cors = config::bool("middleware.web.cors.enabled").then(cors_layer);
     let basic_auth = config::bool("middleware.web.basicauth.enabled").then(|| BasicAuthConfig::new(datastore));
     let key_auth = config::bool("middleware.web.keyauth.enabled").then(|| KeyAuthConfig::new(config::string_default("middleware.web.keyauth.key", "")));
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let rate_limit = config::bool("middleware.web.ratelimit.enabled").then(|| RateLimitConfig::new(config::int_default("middleware.web.ratelimit.rps", 20) as u32));
     let body_limit = parse_body_limit(&config::string_default("middleware.web.bodylimit", "500K")).map(BodyLimitConfig::new);
     let http_log = config::bool_default("middleware.web.logger.enabled", true).then(|| {

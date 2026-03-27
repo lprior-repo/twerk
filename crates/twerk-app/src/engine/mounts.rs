@@ -1,6 +1,5 @@
 //! Twerk Engine - Mounter registration and management
 
-use super::types::EndpointHandler;
 use std::collections::HashMap;
 use tracing::error;
 use twerk_infrastructure::runtime::{Mounter, MultiMounter};

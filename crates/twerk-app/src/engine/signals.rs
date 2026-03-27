@@ -2,7 +2,7 @@
 
 use tokio::signal::unix::{Signal, SignalKind};
 use tokio::sync::broadcast;
-use tracing::{debug, error};
+use tracing::debug;
 
 /// Signal handler for graceful shutdown
 pub struct SignalHandler {
@@ -30,7 +30,7 @@ impl SignalHandler {
     /// fails (e.g. in a constrained container).
     pub async fn wait_for_shutdown(&mut self) {
         match (self.sigint.as_mut(), self.sigterm.as_mut()) {
-            (Some(mut sigint), Some(mut sigterm)) => {
+            (Some(sigint), Some(sigterm)) => {
                 tokio::select! {
                     _ = sigint.recv() => {
                         debug!("Received SIGINT signal");

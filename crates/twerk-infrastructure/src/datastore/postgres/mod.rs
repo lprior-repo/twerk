@@ -464,7 +464,7 @@ impl Datastore for PostgresDatastore {
         let mut items = Vec::new();
         for r in records {
             let user = self.get_user(&r.created_by).await?;
-            let tasks: Vec<Task> = serde_json::from_slice(&r.tasks).map_or_else(|_| Vec::new(), |v| v);
+            let tasks: Vec<Task> = serde_json::from_slice(&r.tasks).unwrap_or_else(|_| Vec::new());
             let sj = r.to_scheduled_job(tasks, user, vec![], self.encryption_key.as_deref())?;
             items.push(twerk_core::job::new_scheduled_job_summary(&sj));
         }
@@ -658,9 +658,7 @@ impl Datastore for PostgresDatastore {
                     disable_cleanup: self.disable_cleanup,
                     encryption_key: self.encryption_key.clone(),
                 };
-                if let Err(e) = f(&ds_tx).await {
-                    return Err(e);
-                }
+                f(&ds_tx).await?;
                 let tx = Arc::try_unwrap(tx).map_err(|_| DatastoreError::Transaction("failed to unwrap tx".to_string()))?.into_inner();
                 tx.commit().await.map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
                 Ok(())

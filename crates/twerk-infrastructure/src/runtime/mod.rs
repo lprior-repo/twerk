@@ -103,6 +103,7 @@ pub trait Mounter: Send + Sync {
 // MultiMounter Implementation
 // ----------------------------------------------------------------------------
 
+#[derive(Default)]
 pub struct MultiMounter {
     mounters: Vec<std::sync::Arc<dyn Mounter>>,
 }
@@ -116,12 +117,6 @@ impl MultiMounter {
     pub fn register_mounter(&mut self, _name: &str, mounter: Box<dyn Mounter>) -> Result<(), MountError> {
         self.mounters.push(std::sync::Arc::from(mounter));
         Ok(())
-    }
-}
-
-impl Default for MultiMounter {
-    fn default() -> Self {
-        Self { mounters: Vec::new() }
     }
 }
 

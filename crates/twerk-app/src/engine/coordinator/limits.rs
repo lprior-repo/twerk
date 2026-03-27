@@ -21,11 +21,15 @@ pub struct RateLimitConfig {
 }
 
 impl RateLimitConfig {
+    #[must_use]
     pub fn new(rps: u32) -> Self {
         Self { rps }
     }
 }
 
+/// Rate limiting middleware that enforces requests per second quota.
+/// # Errors
+/// Returns `StatusCode::TOO_MANY_REQUESTS` if rate limit is exceeded.
 pub async fn rate_limit_middleware(
     axum::extract::State(config): axum::extract::State<RateLimitConfig>,
     request: axum::extract::Request,
@@ -65,11 +69,15 @@ pub struct BodyLimitConfig {
 }
 
 impl BodyLimitConfig {
+    #[must_use]
     pub fn new(limit: usize) -> Self {
         Self { limit }
     }
 }
 
+/// Body size limiting middleware that enforces maximum content length.
+/// # Errors
+/// Returns `StatusCode::PAYLOAD_TOO_LARGE` if content length exceeds limit.
 pub async fn body_limit_middleware(
     axum::extract::State(config): axum::extract::State<BodyLimitConfig>,
     request: axum::extract::Request,

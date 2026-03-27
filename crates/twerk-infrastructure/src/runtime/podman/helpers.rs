@@ -11,11 +11,11 @@ use super::types::{Broker, PodmanRuntime, PullRequest, RegistryCredentials};
 
 #[allow(dead_code)]
 impl PodmanRuntime {
-    /// Pull image with registry credentials support
+    #[allow(dead_code)]
     pub(crate) async fn do_pull_request(
         image: &str,
         registry: Option<RegistryCredentials>,
-        _broker: Option<&Box<dyn Broker + Send + Sync>>,
+        _broker: Option<&(dyn Broker + Send + Sync)>,
     ) -> Result<(), PodmanError> {
         if Self::image_exists_locally(image).await {
             debug!("image {} already exists locally, skipping pull", image);
@@ -143,10 +143,11 @@ impl PodmanRuntime {
     }
 
     /// Report task progress to broker
+    #[allow(dead_code)]
     pub(crate) async fn report_progress(
         task_id: &str,
         progress_file: PathBuf,
-        broker: Option<&Box<dyn Broker + Send + Sync>>,
+        broker: Option<&(dyn Broker + Send + Sync)>,
     ) {
         loop {
             tokio::time::sleep(super::types::PROGRESS_POLL_INTERVAL).await;
@@ -167,7 +168,7 @@ impl PodmanRuntime {
                 }
             };
 
-            if let Some(ref b) = broker {
+            if let Some(b) = broker {
                 b.publish_task_progress(task_id, progress);
             }
         }

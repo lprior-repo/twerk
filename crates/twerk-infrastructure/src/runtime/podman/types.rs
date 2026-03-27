@@ -178,6 +178,7 @@ impl std::fmt::Debug for PodmanRuntime {
 }
 
 // Helper methods for cross-module access
+#[allow(dead_code)]
 impl PodmanRuntime {
     pub(crate) fn get_privileged() -> bool {
         false // Placeholder - these will be called on instances

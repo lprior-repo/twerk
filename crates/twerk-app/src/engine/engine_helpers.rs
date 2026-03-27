@@ -1,6 +1,5 @@
 //! Twerk Engine - Helper functions and types
 
-use super::types::Config;
 use twerk_infrastructure::runtime::Runtime;
 use twerk_core::task::Task;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};

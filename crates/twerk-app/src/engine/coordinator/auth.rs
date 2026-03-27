@@ -29,6 +29,10 @@ impl BasicAuthConfig {
     }
 }
 
+/// Basic authentication middleware for coordinator endpoints.
+/// # Errors
+/// Returns `StatusCode::UNAUTHORIZED` if authentication fails or user not found.
+/// Returns `StatusCode::INTERNAL_SERVER_ERROR` if datastore error occurs.
 pub async fn basic_auth_middleware(
     axum::extract::State(config): axum::extract::State<BasicAuthConfig>,
     request: axum::extract::Request,
@@ -53,9 +57,8 @@ pub async fn basic_auth_middleware(
             }
         });
 
-    let (username, password) = match credentials {
-        Some((u, p)) => (u, p),
-        None => return Err(StatusCode::UNAUTHORIZED),
+    let Some((username, password)) = credentials else {
+        return Err(StatusCode::UNAUTHORIZED);
     };
 
     let user = match config.datastore.get_user(&username).await {
@@ -90,6 +93,7 @@ pub struct KeyAuthConfig {
 }
 
 impl KeyAuthConfig {
+    #[must_use]
     pub fn new(key: String) -> Self {
         Self {
             key,
@@ -104,14 +108,17 @@ impl KeyAuthConfig {
     }
 }
 
+/// API key authentication middleware for coordinator endpoints.
+/// # Errors
+/// Returns `StatusCode::UNAUTHORIZED` if API key is missing or invalid.
 pub async fn key_auth_middleware(
     axum::extract::State(config): axum::extract::State<KeyAuthConfig>,
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     let method = request.method().as_str();
-    let path = request.uri().path().to_string();
-    let pattern = format!("{} {}", method, path);
+    let path = request.uri().path();
+    let pattern = format!("{method} {path}");
 
     if config.skip_paths.iter().any(|p| wildcard_match(p, &pattern)) {
         return Ok(next.run(request).await);

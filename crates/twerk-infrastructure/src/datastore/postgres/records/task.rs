@@ -63,9 +63,9 @@ pub trait TaskRecordExt {
 
 impl TaskRecordExt for TaskRecord {
     fn to_task(&self) -> Result<Task, DatastoreError> {
-        fn parse_bytes<'a, T: DeserializeOwned>(
+        fn parse_bytes<T: DeserializeOwned>(
             label: &'static str,
-            bytes: Option<&'a Vec<u8>>,
+            bytes: Option<&Vec<u8>>,
         ) -> std::result::Result<Option<T>, DatastoreError> {
             bytes
                 .map(|b| {

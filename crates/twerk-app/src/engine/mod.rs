@@ -11,6 +11,7 @@ pub mod coordinator;
 pub mod datastore;
 pub mod default;
 pub mod endpoints;
+#[allow(clippy::module_inception)]
 pub mod engine;
 pub mod engine_helpers;
 pub mod locker;

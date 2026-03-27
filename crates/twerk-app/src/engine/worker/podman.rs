@@ -81,9 +81,10 @@ impl PodmanRuntimeAdapter {
         }
     }
 
+    #[allow(dead_code)]
     fn validate_task(task: &Task) -> ShutdownResult<()> {
         // Check for empty task ID
-        if task.id.as_ref().map_or(true, |id| id.is_empty()) {
+        if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
                 task.id.clone().unwrap_or_default().to_string()
             ));
@@ -181,7 +182,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
 
             // Cleanup volumes (postcondition)
             if config.enable_cleanup {
-                let _ = Self::cleanup_volumes(&handle.volumes).await?;
+                Self::cleanup_volumes(&handle.volumes).await?;
             }
 
             Ok(Ok(exit_code))
@@ -308,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_validate_task_empty_id() {
-        let adapter = PodmanRuntimeAdapter::new(false, false);
+        let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("", "RUNNING");
         
         let result = PodmanRuntimeAdapter::validate_task(&task);
@@ -317,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_validate_task_completed_state() {
-        let adapter = PodmanRuntimeAdapter::new(false, false);
+        let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("task-1", "COMPLETED");
         
         let result = PodmanRuntimeAdapter::validate_task(&task);
@@ -326,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_validate_task_running_state() {
-        let adapter = PodmanRuntimeAdapter::new(false, false);
+        let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("task-1", "RUNNING");
         
         let result = PodmanRuntimeAdapter::validate_task(&task);

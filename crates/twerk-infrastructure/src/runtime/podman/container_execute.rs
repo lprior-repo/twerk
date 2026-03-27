@@ -1,6 +1,6 @@
 //! Container execution and lifecycle for Podman runtime
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
@@ -16,9 +16,9 @@ impl PodmanRuntime {
     pub(crate) async fn execute_container(
         &self,
         task: &mut Task,
-        workdir: &PathBuf,
-        output_file: &PathBuf,
-        progress_file: &PathBuf,
+        workdir: &Path,
+        output_file: &Path,
+        progress_file: &Path,
     ) -> Result<(), PodmanError> {
         // Pull image
         let registry = task.registry.as_ref().and_then(|r| {
@@ -111,21 +111,15 @@ impl PodmanRuntime {
             ));
         }
 
-        // Probe container
-        if let Some(ref probe) = task.probe {
-            let host_port = PodmanRuntime::get_host_port(&container_id, probe.port).await?;
-            self.probe_container(&host_port, probe).await?;
-        }
-
-        // Progress reporting
+        // Progress reporting - start before probe so logs are visible during health checks
         let progress_task_id = task.id.clone();
-        let progress_file_path = progress_file.clone();
+        let progress_file_path = progress_file.to_path_buf();
         let broker = self.broker.clone();
         let progress_handle = tokio::spawn(async move {
-            PodmanRuntime::report_progress(&progress_task_id, progress_file_path, broker.as_ref()).await;
+            PodmanRuntime::report_progress(&progress_task_id, progress_file_path, broker.as_deref()).await;
         });
 
-        // Read logs
+        // Read logs - start before probe to align with Go Tork behavior
         let logs_task_id = task.id.clone();
         let logs_broker = self.broker.clone();
         let mut logs_cmd = Command::new("podman");
@@ -136,6 +130,12 @@ impl PodmanRuntime {
         let mut child = logs_cmd
             .spawn()
             .map_err(|e| PodmanError::LogsRead(e.to_string()))?;
+
+        // Probe container (after logs are streaming)
+        if let Some(ref probe) = task.probe {
+            let host_port = PodmanRuntime::get_host_port(&container_id, probe.port).await?;
+            self.probe_container(&host_port, probe).await?;
+        }
 
         if let Some(stdout) = child.stdout.take() {
             let mut reader = tokio::io::BufReader::new(stdout).lines();

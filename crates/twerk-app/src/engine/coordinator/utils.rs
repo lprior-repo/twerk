@@ -15,10 +15,7 @@ pub(crate) fn base64_decode(input: &str) -> Option<String> {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     match STANDARD.decode(input) {
-        Ok(bytes) => match String::from_utf8(bytes) {
-            Ok(s) => Some(s),
-            Err(_) => None,
-        },
+        Ok(bytes) => String::from_utf8(bytes).ok(),
         Err(_) => None,
     }
 }
@@ -42,10 +39,7 @@ pub(crate) fn parse_body_limit(s: &str) -> Option<usize> {
     } else if let Some(stripped) = s.strip_suffix('G') {
         (stripped, 1024 * 1024 * 1024)
     } else {
-        return match s.parse() {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        };
+        return s.parse().ok();
     };
 
     match num_str.parse::<usize>() {

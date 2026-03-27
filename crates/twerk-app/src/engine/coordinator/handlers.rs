@@ -4,6 +4,7 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -13,6 +14,9 @@ use crate::engine::TOPIC_JOB_COMPLETED;
 use crate::engine::coordinator::scheduler::Scheduler;
 use twerk_core::eval::evaluate_task;
 
+/// Handles job events from the broker.
+/// # Errors
+/// Returns error if task scheduling or job completion fails.
 pub async fn handle_job_event(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -46,7 +50,7 @@ async fn start_job(
         return Err(anyhow::anyhow!("job has no tasks"));
     }
     
-    let mut job_ctx = job.context.as_ref().map(|c| c.as_map()).unwrap_or_default();
+    let mut job_ctx = job.context.as_ref().map(twerk_core::job::JobContext::as_map).unwrap_or_default();
     if let Some(inputs) = job.context.as_ref().and_then(|c| c.inputs.as_ref()) {
         for (k, v) in inputs {
             job_ctx.insert(k.clone(), serde_json::Value::String(v.clone()));
@@ -55,7 +59,7 @@ async fn start_job(
     
     let mut first_task = tasks[0].clone();
     first_task = evaluate_task(&first_task, &job_ctx)
-        .map_err(|e| anyhow::anyhow!("failed to evaluate task: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to evaluate task: {e}"))?;
 
     first_task.id = Some(uuid::Uuid::new_v4().to_string().into());
     first_task.job_id = job.id.clone();
@@ -64,7 +68,7 @@ async fn start_job(
     first_task.created_at = Some(now);
     
     ds.create_task(&first_task).await
-        .map_err(|e| anyhow::anyhow!("failed to create task: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to create task: {e}"))?;
     
     let job_id = job.id.clone().unwrap_or_default();
     debug!("Created first task {} for job {}", first_task.id.as_deref().unwrap_or("unknown"), job_id);
@@ -73,7 +77,7 @@ async fn start_job(
         u.started_at = Some(now);
         u.position = 1;
         Ok(u)
-    })).await.map_err(|e| anyhow::anyhow!("failed to update job: {}", e))?;
+    })).await.map_err(|e| anyhow::anyhow!("failed to update job: {e}"))?;
     
     broker.publish_task(QUEUE_PENDING.to_string(), &first_task).await?;
     Ok(())
@@ -92,11 +96,11 @@ async fn complete_job(
         u.state = twerk_core::job::JOB_STATE_COMPLETED.to_string();
         u.completed_at = Some(now);
         Ok(u)
-    })).await.map_err(|e| anyhow::anyhow!("failed to update job: {}", e))?;
+    })).await.map_err(|e| anyhow::anyhow!("failed to update job: {e}"))?;
     
     if let Some(parent_id) = &job.parent_id {
         let mut parent = ds.get_task_by_id(parent_id).await
-            .map_err(|e| anyhow::anyhow!("failed to get parent task: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("failed to get parent task: {e}"))?;
         parent.state = twerk_core::task::TASK_STATE_COMPLETED.to_string();
         parent.completed_at = Some(now);
         broker.publish_task(QUEUE_COMPLETED.to_string(), &parent).await?;
@@ -106,6 +110,9 @@ async fn complete_job(
     Ok(())
 }
 
+/// Handles task progress updates from workers.
+/// # Errors
+/// Returns error if task update or scheduling fails.
 pub async fn handle_task_progress(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -121,19 +128,22 @@ pub async fn handle_task_progress(
         _ => {
             let task_id = task.id.clone().unwrap_or_default();
             ds.update_task(&task_id, Box::new(move |mut u| {
-                u.state = task.state.clone();
+                u.state.clone_from(&task.state);
                 u.started_at = task.started_at;
                 u.completed_at = task.completed_at;
                 u.failed_at = task.failed_at;
-                u.result = task.result.clone();
-                u.error = task.error.clone();
+                u.result.clone_from(&task.result);
+                u.error.clone_from(&task.error);
                 Ok(u)
-            })).await.map_err(|e| anyhow::anyhow!("failed to update task: {}", e))?;
+            })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
             Ok(())
         }
     }
 }
 
+/// Handles pending task by scheduling it.
+/// # Errors
+/// Returns error if scheduling fails.
 pub async fn handle_pending_task(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -147,6 +157,9 @@ pub async fn handle_pending_task(
     Ok(())
 }
 
+/// Handles task completion and triggers next task or job completion.
+/// # Errors
+/// Returns error if task update or next task scheduling fails.
 pub async fn handle_task_completed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -163,7 +176,7 @@ pub async fn handle_task_completed(
         u.completed_at = completed_at;
         u.result = result;
         Ok(u)
-    })).await.map_err(|e| anyhow::anyhow!("failed to update task: {}", e))?;
+    })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
     
     if let Some(pid) = parent_id {
         handle_subtask_completed(ds, broker, task, &pid).await
@@ -178,7 +191,7 @@ async fn handle_top_level_task_completed(
     job_id: String,
 ) -> Result<()> {
     let mut job = ds.get_job_by_id(&job_id).await
-        .map_err(|e| anyhow::anyhow!("failed to get job: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("failed to get job: {e}"))?;
     job.position += 1;
     let now = time::OffsetDateTime::now_utc();
     

@@ -169,9 +169,10 @@ impl ShellRuntimeAdapter {
         }
     }
 
+    #[allow(dead_code)]
     fn validate_task(task: &Task) -> ShutdownResult<()> {
         // Check for empty task ID (precondition)
-        if task.id.as_ref().map_or(true, |id| id.is_empty()) {
+        if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
                 task.id.clone().unwrap_or_default().to_string(),
             ));

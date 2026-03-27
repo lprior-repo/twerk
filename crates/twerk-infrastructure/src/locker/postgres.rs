@@ -43,7 +43,7 @@ unsafe impl Sync for PoolRef {}
 impl PoolRef {
     fn new(pool: &Arc<SyncPostgresPool>) -> Self {
         Self {
-            ptr: Arc::as_ptr(pool) as *const SyncPostgresPool,
+            ptr: Arc::as_ptr(pool),
         }
     }
 

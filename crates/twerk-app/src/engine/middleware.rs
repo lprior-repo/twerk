@@ -4,7 +4,6 @@ use super::types::{
     JobHandlerFunc, JobMiddlewareFunc, LogHandlerFunc, LogMiddlewareFunc, NodeHandlerFunc,
     NodeMiddlewareFunc, TaskHandlerFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
-use std::sync::Arc;
 
 /// Middleware composition helper
 pub struct MiddlewareComposer {

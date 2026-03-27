@@ -121,7 +121,6 @@ impl BindMounter {
     }
 
     /// Unmounts a bind mount.
-    #[must_use]
     pub fn unmount(&self, _mnt: &Mount) -> Result<(), BindMounterError> {
         // Bind mounts don't need explicit unmounting in the mounter
         Ok(())

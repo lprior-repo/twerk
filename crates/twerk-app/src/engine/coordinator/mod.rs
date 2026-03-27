@@ -71,7 +71,7 @@ impl std::fmt::Debug for Config {
             .field("queues", &self.queues)
             .field("address", &self.address)
             .field("enabled", &self.enabled)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -91,6 +91,7 @@ impl Default for Config {
 
 impl Config {
     /// Creates a new coordinator config from infrastructure config (TOML/ENV)
+    #[must_use] 
     pub fn from_infra() -> Self {
         let name = config::string_default("coordinator.name", "Coordinator");
         let address = config::string_default("coordinator.address", "0.0.0.0:8000");
@@ -110,6 +111,7 @@ impl Config {
 }
 
 pub struct CoordinatorImpl {
+    #[allow(dead_code)]
     name: String,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     datastore: Arc<dyn twerk_infrastructure::datastore::Datastore>,
@@ -118,6 +120,7 @@ pub struct CoordinatorImpl {
 }
 
 impl CoordinatorImpl {
+    #[must_use] 
     pub fn new(config: Config) -> Self {
         Self {
             name: config.name,
@@ -217,13 +220,16 @@ impl Coordinator for CoordinatorImpl {
             }
             job.state = twerk_core::job::JOB_STATE_PENDING.to_string();
             job.created_at = Some(time::OffsetDateTime::now_utc());
-            ds.create_job(&job).await.map_err(|e| anyhow::anyhow!("failed to create job: {}", e))?;
+            ds.create_job(&job).await.map_err(|e| anyhow::anyhow!("failed to create job: {e}"))?;
             broker.publish_job(&job).await?;
             Ok(job)
         })
     }
 }
 
+/// Creates a new coordinator instance.
+/// # Errors
+/// Returns error if locker creation fails.
 pub async fn create_coordinator(
     broker: BrokerProxy,
     datastore: DatastoreProxy,

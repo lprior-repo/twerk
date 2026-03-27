@@ -61,7 +61,7 @@ impl PodmanRuntime {
             .stderr(std::process::Stdio::null())
             .output()
             .await;
-        output.map_or(false, |out| out.status.success())
+        output.is_ok_and(|out| out.status.success())
     }
 
     /// Extract registry host from image name

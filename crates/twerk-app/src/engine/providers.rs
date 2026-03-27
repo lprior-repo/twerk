@@ -21,27 +21,23 @@ impl ProviderRegistry {
     /// Register a datastore provider
     pub fn register_datastore(&mut self, name: &str, provider: Box<dyn Datastore + Send + Sync>) {
         let name = name.to_string();
-        if !self.ds_providers.contains_key(&name) {
-            self.ds_providers.insert(name, provider);
-        }
+        self.ds_providers.entry(name).or_insert(provider);
     }
 
     /// Register a broker provider
     pub fn register_broker(&mut self, name: &str, provider: Box<dyn Broker + Send + Sync>) {
         let name = name.to_string();
-        if !self.broker_providers.contains_key(&name) {
-            self.broker_providers.insert(name, provider);
-        }
+        self.broker_providers.entry(name).or_insert(provider);
     }
 
     /// Get a registered datastore provider
-    pub fn get_datastore(&self, name: &str) -> Option<&Box<dyn Datastore + Send + Sync>> {
-        self.ds_providers.get(name)
+    pub fn get_datastore(&self, name: &str) -> Option<&(dyn Datastore + Send + Sync)> {
+        self.ds_providers.get(name).map(|bx| bx.as_ref())
     }
 
     /// Get a registered broker provider
-    pub fn get_broker(&self, name: &str) -> Option<&Box<dyn Broker + Send + Sync>> {
-        self.broker_providers.get(name)
+    pub fn get_broker(&self, name: &str) -> Option<&(dyn Broker + Send + Sync)> {
+        self.broker_providers.get(name).map(|bx| bx.as_ref())
     }
 
     /// Check if a datastore provider exists

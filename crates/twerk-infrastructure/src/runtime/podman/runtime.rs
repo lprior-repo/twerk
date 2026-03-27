@@ -91,7 +91,7 @@ impl PodmanRuntime {
             while let Some(pr) = rx.recv().await {
                 let image = pr.image.clone();
                 let registry = pr.registry.clone();
-                let result = Self::do_pull_request(&image, registry, broker.as_ref()).await;
+                let result = Self::do_pull_request(&image, registry, broker.as_deref()).await;
                 let _ = pr.respond_to.send(result);
             }
         });

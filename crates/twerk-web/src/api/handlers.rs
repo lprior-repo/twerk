@@ -12,7 +12,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use super::error::ApiError;
 use super::AppState;
-use super::redact;
+use crate::middleware::hooks::{
+    on_read_job, on_read_job_summary, on_read_task,
+};
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct PaginationQuery {
@@ -74,7 +76,7 @@ pub async fn get_task_handler(
     if let Some(ref job_id) = task.job_id {
         if let Ok(job) = state.ds.get_job_by_id(job_id).await {
             let secrets = job.secrets.unwrap_or_default();
-            redact::redact_task(&mut task, &secrets);
+            on_read_task(&mut task, &secrets);
         }
     }
 
@@ -173,7 +175,8 @@ pub async fn create_job_handler(
         // Wait with timeout
         match tokio::time::timeout(tokio::time::Duration::from_secs(3600), rx.recv()).await {
             Ok(Some(mut finished_job)) => {
-                redact::redact_job(&mut finished_job);
+                let secrets = finished_job.secrets.clone().unwrap_or_default();
+                on_read_job(&mut finished_job, &secrets);
                 Ok((StatusCode::OK, axum::Json(new_job_summary(&finished_job))).into_response())
             }
             Ok(None) => Err(ApiError::internal("subscription channel closed")),
@@ -189,7 +192,7 @@ pub async fn create_job_handler(
             .map_err(|e| ApiError::internal(e.to_string()))?;
 
         let mut summary = new_job_summary(&job);
-        redact::redact_job_summary(&mut summary);
+        on_read_job_summary(&mut summary);
 
         Ok((StatusCode::OK, axum::Json(summary)).into_response())
     }
@@ -205,7 +208,8 @@ pub async fn get_job_handler(
         .await
         .map_err(ApiError::from)?;
 
-    redact::redact_job(&mut job);
+    let secrets = job.secrets.clone().unwrap_or_default();
+    on_read_job(&mut job, &secrets);
 
     Ok(axum::Json(job).into_response())
 }
@@ -227,7 +231,7 @@ pub async fn list_jobs_handler(
         .map_err(ApiError::from)?;
 
     for item in &mut result.items {
-        redact::redact_job_summary(item);
+        on_read_job_summary(item);
     }
 
     Ok(axum::Json(result).into_response())

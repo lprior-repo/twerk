@@ -66,6 +66,7 @@ const DEFAULT_PROBE_TIMEOUT: &str = "1m";
 struct PullRequest {
     image: String,
     registry: Option<Registry>,
+    #[allow(dead_code)]
     logger: Box<dyn std::io::Write + Send>,
     result_tx: tokio::sync::oneshot::Sender<Result<(), DockerError>>,
 }
@@ -77,6 +78,7 @@ pub struct DockerRuntime {
     images: Arc<RwLock<HashMap<String, std::time::Instant>>>,
     pull_tx: mpsc::Sender<PullRequest>,
     tasks: Arc<RwLock<usize>>,
+    #[allow(dead_code)]
     pruner_cancel: tokio::sync::oneshot::Sender<()>,
     mounter: Arc<dyn Mounter>,
 }
@@ -255,7 +257,7 @@ impl DockerRuntime {
 
         // Execute pre-tasks
         let pre_tasks: Vec<Task> = if let Some(ref pre) = task.pre {
-            pre.iter().cloned().collect()
+            pre.to_vec()
         } else {
             Vec::new()
         };
@@ -272,7 +274,7 @@ impl DockerRuntime {
 
         // Execute post-tasks
         let post_tasks: Vec<Task> = if let Some(ref post) = task.post {
-            post.iter().cloned().collect()
+            post.to_vec()
         } else {
             Vec::new()
         };
@@ -827,7 +829,7 @@ impl DockerRuntime {
 
         let memory = match &limits.memory {
             Some(mem) if !mem.is_empty() => {
-                Some(parse_memory_bytes(mem).map_err(|e| DockerError::InvalidMemory(e))?)
+                Some(parse_memory_bytes(mem).map_err(DockerError::InvalidMemory)?)
             }
             _ => None,
         };

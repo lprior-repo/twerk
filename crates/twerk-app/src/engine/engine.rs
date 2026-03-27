@@ -1,16 +1,16 @@
 //! Twerk Engine - Core Engine struct and all implementations
 
 use super::broker::BrokerProxy;
-use super::coordinator::{create_coordinator, Coordinator};
+use super::coordinator::create_coordinator;
 use super::datastore::DatastoreProxy;
 use super::engine_helpers::{MockRuntime, resolve_locker_type};
-use super::locker::{create_locker, Locker};
+use super::locker::create_locker;
 use super::signals::await_signal_or_channel;
 use super::state::{Mode, State};
 use super::types::{
-    Config, EndpointHandler, JobListener, LogHandlerFunc, LogMiddlewareFunc,
-    Middleware, NodeHandlerFunc, NodeMiddlewareFunc, TaskHandlerFunc, TaskMiddlewareFunc,
-    WebMiddlewareFunc, JobMiddlewareFunc, JobHandlerFunc,
+    Config, EndpointHandler, JobListener, LogMiddlewareFunc,
+    Middleware, NodeMiddlewareFunc, TaskMiddlewareFunc,
+    WebMiddlewareFunc, JobMiddlewareFunc,
 };
 use super::worker::create_worker;
 use anyhow::{anyhow, Result};

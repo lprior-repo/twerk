@@ -97,6 +97,52 @@ fn sequence_fn(args: &Value) -> Result<Value, String> {
     Ok(Value::Tuple(range))
 }
 
+fn from_json_fn(args: &Value) -> Result<Value, String> {
+    let s = match args.as_tuple() {
+        Ok(tuple) => {
+            if tuple.is_empty() {
+                return Err("fromJSON requires a string argument".to_string());
+            }
+            tuple[0].as_string()
+        }
+        Err(_) => args.as_string(),
+    }
+    .map_err(|_| "fromJSON requires a string argument".to_string())?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&s).map_err(|e| format!("fromJSON parse error: {}", e))?;
+    json_to_eval_value(&parsed).map_err(|e| format!("fromJSON conversion error: {}", e))
+}
+
+fn split_fn(args: &Value) -> Result<Value, String> {
+    let tuple = args
+        .as_tuple()
+        .map_err(|_| "split expects tuple arguments".to_string())?;
+
+    if tuple.len() != 2 {
+        return Err(format!("split expects 2 arguments, got {}", tuple.len()));
+    }
+
+    let s = tuple[0]
+        .as_string()
+        .map_err(|_| "split requires string arguments".to_string())?;
+    let delimiter = tuple[1]
+        .as_string()
+        .map_err(|_| "split requires string arguments".to_string())?;
+
+    let parts: Vec<Value> = s
+        .split(delimiter.as_str())
+        .map(|p| Value::String(p.to_string()))
+        .collect();
+    Ok(Value::Tuple(parts))
+}
+
+fn to_json_fn(args: &Value) -> Result<Value, String> {
+    let json = eval_value_to_json(args);
+    serde_json::to_string(&json)
+        .map(Value::String)
+        .map_err(|e| format!("toJSON error: {}", e))
+}
+
 // ---------------------------------------------------------------------------
 // Context building
 // ---------------------------------------------------------------------------
@@ -122,6 +168,33 @@ fn create_context(
     ctx.set_function("sequence".to_string(), sequence_func)
         .map_err(|e: evalexpr::EvalexprError| {
             EvalError::ExpressionError("sequence".into(), e.to_string())
+        })?;
+
+    // Register fromJSON function
+    let from_json_func = evalexpr::Function::new(|args| {
+        from_json_fn(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function("fromJSON".to_string(), from_json_func)
+        .map_err(|e: evalexpr::EvalexprError| {
+            EvalError::ExpressionError("fromJSON".into(), e.to_string())
+        })?;
+
+    // Register split function
+    let split_func = evalexpr::Function::new(|args| {
+        split_fn(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function("split".to_string(), split_func)
+        .map_err(|e: evalexpr::EvalexprError| {
+            EvalError::ExpressionError("split".into(), e.to_string())
+        })?;
+
+    // Register toJSON function
+    let to_json_func = evalexpr::Function::new(|args| {
+        to_json_fn(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function("toJSON".to_string(), to_json_func)
+        .map_err(|e: evalexpr::EvalexprError| {
+            EvalError::ExpressionError("toJSON".into(), e.to_string())
         })?;
 
     // Add context variables
@@ -248,10 +321,11 @@ pub fn evaluate_task(
         };
 
     // -- String fields --
+    // NOTE: Go does NOT evaluate the `run` field - it's treated as raw shell command
     let name = eval_field(&task.name)?;
     let var = eval_field(&task.var)?;
     let image = eval_field(&task.image)?;
-    let run = eval_field(&task.run)?;
+    let run = task.run.clone();
     let queue = eval_field(&task.queue)?;
     let r#if = eval_field(&task.r#if)?;
 

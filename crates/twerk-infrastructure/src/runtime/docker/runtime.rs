@@ -11,7 +11,6 @@ use bollard::Docker;
 use bollard::config::NetworkingConfig;
 use bollard::models::HostConfig;
 use bollard::models::{Mount as BollardMount, MountTypeEnum, PortBinding, EndpointSettings, HealthConfig, DeviceRequest};
-use bollard::models::NetworkCreateRequest as CreateNetworkOptions;
 
 use bollard::query_parameters::{
     CreateContainerOptions, CreateImageOptions, RemoveContainerOptions, RemoveImageOptions, RemoveVolumeOptions,
@@ -19,7 +18,7 @@ use bollard::query_parameters::{
 };
 use futures_util::StreamExt;
 use tokio::sync::{mpsc, RwLock};
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
 
 use super::config::DockerConfig;
 use super::error::DockerError;
@@ -513,37 +512,18 @@ impl DockerRuntime {
     }
 
     /// Creates a network for sidecar communication.
+    ///
+    /// Delegates to `crate::runtime::docker::network::create_network`.
     async fn create_network(&self) -> Result<String, DockerError> {
-        let id = new_uuid();
-        let options = CreateNetworkOptions {
-            name: id.clone(),
-            driver: Some("bridge".to_string()),
-            ..Default::default()
-        };
-        let response = self.client.create_network(options).await
-            .map_err(|e| DockerError::NetworkCreate(e.to_string()))?;
-        Ok(response.id)
+        super::network::create_network(&self.client).await
     }
 
     /// Removes a network with retry logic.
     ///
+    /// Delegates to `crate::runtime::docker::network::remove_network`.
     /// Go parity: `removeNetwork` — exponential backoff 200ms→3200ms, 5 retries.
     async fn remove_network(&self, network_id: &str) {
-        let mut delay = std::time::Duration::from_millis(200);
-        for i in 0..5u32 {
-            match self.client.remove_network(network_id).await {
-                Ok(()) => return,
-                Err(e) => {
-                    if i == 4 {
-                        tracing::error!(network_id, error = %e, "failed to remove network");
-                        return;
-                    }
-                    tracing::debug!(network_id, attempt = i+1, error = %e, "retrying");
-                    sleep(delay).await;
-                    delay *= 2;
-                }
-            }
-        }
+        super::network::remove_network(&self.client, network_id).await;
     }
 
     /// Creates a container for a task.

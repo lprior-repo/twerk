@@ -22,6 +22,14 @@ pub struct InMemoryBroker {
     progress_handlers: Arc<RwLock<Vec<TaskProgressHandler>>>,
     /// Event handlers (topic pattern -> list of handlers)
     event_handlers: Arc<DashMap<String, Vec<EventHandler>>>,
+    /// Heartbeat handlers
+    heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,
+    /// Stored heartbeats (node_id -> node)
+    heartbeats: DashMap<String, Node>,
+    /// Task log part handlers
+    task_log_part_handlers: Arc<RwLock<Vec<TaskLogPartHandler>>>,
+    /// Stored task log parts (task_id -> Vec<TaskLogPart>)
+    task_log_parts: DashMap<String, Vec<TaskLogPart>>,
 }
 
 impl Default for InMemoryBroker {
@@ -40,6 +48,10 @@ impl InMemoryBroker {
             job_handlers: Arc::new(RwLock::new(Vec::new())),
             progress_handlers: Arc::new(RwLock::new(Vec::new())),
             event_handlers: Arc::new(DashMap::new()),
+            heartbeat_handlers: Arc::new(RwLock::new(Vec::new())),
+            heartbeats: DashMap::new(),
+            task_log_part_handlers: Arc::new(RwLock::new(Vec::new())),
+            task_log_parts: DashMap::new(),
         }
     }
 }
@@ -110,12 +122,40 @@ impl Broker for InMemoryBroker {
         })
     }
 
-    fn publish_heartbeat(&self, _node: Node) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn publish_heartbeat(&self, node: Node) -> BoxedFuture<()> {
+        let node = node.clone();
+        let handlers = self.heartbeat_handlers.clone();
+        let heartbeats = self.heartbeats.clone();
+        Box::pin(async move {
+            if let Some(ref node_id) = node.id {
+                heartbeats.insert(node_id.to_string(), node.clone());
+            }
+            let handlers = handlers.read().await;
+            for handler in handlers.iter() {
+                let node_clone = node.clone();
+                let handler_clone = handler.clone();
+                tokio::spawn(async move {
+                    let _ = handler_clone(node_clone).await;
+                });
+            }
+            Ok(())
+        })
     }
 
-    fn subscribe_for_heartbeats(&self, _handler: HeartbeatHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()> {
+        let handlers = self.heartbeat_handlers.clone();
+        let heartbeats = self.heartbeats.clone();
+        Box::pin(async move {
+            for entry in heartbeats.iter() {
+                let node_clone = entry.value().clone();
+                let handler_clone = handler.clone();
+                tokio::spawn(async move {
+                    let _ = handler_clone(node_clone).await;
+                });
+            }
+            handlers.write().await.push(handler);
+            Ok(())
+        })
     }
 
     fn publish_job(&self, job: &Job) -> BoxedFuture<()> {
@@ -173,12 +213,44 @@ impl Broker for InMemoryBroker {
         Box::pin(async { Ok(()) })
     }
 
-    fn publish_task_log_part(&self, _part: &TaskLogPart) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()> {
+        let part = part.clone();
+        let handlers = self.task_log_part_handlers.clone();
+        let task_log_parts = self.task_log_parts.clone();
+        Box::pin(async move {
+            if let Some(task_id) = &part.task_id {
+                let task_id_str = task_id.to_string();
+                let mut entry = task_log_parts.entry(task_id_str).or_default();
+                entry.push(part.clone());
+            }
+            let handlers = handlers.read().await;
+            for handler in handlers.iter() {
+                let part_clone = part.clone();
+                let handler_clone = handler.clone();
+                tokio::spawn(async move {
+                    let _ = handler_clone(part_clone).await;
+                });
+            }
+            Ok(())
+        })
     }
 
-    fn subscribe_for_task_log_part(&self, _handler: TaskLogPartHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()> {
+        let handlers = self.task_log_part_handlers.clone();
+        let task_log_parts = self.task_log_parts.clone();
+        Box::pin(async move {
+            for entry in task_log_parts.iter() {
+                for part in entry.value().iter() {
+                    let part_clone = part.clone();
+                    let handler_clone = handler.clone();
+                    tokio::spawn(async move {
+                        let _ = handler_clone(part_clone).await;
+                    });
+                }
+            }
+            handlers.write().await.push(handler);
+            Ok(())
+        })
     }
 
     fn queues(&self) -> BoxedFuture<Vec<QueueInfo>> {

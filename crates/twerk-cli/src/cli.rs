@@ -8,6 +8,7 @@ use clap::Parser;
 use config::{Config, Environment};
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use twerk_infrastructure::reexec;
 
 use super::banner::{display_banner, BannerMode};
 use super::commands::Commands;
@@ -108,6 +109,10 @@ fn get_config_string(key: &str) -> Option<String> {
 ///
 /// Returns an error if command execution fails.
 pub async fn run() -> Result<(), CliError> {
+    if reexec::init() {
+        return Ok(());
+    }
+
     // Setup logging
     setup_logging()?;
 

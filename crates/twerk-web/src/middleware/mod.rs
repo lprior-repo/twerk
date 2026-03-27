@@ -16,6 +16,9 @@ pub use hooks::{
     on_read_job, on_read_job_summary, on_read_task,
 };
 
+#[derive(Clone)]
+pub struct UsernameValue(pub String);
+
 pub async fn logging_middleware(
     request: Request<axum::body::Body>,
     next: Next,

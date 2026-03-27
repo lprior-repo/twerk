@@ -12,6 +12,7 @@ use std::process::ExitCode;
 use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
 
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct DockerRuntimeAdapter {
     privileged: bool,
     image_ttl_secs: u64,

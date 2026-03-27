@@ -82,7 +82,6 @@ pub fn read_runtime_config() -> RuntimeConfig {
         bind_allowed: config_bool("mounts.bind.allowed"),
         bind_sources: config_strings("mounts.bind.sources"),
         hostenv_vars: config_strings("middleware.task.hostenv.vars"),
-        ..Default::default()
     }
 }
 

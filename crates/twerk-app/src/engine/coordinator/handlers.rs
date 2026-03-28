@@ -36,6 +36,9 @@ pub async fn handle_job_event(
         twerk_core::job::JOB_STATE_COMPLETED => {
             complete_job(ds, broker, job).await
         }
+        twerk_core::job::JOB_STATE_RESTART => {
+            restart_job(ds, broker, job).await
+        }
         JOB_STATE_CANCELLED => {
             handle_cancel(ds, broker, job).await.map_err(|e| anyhow::anyhow!("{}", e))
         }
@@ -90,6 +93,68 @@ async fn start_job(
 
     fire_job_webhooks(&job, "job.Scheduled");
     broker.publish_task(QUEUE_PENDING.to_string(), &first_task).await?;
+    Ok(())
+}
+
+async fn restart_job(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: twerk_core::job::Job,
+) -> Result<()> {
+    info!("Restarting job {}", job.id.as_deref().unwrap_or("unknown"));
+    let job_id = job.id.clone().unwrap_or_default();
+    let job_position = job.position;
+    let now = time::OffsetDateTime::now_utc();
+
+    // Update job state to RUNNING and clear failed_at
+    ds.update_job(&job_id, Box::new(move |mut u| {
+        u.state = twerk_core::job::JOB_STATE_RUNNING.to_string();
+        u.failed_at = None;
+        Ok(u)
+    })).await.map_err(|e| anyhow::anyhow!("failed to update job: {e}"))?;
+
+    // Get task at original position
+    let tasks = job.tasks.as_ref().ok_or_else(|| anyhow::anyhow!("job has no tasks"))?;
+    if tasks.is_empty() {
+        return Err(anyhow::anyhow!("job has no tasks"));
+    }
+    let task_index = (job_position - 1) as usize;
+    if task_index >= tasks.len() {
+        return Err(anyhow::anyhow!("job position {} out of bounds", job_position));
+    }
+
+    let mut task = tasks[task_index].clone();
+    
+    // Build job context
+    let mut job_ctx = job.context.as_ref().map(twerk_core::job::JobContext::as_map).unwrap_or_default();
+    if let Some(inputs) = job.context.as_ref().and_then(|c| c.inputs.as_ref()) {
+        for (k, v) in inputs {
+            job_ctx.insert(k.clone(), serde_json::Value::String(v.clone()));
+        }
+    }
+    
+    // Re-evaluate task with job context
+    task = evaluate_task(&task, &job_ctx)
+        .map_err(|e| anyhow::anyhow!("failed to evaluate task: {e}"))?;
+
+    // Reset task fields for restart
+    task.id = Some(uuid::Uuid::new_v4().to_string().into());
+    task.job_id = job.id.clone();
+    task.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+    task.position = job_position;
+    task.created_at = Some(now);
+    task.started_at = None;
+    task.completed_at = None;
+    task.failed_at = None;
+    task.result = None;
+    task.error = None;
+
+    // Create task in datastore
+    ds.create_task(&task).await
+        .map_err(|e| anyhow::anyhow!("failed to create task: {e}"))?;
+
+    debug!("Restarted task {} for job {} at position {}", task.id.as_deref().unwrap_or("unknown"), job_id, job_position);
+    broker.publish_task(QUEUE_PENDING.to_string(), &task).await?;
     Ok(())
 }
 
@@ -347,6 +412,7 @@ pub async fn handle_error(
 ) -> Result<()> {
     error!("Task {} failed: {}", task.id.as_deref().unwrap_or("unknown"), task.error.as_deref().unwrap_or("unknown error"));
     let task_id = task.id.clone().unwrap_or_default();
+    let job_id = task.job_id.clone().unwrap_or_default();
     let now = time::OffsetDateTime::now_utc();
     let task_error = task.error.clone();
     let task_result = task.result.clone();
@@ -357,6 +423,45 @@ pub async fn handle_error(
         u.result.clone_from(&task_result);
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+
+    let job = ds.get_job_by_id(&job_id).await
+        .map_err(|e| anyhow::anyhow!("failed to get job: {e}"))?;
+
+    let job_state = job.state.as_str();
+    let is_job_active = job_state == twerk_core::job::JOB_STATE_RUNNING || job_state == twerk_core::job::JOB_STATE_SCHEDULED;
+
+    if is_job_active {
+        if let Some(ref retry) = task.retry {
+            if retry.attempts < retry.limit {
+                let mut retry_task = task.clone();
+                retry_task.id = Some(uuid::Uuid::new_v4().to_string().into());
+                retry_task.created_at = Some(now);
+                if let Some(ref mut r) = retry_task.retry {
+                    r.attempts += 1;
+                }
+                retry_task.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+                retry_task.error = None;
+                retry_task.failed_at = None;
+
+                let mut job_ctx = job.context.as_ref().map(twerk_core::job::JobContext::as_map).unwrap_or_default();
+                if let Some(inputs) = job.context.as_ref().and_then(|c| c.inputs.as_ref()) {
+                    for (k, v) in inputs {
+                        job_ctx.insert(k.clone(), serde_json::Value::String(v.clone()));
+                    }
+                }
+
+                retry_task = evaluate_task(&retry_task, &job_ctx)
+                    .map_err(|e| anyhow::anyhow!("failed to evaluate retry task: {e}"))?;
+
+                ds.create_task(&retry_task).await
+                    .map_err(|e| anyhow::anyhow!("failed to create retry task: {e}"))?;
+
+                broker.publish_task(QUEUE_PENDING.to_string(), &retry_task).await?;
+                return Ok(());
+            }
+        }
+    }
+
     task.state = twerk_core::task::TASK_STATE_FAILED.to_string();
     broker.publish_task(QUEUE_FAILED.to_string(), &task).await?;
     fire_task_webhooks(&task, "task.Error");

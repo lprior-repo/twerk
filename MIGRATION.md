@@ -74,9 +74,13 @@ tokio = { workspace = true }
 18. **`docker.image.ttl` config**: Config wired and passed to runtime adapter.
 19. **CLI reexec init**: Integrated at startup.
 20. **Shell runtime reexec UID/GID**: Integrated via reexec pattern.
+21. **Scheduler fixes**: Fixed task dispatch to properly handle regular, parallel, each, and subjob task types.
+22. **TTL image caching**: Full cache pruning implemented with janitor thread and expiration tracking.
+23. **Webhook condition evaluation**: Conditions are now evaluated before firing webhooks on job/task state changes.
+24. **RabbitMQ priority fix**: Task priority now correctly passed and maintained during publish.
+25. **Comprehensive test suite**: 585+ tests covering core, infrastructure, app, and integration scenarios.
 
 ## 6. Remaining Minor Items
 
 ### Low Priority
 - **Podman sidecars**: Intentionally unsupported per GAP7 contract
-- **TTL-based image caching**: Config wired but full cache pruning not implemented

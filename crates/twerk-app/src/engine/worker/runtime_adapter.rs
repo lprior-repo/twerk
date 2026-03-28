@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use std::process::ExitCode;
+use std::sync::Arc;
 use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait, ShutdownResult};
 use crate::engine::worker::mounter::{BindConfig, BindMounter, TmpfsMounter, VolumeMounter};
 use crate::engine::worker::docker::DockerRuntimeAdapter;
@@ -49,7 +50,8 @@ pub async fn create_runtime_from_config(
                 .map_err(|e| anyhow!("{e}"))?;
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
                 .map_err(|e| anyhow!("{e}"))?;
-            Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged, config.docker_image_ttl_secs)))
+            let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
+            Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged, config.docker_image_ttl_secs, Arc::new(m), Arc::new(broker))))
         }
         runtime_type::SHELL => {
             Ok(Box::new(ShellRuntimeAdapter::new(

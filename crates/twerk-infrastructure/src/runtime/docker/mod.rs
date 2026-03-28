@@ -45,7 +45,7 @@ pub use auth::{
 pub use auth::config_path;
 pub use bind::{BindConfig, BindMounter, BindMounterError};
 pub use config::{DockerConfig, DockerConfigBuilder};
-pub use container::Container;
+pub use container::{Container, Tcontainer, create_task_container};
 pub use error::DockerError;
 pub use mounters::{CompositeMounter, Mounter};
 pub use reference::{parse, Reference, ReferenceError};

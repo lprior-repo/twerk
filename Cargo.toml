@@ -87,6 +87,9 @@ clap = { version = "4.5", features = ["derive", "env"] }
 evalexpr = "13.1"
 cron = "0.12"
 
+# Scheduling
+tokio-cron-scheduler = "0.15"
+
 # Test Dependencies
 tokio-test = "0.4"
 mockito = "1.0"

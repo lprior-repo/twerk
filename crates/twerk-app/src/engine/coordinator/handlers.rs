@@ -15,8 +15,10 @@ use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
 use twerk_core::eval::evaluate_task;
-use twerk_core::task::{TaskLogPart, TASK_STATE_RUNNING};
+use twerk_core::job::{JOB_STATE_CANCELLED, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED};
+use twerk_core::task::{TaskLogPart, TASK_STATE_CANCELLED, TASK_STATE_RUNNING};
 use twerk_core::node::NodeStatus;
+use crate::engine::types::JobHandlerError;
 
 /// Handles job events from the broker.
 /// # Errors
@@ -396,5 +398,74 @@ pub async fn handle_log_part(
 ) -> Result<()> {
     debug!("Received log part {} for task {}", part.number, part.task_id.as_deref().unwrap_or("unknown"));
     ds.create_task_log_part(&part).await.map_err(|e| anyhow::anyhow!("failed to store log part: {e}"))?;
+    Ok(())
+}
+
+/// Handles job cancellation.
+/// # Errors
+/// Returns error if job update or task cancellation fails.
+pub async fn handle_cancel(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: twerk_core::job::Job,
+) -> Result<(), JobHandlerError> {
+    let job_id = job.id.clone().unwrap_or_default();
+    let job_state = job.state.clone();
+
+    if job_state.as_str() == JOB_STATE_RUNNING || job_state.as_str() == JOB_STATE_SCHEDULED {
+        ds.update_job(&job_id, Box::new(|mut u| {
+            u.state = JOB_STATE_CANCELLED.to_string();
+            Ok(u)
+        })).await.map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    }
+
+    if let Some(ref parent_id) = job.parent_id {
+        let parent_task = ds.get_task_by_id(parent_id).await
+            .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+        let parent_job_id = parent_task.job_id.clone().unwrap_or_default();
+        let mut parent_job = ds.get_job_by_id(&parent_job_id).await
+            .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+        parent_job.state = JOB_STATE_CANCELLED.to_string();
+        broker.publish_job(&parent_job).await
+            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+    }
+
+    cancel_active_tasks(&ds, &broker, &job_id).await?;
+
+    Ok(())
+}
+
+async fn cancel_active_tasks(
+    ds: &Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: &Arc<dyn twerk_infrastructure::broker::Broker>,
+    job_id: &str,
+) -> Result<(), JobHandlerError> {
+    let tasks = ds.get_active_tasks(job_id).await
+        .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+
+    for task in tasks {
+        let task_id = task.id.clone().unwrap_or_default();
+        ds.update_task(&task_id, Box::new(|mut u| {
+            u.state = TASK_STATE_CANCELLED.to_string();
+            Ok(u)
+        })).await.map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+
+        if let Some(ref subjob) = task.subjob {
+            if let Some(ref subjob_id) = subjob.id {
+                let mut sub_job = ds.get_job_by_id(subjob_id).await
+                    .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+                sub_job.state = JOB_STATE_CANCELLED.to_string();
+                broker.publish_job(&sub_job).await
+                    .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+            }
+        } else if let Some(ref node_id) = task.node_id {
+            let node = ds.get_node_by_id(node_id).await
+                .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+            let queue = node.queue.unwrap_or_else(|| QUEUE_PENDING.to_string());
+            broker.publish_task(queue, &task).await
+                .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+        }
+    }
+
     Ok(())
 }

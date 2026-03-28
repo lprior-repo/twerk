@@ -12,6 +12,7 @@ pub mod handlers;
 pub mod limits;
 pub mod middleware;
 pub mod scheduler;
+pub mod schedule;
 pub mod utils;
 pub mod webhook;
 

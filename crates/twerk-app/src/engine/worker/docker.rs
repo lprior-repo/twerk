@@ -1,66 +1,117 @@
 use anyhow::anyhow;
-use bollard::models::ContainerCreateBody;
-use bollard::query_parameters::{CreateContainerOptions, CreateImageOptions, RemoveContainerOptions};
+use bollard::query_parameters::RemoveContainerOptions;
 use bollard::Docker;
 use dashmap::DashMap;
-use futures_util::StreamExt;
+use std::pin::Pin;
 use std::sync::Arc;
-use tracing::debug;
 use twerk_core::id::TaskId;
+use twerk_core::mount::Mount;
 use twerk_core::task::Task;
 use std::process::ExitCode;
 use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
+use twerk_infrastructure::runtime::docker::create_task_container;
+use twerk_infrastructure::runtime::docker::mounters::Mounter as DockerMounter;
+use twerk_infrastructure::runtime::Mounter;
+use twerk_infrastructure::broker::Broker;
 
-#[derive(Debug, Default)]
+struct DockerMounterAdapter {
+    inner: Arc<dyn Mounter + Send + Sync>,
+}
+
+impl DockerMounterAdapter {
+    fn new(inner: Arc<dyn Mounter + Send + Sync>) -> Self {
+        Self { inner }
+    }
+}
+
+impl DockerMounter for DockerMounterAdapter {
+    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+        let inner = self.inner.clone();
+        let mnt = mnt.clone();
+        Box::pin(async move {
+            inner.mount(&mnt).await.map_err(|e| e.to_string())
+        })
+    }
+
+    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+        let inner = self.inner.clone();
+        let mnt = mnt.clone();
+        Box::pin(async move {
+            inner.unmount(&mnt).await.map_err(|e| e.to_string())
+        })
+    }
+}
+
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct DockerRuntimeAdapter {
     privileged: bool,
     image_ttl_secs: u64,
     active_tasks: Arc<DashMap<TaskId, String>>,
+    mounter: Arc<dyn Mounter + Send + Sync>,
+    broker: Arc<dyn Broker>,
 }
 
 impl DockerRuntimeAdapter {
     #[must_use]
-    pub fn new(privileged: bool, image_ttl_secs: u64) -> Self {
-        Self { privileged, image_ttl_secs, active_tasks: Arc::new(DashMap::new()) }
+    pub fn new(privileged: bool, image_ttl_secs: u64, mounter: Arc<dyn Mounter + Send + Sync>, broker: Arc<dyn Broker>) -> Self {
+        Self { privileged, image_ttl_secs, active_tasks: Arc::new(DashMap::new()), mounter, broker }
+    }
+}
+
+impl DockerRuntimeAdapter {
+    pub fn execute_task(self, task: Task) -> BoxedFuture<()> {
+        let active_tasks = self.active_tasks.clone();
+        let mounter = self.mounter.clone();
+        let broker = self.broker.clone();
+        Box::pin(async move {
+            if task.id.as_ref().is_none_or(|id| id.is_empty()) {
+                return Err(anyhow!("task id required"));
+            }
+            if task.image.as_ref().is_none_or(|img| img.is_empty()) {
+                return Err(anyhow!("task image required"));
+            }
+
+            let client = match Docker::connect_with_local_defaults() {
+                Ok(c) => c,
+                Err(e) => return Err(anyhow!("failed to connect to docker: {}", e)),
+            };
+            let logger = Box::new(std::io::sink());
+            let mounter = Arc::new(DockerMounterAdapter::new(mounter));
+
+            let tc = match create_task_container(&client, mounter, broker, &task, logger).await {
+                Ok(tc) => tc,
+                Err(e) => return Err(anyhow!("failed to create container: {}", e)),
+            };
+
+            let tc_id = tc.id.clone();
+            active_tasks.insert(task.id.clone().unwrap(), tc_id.clone());
+
+            let start_result = tc.start().await;
+
+            if let Err(e) = start_result {
+                active_tasks.remove(&task.id.clone().unwrap());
+                tc.remove().await.map_err(|e| anyhow!("failed to remove container: {}", e)).ok();
+                return Err(anyhow!("failed to start container: {}", e));
+            }
+
+            let wait_result = tc.wait().await;
+            active_tasks.remove(&task.id.clone().unwrap());
+
+            if let Err(e) = wait_result {
+                tc.remove().await.map_err(|e| anyhow!("failed to remove container after wait error: {}", e)).ok();
+                return Err(anyhow!("container wait error: {}", e));
+            }
+
+            tc.remove().await.map_err(|e| anyhow!("failed to remove container: {}", e)).ok();
+            Ok(())
+        })
     }
 }
 
 impl RuntimeTrait for DockerRuntimeAdapter {
     fn run(&self, task: &Task) -> BoxedFuture<()> {
-        let p = self.privileged;
-        let tid = task.id.clone().unwrap_or_default();
-        let img = task.image.clone().unwrap_or_default();
-        let active = self.active_tasks.clone();
-        let (cmd, env, wd) = (task.cmd.clone(), task.env.clone(), task.workdir.clone());
-        Box::pin(async move {
-            if tid.as_str().is_empty() || img.is_empty() { return Err(anyhow!("id and image required")); }
-            let d = Docker::connect_with_local_defaults()?;
-            if d.inspect_image(&img).await.is_err() {
-                let mut s = d.create_image(Some(CreateImageOptions { from_image: Some(img.clone()), ..Default::default() }), None, None);
-                while let Some(res) = s.next().await { if let Err(e) = res { debug!("pull error: {e}"); } }
-            }
-            let c_body = ContainerCreateBody {
-                image: Some(img), cmd, working_dir: wd,
-                env: env.map(|e| e.iter().map(|(k, v)| format!("{k}={v}")).collect()),
-                host_config: Some(bollard::models::HostConfig { privileged: Some(p), ..Default::default() }),
-                ..Default::default()
-            };
-            let cid = d.create_container(None::<CreateContainerOptions>, c_body).await?.id;
-            active.insert(tid.clone(), cid.clone());
-            d.start_container(&cid, None).await?;
-            let mut ec = 1;
-            for _ in 0..60 {
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                if let Ok(i) = d.inspect_container(&cid, None).await {
-                    if let Some(s) = i.state { if !s.running.unwrap_or(false) { ec = s.exit_code.unwrap_or(1); break; } }
-                }
-            }
-            active.remove(&tid);
-            let _ = d.remove_container(&cid, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
-            if ec != 0 { return Err(anyhow!("exited with {ec}")); }
-            Ok(())
-        })
+        self.clone().execute_task(task.clone())
     }
 
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {

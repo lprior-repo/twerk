@@ -29,6 +29,6 @@ tasks:
       - rust
 
   ci:
-    command: 'moon ci'
+    command: 'moon run :check :test :lint-src'
     options:
       runInCI: true

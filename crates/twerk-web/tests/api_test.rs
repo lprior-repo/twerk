@@ -30,6 +30,54 @@ async fn health_status_is_up_when_engine_is_ready() {
 }
 
 #[tokio::test]
+async fn health_status_returns_503_when_broker_health_check_fails() {
+    let ds = Arc::new(InMemoryDatastore::new());
+    let broker = Arc::new(FailingHealthBroker {
+        inner: InMemoryBroker::new(),
+    });
+    let state = AppState::new(broker, ds, Config::default());
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+struct FailingHealthBroker {
+    inner: InMemoryBroker,
+}
+
+impl twerk_infrastructure::broker::Broker for FailingHealthBroker {
+    fn publish_task(&self, qname: String, task: &twerk_core::task::Task) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_task(qname, task) }
+    fn subscribe_for_tasks(&self, qname: String, handler: twerk_infrastructure::broker::TaskHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_tasks(qname, handler) }
+    fn publish_task_progress(&self, task: &twerk_core::task::Task) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_task_progress(task) }
+    fn subscribe_for_task_progress(&self, handler: twerk_infrastructure::broker::TaskProgressHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_task_progress(handler) }
+    fn publish_heartbeat(&self, node: twerk_core::node::Node) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_heartbeat(node) }
+    fn subscribe_for_heartbeats(&self, handler: twerk_infrastructure::broker::HeartbeatHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_heartbeats(handler) }
+    fn publish_job(&self, job: &twerk_core::job::Job) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_job(job) }
+    fn subscribe_for_jobs(&self, handler: twerk_infrastructure::broker::JobHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_jobs(handler) }
+    fn publish_event(&self, topic: String, event: Value) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_event(topic, event) }
+    fn subscribe_for_events(&self, pattern: String, handler: twerk_infrastructure::broker::EventHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_events(pattern, handler) }
+    fn publish_task_log_part(&self, part: &twerk_core::task::TaskLogPart) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.publish_task_log_part(part) }
+    fn subscribe_for_task_log_part(&self, handler: twerk_infrastructure::broker::TaskLogPartHandler) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.subscribe_for_task_log_part(handler) }
+    fn queues(&self) -> twerk_infrastructure::broker::BoxedFuture<Vec<twerk_infrastructure::broker::QueueInfo>> { self.inner.queues() }
+    fn queue_info(&self, qname: String) -> twerk_infrastructure::broker::BoxedFuture<twerk_infrastructure::broker::QueueInfo> { self.inner.queue_info(qname) }
+    fn delete_queue(&self, qname: String) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.delete_queue(qname) }
+    fn health_check(&self) -> twerk_infrastructure::broker::BoxedFuture<()> { Box::pin(async { Err(anyhow::anyhow!("broker unhealthy").into()) }) }
+    fn shutdown(&self) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.shutdown() }
+}
+
+#[tokio::test]
 async fn job_created_successfully_when_valid_json_posted() {
     let state = setup_state().await;
     let app = create_router(state);

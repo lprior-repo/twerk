@@ -1,5 +1,7 @@
 use crate::job::JobDefaults;
-use crate::task::Task;
+use crate::mount::Mount;
+use crate::task::{EachTask, ParallelTask, SubJobTask, Task, TaskRetry};
+use crate::webhook::Webhook;
 use std::str::FromStr;
 use std::time::Duration as StdDuration;
 
@@ -98,7 +100,10 @@ mod tests {
 
     #[test]
     fn test_validate_job_valid() {
-        let task = Task::default();
+        let task = Task {
+            name: Some("test-task".to_string()),
+            ..Default::default()
+        };
         let job_defaults = JobDefaults::default();
         assert!(validate_job(
             Some(&"test-job".to_string()),
@@ -312,6 +317,509 @@ mod tests {
         let errors = result.unwrap_err();
         assert!(errors.len() >= 4);
     }
+
+    #[test]
+    fn validation_job_passes_when_minimal_valid() {
+        let task = Task {
+            name: Some("test task".to_string()),
+            image: Some("some:image".to_string()),
+            ..Default::default()
+        };
+        let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validation_job_fails_when_tasks_empty() {
+        let result = validate_job(Some(&"test job".to_string()), Some(&vec![]), None, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("at least one task")));
+    }
+
+    #[test]
+    fn validation_job_fails_when_name_missing() {
+        let task = Task {
+            image: Some("some:image".to_string()),
+            ..Default::default()
+        };
+        let result = validate_job(None, Some(&vec![task]), None, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("name is required")));
+    }
+
+    #[test]
+    fn validation_job_fails_when_name_empty() {
+        let task = Task {
+            image: Some("some:image".to_string()),
+            ..Default::default()
+        };
+        let result = validate_job(Some(&"".to_string()), Some(&vec![task]), None, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("name is required")));
+    }
+
+    #[test]
+    fn validation_queue_passes_when_valid_name() {
+        assert!(validate_queue_name("urgent").is_ok());
+        assert!(validate_queue_name("default").is_ok());
+        assert!(validate_queue_name("x-custom").is_ok());
+    }
+
+    #[test]
+    fn validation_queue_fails_when_x_jobs() {
+        let r = validate_queue_name("x-jobs");
+        assert!(r.is_err());
+        assert!(r.unwrap_err().contains("reserved"));
+    }
+
+    #[test]
+    fn validation_task_passes_when_retry_limit_1() {
+        let mut task = Task::default();
+        task.retry = Some(TaskRetry {
+            limit: 1,
+            attempts: 0,
+        });
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_task_passes_when_retry_limit_10() {
+        let mut task = Task::default();
+        task.retry = Some(TaskRetry {
+            limit: 10,
+            attempts: 0,
+        });
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_task_fails_when_retry_limit_50() {
+        let mut task = Task::default();
+        task.retry = Some(TaskRetry {
+            limit: 50,
+            attempts: 0,
+        });
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("invalid retry limit")));
+    }
+
+    #[test]
+    fn validation_task_passes_when_timeout_6h() {
+        let mut task = Task::default();
+        task.timeout = Some("6h".to_string());
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_job_task_fails_when_name_missing() {
+        let task = Task {
+            image: Some("some:image".to_string()),
+            ..Default::default()
+        };
+        let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("has no name")));
+    }
+
+    #[test]
+    fn validation_job_task_passes_when_image_missing() {
+        let task = Task {
+            name: Some("some task".to_string()),
+            ..Default::default()
+        };
+        let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validation_job_defaults_fails_when_timeout_invalid() {
+        let task = Task {
+            name: Some("some task".to_string()),
+            image: Some("some:image".to_string()),
+            ..Default::default()
+        };
+        let mut defaults = JobDefaults::default();
+        defaults.timeout = Some("invalid".to_string());
+        let result = validate_job(
+            Some(&"test job".to_string()),
+            Some(&vec![task]),
+            Some(&defaults),
+            None,
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("invalid default timeout")));
+    }
+
+    #[test]
+    fn validation_var_fails_when_too_long() {
+        let long_var = "a".repeat(65);
+        let mut task = Task::default();
+        task.var = Some(long_var);
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("variable name exceeds 64 characters")));
+    }
+
+    #[test]
+    fn validation_var_passes_when_64_chars() {
+        let var_64 = "a".repeat(64);
+        let mut task = Task::default();
+        task.var = Some(var_64);
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_var_passes_when_shorter() {
+        let mut task = Task::default();
+        task.var = Some("somevar".to_string());
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_expr_fails_when_invalid_syntax() {
+        let mut task = Task::default();
+        task.each = Some(Box::new(EachTask {
+            list: Some("{1+1".to_string()),
+            task: Some(Box::new(Task {
+                name: Some("test task".to_string()),
+                image: Some("some:image".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }));
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("invalid expression")));
+    }
+
+    #[test]
+    fn validation_expr_passes_when_valid_arithmetic() {
+        let mut task = Task::default();
+        task.each = Some(Box::new(EachTask {
+            list: Some("1+1".to_string()),
+            task: Some(Box::new(Task {
+                name: Some("test task".to_string()),
+                image: Some("some:image".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }));
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_expr_passes_when_valid_template() {
+        let mut task = Task::default();
+        task.each = Some(Box::new(EachTask {
+            list: Some("{{1+1}}".to_string()),
+            task: Some(Box::new(Task {
+                name: Some("test task".to_string()),
+                image: Some("some:image".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }));
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_webhook_fails_when_url_empty() {
+        let webhooks = Some(vec![Webhook {
+            url: Some("".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_webhooks(webhooks.as_ref(), None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("webhook URL cannot be empty")));
+    }
+
+    #[test]
+    fn validation_webhook_passes_when_url_valid() {
+        let webhooks = Some(vec![Webhook {
+            url: Some("http://example.com".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_webhooks(webhooks.as_ref(), None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validation_cron_fails_when_invalid_expression() {
+        assert!(validate_cron("invalid-cron").is_err());
+        assert!(validate_cron("").is_err());
+    }
+
+    #[test]
+    fn validation_cron_fails_when_too_many_fields() {
+        assert!(validate_cron("0 0 0 0 * * *").is_err());
+    }
+
+    #[test]
+    fn validation_parallel_passes_when_single_task() {
+        let mut task = Task::default();
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            completions: 0,
+        });
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_each_passes_when_expression_valid() {
+        let mut task = Task::default();
+        task.each = Some(Box::new(EachTask {
+            list: Some("5+5".to_string()),
+            task: Some(Box::new(Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }));
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_task_fails_when_parallel_and_each_both_set() {
+        let mut task = Task::default();
+        task.each = Some(Box::new(EachTask {
+            list: Some("some expression".to_string()),
+            task: Some(Box::new(Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }));
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            completions: 0,
+        });
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("parallel") && e.contains("each")));
+    }
+
+    #[test]
+    fn validation_subjob_passes_when_webhook_valid() {
+        let mut task = Task::default();
+        task.subjob = Some(SubJobTask {
+            name: Some("test sub job".to_string()),
+            webhooks: Some(vec![Webhook {
+                url: Some("http://example.com".to_string()),
+                ..Default::default()
+            }]),
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        assert!(validate_task(&task).is_ok());
+    }
+
+    #[test]
+    fn validation_subjob_fails_when_webhook_url_empty() {
+        let mut task = Task::default();
+        task.subjob = Some(SubJobTask {
+            name: Some("test sub job".to_string()),
+            webhooks: Some(vec![Webhook {
+                url: Some("".to_string()),
+                ..Default::default()
+            }]),
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("webhook URL cannot be empty")));
+    }
+
+    #[test]
+    fn validation_task_fails_when_parallel_and_subjob_both_set() {
+        let mut task = Task::default();
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            completions: 0,
+        });
+        task.subjob = Some(SubJobTask {
+            name: Some("test sub job".to_string()),
+            tasks: Some(vec![Task {
+                name: Some("test task".to_string()),
+                image: Some("some task".to_string()),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let result = validate_task(&task);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("parallel") && e.contains("subjob")));
+    }
+
+    #[test]
+    fn validation_mount_fails_when_type_and_target_missing() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("".to_string()),
+            target: Some("".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_mounts(&mounts);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("mount type is required") || e.contains("target is required")));
+    }
+
+    #[test]
+    fn validation_mount_passes_when_type_custom() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("custom".to_string()),
+            target: Some("/some/target".to_string()),
+            ..Default::default()
+        }]);
+        assert!(validate_mounts(&mounts).is_ok());
+    }
+
+    #[test]
+    fn validation_mount_fails_when_bind_type_missing_source() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("".to_string()),
+            target: Some("/some/target".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_mounts(&mounts);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("source is required for bind mount")));
+    }
+
+    #[test]
+    fn validation_mount_passes_when_bind_has_source_and_target() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("/some/source".to_string()),
+            target: Some("/some/target".to_string()),
+            ..Default::default()
+        }]);
+        assert!(validate_mounts(&mounts).is_ok());
+    }
+
+    #[test]
+    fn validation_mount_fails_when_source_contains_hash() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("/some#/source".to_string()),
+            target: Some("/some/target".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_mounts(&mounts);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("invalid source path")));
+    }
+
+    #[test]
+    fn validation_mount_fails_when_target_contains_colon() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("/some/source".to_string()),
+            target: Some("/some:/target".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_mounts(&mounts);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("invalid target path")));
+    }
+
+    #[test]
+    fn validation_mount_fails_when_target_is_tork() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("/some/source".to_string()),
+            target: Some("/tork".to_string()),
+            ..Default::default()
+        }]);
+        let result = validate_mounts(&mounts);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("target path cannot be /tork")));
+    }
+
+    #[test]
+    fn validation_mount_passes_when_bind_with_options() {
+        let mounts = Some(vec![Mount {
+            mount_type: Some("bind".to_string()),
+            source: Some("bucket=some-bucket path=/mnt/some-path".to_string()),
+            target: Some("/some/path".to_string()),
+            ..Default::default()
+        }]);
+        assert!(validate_mounts(&mounts).is_ok());
+    }
 }
 
 pub fn validate_cron(cron: &str) -> Result<(), String> {
@@ -405,6 +913,14 @@ pub fn validate_job(
         errors.push("at least one task is required".into());
     }
 
+    if let Some(tasks) = tasks {
+        for (i, task) in tasks.iter().enumerate() {
+            if task.name.as_ref().is_none_or(|n| n.trim().is_empty()) {
+                errors.push(format!("task at index {} has no name", i));
+            }
+        }
+    }
+
     if let Some(defaults) = defaults {
         if let Some(timeout) = &defaults.timeout {
             if validate_duration(timeout).is_err() {
@@ -461,6 +977,118 @@ pub fn validate_task(task: &Task) -> Result<(), Vec<String>> {
     if let Some(each) = &task.each {
         if each.list.as_ref().is_none_or(|l| l.is_empty()) {
             errors.push("each list cannot be empty".into());
+        }
+    }
+
+    if let Some(var) = &task.var {
+        if var.len() > 64 {
+            errors.push(format!(
+                "variable name exceeds 64 characters: {}",
+                var.len()
+            ));
+        }
+    }
+
+    if let Some(each) = &task.each {
+        if let Some(list) = &each.list {
+            if !list.is_empty() && !crate::eval::valid_expr(list) {
+                errors.push(format!("invalid expression: {}", list));
+            }
+        }
+    }
+
+    if task.parallel.is_some() && task.each.is_some() {
+        errors.push("task cannot have both parallel and each".to_string());
+    }
+
+    if task.parallel.is_some() && task.subjob.is_some() {
+        errors.push("task cannot have both parallel and subjob".to_string());
+    }
+
+    if let Some(subjob) = &task.subjob {
+        if let Some(webhooks) = &subjob.webhooks {
+            for webhook in webhooks {
+                if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
+                    errors.push("webhook URL cannot be empty".to_string());
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+pub fn validate_webhooks(
+    webhooks: Option<&Vec<Webhook>>,
+    tasks: Option<&Vec<Task>>,
+) -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+
+    if let Some(webhooks) = webhooks {
+        for webhook in webhooks {
+            if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
+                errors.push("webhook URL cannot be empty".to_string());
+            }
+        }
+    }
+
+    if let Some(tasks) = tasks {
+        for task in tasks {
+            if let Some(subjob) = &task.subjob {
+                if let Some(subjob_webhooks) = &subjob.webhooks {
+                    for webhook in subjob_webhooks {
+                        if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
+                            errors.push("webhook URL cannot be empty".to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+pub fn validate_mounts(mounts: &Option<Vec<Mount>>) -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+
+    let Some(mounts) = mounts else {
+        return Ok(());
+    };
+
+    for mount in mounts {
+        if mount.mount_type.as_ref().is_some_and(|mt| mt.is_empty()) {
+            errors.push("mount type is required".to_string());
+        }
+
+        if let Some(target) = &mount.target {
+            if target.is_empty() {
+                errors.push("target is required".to_string());
+            } else if target.contains(':') {
+                errors.push("invalid target path: cannot contain colon".to_string());
+            } else if target == "/tork" {
+                errors.push("target path cannot be /tork".to_string());
+            }
+        }
+
+        if mount.mount_type.as_deref() == Some("bind") {
+            if let Some(source) = &mount.source {
+                if source.is_empty() {
+                    errors.push("source is required for bind mount".to_string());
+                } else if source.contains('#') {
+                    errors.push("invalid source path: cannot contain hash".to_string());
+                }
+            } else {
+                errors.push("source is required for bind mount".to_string());
+            }
         }
     }
 

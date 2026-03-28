@@ -99,26 +99,17 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
     let qname = format!("worker-priority-{}", twerk_core::uuid::new_short_uuid());
     let (tx, mut rx) = mpsc::channel(4);
 
-    // Barrier to ensure we don't send to channel until we "see" the delay effect
-    // Wait, the requirement is no sleep.
     broker.subscribe_for_tasks(qname.clone(), Arc::new(move |task| {
         let tx = tx.clone();
         let task = task.clone();
         Box::pin(async move {
-            // Use yield_now loop instead of sleep to simulate processing delay
-            // allowing RabbitMQ to buffer other messages for priority sorting
-            for _ in 0..1000 { tokio::task::yield_now().await; }
+            tokio::time::sleep(Duration::from_millis(50)).await;
             tx.send(task.priority).await.map_err(|e| anyhow::anyhow!(e))?;
             Ok(())
         })
     })).await?;
 
-    // Wait for subscription to be active without sleep
-    let mut attempts = 0;
-    while attempts < 100 {
-        tokio::task::yield_now().await;
-        attempts += 1;
-    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
 
     broker.publish_task(qname.clone(), &Task { priority: 0, ..Task::default() }).await?;
     broker.publish_task(qname.clone(), &Task { priority: 1, ..Task::default() }).await?;

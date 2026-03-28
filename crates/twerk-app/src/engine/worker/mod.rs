@@ -54,10 +54,11 @@ impl Worker for DefaultWorker {
             let hb_broker = broker.clone();
             let (hb_id, hb_name) = (id.clone(), name.clone());
             let mut hb_terminate_rx = terminate_tx.subscribe();
+            let runtime_hb = runtime.clone();
             tokio::spawn(async move {
                 let mut sys = System::new_all();
                 loop {
-                    send_heartbeat(&hb_broker, &hb_id, &hb_name, &mut sys).await;
+                    send_heartbeat(&hb_broker, &hb_id, &hb_name, &mut sys, runtime_hb.clone()).await;
                     tokio::select! { _ = hb_terminate_rx.recv() => break, _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {} }
                 }
             });
@@ -103,9 +104,16 @@ impl Worker for DefaultWorker {
     }
 }
 
-async fn send_heartbeat(broker: &BrokerProxy, id: &str, name: &str, sys: &mut System) {
+async fn send_heartbeat(broker: &BrokerProxy, id: &str, name: &str, sys: &mut System, runtime: Arc<dyn RuntimeTrait + Send + Sync>) {
     sys.refresh_cpu_all();
-    let node = Node { id: Some(NodeId::from(id)), name: Some(name.to_string()), hostname: Some(hostname::get().map(|h| h.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".to_string())), cpu_percent: Some(sys.global_cpu_usage() as f64), status: Some(NodeStatus::UP), ..Default::default() };
+    let status = match runtime.health_check().await {
+        Ok(()) => NodeStatus::UP,
+        Err(e) => {
+            tracing::warn!("Runtime health check failed: {}", e);
+            NodeStatus::DOWN
+        }
+    };
+    let node = Node { id: Some(NodeId::from(id)), name: Some(name.to_string()), hostname: Some(hostname::get().map(|h| h.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".to_string())), cpu_percent: Some(sys.global_cpu_usage() as f64), status: Some(status), ..Default::default() };
     let _ = broker.publish_heartbeat(node).await;
 }
 
@@ -314,26 +322,6 @@ mod tests {
         proxy
     }
 
-    async fn test_send_heartbeat(broker: &BrokerProxy, id: &str, name: &str, sys: &mut System, runtime: Arc<dyn RuntimeTrait + Send + Sync>) {
-        sys.refresh_cpu_all();
-        let status = match runtime.health_check().await {
-            Ok(()) => NodeStatus::UP,
-            Err(e) => {
-                tracing::warn!("Runtime health check failed: {}", e);
-                NodeStatus::DOWN
-            }
-        };
-        let node = Node { 
-            id: Some(NodeId::from(id)), 
-            name: Some(name.to_string()), 
-            hostname: Some(hostname::get().map(|h| h.to_string_lossy().into_owned()).unwrap_or_else(|_| "unknown".to_string())), 
-            cpu_percent: Some(sys.global_cpu_usage() as f64), 
-            status: Some(status), 
-            ..Default::default() 
-        };
-        let _ = broker.publish_heartbeat(node).await;
-    }
-
     #[tokio::test]
     async fn send_heartbeat_when_health_check_succeeds_returns_up_status() {
         let runtime = MockRuntime::new(true);
@@ -341,7 +329,7 @@ mod tests {
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();
 
-        test_send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+        send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
 
         let heartbeats = spy.get_heartbeats().await;
         assert_eq!(heartbeats.len(), 1);
@@ -355,7 +343,7 @@ mod tests {
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();
 
-        test_send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+        send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
 
         let heartbeats = spy.get_heartbeats().await;
         assert_eq!(heartbeats.len(), 1);

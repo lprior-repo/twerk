@@ -222,3 +222,543 @@ impl Scheduler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::collections::HashMap;
+    use dashmap::DashMap;
+    use async_trait::async_trait;
+    use twerk_core::task::{Task, ParallelTask, EachTask, SubJobTask};
+    use twerk_core::job::{Job, JobContext, JobSummary, ScheduledJob, ScheduledJobSummary};
+    use twerk_core::node::Node;
+    use twerk_core::user::User;
+    use twerk_core::role::Role;
+    use twerk_core::stats::Metrics;
+    use twerk_infrastructure::datastore::{Datastore, Error as DatastoreError, Result as DatastoreResult, Page};
+    use twerk_infrastructure::broker::inmemory::InMemoryBroker;
+
+    struct MockDatastore {
+        tasks: Arc<DashMap<twerk_core::id::TaskId, Task>>,
+        jobs: Arc<DashMap<twerk_core::id::JobId, Job>>,
+    }
+
+    impl MockDatastore {
+        fn new() -> Self {
+            Self {
+                tasks: Arc::new(DashMap::new()),
+                jobs: Arc::new(DashMap::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Datastore for MockDatastore {
+        async fn create_task(&self, task: &Task) -> DatastoreResult<()> {
+            let id = task.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+            self.tasks.insert(id, task.clone());
+            Ok(())
+        }
+
+        async fn update_task(&self, id: &str, modify: Box<dyn FnOnce(Task) -> DatastoreResult<Task> + Send>) -> DatastoreResult<()> {
+            let task_id = twerk_core::id::TaskId::new(id);
+            let mut task = self.tasks.get(&task_id).map(|r| r.value().clone()).ok_or(DatastoreError::TaskNotFound)?;
+            task = modify(task)?;
+            self.tasks.insert(task_id, task);
+            Ok(())
+        }
+
+        async fn get_task_by_id(&self, id: &str) -> DatastoreResult<Task> {
+            self.tasks.get(&twerk_core::id::TaskId::new(id)).map(|r| r.value().clone()).ok_or(DatastoreError::TaskNotFound)
+        }
+
+        async fn get_active_tasks(&self, _job_id: &str) -> DatastoreResult<Vec<Task>> {
+            Ok(Vec::new())
+        }
+
+        async fn get_next_task(&self, _parent_task_id: &str) -> DatastoreResult<Task> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_task_log_parts(&self, _task_id: &str, _q: &str, _page: i64, _size: i64) -> DatastoreResult<Page<twerk_core::task::TaskLogPart>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_node(&self, _node: &Node) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn update_node(&self, _id: &str, _modify: Box<dyn FnOnce(Node) -> DatastoreResult<Node> + Send>) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_node_by_id(&self, _id: &str) -> DatastoreResult<Node> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_active_nodes(&self) -> DatastoreResult<Vec<Node>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_job(&self, job: &Job) -> DatastoreResult<()> {
+            let id = job.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+            self.jobs.insert(id, job.clone());
+            Ok(())
+        }
+
+        async fn update_job(&self, _id: &str, _modify: Box<dyn FnOnce(Job) -> DatastoreResult<Job> + Send>) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_job_by_id(&self, id: &str) -> DatastoreResult<Job> {
+            self.jobs.get(&twerk_core::id::JobId::new(id)).map(|r| r.value().clone()).ok_or(DatastoreError::JobNotFound)
+        }
+
+        async fn get_job_log_parts(&self, _job_id: &str, _q: &str, _page: i64, _size: i64) -> DatastoreResult<Page<twerk_core::task::TaskLogPart>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_jobs(&self, _current_user: &str, _q: &str, _page: i64, _size: i64) -> DatastoreResult<Page<JobSummary>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_scheduled_job(&self, _sj: &ScheduledJob) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_active_scheduled_jobs(&self) -> DatastoreResult<Vec<ScheduledJob>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_scheduled_jobs(&self, _current_user: &str, _page: i64, _size: i64) -> DatastoreResult<Page<ScheduledJobSummary>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_scheduled_job_by_id(&self, _id: &str) -> DatastoreResult<ScheduledJob> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn update_scheduled_job(&self, _id: &str, _modify: Box<dyn FnOnce(ScheduledJob) -> DatastoreResult<ScheduledJob> + Send>) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn delete_scheduled_job(&self, _id: &str) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_user(&self, _user: &User) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_user(&self, _username: &str) -> DatastoreResult<User> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn create_role(&self, _role: &Role) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_role(&self, _id: &str) -> DatastoreResult<Role> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_roles(&self) -> DatastoreResult<Vec<Role>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_user_roles(&self, _user_id: &str) -> DatastoreResult<Vec<Role>> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn assign_role(&self, _user_id: &str, _role_id: &str) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn unassign_role(&self, _user_id: &str, _role_id: &str) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn get_metrics(&self) -> DatastoreResult<Metrics> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn with_tx(&self, _f: Box<dyn for<'a> FnOnce(&'a dyn Datastore) -> futures_util::future::BoxFuture<'a, DatastoreResult<()>> + Send>) -> DatastoreResult<()> {
+            Err(DatastoreError::Database("not implemented".to_string()))
+        }
+
+        async fn health_check(&self) -> DatastoreResult<()> {
+            Ok(())
+        }
+    }
+
+    fn create_test_job() -> Job {
+        Job {
+            id: Some(twerk_core::id::JobId::new("job-1")),
+            name: Some("Test Job".to_string()),
+            state: twerk_core::job::JOB_STATE_PENDING.to_string(),
+            context: Some(JobContext {
+                inputs: Some(HashMap::new()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn create_test_task() -> Task {
+        Task {
+            id: Some(twerk_core::id::TaskId::new("task-1")),
+            job_id: Some(twerk_core::id::JobId::new("job-1")),
+            state: twerk_core::task::TASK_STATE_CREATED.to_string(),
+            name: Some("Test Task".to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_schedule_regular_task_sets_scheduled_state() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-regular-1"));
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_regular_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-1"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_SCHEDULED);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_regular_task_sets_default_queue() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-regular-2"));
+        task.queue = None;
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_regular_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-2"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().queue, Some("default".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_schedule_parallel_task_creates_child_tasks() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let child_task = Task {
+            id: None,
+            name: Some("Child Task".to_string()),
+            run: Some("echo hello".to_string()),
+            ..Default::default()
+        };
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-parallel-1"));
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![child_task]),
+            completions: 1,
+        });
+        
+        // Insert parent task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_parallel_task(task.clone()).await.unwrap();
+        
+        let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-parallel-1"));
+        assert!(parent.is_some());
+        assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+        
+        let child_count = ds.tasks.iter().filter(|r| r.value().parent_id.is_some()).count();
+        assert_eq!(child_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_parallel_task_sets_parent_id_on_children() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let child_task = Task {
+            id: None,
+            name: Some("Child Task".to_string()),
+            run: Some("echo hello".to_string()),
+            ..Default::default()
+        };
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-parallel-2"));
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![child_task]),
+            completions: 1,
+        });
+        
+        // Insert parent task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_parallel_task(task.clone()).await.unwrap();
+        
+        let child = ds.tasks.iter().find(|r| r.value().parent_id.is_some());
+        assert!(child.is_some());
+        assert_eq!(child.unwrap().value().parent_id, Some(twerk_core::id::TaskId::new("task-parallel-2").into()));
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task_creates_task_per_list_item() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let template = Task {
+            id: None,
+            name: Some("Each Item".to_string()),
+            run: Some("echo {{item}}".to_string()),
+            ..Default::default()
+        };
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-each-1"));
+        task.each = Some(Box::new(EachTask {
+            var: Some("item".to_string()),
+            list: Some(r#"["a", "b", "c"]"#.to_string()),
+            task: Some(Box::new(template)),
+            size: 0,
+            completions: 0,
+            concurrency: 0,
+            index: 0,
+        }));
+        
+        // Insert parent task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_each_task(task.clone()).await.unwrap();
+        
+        let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-1"));
+        assert!(parent.is_some());
+        assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+        
+        let child_count = ds.tasks.iter().filter(|r| r.value().parent_id.is_some()).count();
+        assert_eq!(child_count, 3);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_each_task_sets_size() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let template = Task {
+            id: None,
+            name: Some("Each Item".to_string()),
+            run: Some("echo {{item}}".to_string()),
+            ..Default::default()
+        };
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-each-2"));
+        task.each = Some(Box::new(EachTask {
+            var: Some("item".to_string()),
+            list: Some(r#"["x", "y"]"#.to_string()),
+            task: Some(Box::new(template)),
+            size: 0,
+            completions: 0,
+            concurrency: 0,
+            index: 0,
+        }));
+        
+        // Insert parent task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_each_task(task.clone()).await.unwrap();
+        
+        let parent_guard = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-2"));
+        assert!(parent_guard.is_some());
+        let parent = parent_guard.unwrap();
+        let each = parent.each.as_ref().unwrap();
+        assert_eq!(each.size, 2);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_subjob_task_creates_subjob() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let subjob_task = Task {
+            id: Some(twerk_core::id::TaskId::new("task-subjob-1")),
+            job_id: Some(twerk_core::id::JobId::new("job-1")),
+            state: twerk_core::task::TASK_STATE_CREATED.to_string(),
+            name: Some("SubJob Task".to_string()),
+            subjob: Some(SubJobTask {
+                id: None,
+                name: Some("My SubJob".to_string()),
+                description: Some("A subjob".to_string()),
+                tasks: Some(vec![Task {
+                    name: Some("SubTask 1".to_string()),
+                    run: Some("echo sub".to_string()),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        
+        // Insert task before scheduling
+        ds.tasks.insert(subjob_task.id.clone().unwrap(), subjob_task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_subjob_task(subjob_task.clone()).await.unwrap();
+        
+        let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-subjob-1"));
+        assert!(parent.is_some());
+        assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+        
+        let subjob_count = ds.jobs.iter().count();
+        assert!(subjob_count >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_task_dispatches_to_parallel() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-dispatch-parallel"));
+        task.parallel = Some(ParallelTask {
+            tasks: Some(vec![Task {
+                id: None,
+                name: Some("Parallel Child".to_string()),
+                run: Some("echo parallel".to_string()),
+                ..Default::default()
+            }]),
+            completions: 1,
+        });
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-dispatch-parallel"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_task_dispatches_to_each() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-dispatch-each"));
+        task.each = Some(Box::new(EachTask {
+            var: Some("i".to_string()),
+            list: Some(r#"[1, 2]"#.to_string()),
+            task: Some(Box::new(Task {
+                id: None,
+                name: Some("Each Child".to_string()),
+                run: Some("echo {{i}}".to_string()),
+                ..Default::default()
+            })),
+            size: 0,
+            completions: 0,
+            concurrency: 0,
+            index: 0,
+        }));
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-dispatch-each"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_task_dispatches_to_subjob() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let job = create_test_job();
+        ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-dispatch-subjob"));
+        task.subjob = Some(SubJobTask {
+            name: Some("SubJob Dispatch Test".to_string()),
+            tasks: Some(vec![]),
+            ..Default::default()
+        });
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-dispatch-subjob"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_task_dispatches_to_regular() {
+        let ds = Arc::new(MockDatastore::new());
+        let broker = InMemoryBroker::new();
+        
+        let mut task = create_test_task();
+        task.id = Some(twerk_core::id::TaskId::new("task-dispatch-regular"));
+        
+        // Insert task before scheduling
+        ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+        
+        let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+        scheduler.schedule_task(task.clone()).await.unwrap();
+        
+        let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-dispatch-regular"));
+        assert!(stored.is_some());
+        assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_SCHEDULED);
+    }
+}

@@ -25,11 +25,11 @@ pub struct InMemoryBroker {
     /// Heartbeat handlers
     heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,
     /// Stored heartbeats (node_id -> node)
-    heartbeats: DashMap<String, Node>,
+    heartbeats: Arc<RwLock<DashMap<String, Node>>>,
     /// Task log part handlers
     task_log_part_handlers: Arc<RwLock<Vec<TaskLogPartHandler>>>,
     /// Stored task log parts (task_id -> Vec<TaskLogPart>)
-    task_log_parts: DashMap<String, Vec<TaskLogPart>>,
+    task_log_parts: Arc<RwLock<DashMap<String, Vec<TaskLogPart>>>>,
 }
 
 impl Default for InMemoryBroker {
@@ -49,9 +49,9 @@ impl InMemoryBroker {
             progress_handlers: Arc::new(RwLock::new(Vec::new())),
             event_handlers: Arc::new(DashMap::new()),
             heartbeat_handlers: Arc::new(RwLock::new(Vec::new())),
-            heartbeats: DashMap::new(),
+            heartbeats: Arc::new(RwLock::new(DashMap::new())),
             task_log_part_handlers: Arc::new(RwLock::new(Vec::new())),
-            task_log_parts: DashMap::new(),
+            task_log_parts: Arc::new(RwLock::new(DashMap::new())),
         }
     }
 }
@@ -128,7 +128,7 @@ impl Broker for InMemoryBroker {
         let heartbeats = self.heartbeats.clone();
         Box::pin(async move {
             if let Some(ref node_id) = node.id {
-                heartbeats.insert(node_id.to_string(), node.clone());
+                heartbeats.write().await.insert(node_id.to_string(), node.clone());
             }
             let handlers = handlers.read().await;
             for handler in handlers.iter() {
@@ -146,11 +146,11 @@ impl Broker for InMemoryBroker {
         let handlers = self.heartbeat_handlers.clone();
         let heartbeats = self.heartbeats.clone();
         Box::pin(async move {
-            for entry in heartbeats.iter() {
-                let node_clone = entry.value().clone();
+            let nodes: Vec<Node> = heartbeats.read().await.iter().map(|e| e.value().clone()).collect();
+            for node in nodes {
                 let handler_clone = handler.clone();
                 tokio::spawn(async move {
-                    let _ = handler_clone(node_clone).await;
+                    let _ = handler_clone(node).await;
                 });
             }
             handlers.write().await.push(handler);
@@ -220,7 +220,8 @@ impl Broker for InMemoryBroker {
         Box::pin(async move {
             if let Some(task_id) = &part.task_id {
                 let task_id_str = task_id.to_string();
-                let mut entry = task_log_parts.entry(task_id_str).or_default();
+                let task_log_parts_guard = task_log_parts.write().await;
+                let mut entry = task_log_parts_guard.entry(task_id_str).or_default();
                 entry.push(part.clone());
             }
             let handlers = handlers.read().await;
@@ -239,14 +240,14 @@ impl Broker for InMemoryBroker {
         let handlers = self.task_log_part_handlers.clone();
         let task_log_parts = self.task_log_parts.clone();
         Box::pin(async move {
-            for entry in task_log_parts.iter() {
-                for part in entry.value().iter() {
-                    let part_clone = part.clone();
-                    let handler_clone = handler.clone();
-                    tokio::spawn(async move {
-                        let _ = handler_clone(part_clone).await;
-                    });
-                }
+            let parts: Vec<TaskLogPart> = task_log_parts.read().await.iter()
+                .flat_map(|e| e.value().clone())
+                .collect();
+            for part in parts {
+                let handler_clone = handler.clone();
+                tokio::spawn(async move {
+                    let _ = handler_clone(part).await;
+                });
             }
             handlers.write().await.push(handler);
             Ok(())
@@ -309,5 +310,207 @@ impl Broker for InMemoryBroker {
 
     fn shutdown(&self) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use twerk_core::id::{NodeId, TaskId};
+    use twerk_core::node::NodeStatus;
+
+    fn make_heartbeat_handler(
+        received: Arc<RwLock<Vec<Node>>>,
+    ) -> HeartbeatHandler {
+        Arc::new(move |node: Node| {
+            let received = received.clone();
+            Box::pin(async move {
+                received.write().await.push(node);
+                Ok(())
+            })
+        })
+    }
+
+    fn make_task_log_part_handler(
+        received: Arc<RwLock<Vec<TaskLogPart>>>,
+    ) -> TaskLogPartHandler {
+        Arc::new(move |part: TaskLogPart| {
+            let received = received.clone();
+            Box::pin(async move {
+                received.write().await.push(part);
+                Ok(())
+            })
+        })
+    }
+
+    #[tokio::test]
+    async fn test_publish_heartbeat_stores_and_notifies() {
+        let broker = InMemoryBroker::new();
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_heartbeat_handler(received.clone());
+
+        broker.subscribe_for_heartbeats(handler).await.unwrap();
+
+        let node = Node {
+            id: Some(NodeId::new("node-1")),
+            name: Some("worker-1".to_string()),
+            status: Some(NodeStatus::UP),
+            ..Default::default()
+        };
+
+        broker.publish_heartbeat(node.clone()).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        let guard = received.read().await;
+        assert_eq!(guard.len(), 1);
+        assert_eq!(guard[0].id, Some(NodeId::new("node-1")));
+        assert_eq!(guard[0].name, Some("worker-1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_for_heartbeats_sends_existing() {
+        let broker = InMemoryBroker::new();
+
+        let node1 = Node {
+            id: Some(NodeId::new("node-1")),
+            name: Some("worker-1".to_string()),
+            status: Some(NodeStatus::UP),
+            ..Default::default()
+        };
+        let node2 = Node {
+            id: Some(NodeId::new("node-2")),
+            name: Some("worker-2".to_string()),
+            status: Some(NodeStatus::UP),
+            ..Default::default()
+        };
+
+        broker.publish_heartbeat(node1.clone()).await.unwrap();
+        broker.publish_heartbeat(node2.clone()).await.unwrap();
+
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_heartbeat_handler(received.clone());
+
+        broker.subscribe_for_heartbeats(handler).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        let guard = received.read().await;
+        assert_eq!(guard.len(), 2);
+        let ids: Vec<_> = guard.iter().map(|n| n.id.clone()).collect();
+        assert!(ids.contains(&Some(NodeId::new("node-1"))));
+        assert!(ids.contains(&Some(NodeId::new("node-2"))));
+    }
+
+    #[tokio::test]
+    async fn test_publish_task_log_part_stores_and_notifies() {
+        let broker = InMemoryBroker::new();
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_task_log_part_handler(received.clone());
+
+        broker.subscribe_for_task_log_part(handler).await.unwrap();
+
+        let part = TaskLogPart {
+            id: Some("log-part-1".to_string()),
+            task_id: Some(TaskId::new("task-1")),
+            number: 1,
+            contents: Some("Log line 1".to_string()),
+            ..Default::default()
+        };
+
+        broker.publish_task_log_part(&part).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        let guard = received.read().await;
+        assert_eq!(guard.len(), 1);
+        assert_eq!(guard[0].id, Some("log-part-1".to_string()));
+        assert_eq!(guard[0].task_id, Some(TaskId::new("task-1")));
+        assert_eq!(guard[0].number, 1);
+        assert_eq!(guard[0].contents, Some("Log line 1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_for_task_log_part_sends_existing() {
+        let broker = InMemoryBroker::new();
+
+        let part1 = TaskLogPart {
+            id: Some("log-part-1".to_string()),
+            task_id: Some(TaskId::new("task-1")),
+            number: 1,
+            contents: Some("Log line 1".to_string()),
+            ..Default::default()
+        };
+        let part2 = TaskLogPart {
+            id: Some("log-part-2".to_string()),
+            task_id: Some(TaskId::new("task-1")),
+            number: 2,
+            contents: Some("Log line 2".to_string()),
+            ..Default::default()
+        };
+
+        broker.publish_task_log_part(&part1).await.unwrap();
+        broker.publish_task_log_part(&part2).await.unwrap();
+
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_task_log_part_handler(received.clone());
+
+        broker.subscribe_for_task_log_part(handler).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        let guard = received.read().await;
+        assert_eq!(guard.len(), 2);
+        assert_eq!(guard[0].id, Some("log-part-1".to_string()));
+        assert_eq!(guard[1].id, Some("log-part-2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_heartbeat_without_id_does_not_store() {
+        let broker = InMemoryBroker::new();
+
+        let node_no_id = Node {
+            id: None,
+            name: Some("anonymous".to_string()),
+            status: Some(NodeStatus::UP),
+            ..Default::default()
+        };
+
+        broker.publish_heartbeat(node_no_id).await.unwrap();
+
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_heartbeat_handler(received.clone());
+
+        broker.subscribe_for_heartbeats(handler).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        let guard = received.read().await;
+        assert!(guard.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_task_log_part_without_task_id_does_not_store() {
+        let broker = InMemoryBroker::new();
+
+        let part_no_task_id = TaskLogPart {
+            id: Some("log-part-1".to_string()),
+            task_id: None,
+            number: 1,
+            contents: Some("Log line 1".to_string()),
+            ..Default::default()
+        };
+
+        broker.publish_task_log_part(&part_no_task_id).await.unwrap();
+
+        let received = Arc::new(RwLock::new(Vec::new()));
+        let handler = make_task_log_part_handler(received.clone());
+
+        broker.subscribe_for_task_log_part(handler).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        let guard = received.read().await;
+        assert!(guard.is_empty());
     }
 }

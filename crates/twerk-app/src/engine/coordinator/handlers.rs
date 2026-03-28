@@ -13,6 +13,7 @@ use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_P
 use crate::engine::TOPIC_JOB_COMPLETED;
 use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_job_webhooks;
+use crate::engine::coordinator::webhook::fire_task_webhooks;
 use twerk_core::eval::evaluate_task;
 use twerk_core::task::{TaskLogPart, TASK_STATE_RUNNING};
 use twerk_core::node::NodeStatus;
@@ -185,6 +186,7 @@ pub async fn handle_task_completed(
         u.result = result;
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+    fire_task_webhooks(&task, "task.Completed");
     
     if let Some(pid) = parent_id {
         handle_subtask_completed(ds, broker, task, &pid).await
@@ -326,6 +328,7 @@ pub async fn handle_started(
         u.started_at = Some(now);
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+    fire_task_webhooks(&task, "task.Started");
     Ok(())
 }
 
@@ -351,6 +354,7 @@ pub async fn handle_error(
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
     task.state = twerk_core::task::TASK_STATE_FAILED.to_string();
     broker.publish_task(QUEUE_FAILED.to_string(), &task).await?;
+    fire_task_webhooks(&task, "task.Error");
     Ok(())
 }
 

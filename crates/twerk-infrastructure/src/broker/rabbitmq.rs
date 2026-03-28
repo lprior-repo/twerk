@@ -117,7 +117,7 @@ impl RabbitMQBroker {
             );
         }
         if super::is_worker_queue(qname) {
-            args.insert("x-max-priority".into(), lapin::types::AMQPValue::ShortInt(10));
+            args.insert("x-max-priority".into(), lapin::types::AMQPValue::LongLongInt(10));
         }
         if let Some(timeout) = self.consumer_timeout {
             let timeout_ms = i64::try_from(timeout.as_millis()).map_or(30 * 60 * 1000, |v| v);

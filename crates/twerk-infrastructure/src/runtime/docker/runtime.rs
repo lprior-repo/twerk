@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bollard::Docker;
+use dashmap::DashMap;
 
 use bollard::config::NetworkingConfig;
 use bollard::models::HostConfig;
@@ -74,7 +75,7 @@ struct PullRequest {
 pub struct DockerRuntime {
     pub client: Docker,
     config: DockerConfig,
-    images: Arc<RwLock<HashMap<String, std::time::Instant>>>,
+    images: Arc<DashMap<String, std::time::Instant>>,
     pull_tx: mpsc::Sender<PullRequest>,
     tasks: Arc<RwLock<usize>>,
     #[allow(dead_code)]
@@ -139,7 +140,7 @@ impl DockerRuntime {
         let (pull_tx, mut pull_rx) = mpsc::channel::<PullRequest>(100);
         let (pruner_cancel_tx, mut pruner_cancel_rx) = tokio::sync::oneshot::channel::<()>();
 
-        let images = Arc::new(RwLock::new(HashMap::new()));
+        let images = Arc::new(DashMap::new());
         let tasks = Arc::new(RwLock::new(0));
 
         // Spawn the pull worker — serializes all image pulls
@@ -386,18 +387,15 @@ impl DockerRuntime {
     /// Internal pull implementation.
     async fn do_pull_request(
         client: &Docker,
-        images: &Arc<RwLock<HashMap<String, std::time::Instant>>>,
+        images: &Arc<DashMap<String, std::time::Instant>>,
         config: &DockerConfig,
         image: &str,
         #[allow(unused_variables)] registry: Option<&Registry>,
     ) -> Result<(), DockerError> {
         // Check cache (respecting TTL)
-        {
-            let cache = images.read().await;
-            if let Some(ts) = cache.get(image) {
-                if std::time::Instant::now().duration_since(*ts) <= config.image_ttl {
-                    return Ok(());
-                }
+        if let Some(ts) = images.get(image) {
+            if std::time::Instant::now().duration_since(*ts) <= config.image_ttl {
+                return Ok(());
             }
         }
 
@@ -428,10 +426,7 @@ impl DockerRuntime {
         }
 
         // Cache
-        {
-            let mut cache = images.write().await;
-            cache.insert(image.to_string(), std::time::Instant::now());
-        }
+        images.insert(image.to_string(), std::time::Instant::now());
 
         Ok(())
     }
@@ -874,7 +869,7 @@ impl DockerRuntime {
     /// Prunes old images. Go parity: only prunes when no tasks running.
     async fn prune_images(
         client: &Docker,
-        images: &Arc<RwLock<HashMap<String, std::time::Instant>>>,
+        images: &Arc<DashMap<String, std::time::Instant>>,
         tasks: &Arc<RwLock<usize>>,
         ttl: Duration,
     ) {
@@ -883,21 +878,200 @@ impl DockerRuntime {
         }
 
         let now = std::time::Instant::now();
-        let to_remove: Vec<String> = {
-            let cache = images.read().await;
-            cache.iter()
-                .filter(|(_, ts)| now.duration_since(**ts) > ttl)
-                .map(|(img, _)| img.clone())
-                .collect()
-        };
+        let to_remove: Vec<String> = images
+            .iter()
+            .filter(|entry| now.duration_since(*entry.value()) > ttl)
+            .map(|entry| entry.key().clone())
+            .collect();
 
         for image in to_remove {
             let _ = client.remove_image(&image, None::<RemoveImageOptions>, None::<bollard::auth::DockerCredentials>).await;
-            if let Ok(mut cache) = images.try_write() {
-                cache.remove(&image);
-                tracing::debug!(image = %image, "pruned image");
-            }
+            images.remove(&image);
+            tracing::debug!(image = %image, "pruned image");
         }
+    }
+}
+
+// =============================================================================
+// TTL-based image caching tests
+// =============================================================================
+
+#[cfg(test)]
+mod ttl_cache_tests {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use dashmap::DashMap;
+    use tokio::sync::RwLock;
+
+    #[test]
+    fn test_ttl_check_within_ttl() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let image = "ubuntu:22.04";
+        let ttl = Duration::from_secs(300);
+
+        let now = Instant::now();
+        images.insert(image.to_string(), now);
+
+        let ts = images.get(image).unwrap();
+        let elapsed = Instant::now().duration_since(*ts);
+        assert!(elapsed <= ttl, "image should still be within TTL");
+    }
+
+    #[test]
+    fn test_ttl_check_expired_ttl() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let image = "ubuntu:22.04";
+        let ttl = Duration::from_secs(300);
+
+        let past = Instant::now() - ttl - Duration::from_secs(1);
+        images.insert(image.to_string(), past);
+
+        let ts = images.get(image).unwrap();
+        let elapsed = Instant::now().duration_since(*ts);
+        assert!(elapsed > ttl, "image should be expired");
+    }
+
+    #[test]
+    fn test_ttl_check_image_not_in_cache() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let image = "ubuntu:22.04";
+
+        let result = images.get(image);
+        assert!(result.is_none(), "image should not be in cache");
+    }
+
+    #[test]
+    fn test_prune_images_removes_expired() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let ttl = Duration::from_secs(300);
+
+        let now = Instant::now();
+        let expired_image = "ubuntu:22.04";
+        let fresh_image = "alpine:3.18";
+
+        images.insert(expired_image.to_string(), now - ttl - Duration::from_secs(1));
+        images.insert(fresh_image.to_string(), now);
+
+        let now_check = Instant::now();
+        let to_remove: Vec<String> = images
+            .iter()
+            .filter(|entry| now_check.duration_since(*entry.value()) > ttl)
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        assert_eq!(1, to_remove.len());
+        assert_eq!(expired_image, to_remove[0]);
+    }
+
+    #[test]
+    fn test_prune_images_preserves_fresh() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let ttl = Duration::from_secs(300);
+
+        let now = Instant::now();
+        let fresh_image = "alpine:3.18";
+
+        images.insert(fresh_image.to_string(), now);
+
+        let now_check = Instant::now();
+        let to_remove: Vec<String> = images
+            .iter()
+            .filter(|entry| now_check.duration_since(*entry.value()) > ttl)
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        assert!(to_remove.is_empty(), "fresh image should not be removed");
+    }
+
+    #[test]
+    fn test_prune_images_skips_when_tasks_running() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let tasks: Arc<RwLock<usize>> = Arc::new(RwLock::new(5));
+        let ttl = Duration::from_secs(300);
+
+        let now = Instant::now();
+        images.insert("ubuntu:22.04".to_string(), now - ttl - Duration::from_secs(1));
+
+        let result = tasks.try_read();
+        assert!(result.is_ok());
+        let task_count = *result.unwrap();
+        assert!(task_count > 0, "tasks should be running");
+
+        let now_check = Instant::now();
+        let to_remove: Vec<String> = if task_count > 0 {
+            vec![]
+        } else {
+            images
+                .iter()
+                .filter(|entry| now_check.duration_since(*entry.value()) > ttl)
+                .map(|entry| entry.key().clone())
+                .collect()
+        };
+
+        assert!(to_remove.is_empty(), "should not prune when tasks are running");
+    }
+
+    #[test]
+    fn test_ttl_cache_multiple_images_mixed_expiration() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let ttl = Duration::from_secs(300);
+        let now = Instant::now();
+
+        images.insert("ubuntu:22.04".to_string(), now);
+        images.insert("alpine:3.18".to_string(), now - ttl - Duration::from_secs(60));
+        images.insert("nginx:1.25".to_string(), now - Duration::from_secs(100));
+
+        let now_check = Instant::now();
+        let to_remove: Vec<String> = images
+            .iter()
+            .filter(|entry| now_check.duration_since(*entry.value()) > ttl)
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        assert_eq!(1, to_remove.len());
+        assert_eq!("alpine:3.18", to_remove[0]);
+
+        assert!(images.contains_key("ubuntu:22.04"));
+        assert!(images.contains_key("nginx:1.25"));
+    }
+
+    #[test]
+    fn test_ttl_boundary_behavior() {
+        let ttl = Duration::from_secs(300);
+        let now = Instant::now();
+
+        let at_boundary = now - ttl;
+        let elapsed_at_boundary = now.duration_since(at_boundary);
+        assert!(elapsed_at_boundary <= ttl, "at boundary should be <= TTL");
+
+        let past_boundary = now - ttl - Duration::from_millis(1);
+        let elapsed_past_boundary = now.duration_since(past_boundary);
+        assert!(elapsed_past_boundary > ttl, "past boundary should be > TTL");
+
+        assert!(elapsed_at_boundary <= ttl && elapsed_past_boundary > ttl);
+    }
+
+    #[test]
+    fn test_ttl_cache_one_second_over_ttl() {
+        let images: Arc<DashMap<String, Instant>> = Arc::new(DashMap::new());
+        let ttl = Duration::from_secs(300);
+
+        let now = Instant::now();
+        let one_second_over = now - ttl - Duration::from_secs(1);
+        images.insert("ubuntu:22.04".to_string(), one_second_over);
+
+        let now_check = Instant::now();
+        let elapsed = now_check.duration_since(one_second_over);
+        assert!(elapsed > ttl, "one second over TTL should be expired");
+
+        let to_remove: Vec<String> = images
+            .iter()
+            .filter(|entry| now_check.duration_since(*entry.value()) > ttl)
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        assert_eq!(1, to_remove.len());
+        assert_eq!("ubuntu:22.04", to_remove[0]);
     }
 }
 

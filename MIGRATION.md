@@ -83,4 +83,4 @@ tokio = { workspace = true }
 ## 6. Remaining Minor Items
 
 ### Low Priority
-- **Podman sidecars**: Intentionally unsupported per GAP7 contract
+- **Podman sidecars**: By Design - Podman doesn't support sidecar containers due to runtime isolation limitations. Both Go and Rust implementations reject sidecars for Podman identically.

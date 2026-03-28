@@ -27,6 +27,7 @@ use twerk_infrastructure::config;
 
 use crate::engine::BrokerProxy;
 use crate::engine::DatastoreProxy;
+use crate::engine::coordinator::schedule::JobSchedulerHandler;
 
 pub use twerk_core::user::USERNAME;
 pub use utils::wildcard_match;
@@ -60,10 +61,11 @@ pub struct Config {
     pub name: String,
     pub broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     pub datastore: Arc<dyn twerk_infrastructure::datastore::Datastore>,
-    pub locker: Arc<dyn Locker>,
+    pub locker: Arc<dyn twerk_infrastructure::locker::Locker>,
     pub queues: std::collections::HashMap<String, i64>,
     pub address: String,
     pub enabled: std::collections::HashMap<String, bool>,
+    pub scheduler: Option<JobSchedulerHandler>,
 }
 
 impl std::fmt::Debug for Config {
@@ -83,10 +85,11 @@ impl Default for Config {
             name: "Coordinator".to_string(),
             broker: Arc::new(BrokerProxy::new()),
             datastore: Arc::new(DatastoreProxy::new()),
-            locker: Arc::new(InMemoryLocker),
+            locker: Arc::new(twerk_infrastructure::locker::InMemoryLocker::new()),
             queues: std::collections::HashMap::new(),
             address: "0.0.0.0:8000".to_string(),
             enabled: std::collections::HashMap::new(),
+            scheduler: None,
         }
     }
 }
@@ -104,10 +107,11 @@ impl Config {
             name,
             broker: Arc::new(BrokerProxy::new()),
             datastore: Arc::new(DatastoreProxy::new()),
-            locker: Arc::new(InMemoryLocker),
+            locker: Arc::new(twerk_infrastructure::locker::InMemoryLocker::new()),
             queues,
             address,
             enabled,
+            scheduler: None,
         }
     }
 }
@@ -119,6 +123,7 @@ pub struct CoordinatorImpl {
     datastore: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     stop_token: CancellationToken,
     task_tracker: TaskTracker,
+    scheduler: JobSchedulerHandler,
 }
 
 impl CoordinatorImpl {
@@ -130,6 +135,7 @@ impl CoordinatorImpl {
             datastore: config.datastore,
             stop_token: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
+            scheduler: config.scheduler.expect("scheduler must be set"),
         }
     }
 }
@@ -141,6 +147,7 @@ impl Coordinator for CoordinatorImpl {
         let ds = self.datastore.clone();
         let stop_token = self.stop_token.clone();
         let tracker = self.task_tracker.clone();
+        let scheduler = self.scheduler.clone();
 
         Box::pin(async move {
             info!("Starting coordinator");
@@ -303,6 +310,25 @@ impl Coordinator for CoordinatorImpl {
                 })
             })).await?;
 
+            // Subscribe to scheduled job events
+            let st_sj = stop_token.clone();
+            let tr_sj = tracker.clone();
+            broker.subscribe_for_events("scheduled.job".to_string(), Arc::new(move |sj: serde_json::Value| {
+                let scheduler = scheduler.clone();
+                let st = st_sj.clone();
+                let tr = tr_sj.clone();
+                Box::pin(async move {
+                    if st.is_cancelled() { return Ok(()); }
+                    let sj: twerk_core::job::ScheduledJob = serde_json::from_value(sj).map_err(|e| anyhow::anyhow!("failed to parse scheduled job: {}", e))?;
+                    tr.spawn(async move {
+                        if let Err(e) = scheduler.handle_scheduled_job(&sj).await {
+                            tracing::error!(error = %e, "error handling scheduled job");
+                        }
+                    });
+                    Ok(())
+                })
+            })).await?;
+
             Ok(())
         })
     }
@@ -347,6 +373,12 @@ pub async fn create_coordinator(
     let b: Arc<dyn twerk_infrastructure::broker::Broker> = Arc::new(broker);
     let ds: Arc<dyn twerk_infrastructure::datastore::Datastore> = Arc::new(datastore);
 
+    let scheduler = JobSchedulerHandler::new(
+        ds.clone(),
+        b.clone(),
+        config.locker.clone(),
+    ).await?;
+
     let coordinator = CoordinatorImpl::new(Config {
         name: config.name,
         broker: b,
@@ -355,6 +387,7 @@ pub async fn create_coordinator(
         queues: config.queues,
         address: config.address,
         enabled: config.enabled,
+        scheduler: Some(scheduler),
     });
 
     Ok(Box::new(coordinator) as Box<dyn Coordinator + Send + Sync>)

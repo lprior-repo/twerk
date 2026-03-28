@@ -36,6 +36,9 @@ pub async fn handle_job_event(
         twerk_core::job::JOB_STATE_COMPLETED => {
             complete_job(ds, broker, job).await
         }
+        JOB_STATE_CANCELLED => {
+            handle_cancel(ds, broker, job).await.map_err(|e| anyhow::anyhow!("{}", e))
+        }
         _ => Ok(())
     };
     if let Err(ref e) = result {

@@ -87,3 +87,120 @@ pub trait Broker: Send + Sync {
 
 pub mod rabbitmq;
 pub mod inmemory;
+
+#[cfg(test)]
+mod tests {
+    use super::queue;
+    use super::{is_coordinator_queue, is_task_queue, is_worker_queue};
+
+    #[test]
+    fn is_worker_queue_returns_true_for_default_queue() {
+        assert!(is_worker_queue("default"));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_true_for_custom_queue() {
+        assert!(is_worker_queue("my-queue"));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_jobs() {
+        assert!(!is_worker_queue(queue::QUEUE_JOBS));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_completed() {
+        assert!(!is_worker_queue(queue::QUEUE_COMPLETED));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_failed() {
+        assert!(!is_worker_queue(queue::QUEUE_FAILED));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_started() {
+        assert!(!is_worker_queue(queue::QUEUE_STARTED));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_heartbeat() {
+        assert!(!is_worker_queue(queue::QUEUE_HEARTBEAT));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_progress() {
+        assert!(!is_worker_queue(queue::QUEUE_PROGRESS));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_task_log_part() {
+        assert!(!is_worker_queue(queue::QUEUE_TASK_LOG_PART));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_queue_redeliveries() {
+        assert!(!is_worker_queue(queue::QUEUE_REDELIVERIES));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_exclusive_prefix_queue() {
+        assert!(!is_worker_queue(&format!("{}test", queue::QUEUE_EXCLUSIVE_PREFIX)));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_jobs() {
+        assert!(is_coordinator_queue(queue::QUEUE_JOBS));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_completed() {
+        assert!(is_coordinator_queue(queue::QUEUE_COMPLETED));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_failed() {
+        assert!(is_coordinator_queue(queue::QUEUE_FAILED));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_started() {
+        assert!(is_coordinator_queue(queue::QUEUE_STARTED));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_heartbeat() {
+        assert!(is_coordinator_queue(queue::QUEUE_HEARTBEAT));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_progress() {
+        assert!(is_coordinator_queue(queue::QUEUE_PROGRESS));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_task_log_part() {
+        assert!(is_coordinator_queue(queue::QUEUE_TASK_LOG_PART));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_true_for_queue_redeliveries() {
+        assert!(is_coordinator_queue(queue::QUEUE_REDELIVERIES));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_false_for_default_queue() {
+        assert!(!is_coordinator_queue("default"));
+    }
+
+    #[test]
+    fn is_coordinator_queue_returns_false_for_exclusive_prefix_queue() {
+        assert!(!is_coordinator_queue(&format!("{}test", queue::QUEUE_EXCLUSIVE_PREFIX)));
+    }
+
+    #[test]
+    fn is_task_queue_delegates_to_is_worker_queue() {
+        assert!(is_task_queue("default"));
+        assert!(!is_task_queue(queue::QUEUE_JOBS));
+    }
+}

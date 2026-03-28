@@ -159,6 +159,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_inmemory_locker_acquire_lock_returns_error_when_locked() {
+        let locker = InMemoryLocker::new();
+        let key = "test_key";
+
+        let lock = locker
+            .acquire_lock(key)
+            .await
+            .expect("first acquire should succeed");
+
+        let lock2 = locker.acquire_lock(key).await;
+        assert!(lock2.is_err(), "second acquire should fail");
+
+        lock.release_lock().await.expect("release should succeed");
+
+        let lock3 = locker.acquire_lock(key).await;
+        assert!(lock3.is_ok(), "acquire after release should succeed");
+        lock3.expect("lock should be Some")
+            .release_lock()
+            .await
+            .expect("release should succeed");
+    }
+
+    #[tokio::test]
     async fn test_inmemory_locker_release_nonexistent_fails() {
         let _locker = InMemoryLocker::new();
         let key = "nonexistent_key";

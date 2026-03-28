@@ -496,7 +496,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore = "requires postgres"]
-    async fn test_postgres_locker_acquire_lock() {
+    async fn test_postgres_locker_acquire_lock_returns_error_when_locked() {
 
         let dsn = "postgres://twerk:twerk@localhost:5432/twerk";
         let locker = PostgresLocker::new(dsn)

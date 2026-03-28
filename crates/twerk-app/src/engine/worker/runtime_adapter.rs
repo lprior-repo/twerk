@@ -54,10 +54,12 @@ pub async fn create_runtime_from_config(
             Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged, config.docker_image_ttl_secs, Arc::new(m), Arc::new(broker))))
         }
         runtime_type::SHELL => {
+            let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
             Ok(Box::new(ShellRuntimeAdapter::new(
                 config.shell_cmd.clone(),
                 config.shell_uid.clone(),
                 config.shell_gid.clone(),
+                Some(Arc::new(broker)),
             )))
         }
         runtime_type::PODMAN => Ok(Box::new(PodmanRuntimeAdapter::new(

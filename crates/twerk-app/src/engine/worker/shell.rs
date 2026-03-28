@@ -3,7 +3,9 @@ use std::process::{ExitCode, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
+use tokio::time::interval;
 use twerk_core::task::{Task, TASK_STATE_ACTIVE};
+use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult};
 use dashmap::DashMap;
 
@@ -122,16 +124,16 @@ impl Default for ShellRuntimeConfig {
     }
 }
 
-#[derive(Debug)]
 pub struct ShellRuntimeAdapter {
     config: ShellRuntimeConfig,
     active_processes: Arc<DashMap<String, ProcessHandle>>,
     temp_dirs: Arc<DashMap<String, String>>,
+    broker: Option<Arc<dyn Broker>>,
 }
 
 impl ShellRuntimeAdapter {
     #[must_use]
-    pub fn new(cmd: Vec<String>, uid: String, gid: String) -> Self {
+    pub fn new(cmd: Vec<String>, uid: String, gid: String, broker: Option<Arc<dyn Broker>>) -> Self {
         Self {
             config: ShellRuntimeConfig {
                 cmd,
@@ -152,6 +154,7 @@ impl ShellRuntimeAdapter {
             },
             active_processes: Arc::new(DashMap::new()),
             temp_dirs: Arc::new(DashMap::new()),
+            broker,
         }
     }
 
@@ -190,13 +193,14 @@ impl ShellRuntimeAdapter {
 
 impl RuntimeTrait for ShellRuntimeAdapter {
     fn run(&self, task: &Task) -> BoxedFuture<()> {
-        let (sc, tid, rs, env, active_processes, temp_dirs) = (
+        let (sc, tid, rs, env, active_processes, temp_dirs, broker) = (
             self.config.cmd.clone(),
             task.id.clone().unwrap_or_default(),
             task.run.clone().unwrap_or_default(),
             task.env.clone(),
             self.active_processes.clone(),
             self.temp_dirs.clone(),
+            self.broker.clone(),
         );
 
         Box::pin(async move {
@@ -207,6 +211,10 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Create temp directory for script
             let td = tempfile::tempdir()?;
             let sp = td.path().join("script.sh");
+            let progress_path = td.path().join("progress");
+
+            // Create empty progress file
+            tokio::fs::write(&progress_path, "").await?;
 
             // Write script content
             tokio::fs::write(&sp, format!("#!/bin/bash\n{}", rs)).await?;
@@ -228,6 +236,9 @@ impl RuntimeTrait for ShellRuntimeAdapter {
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
 
+            // Set TORK_PROGRESS env var for progress file location
+            cmd.env("TORK_PROGRESS", progress_path.to_string_lossy().as_ref());
+
             if let Some(ref e) = env {
                 for (k, v) in e {
                     cmd.env(k, v);
@@ -242,6 +253,54 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
             // Store handle for stop() to use
             active_processes.insert(tid.to_string(), handle);
+
+            // Spawn background task for progress monitoring
+            let progress_path_clone = progress_path.clone();
+            let task_id_clone = tid.clone();
+            let broker_clone = broker.clone();
+            tokio::spawn(async move {
+                let mut tick = interval(Duration::from_secs(10));
+                let mut prev: Option<f64> = None;
+                loop {
+                    tokio::select! {
+                        _ = tick.tick() => {
+                            match tokio::fs::read_to_string(&progress_path_clone).await {
+                                Ok(contents) => {
+                                    let s = contents.trim();
+                                    if s.is_empty() {
+                                        continue;
+                                    }
+                                    match s.parse::<f64>() {
+                                        Ok(p) if prev.is_none_or(|old| (old - p).abs() > 0.001) => {
+                                            prev = Some(p);
+                                            if let Some(ref b) = broker_clone {
+                                                let twerk_task = twerk_core::task::Task {
+                                                    id: Some(task_id_clone.clone()),
+                                                    progress: p,
+                                                    ..Default::default()
+                                                };
+                                                if let Err(e) = b.publish_task_progress(&twerk_task).await {
+                                                    tracing::warn!(task_id = %task_id_clone, error = %e, "error publishing task progress");
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(task_id = %task_id_clone, error = %e, "error parsing progress value");
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(e) => {
+                                    if e.kind() == std::io::ErrorKind::NotFound {
+                                        return;
+                                    }
+                                    tracing::warn!(task_id = %task_id_clone, error = %e, "error reading progress file");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
 
             // Wait for completion
             let status = child.wait().await?;

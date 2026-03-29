@@ -129,15 +129,15 @@ pub struct CoordinatorImpl {
 
 impl CoordinatorImpl {
     #[must_use] 
-    pub fn new(config: Config) -> Self {
-        Self {
+    pub fn new(config: Config) -> Result<Self> {
+        Ok(Self {
             name: config.name,
             broker: config.broker,
             datastore: config.datastore,
             stop_token: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
-            scheduler: config.scheduler.expect("scheduler must be set"),
-        }
+            scheduler: config.scheduler.ok_or_else(|| anyhow::anyhow!("scheduler must be set"))?,
+        })
     }
 }
 
@@ -389,7 +389,7 @@ pub async fn create_coordinator(
         address: config.address,
         enabled: config.enabled,
         scheduler: Some(scheduler),
-    });
+    })?;
 
     Ok(Box::new(coordinator) as Box<dyn Coordinator + Send + Sync>)
 }

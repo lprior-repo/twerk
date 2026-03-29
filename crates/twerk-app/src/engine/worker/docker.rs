@@ -65,7 +65,8 @@ impl DockerRuntimeAdapter {
         let mounter = self.mounter.clone();
         let broker = self.broker.clone();
         Box::pin(async move {
-            if task.id.as_ref().is_none_or(|id| id.is_empty()) {
+            let task_id = task.id.clone().ok_or_else(|| anyhow!("task id required"))?;
+            if task_id.is_empty() {
                 return Err(anyhow!("task id required"));
             }
             if task.image.as_ref().is_none_or(|img| img.is_empty()) {
@@ -85,18 +86,18 @@ impl DockerRuntimeAdapter {
             };
 
             let tc_id = tc.id.clone();
-            active_tasks.insert(task.id.clone().unwrap(), tc_id.clone());
+            active_tasks.insert(task_id.clone(), tc_id.clone());
 
             let start_result = tc.start().await;
 
             if let Err(e) = start_result {
-                active_tasks.remove(&task.id.clone().unwrap());
+                active_tasks.remove(&task_id);
                 tc.remove().await.map_err(|e| anyhow!("failed to remove container: {}", e)).ok();
                 return Err(anyhow!("failed to start container: {}", e));
             }
 
             let wait_result = tc.wait().await;
-            active_tasks.remove(&task.id.clone().unwrap());
+            active_tasks.remove(&task_id);
 
             if let Err(e) = wait_result {
                 tc.remove().await.map_err(|e| anyhow!("failed to remove container after wait error: {}", e)).ok();

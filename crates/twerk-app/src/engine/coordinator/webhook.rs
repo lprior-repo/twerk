@@ -7,7 +7,7 @@ use twerk_core::eval::{evaluate_condition, evaluate_task_condition};
 use twerk_core::job::{new_job_summary, Job};
 use twerk_core::task::{new_task_summary, Task};
 use twerk_core::webhook::{self, Webhook};
-use twerk_infrastructure::datastore::Datastore;
+use twerk_infrastructure::datastore::{Datastore, inmemory::InMemoryDatastore};
 
 /// Fires job webhooks on state changes.
 ///
@@ -262,7 +262,7 @@ mod tests {
 
     #[tokio::test]
     async fn fire_task_webhooks_returns_early_when_no_job_id() {
-        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+        let ds = Arc::new(InMemoryDatastore::new());
         let task = Task {
             id: Some("task-no-job".into()),
             job_id: None,
@@ -277,7 +277,7 @@ mod tests {
 
     #[tokio::test]
     async fn fire_task_webhooks_looks_up_parent_job() {
-        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+        let ds = Arc::new(InMemoryDatastore::new());
 
         let job = Job {
             id: Some("parent-job-1".into()),
@@ -297,7 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn fire_task_webhooks_does_not_fire_on_non_matching_event() {
-        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+        let ds = Arc::new(InMemoryDatastore::new());
 
         let job = Job {
             id: Some("parent-job-2".into()),
@@ -320,7 +320,7 @@ mod tests {
 
     #[tokio::test]
     async fn fire_task_webhooks_with_condition_evaluating_to_false() {
-        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+        let ds = Arc::new(InMemoryDatastore::new());
 
         let job = Job {
             id: Some("parent-job-3".into()),

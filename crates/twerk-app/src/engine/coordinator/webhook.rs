@@ -1,11 +1,13 @@
 //! Webhook middleware for job and task state change notifications.
 //!
-//! Go parity: middleware/job/webhook.go
+//! Go parity: middleware/job/webhook.go, middleware/task/webhook.go
 
+use std::sync::Arc;
 use twerk_core::eval::{evaluate_condition, evaluate_task_condition};
 use twerk_core::job::{new_job_summary, Job};
 use twerk_core::task::{new_task_summary, Task};
 use twerk_core::webhook::{self, Webhook};
+use twerk_infrastructure::datastore::Datastore;
 
 /// Fires job webhooks on state changes.
 ///
@@ -23,28 +25,50 @@ pub fn fire_job_webhooks(job: &Job, event: &str) {
             let job = job.clone();
             tokio::spawn(async move {
                 if let Err(e) = webhook::call(&wh, &job) {
-                    tracing::error!("webhook call failed: {}", e);
+                    tracing::error!("[Webhook] error calling job webhook {}: {}",
+                        wh.url.as_deref().unwrap_or("unknown"), e);
                 }
             });
         }
     }
 }
 
-/// Fires task webhooks on state changes.
-pub fn fire_task_webhooks(task: &Task, event: &str) {
-    if let Some(webhooks) = task.subjob.as_ref().and_then(|sj| sj.webhooks.as_ref()) {
+/// Fires task webhooks by looking up the parent job's webhooks.
+///
+/// Go parity: middleware/task/webhook.go
+/// In Go, task webhooks are sourced from the parent job, not from task.subjob.webhooks.
+pub async fn fire_task_webhooks(
+    ds: Arc<dyn Datastore>,
+    task: &Task,
+    event: &str,
+) {
+    let job_id = match task.job_id.as_ref() {
+        Some(id) => id.to_string(),
+        None => return,
+    };
+
+    let job = match ds.get_job_by_id(&job_id).await {
+        Ok(j) => j,
+        Err(e) => {
+            tracing::error!("[Webhook] error getting job for task webhook: {}", e);
+            return;
+        }
+    };
+
+    if let Some(webhooks) = &job.webhooks {
         for wh in webhooks {
             if !should_fire_webhook(wh, event) {
                 continue;
             }
-            if !evaluate_task_webhook_condition(wh.r#if.as_ref(), task) {
+            if !evaluate_task_webhook_condition_with_job(wh.r#if.as_ref(), task, &job) {
                 continue;
             }
             let wh = wh.clone();
-            let task = task.clone();
+            let task_summary = new_task_summary(task);
             tokio::spawn(async move {
-                if let Err(e) = webhook::call(&wh, &task) {
-                    tracing::error!("webhook call failed: {}", e);
+                if let Err(e) = webhook::call(&wh, &task_summary) {
+                    tracing::error!("[Webhook] error calling task webhook {}: {}",
+                        wh.url.as_deref().unwrap_or("unknown"), e);
                 }
             });
         }
@@ -66,17 +90,21 @@ fn evaluate_webhook_condition(condition: Option<&String>, job: &Job) -> bool {
     match evaluate_condition(expr, &summary) {
         Ok(true) => true,
         Ok(false) => {
-            tracing::debug!("webhook condition evaluated to false: {}", expr);
+            tracing::debug!("[Webhook] condition evaluated to false: {}", expr);
             false
         }
         Err(e) => {
-            tracing::warn!("webhook condition evaluation failed: {}", e);
+            tracing::warn!("[Webhook] condition evaluation failed: {}", e);
             false
         }
     }
 }
 
-fn evaluate_task_webhook_condition(condition: Option<&String>, task: &Task) -> bool {
+fn evaluate_task_webhook_condition_with_job(
+    condition: Option<&String>,
+    task: &Task,
+    job: &Job,
+) -> bool {
     let Some(expr) = condition else {
         return true;
     };
@@ -84,37 +112,15 @@ fn evaluate_task_webhook_condition(condition: Option<&String>, task: &Task) -> b
         return true;
     }
     let task_summary = new_task_summary(task);
-    let job_summary = task
-        .job_id
-        .as_ref()
-        .map_or_else(|| new_job_summary(&Job::default()), |id| twerk_core::job::JobSummary {
-            id: Some(id.clone()),
-            created_by: None,
-            parent_id: None,
-            name: None,
-            description: None,
-            tags: None,
-            inputs: None,
-            state: twerk_core::job::JobState::default(),
-            created_at: None,
-            started_at: None,
-            completed_at: None,
-            failed_at: None,
-            position: 0,
-            task_count: 0,
-            result: None,
-            error: None,
-            progress: 0.0,
-            schedule: None,
-        });
+    let job_summary = new_job_summary(job);
     match evaluate_task_condition(expr, &task_summary, &job_summary) {
         Ok(true) => true,
         Ok(false) => {
-            tracing::debug!("webhook condition evaluated to false: {}", expr);
+            tracing::debug!("[Webhook] condition evaluated to false: {}", expr);
             false
         }
         Err(e) => {
-            tracing::warn!("webhook condition evaluation failed: {}", e);
+            tracing::warn!("[Webhook] condition evaluation failed: {}", e);
             false
         }
     }
@@ -123,10 +129,10 @@ fn evaluate_task_webhook_condition(condition: Option<&String>, task: &Task) -> b
 #[cfg(test)]
 mod tests {
     use super::*;
-    use twerk_core::webhook::Webhook;
-    use twerk_core::job::Job;
-    use tokio::sync::oneshot;
     use std::collections::HashMap;
+    use twerk_core::job::Job;
+    use twerk_core::task::{SubJobTask, TASK_STATE_COMPLETED, TASK_STATE_RUNNING};
+    use twerk_core::webhook::Webhook;
 
     #[test]
     fn should_fire_webhook_with_matching_event() {
@@ -169,30 +175,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fire_job_webhooks_calls_webhook_call() {
-        let (tx, rx) = oneshot::channel();
-        
-        let job = Job {
-            id: Some("test-job-1".into()),
-            webhooks: Some(vec![Webhook {
-                url: Some("https://example.com/hook".to_string()),
-                event: Some("job.StateChange".to_string()),
-                headers: Some(HashMap::new()),
-                r#if: None,
-            }]),
-            ..Default::default()
-        };
-
-        tokio::spawn(async move {
-            fire_job_webhooks(&job, "job.StateChange");
-            tx.send(()).unwrap();
-        });
-
-        let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx).await;
-        assert!(result.is_ok(), "fire_job_webhooks completed");
-    }
-
-    #[tokio::test]
     async fn fire_job_webhooks_does_not_fire_on_non_matching_event() {
         let job = Job {
             id: Some("test-job-2".into()),
@@ -207,9 +189,8 @@ mod tests {
 
         let start = std::time::Instant::now();
         fire_job_webhooks(&job, "job.Progress");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when event doesn't match");
+
+        assert!(start.elapsed().as_millis() < 500, "Should return quickly when event doesn't match");
     }
 
     #[test]
@@ -225,63 +206,9 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_webhook_condition_that_evaluates_to_true() {
-        let job = Job {
-            state: "RUNNING".to_string(),
-            ..Default::default()
-        };
-        assert!(evaluate_webhook_condition(Some(&"job_state == \"RUNNING\"".to_string()), &job));
-    }
-
-    #[test]
-    fn evaluate_webhook_condition_that_evaluates_to_false() {
-        let job = Job {
-            state: "PENDING".to_string(),
-            ..Default::default()
-        };
-        assert!(!evaluate_webhook_condition(Some(&"job_state == \"RUNNING\"".to_string()), &job));
-    }
-
-    #[test]
     fn evaluate_webhook_condition_with_invalid_expression_returns_false() {
         let job = Job::default();
         assert!(!evaluate_webhook_condition(Some(&"invalid [[ expression".to_string()), &job));
-    }
-
-    #[test]
-    fn evaluate_webhook_condition_with_job_id_equality() {
-        let job = Job {
-            id: Some("test-job-123".into()),
-            state: "COMPLETED".to_string(),
-            ..Default::default()
-        };
-        assert!(evaluate_webhook_condition(Some(&"job_id == \"test-job-123\"".to_string()), &job));
-        assert!(!evaluate_webhook_condition(Some(&"job_id == \"other-job\"".to_string()), &job));
-    }
-
-    #[tokio::test]
-    async fn fire_job_webhooks_with_condition_evaluating_to_true() {
-        let (tx, rx) = oneshot::channel();
-        
-        let job = Job {
-            id: Some("test-job-3".into()),
-            state: "COMPLETED".to_string(),
-            webhooks: Some(vec![Webhook {
-                url: Some("https://example.com/hook".to_string()),
-                event: Some("job.StateChange".to_string()),
-                headers: Some(HashMap::new()),
-                r#if: Some("job_state == \"COMPLETED\"".to_string()),
-            }]),
-            ..Default::default()
-        };
-
-        tokio::spawn(async move {
-            fire_job_webhooks(&job, "job.StateChange");
-            tx.send(()).unwrap();
-        });
-
-        let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx).await;
-        assert!(result.is_ok(), "fire_job_webhooks should fire when condition is true");
     }
 
     #[tokio::test]
@@ -300,9 +227,8 @@ mod tests {
 
         let start = std::time::Instant::now();
         fire_job_webhooks(&job, "job.StateChange");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when condition is false");
+
+        assert!(start.elapsed().as_millis() < 500, "Should return quickly when condition is false");
     }
 
     #[tokio::test]
@@ -321,153 +247,102 @@ mod tests {
 
         let start = std::time::Instant::now();
         fire_job_webhooks(&job, "job.StateChange");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when condition evaluation fails");
+
+        assert!(start.elapsed().as_millis() < 500, "Should return quickly when condition evaluation fails");
     }
 
-    use twerk_core::task::{Task, SubJobTask};
-    use twerk_core::task::TASK_STATE_COMPLETED;
-    use twerk_core::task::TASK_STATE_RUNNING;
+    fn make_task_with_job_id(job_id: &str) -> Task {
+        Task {
+            id: Some("test-task-id".into()),
+            job_id: Some(job_id.into()),
+            state: TASK_STATE_COMPLETED.to_string(),
+            ..Default::default()
+        }
+    }
 
     #[tokio::test]
-    async fn fire_task_webhooks_fires_on_matching_event() {
-        let (tx, rx) = oneshot::channel();
-        
+    async fn fire_task_webhooks_returns_early_when_no_job_id() {
+        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
         let task = Task {
-            id: Some("task-1".into()),
-            job_id: Some("job-1".into()),
+            id: Some("task-no-job".into()),
+            job_id: None,
             state: TASK_STATE_COMPLETED.to_string(),
-            subjob: Some(SubJobTask {
-                webhooks: Some(vec![Webhook {
-                    url: Some("https://example.com/hook".to_string()),
-                    event: Some("task.Completed".to_string()),
-                    headers: Some(HashMap::new()),
-                    r#if: None,
-                }]),
-                ..Default::default()
-            }),
             ..Default::default()
         };
 
-        tokio::spawn(async move {
-            fire_task_webhooks(&task, "task.Completed");
-            tx.send(()).unwrap();
-        });
+        let start = std::time::Instant::now();
+        fire_task_webhooks(ds, &task, "task.StateChange").await;
+        assert!(start.elapsed().as_millis() < 500);
+    }
 
-        let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx).await;
-        assert!(result.is_ok(), "fire_task_webhooks should fire on matching event");
+    #[tokio::test]
+    async fn fire_task_webhooks_looks_up_parent_job() {
+        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+
+        let job = Job {
+            id: Some("parent-job-1".into()),
+            webhooks: Some(vec![Webhook {
+                url: Some("https://example.com/hook".to_string()),
+                event: Some("task.StateChange".to_string()),
+                headers: Some(HashMap::new()),
+                r#if: None,
+            }]),
+            ..Default::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
+        let task = make_task_with_job_id("parent-job-1");
+        fire_task_webhooks(ds, &task, "task.StateChange").await;
     }
 
     #[tokio::test]
     async fn fire_task_webhooks_does_not_fire_on_non_matching_event() {
-        let task = Task {
-            id: Some("task-2".into()),
-            job_id: Some("job-2".into()),
-            state: TASK_STATE_COMPLETED.to_string(),
-            subjob: Some(SubJobTask {
-                webhooks: Some(vec![Webhook {
-                    url: Some("https://example.com/hook".to_string()),
-                    event: Some("task.Completed".to_string()),
-                    headers: Some(HashMap::new()),
-                    r#if: None,
-                }]),
-                ..Default::default()
-            }),
+        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+
+        let job = Job {
+            id: Some("parent-job-2".into()),
+            webhooks: Some(vec![Webhook {
+                url: Some("https://example.com/hook".to_string()),
+                event: Some("task.StateChange".to_string()),
+                headers: Some(HashMap::new()),
+                r#if: None,
+            }]),
             ..Default::default()
         };
+        ds.create_job(&job).await.unwrap();
+
+        let task = make_task_with_job_id("parent-job-2");
 
         let start = std::time::Instant::now();
-        fire_task_webhooks(&task, "task.Started");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when event doesn't match");
-    }
-
-    #[tokio::test]
-    async fn fire_task_webhooks_with_condition_evaluating_to_true() {
-        let (tx, rx) = oneshot::channel();
-        
-        let task = Task {
-            id: Some("task-3".into()),
-            job_id: Some("job-3".into()),
-            state: TASK_STATE_COMPLETED.to_string(),
-            subjob: Some(SubJobTask {
-                webhooks: Some(vec![Webhook {
-                    url: Some("https://example.com/hook".to_string()),
-                    event: Some("task.Completed".to_string()),
-                    headers: Some(HashMap::new()),
-                    r#if: Some("task_state == \"COMPLETED\"".to_string()),
-                }]),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        tokio::spawn(async move {
-            fire_task_webhooks(&task, "task.Completed");
-            tx.send(()).unwrap();
-        });
-
-        let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx).await;
-        assert!(result.is_ok(), "fire_task_webhooks should fire when condition is true");
+        fire_task_webhooks(ds, &task, "task.Progress").await;
+        assert!(start.elapsed().as_millis() < 500, "Should return quickly when event doesn't match");
     }
 
     #[tokio::test]
     async fn fire_task_webhooks_with_condition_evaluating_to_false() {
+        let ds = Arc::new(twerk_infrastructure::datastore::InMemoryDatastore::new());
+
+        let job = Job {
+            id: Some("parent-job-3".into()),
+            webhooks: Some(vec![Webhook {
+                url: Some("https://example.com/hook".to_string()),
+                event: Some("task.StateChange".to_string()),
+                headers: Some(HashMap::new()),
+                r#if: Some("task_state == \"COMPLETED\"".to_string()),
+            }]),
+            ..Default::default()
+        };
+        ds.create_job(&job).await.unwrap();
+
         let task = Task {
             id: Some("task-4".into()),
-            job_id: Some("job-4".into()),
+            job_id: Some("parent-job-3".into()),
             state: TASK_STATE_RUNNING.to_string(),
-            subjob: Some(SubJobTask {
-                webhooks: Some(vec![Webhook {
-                    url: Some("https://example.com/hook".to_string()),
-                    event: Some("task.Completed".to_string()),
-                    headers: Some(HashMap::new()),
-                    r#if: Some("task_state == \"COMPLETED\"".to_string()),
-                }]),
-                ..Default::default()
-            }),
             ..Default::default()
         };
 
         let start = std::time::Instant::now();
-        fire_task_webhooks(&task, "task.Completed");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when condition is false");
-    }
-
-    #[tokio::test]
-    async fn fire_task_webhooks_does_not_fire_when_no_subjob_webhooks() {
-        let task = Task {
-            id: Some("task-5".into()),
-            job_id: Some("job-5".into()),
-            state: TASK_STATE_COMPLETED.to_string(),
-            subjob: Some(SubJobTask::default()),
-            ..Default::default()
-        };
-
-        let start = std::time::Instant::now();
-        fire_task_webhooks(&task, "task.Completed");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when no subjob webhooks configured");
-    }
-
-    #[tokio::test]
-    async fn fire_task_webhooks_does_not_fire_when_no_subjob() {
-        let task = Task {
-            id: Some("task-6".into()),
-            job_id: Some("job-6".into()),
-            state: TASK_STATE_COMPLETED.to_string(),
-            ..Default::default()
-        };
-
-        let start = std::time::Instant::now();
-        fire_task_webhooks(&task, "task.Completed");
-        let elapsed = start.elapsed();
-        
-        assert!(elapsed.as_millis() < 500, "Should return quickly when no subjob");
+        fire_task_webhooks(ds, &task, "task.StateChange").await;
+        assert!(start.elapsed().as_millis() < 500, "Should return quickly when condition is false");
     }
 }

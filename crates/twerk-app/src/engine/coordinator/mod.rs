@@ -9,6 +9,7 @@
 
 pub mod auth;
 pub mod handlers;
+pub mod hostenv;
 pub mod limits;
 pub mod middleware;
 pub mod scheduler;

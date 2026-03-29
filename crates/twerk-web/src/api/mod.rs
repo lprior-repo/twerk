@@ -1,10 +1,25 @@
 //! API module for the coordinator HTTP server.
+//!
+//! Go parity: internal/coordinator/api/api.go
+//! Middleware ordering follows Go's engine/coordinator.go:
+//! 1. Body limit (always applied)
+//! 2. CORS (config-gated)
+//! 3. Basic auth (config-gated)
+//! 4. Key auth (config-gated)
+//! 5. Rate limit (config-gated)
+//! 6. Logger (default enabled)
 
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashMap;
 use std::sync::Arc;
-use twerk_app::engine::coordinator::auth::{basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig};
+use twerk_app::engine::coordinator::auth::{
+    basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig,
+};
+use twerk_app::engine::coordinator::limits::{
+    body_limit_middleware, rate_limit_middleware, BodyLimitConfig, RateLimitConfig,
+};
+use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware, HttpLogConfig};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use tower_http::cors::CorsLayer;
@@ -13,19 +28,16 @@ pub mod handlers;
 pub mod error;
 pub mod redact;
 
-/// Configuration for the API server.
 #[derive(Clone)]
 pub struct Config {
-    /// Address to listen on (e.g. "0.0.0.0:8000")
     pub address: String,
-    /// Enabled endpoint groups. Empty = all enabled.
     pub enabled: HashMap<String, bool>,
-    /// CORS origins (empty means allow all)
     pub cors_origins: Vec<String>,
-    /// Basic auth configuration
     pub basic_auth: Option<BasicAuthConfig>,
-    /// Key auth configuration
     pub key_auth: Option<KeyAuthConfig>,
+    pub rate_limit: Option<RateLimitConfig>,
+    pub body_limit: Option<BodyLimitConfig>,
+    pub http_log: Option<HttpLogConfig>,
 }
 
 impl Default for Config {
@@ -36,56 +48,81 @@ impl Default for Config {
             cors_origins: vec![],
             basic_auth: None,
             key_auth: None,
+            rate_limit: None,
+            body_limit: None,
+            http_log: None,
         }
     }
 }
 
-/// Checks if an endpoint group is enabled.
 fn is_enabled(enabled: &HashMap<String, bool>, key: &str) -> bool {
     enabled.get(key).copied().unwrap_or(true)
 }
 
-/// Shared application state, passed to all handlers via axum's `State`.
 #[derive(Clone)]
 pub struct AppState {
-    /// Message broker for pub/sub and task delivery.
     pub broker: Arc<dyn Broker>,
-    /// Persistent datastore for jobs, tasks, nodes, users.
     pub ds: Arc<dyn Datastore>,
-    /// API configuration.
     pub config: Config,
 }
 
 impl AppState {
-    /// Create a new AppState with the given broker, datastore, and config.
     #[must_use]
     pub fn new(broker: Arc<dyn Broker>, ds: Arc<dyn Datastore>, config: Config) -> Self {
         Self { broker, ds, config }
     }
 }
 
-/// Create a new router with the given state and configured endpoints.
 #[allow(clippy::type_complexity)]
 pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
 
     let mut router = Router::new();
 
+    // Go parity: body limit always applied (default 500K)
+    if let Some(bl) = state.config.body_limit {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            bl,
+            |st, req, next| Box::pin(async move { body_limit_middleware(st, req, next).await }),
+        ));
+    }
+
+    // Go parity: CORS config-gated
+    if twerk_infrastructure::config::bool("middleware.web.cors.enabled") {
+        router = router.layer(cors_layer());
+    }
+
+    // Go parity: basic auth (config-gated)
     if let Some(basic_auth_config) = state.config.basic_auth.clone() {
-        let layer = axum::middleware::from_fn_with_state(basic_auth_config, |state, req, next| {
-            Box::pin(async move { basic_auth_middleware(state, req, next).await })
-        });
-        router = router.layer(layer);
+        router = router.layer(axum::middleware::from_fn_with_state(
+            basic_auth_config,
+            |st, req, next| Box::pin(async move { basic_auth_middleware(st, req, next).await }),
+        ));
     }
 
+    // Go parity: key auth (config-gated)
     if let Some(key_auth_config) = state.config.key_auth.clone() {
-        let layer = axum::middleware::from_fn_with_state(key_auth_config, |state, req, next| {
-            Box::pin(async move { key_auth_middleware(state, req, next).await })
-        });
-        router = router.layer(layer);
+        router = router.layer(axum::middleware::from_fn_with_state(
+            key_auth_config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
     }
 
-    router = router.layer(CorsLayer::permissive());
+    // Go parity: rate limit (config-gated)
+    if let Some(rl) = state.config.rate_limit {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            rl,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
+    }
+
+    // Go parity: HTTP logger (default enabled)
+    if let Some(http_log) = state.config.http_log {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            http_log,
+            |st, req, next| Box::pin(async move { http_log_middleware(st, req, next).await }),
+        ));
+    }
 
     // Health
     if is_enabled(enabled, "health") {

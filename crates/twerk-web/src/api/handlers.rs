@@ -13,6 +13,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use super::error::ApiError;
 use super::AppState;
+use super::redact::redact_task_log_parts;
 use crate::middleware::hooks::{
     on_read_job, on_read_job_summary, on_read_task,
 };
@@ -93,18 +94,24 @@ pub async fn get_task_log_handler(
     let size = parse_size(qp.size, 25, 100);
     let q = qp.q.unwrap_or_default();
 
-    // Verify task exists
-    state
+    let task = state
         .ds
         .get_task_by_id(&id)
         .await
         .map_err(ApiError::from)?;
 
-    let parts = state
+    let mut parts = state
         .ds
         .get_task_log_parts(&id, &q, page, size)
         .await
         .map_err(ApiError::from)?;
+
+    if let Some(ref job_id) = task.job_id {
+        if let Ok(job) = state.ds.get_job_by_id(job_id).await {
+            let secrets = job.secrets.unwrap_or_default();
+            redact_task_log_parts(&mut parts.items, &secrets);
+        }
+    }
 
     Ok(axum::Json(parts).into_response())
 }
@@ -290,18 +297,20 @@ pub async fn get_job_log_handler(
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 25, 100);
 
-    // Verify job exists
-    state
+    let job = state
         .ds
         .get_job_by_id(&id)
         .await
         .map_err(ApiError::from)?;
 
-    let parts = state
+    let mut parts = state
         .ds
         .get_job_log_parts(&id, "", page, size)
         .await
         .map_err(ApiError::from)?;
+
+    let secrets = job.secrets.unwrap_or_default();
+    redact_task_log_parts(&mut parts.items, &secrets);
 
     Ok(axum::Json(parts).into_response())
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use twerk_core::job::{Job, JobSummary};
-use twerk_core::task::Task;
+use twerk_core::task::{Task, TaskLogPart};
 
 const REDACTED_STR: &str = "[REDACTED]";
 
@@ -162,6 +162,21 @@ fn redact_vars(
         redacted.insert(k.clone(), val);
     }
     redacted
+}
+
+pub fn redact_task_log_parts(parts: &mut [TaskLogPart], secrets: &HashMap<String, String>) {
+    if secrets.is_empty() {
+        return;
+    }
+    for part in parts.iter_mut() {
+        if let Some(ref mut contents) = part.contents {
+            for secret_val in secrets.values() {
+                if !secret_val.is_empty() {
+                    *contents = contents.replace(secret_val, REDACTED_STR);
+                }
+            }
+        }
+    }
 }
 
 fn redact_vars_by_key_only(m: &HashMap<String, String>) -> HashMap<String, String> {

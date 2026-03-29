@@ -256,8 +256,8 @@ pub async fn handle_task_completed(
         u.result = result;
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
-    fire_task_webhooks(&task, "task.Completed");
-    
+    fire_task_webhooks(ds.clone(), &task, "task.Completed").await;
+
     if let Some(pid) = parent_id {
         handle_subtask_completed(ds, broker, task, &pid).await
     } else {
@@ -398,7 +398,7 @@ pub async fn handle_started(
         u.started_at = Some(now);
         Ok(u)
     })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
-    fire_task_webhooks(&task, "task.Started");
+    fire_task_webhooks(ds, &task, "task.Started").await;
     Ok(())
 }
 
@@ -464,7 +464,7 @@ pub async fn handle_error(
 
     task.state = twerk_core::task::TASK_STATE_FAILED.to_string();
     broker.publish_task(QUEUE_FAILED.to_string(), &task).await?;
-    fire_task_webhooks(&task, "task.Error");
+    fire_task_webhooks(ds, &task, "task.Error").await;
     Ok(())
 }
 

@@ -79,6 +79,12 @@ tokio = { workspace = true }
 23. **Webhook condition evaluation**: Conditions are now evaluated before firing webhooks on job/task state changes.
 24. **RabbitMQ priority fix**: Task priority now correctly passed and maintained during publish.
 25. **Comprehensive test suite**: 585+ tests covering core, infrastructure, app, and integration scenarios.
+26. **Task webhook parent job lookup**: Task webhooks now correctly look up the parent job's webhooks via datastore (with `JobSummary` for condition evaluation), matching Go's `middleware/task/webhook.go` behavior.
+27. **HostEnv middleware**: New `HostEnv` middleware injects host machine environment variables into tasks at RUNNING state. Config: `middleware.task.hostenv.vars` supports `"VAR_NAME"` and `"HOST_VAR:ALIAS"` specs, matching Go's `middleware/task/hostenv.go`.
+28. **Log redaction**: Task and job log endpoints now redact secret values from log contents by looking up the parent job's secrets, matching Go's `middleware/log/redact.go`.
+29. **Rate limit / Body limit wiring**: Rate limit and body limit middleware now correctly wired into the API router from config.
+30. **HTTP logger wiring**: HTTP logging middleware now correctly wired into the API router.
+31. **CORS config gating**: CORS middleware now only applied when `endpoints.api.enable-cors` is true (was always-on).
 
 ## 6. Remaining Minor Items
 

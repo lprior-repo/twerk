@@ -7,29 +7,39 @@ use twerk_core::eval::{evaluate_condition, evaluate_task_condition};
 use twerk_core::job::{new_job_summary, Job};
 use twerk_core::task::{new_task_summary, Task};
 use twerk_core::webhook::{self, Webhook};
-use twerk_infrastructure::datastore::{Datastore, inmemory::InMemoryDatastore};
+use twerk_infrastructure::datastore::Datastore;
 
 /// Fires job webhooks on state changes.
 ///
 /// Go parity: middleware/job/webhook.go
 pub fn fire_job_webhooks(job: &Job, event: &str) {
-    if let Some(webhooks) = &job.webhooks {
-        for wh in webhooks {
-            if !should_fire_webhook(wh, event) {
-                continue;
-            }
-            if !evaluate_webhook_condition(wh.r#if.as_ref(), job) {
-                continue;
-            }
-            let wh = wh.clone();
-            let job = job.clone();
-            tokio::spawn(async move {
-                if let Err(e) = webhook::call(&wh, &job) {
-                    tracing::error!("[Webhook] error calling job webhook {}: {}",
-                        wh.url.as_deref().unwrap_or("unknown"), e);
-                }
-            });
+    let Some(webhooks) = &job.webhooks else {
+        return;
+    };
+
+    for wh in webhooks {
+        if !should_fire_webhook(wh, event) {
+            continue;
         }
+        if !evaluate_webhook_condition(wh.r#if.as_ref(), job) {
+            continue;
+        }
+        let wh = wh.clone();
+        let job = job.clone();
+        tokio::spawn(call_job_webhook(wh, job));
+    }
+}
+
+/// Calls a job webhook and logs any errors.
+///
+/// I/O: Performs network call via `webhook::call`.
+async fn call_job_webhook(wh: Webhook, job: Job) {
+    if let Err(e) = webhook::call(&wh, &job) {
+        tracing::error!(
+            "[Webhook] error calling job webhook {}: {}",
+            wh.url.as_deref().unwrap_or("unknown"),
+            e
+        );
     }
 }
 
@@ -42,12 +52,11 @@ pub async fn fire_task_webhooks(
     task: &Task,
     event: &str,
 ) {
-    let job_id = match task.job_id.as_ref() {
-        Some(id) => id.to_string(),
-        None => return,
+    let Some(job_id) = task.job_id.as_ref() else {
+        return;
     };
 
-    let job = match ds.get_job_by_id(&job_id).await {
+    let job = match ds.get_job_by_id(&job_id.to_string()).await {
         Ok(j) => j,
         Err(e) => {
             tracing::error!("[Webhook] error getting job for task webhook: {}", e);
@@ -55,23 +64,33 @@ pub async fn fire_task_webhooks(
         }
     };
 
-    if let Some(webhooks) = &job.webhooks {
-        for wh in webhooks {
-            if !should_fire_webhook(wh, event) {
-                continue;
-            }
-            if !evaluate_task_webhook_condition_with_job(wh.r#if.as_ref(), task, &job) {
-                continue;
-            }
-            let wh = wh.clone();
-            let task_summary = new_task_summary(task);
-            tokio::spawn(async move {
-                if let Err(e) = webhook::call(&wh, &task_summary) {
-                    tracing::error!("[Webhook] error calling task webhook {}: {}",
-                        wh.url.as_deref().unwrap_or("unknown"), e);
-                }
-            });
+    let Some(webhooks) = &job.webhooks else {
+        return;
+    };
+
+    for wh in webhooks {
+        if !should_fire_webhook(wh, event) {
+            continue;
         }
+        if !evaluate_task_webhook_condition_with_job(wh.r#if.as_ref(), task, &job) {
+            continue;
+        }
+        let wh = wh.clone();
+        let task_summary = new_task_summary(task);
+        tokio::spawn(call_task_webhook(wh, task_summary));
+    }
+}
+
+/// Calls a task webhook and logs any errors.
+///
+/// I/O: Performs network call via `webhook::call`.
+async fn call_task_webhook(wh: Webhook, task_summary: twerk_core::task::TaskSummary) {
+    if let Err(e) = webhook::call(&wh, &task_summary) {
+        tracing::error!(
+            "[Webhook] error calling task webhook {}: {}",
+            wh.url.as_deref().unwrap_or("unknown"),
+            e
+        );
     }
 }
 
@@ -133,6 +152,7 @@ mod tests {
     use twerk_core::job::Job;
     use twerk_core::task::{SubJobTask, TASK_STATE_COMPLETED, TASK_STATE_RUNNING};
     use twerk_core::webhook::Webhook;
+    use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 
     #[test]
     fn should_fire_webhook_with_matching_event() {

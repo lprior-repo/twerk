@@ -347,29 +347,6 @@ impl Tcontainer {
         }
     }
 
-    async fn report_progress(self: Arc<Self>) {
-        let broker = self.broker.as_ref();
-        let mut tick = tokio::time::interval(std::time::Duration::from_secs(10));
-        let task_id = self.task.id.clone();
-        loop {
-            tokio::select! {
-                _ = tick.tick() => {
-                    match self.read_progress().await {
-                        Ok(p) => {
-                            if let Some(ref tid) = task_id {
-                                let twerk_task = twerk_core::task::Task { id: Some(tid.clone()), progress: p, ..Default::default() };
-                                if let Err(e) = broker.publish_task_progress(&twerk_task).await {
-                                    tracing::warn!(task_id = %tid, error = %e, "error publishing task progress");
-                                }
-                            }
-                        }
-                        Err(_) => break,
-                    }
-                }
-            }
-        }
-    }
-
     async fn read_output(&self) -> Result<String, DockerError> {
         let options = DownloadFromContainerOptions { path: "/tork/stdout".to_string() };
         let mut stream = self.client.download_from_container(&self.id, Some(options));
@@ -378,17 +355,6 @@ impl Tcontainer {
             Some(Err(e)) => Err(DockerError::CopyFromContainer(e.to_string())),
             None => Ok(String::new()),
         }
-    }
-
-    async fn read_progress(&self) -> Result<f64, DockerError> {
-        let options = DownloadFromContainerOptions { path: "/tork/progress".to_string() };
-        let mut stream = self.client.download_from_container(&self.id, Some(options));
-        let bytes = stream.next().await.ok_or_else(|| DockerError::CopyFromContainer("empty".to_string()))?
-            .map_err(|e| DockerError::CopyFromContainer(e.to_string()))?;
-        let contents = parse_tar_contents(&bytes);
-        let s = contents.trim();
-        if s.is_empty() { return Ok(0.0); }
-        s.parse::<f64>().map_err(|_| DockerError::CopyFromContainer("invalid progress".to_string()))
     }
 
     async fn read_logs_tail(&self, lines: usize) -> Result<String, DockerError> {
@@ -688,11 +654,9 @@ pub async fn create_task_container(
         env: Some(env),
         cmd: Some(cmd),
         entrypoint: if entrypoint.is_empty() { None } else { Some(entrypoint) },
-        exposed_ports: if task.probe.is_some() {
-            Some(vec![format!("{}/tcp", task.probe.as_ref().unwrap().port)].into_iter().collect())
-        } else {
-            None
-        },
+        exposed_ports: task.probe.as_ref().map(|probe| {
+            vec![format!("{}/tcp", probe.port)].into_iter().collect()
+        }),
         host_config: Some(host_config),
         networking_config,
         ..Default::default()

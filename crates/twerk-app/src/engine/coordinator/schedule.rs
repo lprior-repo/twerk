@@ -20,7 +20,7 @@ use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
 
-const MIN_SCHEDULED_JOB_LOCK_TTL_SECS: i64 = 10;
+#[allow(dead_code)] const MIN_SCHEDULED_JOB_LOCK_TTL_SECS: i64 = 10;
 
 #[derive(Clone)]
 pub struct JobSchedulerHandle {
@@ -190,7 +190,7 @@ impl JobSchedulerHandler {
         Ok(())
     }
 
-    fn locker(&self) -> Arc<dyn Locker> {
+    #[allow(dead_code)] fn locker(&self) -> Arc<dyn Locker> {
         self.locker.clone()
     }
 

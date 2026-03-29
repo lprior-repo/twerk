@@ -1,6 +1,7 @@
 pub mod encrypt;
 pub mod eval;
 pub mod fns;
+pub mod host;
 pub mod id;
 pub mod job;
 pub mod mount;

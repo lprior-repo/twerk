@@ -22,7 +22,7 @@ impl Redacter {
     /// # Arguments
     ///
     /// * `keys` - A vector of strings representing sensitive key patterns.
-    ///            Keys are matched case-insensitively.
+    ///   Keys are matched case-insensitively.
     #[must_use]
     pub fn new(keys: Vec<String>) -> Self {
         Self { keys }

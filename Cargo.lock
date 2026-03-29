@@ -5314,6 +5314,7 @@ dependencies = [
  "twerk-common",
  "twerk-core",
  "twerk-infrastructure",
+ "twerk-web",
 ]
 
 [[package]]
@@ -5327,6 +5328,7 @@ dependencies = [
  "dirs 6.0.0",
  "hostname",
  "itertools",
+ "libc",
  "once_cell",
  "rand 0.9.2",
  "regex",
@@ -5380,6 +5382,7 @@ dependencies = [
  "aes-gcm",
  "anyhow",
  "async-trait",
+ "axum",
  "base64 0.22.1",
  "bcrypt",
  "bollard",
@@ -5414,6 +5417,8 @@ dependencies = [
  "time",
  "tokio",
  "toml",
+ "tower",
+ "tower-http",
  "tracing",
  "twerk-common",
  "twerk-core",

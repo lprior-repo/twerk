@@ -49,10 +49,14 @@ func main() {
 
 	comparisons := buildComparisons(goDir, rustDir)
 
-	fmt.Println("==============================================")
-	fmt.Println("  GO TORK vs RUST TWERK - AST COMPARISON")
-	fmt.Println("==============================================")
-	fmt.Println()
+	isJson := len(os.Args) > 3 && os.Args[3] == "--json"
+
+	if !isJson {
+		fmt.Println("==============================================")
+		fmt.Println("  GO TORK vs RUST TWERK - AST COMPARISON")
+		fmt.Println("==============================================")
+		fmt.Println()
+	}
 
 	totalGoLines := 0
 	totalRustLines := 0
@@ -67,24 +71,28 @@ func main() {
 		totalGoFuncs += comparisons[i].GoFile.FuncCount
 		totalRustFuncs += comparisons[i].RustFile.FuncCount
 
-		printComparison(&comparisons[i])
+		if !isJson {
+			printComparison(&comparisons[i])
+		}
 	}
 
-	fmt.Println("==============================================")
-	fmt.Println("  SUMMARY")
-	fmt.Println("==============================================")
-	fmt.Println()
-	fmt.Printf("Go total:    %d lines, %d functions\n", totalGoLines, totalGoFuncs)
-	fmt.Printf("Rust total:  %d lines, %d functions\n", totalRustLines, totalRustFuncs)
-	if totalGoLines > 0 {
-		fmt.Printf("Line ratio:   %.2fx\n", float64(totalRustLines)/float64(totalGoLines))
+	if !isJson {
+		fmt.Println("==============================================")
+		fmt.Println("  SUMMARY")
+		fmt.Println("==============================================")
+		fmt.Println()
+		fmt.Printf("Go total:    %d lines, %d functions\n", totalGoLines, totalGoFuncs)
+		fmt.Printf("Rust total:  %d lines, %d functions\n", totalRustLines, totalRustFuncs)
+		if totalGoLines > 0 {
+			fmt.Printf("Line ratio:   %.2fx\n", float64(totalRustLines)/float64(totalGoLines))
+		}
+		if totalGoFuncs > 0 {
+			fmt.Printf("Func ratio:   %.2fx\n", float64(totalRustFuncs)/float64(totalGoFuncs))
+		}
+		fmt.Println()
 	}
-	if totalGoFuncs > 0 {
-		fmt.Printf("Func ratio:   %.2fx\n", float64(totalRustFuncs)/float64(totalGoFuncs))
-	}
-	fmt.Println()
 
-	if len(os.Args) > 3 && os.Args[3] == "--json" {
+	if isJson {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		enc.Encode(comparisons)
@@ -145,7 +153,7 @@ func buildComparisons(goDir, rustDir string) []CompareResult {
 }
 
 func mapGoToRust(relPath string) string {
-	// Exact mappings
+	// Exact mappings - updated to match actual Rust project structure
 	mappings := map[string]string{
 		// Core types
 		"job.go":   "twerk-core/src/job.rs",
@@ -155,11 +163,11 @@ func mapGoToRust(relPath string) string {
 		"mount.go": "twerk-core/src/mount.rs",
 		"state.go": "twerk-core/src/state.rs",
 
-		// Internal packages
+		// Internal packages (core)
 		"internal/eval/eval.go":         "twerk-core/src/eval.rs",
 		"internal/eval/funcs.go":        "twerk-core/src/eval.rs",
 		"internal/webhook/webhook.go":   "twerk-core/src/webhook.rs",
-		"internal/uuid/uuid.go":         "twerk-core/src/id.rs",
+		"internal/uuid/uuid.go":         "twerk-core/src/uuid.rs",
 		"internal/encrypt/encrypt.go":   "twerk-core/src/encrypt.rs",
 		"internal/redact/redact.go":     "twerk-core/src/redact.rs",
 		"internal/fns/fns.go":           "twerk-core/src/fns.rs",
@@ -167,13 +175,15 @@ func mapGoToRust(relPath string) string {
 		"internal/host/host.go":         "twerk-core/src/host.rs",
 		"internal/wildcard/wildcard.go": "twerk-core/src/wildcard.rs",
 		"internal/slices/slices.go":     "twerk-core/src/slices.rs",
-		"internal/syncx/map.go":         "twerk-core/src/sync_map.rs",
 
-		// Broker
+		// Infrastructure - cache
+		"internal/cache/cache.go": "twerk-infrastructure/src/cache/mod.rs",
+
+		// Infrastructure - broker
 		"broker/broker.go":   "twerk-infrastructure/src/broker/mod.rs",
 		"broker/inmemory.go": "twerk-infrastructure/src/broker/inmemory.rs",
 
-		// Locker
+		// Infrastructure - locker
 		"locker/locker.go":   "twerk-infrastructure/src/locker/mod.rs",
 		"locker/inmemory.go": "twerk-infrastructure/src/locker/inmemory.rs",
 		"locker/postgres.go": "twerk-infrastructure/src/locker/postgres.rs",
@@ -181,6 +191,7 @@ func mapGoToRust(relPath string) string {
 		// Coordinator
 		"internal/coordinator/coordinator.go":         "twerk-app/src/engine/coordinator/mod.rs",
 		"internal/coordinator/scheduler/scheduler.go": "twerk-app/src/engine/coordinator/scheduler.rs",
+		"internal/coordinator/api/api.go":             "twerk-app/src/engine/coordinator/mod.rs",
 
 		// Middleware
 		"middleware/job/job.go":   "twerk-app/src/engine/coordinator/handlers.rs",
@@ -188,7 +199,7 @@ func mapGoToRust(relPath string) string {
 		"middleware/node/node.go": "twerk-app/src/engine/coordinator/handlers.rs",
 		"middleware/log/log.go":   "twerk-app/src/engine/coordinator/middleware.rs",
 
-		// Runtime
+		// Runtime - shell (in twerk-app)
 		"runtime/shell/shell.go": "twerk-app/src/engine/worker/shell.rs",
 	}
 
@@ -196,15 +207,38 @@ func mapGoToRust(relPath string) string {
 		return val
 	}
 
-	// Handle runtime directories - map each file
+	// Handle Docker runtime directories
 	if strings.HasPrefix(relPath, "runtime/docker/") {
-		base := strings.TrimSuffix(strings.TrimPrefix(relPath, "runtime/docker/"), ".go")
-		return fmt.Sprintf("twerk-infrastructure/src/runtime/docker/%s.rs", base)
+		file := strings.TrimSuffix(strings.TrimPrefix(relPath, "runtime/docker/"), ".go")
+		// Special case mappings for docker files (keys WITHOUT .go since file var has .go stripped)
+		dockerMappings := map[string]string{
+			"auth":       "twerk-infrastructure/src/runtime/docker/auth/mod.rs",
+			"docker":     "twerk-infrastructure/src/runtime/docker/runtime.rs",
+			"reference":  "twerk-infrastructure/src/runtime/docker/reference.rs",
+			"tcontainer": "twerk-infrastructure/src/runtime/docker/container.rs",
+			"archive":    "twerk-infrastructure/src/runtime/docker/archive.rs",
+			"bind":       "twerk-infrastructure/src/runtime/docker/bind.rs",
+			"config":     "twerk-infrastructure/src/runtime/docker/config.rs",
+			"tmpfs":      "twerk-infrastructure/src/runtime/docker/tmpfs.rs",
+			"volume":     "twerk-infrastructure/src/runtime/docker/volume.rs",
+		}
+		if val, ok := dockerMappings[file]; ok {
+			return val
+		}
+		return fmt.Sprintf("twerk-infrastructure/src/runtime/docker/%s.rs", file)
 	}
 
+	// Handle Podman runtime directories
 	if strings.HasPrefix(relPath, "runtime/podman/") {
-		base := strings.TrimSuffix(strings.TrimPrefix(relPath, "runtime/podman/"), ".go")
-		return fmt.Sprintf("twerk-infrastructure/src/runtime/podman/%s.rs", base)
+		file := strings.TrimSuffix(strings.TrimPrefix(relPath, "runtime/podman/"), ".go")
+		podmanMappings := map[string]string{
+			"podman": "twerk-infrastructure/src/runtime/podman/runtime.rs",
+			"volume": "twerk-infrastructure/src/runtime/podman/volume.rs",
+		}
+		if val, ok := podmanMappings[file]; ok {
+			return val
+		}
+		return fmt.Sprintf("twerk-infrastructure/src/runtime/podman/%s.rs", file)
 	}
 
 	// Skip handlers directory (we map individual handler files)
@@ -220,6 +254,24 @@ func mapGoToRust(relPath string) string {
 	}
 
 	return ""
+}
+
+// camelToSnake converts CamelCase to snake_case
+// e.g., "NewJobSummary" -> "new_job_summary"
+func camelToSnake(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			// Check if it's a capital letter (not just first char)
+			// Insert underscore before it
+			prev := rune(s[i-1])
+			if (prev >= 'a' && prev <= 'z') || (prev >= 'A' && prev <= 'Z') {
+				result.WriteRune('_')
+			}
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
 }
 
 func runComparison(c *CompareResult, goDir, rustDir string) {
@@ -241,10 +293,10 @@ func runComparison(c *CompareResult, goDir, rustDir string) {
 		c.RustFile = parseRustFile(rustPath)
 	}
 
-	// Find missing and extra functions (case-insensitive for better matching)
+	// Find missing and extra functions (case-insensitive + CamelCase to snake_case normalization)
 	goFuncs := make(map[string]bool)
 	for _, f := range c.GoFile.Funcs {
-		goFuncs[strings.ToLower(f.Name)] = true
+		goFuncs[camelToSnake(f.Name)] = true
 	}
 
 	rustFuncs := make(map[string]bool)
@@ -253,13 +305,15 @@ func runComparison(c *CompareResult, goDir, rustDir string) {
 	}
 
 	for _, f := range c.GoFile.Funcs {
-		if !rustFuncs[strings.ToLower(f.Name)] {
+		goName := camelToSnake(f.Name)
+		if !rustFuncs[goName] {
 			c.Missing = append(c.Missing, f.Name)
 		}
 	}
 
 	for _, f := range c.RustFile.Funcs {
-		if !goFuncs[strings.ToLower(f.Name)] {
+		rustName := strings.ToLower(f.Name)
+		if !goFuncs[rustName] {
 			c.Extra = append(c.Extra, f.Name)
 		}
 	}

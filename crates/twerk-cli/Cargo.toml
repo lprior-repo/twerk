@@ -11,6 +11,7 @@ twerk-common.workspace = true
 twerk-core.workspace = true
 twerk-app.workspace = true
 twerk-infrastructure.workspace = true
+twerk-web.workspace = true
 clap.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

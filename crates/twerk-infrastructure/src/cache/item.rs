@@ -8,17 +8,12 @@ use tokio::time::Instant;
 /// - `Default` - Use the cache's default expiration
 /// - `Never` - Item never expires
 /// - `Absolute(Instant)` - Expires at a specific instant
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Expiration {
+    #[default]
     Default,
     Never,
     Absolute(Instant),
-}
-
-impl Default for Expiration {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 /// A cache item storing a value with an optional expiration time.

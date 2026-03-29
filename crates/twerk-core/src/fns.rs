@@ -17,7 +17,6 @@ pub fn close_ignore<C: Close>(c: C) {
 /// Note: This is a simplified implementation that formats each argument with `{}`
 /// and concatenates them. For full fmt.Fprintf behavior, use the `flexi_logger` crate.
 #[inline]
-#[must_use]
 pub fn fprintf<W: Write>(mut w: W, fmt_str: &str, args: &[&dyn fmt::Display]) -> io::Result<()> {
     // Simple implementation: concatenate format string with formatted args
     // For proper format string interpretation, a runtime format crate would be needed

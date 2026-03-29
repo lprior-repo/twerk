@@ -6,7 +6,7 @@ use twerk_infrastructure::cache::Cache;
 
 #[tokio::test]
 async fn cache_get_returns_none_when_key_not_present() {
-    let cache = Cache::new();
+    let cache: Cache<&str, String> = Cache::new();
     let result = cache.get(&"missing");
     assert!(result.is_none());
 }
@@ -81,7 +81,7 @@ async fn cache_delete_removes_existing_key() {
 
 #[tokio::test]
 async fn cache_delete_returns_none_for_missing_key() {
-    let cache = Cache::new();
+    let cache: Cache<&str, String> = Cache::new();
     let removed = cache.remove(&"missing");
     assert!(removed.is_none());
 }
@@ -149,7 +149,7 @@ async fn cache_exists_returns_true_for_present_key() {
 
 #[tokio::test]
 async fn cache_exists_returns_false_for_missing_key() {
-    let cache = Cache::new();
+    let cache: Cache<&str, String> = Cache::new();
     assert!(!cache.contains(&"missing"));
 }
 
@@ -187,12 +187,12 @@ async fn cache_values_iterates_over_all_values() {
     cache.insert("b", "second", None);
     cache.insert("c", "third", None);
 
-    let values: Vec<String> = cache.list(&[]);
+    let values: Vec<&str> = cache.list(&[]);
 
     assert_eq!(values.len(), 3);
-    assert!(values.contains(&"first".to_string()));
-    assert!(values.contains(&"second".to_string()));
-    assert!(values.contains(&"third".to_string()));
+    assert!(values.contains(&"first"));
+    assert!(values.contains(&"second"));
+    assert!(values.contains(&"third"));
 }
 
 #[tokio::test]
@@ -208,8 +208,8 @@ async fn cache_items_returns_key_value_pairs() {
     });
 
     assert_eq!(items.len(), 2);
-    assert!(items.contains(&("key1".to_string(), "value1".to_string())));
-    assert!(items.contains(&("key2".to_string(), "value2".to_string())));
+    assert!(items.contains(&("key1", "value1")));
+    assert!(items.contains(&("key2", "value2")));
 }
 
 #[tokio::test(start_paused = true)]
@@ -388,7 +388,7 @@ async fn cache_modify_updates_value_atomically() {
 #[tokio::test]
 async fn cache_modify_returns_none_for_missing_key() {
     let cache = Cache::new();
-    let result = cache.modify(&"missing", |_v| {
+    let result = cache.modify(&"missing", |v| {
         *v += 1;
         Ok(())
     });
@@ -400,7 +400,7 @@ async fn cache_modify_aborts_on_error() {
     let cache = Cache::new();
     cache.insert("counter", 0i32, None);
 
-    let result = cache.modify(&"counter", |_v| Err("intentional error"));
+    let result = cache.modify(&"counter", |_v| -> Result<(), &'static str> { Err("intentional error") });
     assert!(result.is_some());
     assert!(result.unwrap().is_err());
 

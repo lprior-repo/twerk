@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::os::unix::fs::PermissionsExt;
 
 use super::errors::PodmanError;
-use super::types::Mount;
+use super::types::{Mount, Mounter};
 
 /// VolumeMounter creates temporary directories for volume mounts
 #[derive(Debug, Default)]

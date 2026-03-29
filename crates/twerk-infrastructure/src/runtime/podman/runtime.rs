@@ -9,7 +9,7 @@ pub use super::types::{Broker, MountType, PodmanConfig};
 use std::os::unix::fs::PermissionsExt;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -275,7 +275,7 @@ impl PodmanRuntime {
         if let Some(ref mounts) = task.mounts {
             for core_mnt in mounts {
                 let mut mnt = Mount::from(core_mnt);
-                mnt.id = core_mnt.id.clone().unwrap_or_else(|| new_uuid());
+                mnt.id = core_mnt.id.clone().unwrap_or_else(new_uuid);
                 if let Err(e) = self.mounter.mount(&mut mnt) {
                     error!("error mounting volume: {}", e);
                     return Err(PodmanError::WorkdirCreation(e.to_string()));
@@ -305,13 +305,13 @@ impl PodmanRuntime {
         let task_mounts: Vec<twerk_core::mount::Mount> = mounted_mounts
             .iter()
             .map(|m| {
-                let mut core_mnt = twerk_core::mount::Mount::default();
-                core_mnt.id = Some(m.id.clone());
-                core_mnt.mount_type = Some(m.mount_type.as_str().to_string());
-                core_mnt.source = Some(m.source.clone());
-                core_mnt.target = Some(m.target.clone());
-                core_mnt.opts = m.opts.clone();
-                core_mnt
+                twerk_core::mount::Mount {
+                    id: Some(m.id.clone()),
+                    mount_type: Some(m.mount_type.as_str().to_string()),
+                    source: Some(m.source.clone()),
+                    target: Some(m.target.clone()),
+                    opts: m.opts.clone(),
+                }
             })
             .collect();
 
@@ -441,10 +441,12 @@ impl PodmanRuntime {
     async fn execute_container(
         &self,
         task: &mut CoreTask,
-        workdir: &PathBuf,
-        output_file: &PathBuf,
-        progress_file: &PathBuf,
+        workdir: &Path,
+        output_file: &Path,
+        progress_file: &Path,
     ) -> Result<(), PodmanError> {
+        // Convert to owned PathBuf for async tasks
+        let progress_file_buf = progress_file.to_path_buf();
         let task_id_str = task.id.as_ref().map_or("unknown", |id| id.as_str());
         let image = task.image.as_ref().ok_or(PodmanError::ImageRequired)?;
 
@@ -543,10 +545,9 @@ impl PodmanRuntime {
 
         // Start progress reporting
         let progress_task_id = task_id_str.to_string();
-        let progress_file_path = progress_file.clone();
         let broker = self.broker.clone();
         let progress_handle = tokio::spawn(async move {
-            PodmanRuntime::report_progress(&progress_task_id, progress_file_path, broker.as_deref()).await;
+            PodmanRuntime::report_progress(&progress_task_id, &progress_file_buf, broker.as_deref()).await;
         });
 
         // Start container
@@ -620,7 +621,7 @@ impl PodmanRuntime {
         }
 
         // Read output
-        let output = tokio::fs::read_to_string(output_file)
+        let output = tokio::fs::read_to_string(&output_file)
             .await
             .map_err(|e| PodmanError::OutputRead(e.to_string()))?;
         task.result = Some(output);
@@ -631,7 +632,7 @@ impl PodmanRuntime {
     /// Build podman create command with all options
     fn build_create_command(
         &self,
-        workdir: &PathBuf,
+        workdir: &Path,
         task: &CoreTask,
         entrypoint: Vec<String>,
     ) -> Command {
@@ -885,7 +886,7 @@ impl PodmanRuntime {
     /// Report progress to broker
     async fn report_progress(
         task_id: &str,
-        progress_file: PathBuf,
+        progress_file: &Path,
         broker: Option<&(dyn Broker + Send + Sync)>,
     ) {
         loop {

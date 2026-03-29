@@ -225,6 +225,7 @@ where
     }
 
     /// Deletes all expired items from the given map and invokes callbacks.
+    #[allow(clippy::type_complexity)]
     fn delete_expired_from_map(
         items: &Arc<DashMap<K, Item<V>>>,
         on_evicted: Option<Arc<dyn Fn(&K, &V) + Send + Sync>>,
@@ -238,7 +239,7 @@ where
         let keys_to_remove: Vec<K> = items
             .iter()
             .filter(|entry| {
-                entry.is_expired() && entry.expiration().map_or(false, |exp| now > exp)
+                entry.is_expired() && entry.expiration().is_some_and(|exp| now > exp)
             })
             .map(|entry| entry.key().clone())
             .collect();
@@ -328,7 +329,7 @@ where
     pub fn contains(&self, key: &K) -> bool {
         self.items
             .get(key)
-            .map_or(false, |entry| !entry.is_expired())
+            .is_some_and(|entry| !entry.is_expired())
     }
 
     /// Removes the item with the given key, returning it if it existed.

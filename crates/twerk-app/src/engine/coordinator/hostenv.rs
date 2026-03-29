@@ -10,9 +10,9 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetition)]
+#![allow(clippy::module_name_repetitions)]
 
-use crate::engine::types::{TaskEventType, TaskHandlerError, TaskHandlerFunc, TaskMiddlewareFunc};
+use crate::engine::types::{TaskEventType, TaskHandlerFunc, TaskMiddlewareFunc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use twerk_core::task::{Task, TASK_STATE_RUNNING};

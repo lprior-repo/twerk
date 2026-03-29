@@ -152,4 +152,3 @@ pub(crate) const HOST_NETWORK_NAME: &str = "host";
 pub(crate) const PROGRESS_POLL_INTERVAL: Duration = Duration::from_secs(10);
 pub(crate) const DEFAULT_IMAGE_TTL: Duration = Duration::from_secs(72 * 3600);
 pub(crate) const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
-pub(crate) const CREATE_TIMEOUT: Duration = Duration::from_secs(30);

@@ -20,8 +20,17 @@ pub mod webhook;
 use anyhow::Result;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::net::SocketAddr;
+
+use axum::{
+    routing::get,
+    Router,
+    response::IntoResponse,
+};
+use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
+use tower_http::cors::CorsLayer;
 use tracing::{info, debug};
 use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING, QUEUE_REDELIVERIES, QUEUE_STARTED};
 use twerk_infrastructure::config;
@@ -122,6 +131,7 @@ pub struct CoordinatorImpl {
     name: String,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     datastore: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    address: String,
     stop_token: CancellationToken,
     task_tracker: TaskTracker,
     scheduler: JobSchedulerHandler,
@@ -134,6 +144,7 @@ impl CoordinatorImpl {
             name: config.name,
             broker: config.broker,
             datastore: config.datastore,
+            address: config.address,
             stop_token: CancellationToken::new(),
             task_tracker: TaskTracker::new(),
             scheduler: config.scheduler.ok_or_else(|| anyhow::anyhow!("scheduler must be set"))?,
@@ -149,9 +160,54 @@ impl Coordinator for CoordinatorImpl {
         let stop_token = self.stop_token.clone();
         let tracker = self.task_tracker.clone();
         let scheduler = self.scheduler.clone();
+        let address = self.address.clone();
+        let name = self.name.clone();
 
         Box::pin(async move {
-            info!("Starting coordinator");
+            info!(name = %name, address = %address, "Starting coordinator");
+            
+            // Start HTTP server
+            let http_stop_token = stop_token.clone();
+            tokio::spawn(async move {
+                // Health handler
+                async fn health() -> impl IntoResponse {
+                    axum::Json(serde_json::json!({
+                        "status": "OK",
+                        "service": "twerk-coordinator"
+                    }))
+                }
+                
+                let app = Router::new()
+                    .route("/health", get(health))
+                    .layer(CorsLayer::permissive());
+                
+                let addr: SocketAddr = match address.parse() {
+                    Ok(a) => a,
+                    Err(e) => {
+                        tracing::error!("Invalid address '{}': {}", address, e);
+                        return;
+                    }
+                };
+                
+                let listener = match TcpListener::bind(addr).await {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::error!("Failed to bind HTTP server on {}: {}", address, e);
+                        return;
+                    }
+                };
+                
+                tracing::info!("HTTP server listening on http://{}", address);
+                
+                axum::serve(listener, app)
+                    .with_graceful_shutdown(async move {
+                        http_stop_token.cancelled().await;
+                    })
+                    .await
+                    .ok();
+                
+                tracing::info!("HTTP server stopped");
+            });
             
             // Subscribe to task progress
             let ds_p = ds.clone();

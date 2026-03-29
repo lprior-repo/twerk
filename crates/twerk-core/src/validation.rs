@@ -1,6 +1,6 @@
 use crate::job::JobDefaults;
 use crate::mount::Mount;
-use crate::task::{EachTask, ParallelTask, SubJobTask, Task, TaskRetry};
+use crate::task::Task;
 use crate::webhook::Webhook;
 use std::str::FromStr;
 use std::time::Duration as StdDuration;
@@ -8,7 +8,7 @@ use std::time::Duration as StdDuration;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task::{ParallelTask, TaskRetry};
+    use crate::task::{EachTask, ParallelTask, SubJobTask, TaskRetry};
 
     #[test]
     fn test_validate_cron_valid() {

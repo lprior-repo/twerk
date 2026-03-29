@@ -3,6 +3,24 @@
 use parking_lot::{Mutex, MutexGuard};
 use tokio::time::Instant;
 
+/// Expiration behavior for cache items.
+///
+/// - `Default` - Use the cache's default expiration
+/// - `Never` - Item never expires
+/// - `Absolute(Instant)` - Expires at a specific instant
+#[derive(Debug, Clone, Copy)]
+pub enum Expiration {
+    Default,
+    Never,
+    Absolute(Instant),
+}
+
+impl Default for Expiration {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 /// A cache item storing a value with an optional expiration time.
 ///
 /// Uses interior mutability via `Mutex` for thread-safe access to the stored value.
@@ -22,6 +40,29 @@ impl<V> Item<V> {
             object: Mutex::new(object),
             expiration,
         }
+    }
+
+    /// Creates a new `Item` with the given value and expiration policy.
+    #[must_use]
+    pub fn with_expiration(object: V, expiration: Expiration, default_exp: Option<Instant>) -> Self {
+        let expiration = match expiration {
+            Expiration::Default => default_exp,
+            Expiration::Never => None,
+            Expiration::Absolute(inst) => Some(inst),
+        };
+        Self {
+            object: Mutex::new(object),
+            expiration,
+        }
+    }
+
+    /// Returns a clone of the inner object.
+    #[must_use]
+    pub fn object(&self) -> V
+    where
+        V: Clone,
+    {
+        self.object.lock().clone()
     }
 
     /// Returns `true` if this item has expired.

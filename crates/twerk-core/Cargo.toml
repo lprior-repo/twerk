@@ -19,11 +19,17 @@ itertools.workspace = true
 tap.workspace = true
 rpds.workspace = true
 thiserror.workspace = true
+sysinfo.workspace = true
+once_cell.workspace = true
 time.workspace = true
 futures-util.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 ureq.workspace = true
+bcrypt.workspace = true
+aes-gcm.workspace = true
+sha2.workspace = true
+base64.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true

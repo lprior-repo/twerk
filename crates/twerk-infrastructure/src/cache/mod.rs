@@ -8,16 +8,22 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use dashmap::DashMap;
+use parking_lot::Mutex;
 use tokio::time::{interval, MissedTickBehavior};
 
+pub mod error;
 pub mod item;
-pub use item::Item;
+pub use error::CacheError;
+pub use item::{Expiration, Item};
 
 use tracing::{debug, instrument};
 
 /// A filter function type for use with [`Cache::list`].
 /// Matches items where the function returns `true`.
 type ListFilter<'a, V> = Box<dyn Fn(&V) -> bool + 'a>;
+
+/// Callback type for eviction notifications, wrapped in Mutex for interior mutability.
+type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
 
 /// A thread-safe cache with optional automatic expiration cleanup.
 ///
@@ -30,12 +36,16 @@ pub struct Cache<K, V> {
     cleanup_interval: Option<Duration>,
     /// Shutdown flag for the janitor thread.
     shutdown_flag: Arc<AtomicBool>,
+    /// Default expiration duration for items.
+    default_expiration: Option<Duration>,
+    /// Callback invoked when items are evicted.
+    on_evicted: OnEvictedCallback<K, V>,
 }
 
 impl<K, V> Default for Cache<K, V>
 where
-    K: Eq + Hash + Send + Sync + 'static,
-    V: Send + Sync + 'static,
+    K: Eq + Hash + Send + Sync + Clone + 'static,
+    V: Send + Sync + Clone + 'static,
 {
     fn default() -> Self {
         Self::new()
@@ -44,15 +54,19 @@ where
 
 impl<K, V> Cache<K, V>
 where
-    K: Eq + Hash + Send + Sync + 'static,
-    V: Send + Sync + 'static,
+    K: Eq + Hash + Send + Sync + Clone + 'static,
+    V: Send + Sync + Clone + 'static,
 {
     /// Creates a new empty cache without a janitor thread.
+    ///
+    /// This is equivalent to `newCache` in the Go implementation.
     pub fn new() -> Self {
         Self {
             items: Arc::new(DashMap::new()),
             cleanup_interval: None,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
+            default_expiration: None,
+            on_evicted: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -72,22 +86,104 @@ where
 
             let items = Arc::new(DashMap::<K, Item<V>>::new());
             let shutdown_flag = Arc::new(AtomicBool::new(false));
+            let on_evicted = Arc::new(Mutex::new(None));
 
             let items_clone = Arc::clone(&items);
             let shutdown_flag_clone = Arc::clone(&shutdown_flag);
+            let on_evicted_clone = Arc::clone(&on_evicted);
 
             tokio::spawn(async move {
-                Self::janitor_loop(items_clone, interval, shutdown_flag_clone).await;
+                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone).await;
             });
 
             Self {
                 items,
                 cleanup_interval,
                 shutdown_flag,
+                default_expiration: None,
+                on_evicted,
             }
         } else {
             Self::new()
         }
+    }
+
+    /// Creates a new cache with the specified default expiration and cleanup interval.
+    ///
+    /// This is equivalent to `New` in the Go implementation.
+    ///
+    /// - `default_expiration`: Duration after which items expire. Use `None` for no default
+    ///   expiration (items never expire by default). Use `Some(Duration::ZERO)` for infinite
+    ///   default (items must be deleted manually).
+    /// - `cleanup_interval`: Interval between automatic cleanup runs. If `None`, no
+    ///   automatic cleanup is performed.
+    pub fn with_expiration_and_cleanup(
+        default_expiration: Option<Duration>,
+        cleanup_interval: Option<Duration>,
+    ) -> Self {
+        if let Some(interval) = cleanup_interval {
+            if interval.is_zero() {
+                let mut cache = Self::new();
+                cache.default_expiration = default_expiration;
+                return cache;
+            }
+
+            let items = Arc::new(DashMap::<K, Item<V>>::new());
+            let shutdown_flag = Arc::new(AtomicBool::new(false));
+            let on_evicted = Arc::new(Mutex::new(None));
+
+            let items_clone = Arc::clone(&items);
+            let shutdown_flag_clone = Arc::clone(&shutdown_flag);
+            let on_evicted_clone = Arc::clone(&on_evicted);
+
+            tokio::spawn(async move {
+                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone).await;
+            });
+
+            Self {
+                items,
+                cleanup_interval,
+                shutdown_flag,
+                default_expiration,
+                on_evicted,
+            }
+        } else {
+            let mut cache = Self::new();
+            cache.default_expiration = default_expiration;
+            cache
+        }
+    }
+
+    /// Sets the callback function to be called when items are evicted.
+    ///
+    /// This is equivalent to `OnEvicted` in the Go implementation.
+    pub fn set_on_evicted<F>(&mut self, callback: F)
+    where
+        F: Fn(&K, &V) + Send + Sync + 'static,
+    {
+        let mut guard = self.on_evicted.lock();
+        *guard = Some(Arc::new(callback));
+    }
+
+    /// Returns the default expiration duration.
+    #[must_use]
+    pub fn default_expiration(&self) -> Option<Duration> {
+        self.default_expiration
+    }
+
+    /// Stops the background cleanup janitor.
+    ///
+    /// This is equivalent to `stopJanitor` in the Go implementation.
+    pub fn stop_janitor(&self) {
+        if self.cleanup_interval.is_some() {
+            self.shutdown_flag.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Returns a reference to the items map.
+    #[must_use]
+    pub fn items(&self) -> &Arc<DashMap<K, Item<V>>> {
+        &self.items
     }
 
     /// The janitor loop that periodically cleans up expired items.
@@ -95,7 +191,10 @@ where
         items: Arc<DashMap<K, Item<V>>>,
         cleanup_interval: Duration,
         shutdown_flag: Arc<AtomicBool>,
-    ) {
+        on_evicted: OnEvictedCallback<K, V>,
+    ) where
+        V: Clone,
+    {
         debug!(
             "Janitor thread started with interval {:?}",
             cleanup_interval
@@ -111,7 +210,8 @@ where
                         debug!("Janitor thread shutting down");
                         break;
                     }
-                    Self::delete_expired_from_map(&items);
+                    let callback = on_evicted.lock().clone();
+                    Self::delete_expired_from_map(&items, callback);
                 }
                 _ = tokio::task::yield_now() => {
                     // Check shutdown flag on every yield
@@ -124,20 +224,42 @@ where
         }
     }
 
-    /// Deletes all expired items from the given map.
-    fn delete_expired_from_map(items: &Arc<DashMap<K, Item<V>>>) {
-        // Count expired items before removing
-        let expired_count = items
+    /// Deletes all expired items from the given map and invokes callbacks.
+    fn delete_expired_from_map(
+        items: &Arc<DashMap<K, Item<V>>>,
+        on_evicted: Option<Arc<dyn Fn(&K, &V) + Send + Sync>>,
+    ) where
+        V: Clone,
+    {
+        let now = tokio::time::Instant::now();
+
+        // Collect expired items and their keys for callback
+        // We must clone key and value while we have the borrow
+        let keys_to_remove: Vec<K> = items
             .iter()
-            .filter(|entry| entry.value().is_expired())
-            .count();
+            .filter(|entry| {
+                entry.is_expired() && entry.expiration().map_or(false, |exp| now > exp)
+            })
+            .map(|entry| entry.key().clone())
+            .collect();
 
-        if expired_count > 0 {
-            debug!("Janitor deleting {} expired items", expired_count);
+        let evicted_count = keys_to_remove.len();
+        if evicted_count > 0 {
+            debug!("Janitor deleting {} expired items", evicted_count);
+            // Remove expired items and collect values for callback
+            let evicted: Vec<(K, V)> = keys_to_remove
+                .iter()
+                .filter_map(|k| {
+                    items.remove(k).map(|(key, item)| (key, item.object()))
+                })
+                .collect();
+            // Invoke callbacks after removal
+            if let Some(callback) = on_evicted {
+                for (key, value) in &evicted {
+                    callback(key, value);
+                }
+            }
         }
-
-        // Retain only non-expired items
-        items.retain(|_k, v| !v.is_expired());
     }
 
     /// Returns the number of items in the cache.
@@ -159,16 +281,34 @@ where
     ///
     /// This can be called manually or by the janitor thread.
     #[instrument(skip(self))]
-    pub fn delete_expired(&self) {
-        Self::delete_expired_from_map(&self.items);
+    pub fn delete_expired(&self)
+    where
+        V: Clone,
+    {
+        let callback = self.on_evicted.lock().clone();
+        Self::delete_expired_from_map(&self.items, callback);
     }
 
     /// Inserts an item into the cache.
     ///
     /// If the key already existed, the old item is returned.
+    /// Use `insert_with_expiration` for explicit expiration control.
     pub fn insert(&self, key: K, value: V, expiration: Option<Duration>) -> Option<Item<V>> {
         let expiration = expiration.map(|d| tokio::time::Instant::now() + d);
         self.items.insert(key, Item::new(value, expiration))
+    }
+
+    /// Inserts an item with explicit expiration behavior.
+    ///
+    /// - `Expiration::Default` uses the cache's default expiration
+    /// - `Expiration::Never` means the item never expires
+    /// - `Expiration::Absolute` sets a specific expiration time
+    ///
+    /// If the key already existed, the old item is returned.
+    pub fn insert_expiring(&self, key: K, value: V, expiration: Expiration) -> Option<Item<V>> {
+        let default_exp = self.default_expiration.map(|d| tokio::time::Instant::now() + d);
+        let item = Item::with_expiration(value, expiration, default_exp);
+        self.items.insert(key, item)
     }
 
     /// Returns a cloned value if it exists and is not expired.
@@ -192,8 +332,15 @@ where
     }
 
     /// Removes the item with the given key, returning it if it existed.
+    ///
+    /// If an item was removed and an `on_evicted` callback is set, it will be invoked.
     pub fn remove(&self, key: &K) -> Option<Item<V>> {
-        self.items.remove(key).map(|(_, item)| item)
+        self.items.remove(key).map(|(k, item)| {
+            if let Some(callback) = self.on_evicted.lock().as_ref() {
+                callback(&k, &item.object());
+            }
+            item
+        })
     }
 
     /// Clears all items from the cache.

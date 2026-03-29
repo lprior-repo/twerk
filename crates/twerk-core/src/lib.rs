@@ -1,8 +1,11 @@
+pub mod encrypt;
 pub mod eval;
+pub mod fns;
 pub mod id;
 pub mod job;
 pub mod mount;
 pub mod node;
+pub mod redact;
 pub mod repository;
 pub mod role;
 pub mod stats;

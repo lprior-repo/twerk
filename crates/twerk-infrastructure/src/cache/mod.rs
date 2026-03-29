@@ -62,13 +62,12 @@ where
     /// that runs every `duration` to delete expired items. If `None`,
     /// no automatic cleanup is performed.
     ///
-    /// # Panics
-    ///
-    /// Panics if `cleanup_interval` is `Some(Duration::ZERO)`.
+    /// If `cleanup_interval` is `Some(Duration::ZERO)`, returns a cache without
+    /// a janitor (same as `new()`).
     pub fn with_cleanup(cleanup_interval: Option<Duration>) -> Self {
         if let Some(interval) = cleanup_interval {
             if interval.is_zero() {
-                panic!("cleanup_interval must be non-zero if provided");
+                return Self::new();
             }
 
             let items = Arc::new(DashMap::<K, Item<V>>::new());
@@ -187,8 +186,9 @@ where
 
     /// Returns `true` if the cache contains the given key and it is not expired.
     pub fn contains(&self, key: &K) -> bool {
-        let entry = self.items.get(key);
-        entry.map(|e| !e.is_expired()).unwrap_or(false)
+        self.items
+            .get(key)
+            .map_or(false, |entry| !entry.is_expired())
     }
 
     /// Removes the item with the given key, returning it if it existed.

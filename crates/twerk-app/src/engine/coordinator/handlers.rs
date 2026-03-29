@@ -11,12 +11,13 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING};
 use crate::engine::TOPIC_JOB_COMPLETED;
+use crate::engine::TOPIC_JOB_FAILED;
 use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
 use twerk_core::eval::evaluate_task;
-use twerk_core::job::JOB_STATE_CANCELLED;
-use twerk_core::task::{TaskLogPart, TASK_STATE_CANCELLED, TASK_STATE_RUNNING};
+use twerk_core::job::{JOB_STATE_CANCELLED, JOB_STATE_FAILED, JOB_STATE_RUNNING};
+use twerk_core::task::{TaskLogPart, TASK_STATE_CANCELLED, TASK_STATE_FAILED, TASK_STATE_RUNNING, TASK_STATE_SKIPPED};
 use twerk_core::node::NodeStatus;
 use crate::engine::types::JobHandlerError;
 
@@ -65,6 +66,43 @@ fn validate_task_index(tasks: &[twerk_core::task::Task], job_position: i64) -> R
     Ok(task_index)
 }
 
+/// Checks if task should be skipped based on the `if` field.
+fn should_skip_task(task: &twerk_core::task::Task) -> bool {
+    task.r#if
+        .as_ref()
+        .map(|s| s.trim() == "false")
+        .unwrap_or(false)
+}
+
+/// Skips a task by marking it as SKIPPED with current timestamps.
+async fn skip_task(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    let now = time::OffsetDateTime::now_utc();
+    let task_id = task.id.clone().unwrap_or_default();
+    
+    ds.update_task(&task_id, Box::new(move |mut u| {
+        u.state = TASK_STATE_SKIPPED.to_string();
+        u.scheduled_at = Some(now);
+        u.started_at = Some(now);
+        u.completed_at = Some(now);
+        Ok(u)
+    })).await.map_err(|e| anyhow::anyhow!("failed to update task: {e}"))?;
+    
+    let skipped_task = twerk_core::task::Task {
+        state: TASK_STATE_SKIPPED.to_string(),
+        scheduled_at: Some(now),
+        started_at: Some(now),
+        completed_at: Some(now),
+        ..task
+    };
+    
+    broker.publish_task(QUEUE_COMPLETED.to_string(), &skipped_task).await?;
+    Ok(())
+}
+
 // ── Public Handlers ─────────────────────────────────────────────
 
 /// Handles job events from the broker.
@@ -80,6 +118,10 @@ pub async fn handle_job_event(
         twerk_core::job::JOB_STATE_COMPLETED => complete_job(ds, broker, job).await,
         twerk_core::job::JOB_STATE_RESTART => restart_job(ds, broker, job).await,
         JOB_STATE_CANCELLED => handle_cancel(ds, broker, job).await
+            .map_err(|e| anyhow::anyhow!("{}", e)),
+        JOB_STATE_FAILED => fail_job(ds, broker, job).await
+            .map_err(|e| anyhow::anyhow!("{}", e)),
+        JOB_STATE_RUNNING => mark_job_as_running(ds, broker, job).await
             .map_err(|e| anyhow::anyhow!("{}", e)),
         _ => Ok(()),
     };
@@ -121,6 +163,10 @@ pub async fn handle_pending_task(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
+    if should_skip_task(&task) {
+        return skip_task(ds, broker, task).await;
+    }
+    
     let scheduler = Scheduler::new(ds, broker);
     scheduler.schedule_task(task).await
 }
@@ -332,6 +378,80 @@ async fn complete_job(
             broker.publish_event(TOPIC_JOB_COMPLETED.to_string(), serde_json::to_value(&job)?).await?;
         }
     }
+    Ok(())
+}
+
+/// Marks a job as running, transitioning from SCHEDULED to RUNNING state.
+async fn mark_job_as_running(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: twerk_core::job::Job,
+) -> Result<(), JobHandlerError> {
+    let job_id = job.id.clone().unwrap_or_default();
+    
+    // Only transition from SCHEDULED to RUNNING
+    ds.update_job(&job_id, Box::new(move |mut u| {
+        if u.state == twerk_core::job::JOB_STATE_SCHEDULED {
+            u.state = JOB_STATE_RUNNING.to_string();
+            u.failed_at = None;
+        }
+        Ok(u)
+    })).await.map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    
+    Ok(())
+}
+
+/// Handles job failure, marking the job as failed and propagating failure to parent tasks.
+async fn fail_job(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: twerk_core::job::Job,
+) -> Result<(), JobHandlerError> {
+    debug!("job {} failed: {}", job_id_str(&job), job.error.as_deref().unwrap_or("unknown"));
+    
+    let job_id = job.id.clone().unwrap_or_default();
+    let failed_at = job.failed_at;
+    
+    // Mark the job as FAILED if it was RUNNING or SCHEDULED
+    ds.update_job(&job_id, Box::new(move |mut u| {
+        if u.state == twerk_core::job::JOB_STATE_RUNNING || u.state == twerk_core::job::JOB_STATE_SCHEDULED {
+            u.state = JOB_STATE_FAILED.to_string();
+            u.failed_at = failed_at;
+        }
+        Ok(u)
+    })).await.map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    
+    // If this is a sub-job -- FAIL the parent task
+    if let Some(ref parent_id) = job.parent_id {
+        let parent = ds.get_task_by_id(parent_id).await
+            .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+        
+        let failed_parent = twerk_core::task::Task {
+            state: TASK_STATE_FAILED.to_string(),
+            failed_at,
+            error: job.error.clone(),
+            ..parent
+        };
+        
+        broker.publish_task(QUEUE_FAILED.to_string(), &failed_parent).await
+            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+    }
+    
+    // Cancel all currently running tasks
+    cancel_active_tasks(&ds, &broker, &job_id).await?;
+    
+    // Re-fetch the job to check its state after updates
+    let updated_job = ds.get_job_by_id(&job_id).await
+        .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    
+    // If job is still FAILED, publish the job failed event
+    if updated_job.state == JOB_STATE_FAILED {
+        let event_value = serde_json::to_value(&updated_job)
+            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+        broker.publish_event(TOPIC_JOB_FAILED.to_string(), event_value).await
+            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+    }
+    
     Ok(())
 }
 

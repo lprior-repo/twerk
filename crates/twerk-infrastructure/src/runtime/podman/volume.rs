@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::os::unix::fs::PermissionsExt;
 
 use super::errors::PodmanError;
-use super::types::{Mount, Mounter};
+use super::types::Mount;
 
 /// VolumeMounter creates temporary directories for volume mounts
 #[derive(Debug, Default)]
@@ -61,6 +61,7 @@ impl super::types::Mounter for VolumeMounter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::podman::types::{MountType, Mounter};
 
     /// Verifies mount creates a directory, it exists, and unmount removes it.
     #[test]
@@ -68,7 +69,7 @@ mod tests {
         let vm = VolumeMounter::new();
         let mut mount = Mount {
             id: "test".to_string(),
-            mount_type: super::MountType::Volume,
+            mount_type: MountType::Volume,
             source: String::new(),
             target: "/somevol".to_string(),
             opts: None,

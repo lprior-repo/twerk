@@ -7,8 +7,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use twerk_core::task::{Probe, TaskLimits, Task};
+use twerk_core::mount::Mount;
 use twerk_infrastructure::runtime::docker::DockerRuntime;
-use twerk_infrastructure::runtime::podman::{PodmanRuntime, PodmanConfig, Task as PodmanTask, Mount as PodmanMount, MountType as PodmanMountType, TaskLimits as PodmanTaskLimits, Probe as PodmanProbe, Broker as PodmanBroker};
+use twerk_infrastructure::runtime::podman::{PodmanRuntime, PodmanConfig};
+use twerk_infrastructure::runtime::podman::types::{Broker as PodmanBroker, Mounter as PodmanMounter, MountType as PodmanMountType};
 use twerk_infrastructure::runtime::Runtime;
 
 // ----------------------------------------------------------------------------
@@ -65,28 +67,12 @@ echo "done" > /twerk/stdout
     }
 }
 
-fn make_podman_task(id: &str) -> PodmanTask {
-    PodmanTask {
-        id: id.to_string(),
+fn make_podman_task(id: &str) -> Task {
+    Task {
+        id: Some(id.to_string().into()),
         name: Some(format!("test-task-{}", id)),
-        image: "busybox:stable".to_string(),
-        run: String::new(),
-        cmd: vec![],
-        entrypoint: vec![],
-        env: HashMap::new(),
-        mounts: vec![],
-        files: HashMap::new(),
-        networks: vec![],
-        limits: None,
-        registry: None,
-        gpus: None,
-        probe: None,
-        sidecars: vec![],
-        pre: vec![],
-        post: vec![],
-        workdir: None,
-        result: String::new(),
-        progress: 0.0,
+        image: Some("busybox:stable".to_string()),
+        ..Default::default()
     }
 }
 

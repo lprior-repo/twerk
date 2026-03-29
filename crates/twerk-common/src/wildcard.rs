@@ -1,3 +1,9 @@
+/// Returns true if the pattern contains wildcard characters (*).
+#[must_use]
+pub fn is_wild_pattern(pattern: &str) -> bool {
+    pattern.contains('*')
+}
+
 /// Matches a string against a wildcard pattern where `*` matches any sequence
 #[must_use]
 pub fn wildcard_match(pattern: &str, s: &str) -> bool {
@@ -43,6 +49,25 @@ pub fn wildcard_match(pattern: &str, s: &str) -> bool {
     }
 
     dp[lp * (ls + 1) + ls]
+}
+
+/// Alias for wildcard_match for Go parity
+#[must_use]
+pub fn match_pattern(pattern: &str, s: &str) -> bool {
+    wildcard_match(pattern, s)
+}
+
+/// Match is an alias for wildcard_match (Go's Match -> Rust's match)
+#[must_use]
+pub fn match_wildcard(pattern: &str, s: &str) -> bool {
+    wildcard_match(pattern, s)
+}
+
+/// Wrapper for match that takes pattern and string (Go's Match function)
+/// Note: using r#match to escape Rust's match keyword
+#[must_use]
+pub fn r#match(pattern: &str, s: &str) -> bool {
+    wildcard_match(pattern, s)
 }
 
 #[cfg(test)]

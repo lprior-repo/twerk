@@ -110,6 +110,18 @@ impl io::Write for TracingWriter {
     }
 }
 
+/// Alias for TracingWriter to match Go's ZerologWriter API
+///
+/// Go's NewZerologWriter creates a writer that logs each line with task-id context.
+/// Rust uses tracing instead of zerolog, but the interface is the same.
+pub type ZerologWriter = TracingWriter;
+
+/// Create a new ZerologWriter (aliased to TracingWriter::new for Go parity)
+#[must_use]
+pub fn new_zerolog_writer(task_id: String, level: Level) -> ZerologWriter {
+    TracingWriter::new(task_id, level)
+}
+
 // ============================================================================
 // Normalize level
 // ============================================================================

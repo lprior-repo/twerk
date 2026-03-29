@@ -85,23 +85,22 @@ impl Scheduler {
             Ok(u)
         })).await?;
         
-        if let Some(parallel) = &task.parallel {
-            if let Some(tasks) = &parallel.tasks {
-                for t in tasks {
-                    let mut pt = t.clone();
-                    pt = evaluate_task(&pt, &job_ctx)
-                        .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
+        let parallel = task.parallel.as_ref().ok_or_else(|| anyhow::anyhow!("missing parallel config"))?;
+        let tasks = parallel.tasks.as_ref().ok_or_else(|| anyhow::anyhow!("missing parallel tasks"))?;
+        
+        for t in tasks {
+            let mut pt = t.clone();
+            pt = evaluate_task(&pt, &job_ctx)
+                .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
 
-                    pt.id = Some(uuid::Uuid::new_v4().to_string().into());
-                    pt.job_id = Some(job_id.clone());
-                    pt.parent_id = Some(task_id.to_string().into());
-                    pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
-                    pt.created_at = Some(now);
-                    
-                    self.ds.create_task(&pt).await?;
-                    self.broker.publish_task(QUEUE_PENDING.to_string(), &pt).await?;
-                }
-            }
+            pt.id = Some(uuid::Uuid::new_v4().to_string().into());
+            pt.job_id = Some(job_id.clone());
+            pt.parent_id = Some(task_id.to_string().into());
+            pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+            pt.created_at = Some(now);
+            
+            self.ds.create_task(&pt).await?;
+            self.broker.publish_task(QUEUE_PENDING.to_string(), &pt).await?;
         }
         
         Ok(())
@@ -121,19 +120,7 @@ impl Scheduler {
         let each = task.each.as_ref().ok_or_else(|| anyhow::anyhow!("missing each config"))?;
         let list_expr = each.list.as_deref().unwrap_or_default();
         
-        let mut list_val = if list_expr.trim().starts_with('[') {
-            serde_json::from_str(list_expr).unwrap_or(serde_json::Value::String(list_expr.to_string()))
-        } else {
-            evaluate_expr(list_expr, &job_ctx_map)
-                .map_err(|e| anyhow::anyhow!("failed to evaluate each list: {e}"))?
-        };
-        
-        if let Some(s) = list_val.as_str() {
-            if let Ok(json_list) = serde_json::from_str(s) {
-                list_val = json_list;
-            }
-        }
-
+        let list_val = Self::eval_each_list(list_expr, &job_ctx_map)?;
         let list = list_val.as_array().ok_or_else(|| anyhow::anyhow!("each list must be an array"))?;
         let size = list.len() as i64;
 
@@ -146,30 +133,60 @@ impl Scheduler {
             Ok(u)
         })).await?;
         
-        if let Some(each) = &task.each {
-            if let Some(template) = &each.task {
-                for (ix, item) in list.iter().enumerate() {
-                    let mut cx = job_ctx_map.clone();
-                    let var_name = each.var.as_deref().unwrap_or("item");
-                    cx.insert(var_name.to_string(), serde_json::json!({
-                        "index": ix.to_string(),
-                        "value": item
-                    }));
+        let template = each.task.as_ref().ok_or_else(|| anyhow::anyhow!("missing each task template"))?;
+        self.spawn_each_tasks(template, list, &job_ctx_map, &task_id, &job_id, now).await
+        
+    }
 
-                    let mut et = (**template).clone();
-                    et = evaluate_task(&et, &cx)
-                        .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
-
-                    et.id = Some(uuid::Uuid::new_v4().to_string().into());
-                    et.job_id = Some(job_id.clone());
-                    et.parent_id = Some(task_id.to_string().into());
-                    et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
-                    et.created_at = Some(now);
-                    
-                    self.ds.create_task(&et).await?;
-                    self.broker.publish_task(QUEUE_PENDING.to_string(), &et).await?;
-                }
+    fn eval_each_list(list_expr: &str, job_ctx: &std::collections::HashMap<String, serde_json::Value>) -> Result<serde_json::Value> {
+        let list_val = if list_expr.trim().starts_with('[') {
+            serde_json::from_str(list_expr).map_or_else(
+                |_| serde_json::Value::String(list_expr.to_string()),
+                serde_json::Value::Array,
+            )
+        } else {
+            evaluate_expr(list_expr, job_ctx)
+                .map_err(|e| anyhow::anyhow!("failed to evaluate each list: {e}"))?
+        };
+        
+        if let Some(s) = list_val.as_str() {
+            if let Ok(json_list) = serde_json::from_str(s) {
+                return Ok(json_list);
             }
+        }
+        Ok(list_val)
+    }
+
+    async fn spawn_each_tasks(
+        &self,
+        template: &twerk_core::task::Task,
+        list: &[serde_json::Value],
+        job_ctx: &std::collections::HashMap<String, serde_json::Value>,
+        task_id: &str,
+        job_id: &str,
+        now: time::OffsetDateTime,
+    ) -> Result<()> {
+        let var_name = "item";
+        
+        for (ix, item) in list.iter().enumerate() {
+            let mut cx = job_ctx.clone();
+            cx.insert(var_name.to_string(), serde_json::json!({
+                "index": ix.to_string(),
+                "value": item
+            }));
+
+            let mut et = (*template).clone();
+            et = evaluate_task(&et, &cx)
+                .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+
+            et.id = Some(uuid::Uuid::new_v4().to_string().into());
+            et.job_id = Some(job_id.to_string().into());
+            et.parent_id = Some(task_id.to_string().into());
+            et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+            et.created_at = Some(now);
+            
+            self.ds.create_task(&et).await?;
+            self.broker.publish_task(QUEUE_PENDING.to_string(), &et).await?;
         }
         
         Ok(())
@@ -185,39 +202,39 @@ impl Scheduler {
         
         let job = self.ds.get_job_by_id(&job_id).await?;
         
-        if let Some(subjob_task) = &task.subjob {
-            let subjob = twerk_core::job::Job {
-                id: Some(uuid::Uuid::new_v4().to_string().into()),
-                parent_id: Some(task_id.to_string().into()),
-                name: subjob_task.name.clone(),
-                description: subjob_task.description.clone(),
-                state: twerk_core::job::JOB_STATE_PENDING.to_string(),
-                tasks: subjob_task.tasks.clone(),
-                inputs: subjob_task.inputs.clone(),
-                secrets: subjob_task.secrets.clone(),
-                task_count: subjob_task.tasks.as_ref().map_or(0, |t| t.len() as i64),
-                output: subjob_task.output.clone(),
-                webhooks: subjob_task.webhooks.clone(),
-                auto_delete: subjob_task.auto_delete.clone(),
-                created_at: Some(now),
-                created_by: job.created_by.clone(),
-                ..Default::default()
-            };
-            
-            let subjob_id = subjob.id.clone().unwrap_or_default();
-            
-            self.ds.update_task(&task_id, Box::new(move |mut u| {
-                u.state = twerk_core::task::TASK_STATE_RUNNING.to_string();
-                u.started_at = Some(now);
-                if let Some(ref mut sj) = u.subjob {
-                    sj.id = Some(subjob_id.clone());
-                }
-                Ok(u)
-            })).await?;
-            
-            self.ds.create_job(&subjob).await?;
-            self.broker.publish_job(&subjob).await?;
-        }
+        let subjob_task = task.subjob.as_ref().ok_or_else(|| anyhow::anyhow!("missing subjob config"))?;
+        
+        let subjob = twerk_core::job::Job {
+            id: Some(uuid::Uuid::new_v4().to_string().into()),
+            parent_id: Some(task_id.to_string().into()),
+            name: subjob_task.name.clone(),
+            description: subjob_task.description.clone(),
+            state: twerk_core::job::JOB_STATE_PENDING.to_string(),
+            tasks: subjob_task.tasks.clone(),
+            inputs: subjob_task.inputs.clone(),
+            secrets: subjob_task.secrets.clone(),
+            task_count: subjob_task.tasks.as_ref().map_or(0, |t| t.len() as i64),
+            output: subjob_task.output.clone(),
+            webhooks: subjob_task.webhooks.clone(),
+            auto_delete: subjob_task.auto_delete.clone(),
+            created_at: Some(now),
+            created_by: job.created_by.clone(),
+            ..Default::default()
+        };
+        
+        let subjob_id = subjob.id.clone().unwrap_or_default();
+        
+        self.ds.update_task(&task_id, Box::new(move |mut u| {
+            u.state = twerk_core::task::TASK_STATE_RUNNING.to_string();
+            u.started_at = Some(now);
+            if let Some(ref mut sj) = u.subjob {
+                sj.id = Some(subjob_id.clone());
+            }
+            Ok(u)
+        })).await?;
+        
+        self.ds.create_job(&subjob).await?;
+        self.broker.publish_job(&subjob).await?;
         
         Ok(())
     }

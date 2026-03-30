@@ -5298,6 +5298,7 @@ name = "twerk-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
  "config",
  "futures-util",
@@ -5443,6 +5444,8 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "tap",
+ "testcontainers",
+ "testcontainers-modules",
  "thiserror 2.0.18",
  "time",
  "tokio",

@@ -1,6 +1,20 @@
 services:
-  # PostgreSQL runs on the host (port 5432), not in Docker.
-  # User/db: twerk/twerk created manually.
+  postgres:
+    image: postgres:16-alpine
+    container_name: twerk-postgres
+    environment:
+      POSTGRES_USER: twerk
+      POSTGRES_PASSWORD: twerk
+      POSTGRES_DB: twerk
+    ports:
+      - "5432:5432"
+    volumes:
+      - twerk-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twerk -d twerk"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -13,3 +27,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+volumes:
+  twerk-postgres-data:

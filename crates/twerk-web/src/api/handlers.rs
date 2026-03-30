@@ -47,6 +47,10 @@ fn extract_current_user(req: &Request) -> String {
         .unwrap_or_default()
 }
 
+async fn default_user(state: &AppState) -> Option<twerk_core::user::User> {
+    state.ds.get_user("guest").await.ok()
+}
+
 // Health
 pub async fn health_handler(State(state): State<AppState>) -> Response {
     let ds_ok = state.ds.health_check().await.is_ok();
@@ -131,6 +135,18 @@ pub async fn create_job_handler(
 
     if job.id.is_none() {
         job.id = Some(twerk_core::uuid::new_short_uuid().into());
+    }
+
+    if job.created_at.is_none() {
+        job.created_at = Some(time::OffsetDateTime::now_utc());
+    }
+
+    if job.state.is_empty() {
+        job.state = twerk_core::job::JOB_STATE_PENDING.to_string();
+    }
+
+    if job.created_by.is_none() {
+        job.created_by = default_user(&state).await;
     }
 
     if let Err(errors) = validate_job(
@@ -453,7 +469,7 @@ pub async fn create_scheduled_job_handler(
         state: SCHEDULED_JOB_STATE_ACTIVE.to_string(),
         inputs: sj_input.inputs,
         tasks: Some(tasks.clone()),
-        created_by: None,
+        created_by: default_user(&state).await,
         defaults: sj_input.defaults,
         auto_delete: sj_input.auto_delete,
         webhooks: sj_input.webhooks,

@@ -14,6 +14,8 @@ use std::env;
 use std::pin::Pin;
 use std::time::Duration;
 
+use super::engine_helpers::ensure_config_loaded;
+
 // Re-export Locker trait and implementations from the external locker crate
 pub use twerk_infrastructure::locker::InMemoryLocker;
 pub use twerk_infrastructure::locker::Locker;
@@ -52,6 +54,7 @@ const DEFAULT_POSTGRES_DSN: &str =
 pub async fn create_locker(
     locker_type: &str,
 ) -> Result<Box<dyn Locker + Send + Sync>, anyhow::Error> {
+    ensure_config_loaded();
     match locker_type {
         LOCKER_INMEMORY => Ok(Box::new(InMemoryLocker::new())),
         LOCKER_POSTGRES => {
@@ -105,7 +108,10 @@ pub async fn create_locker(
 /// Get a string from environment variables (`TWERK_` prefix, dots → underscores).
 fn env_string(key: &str) -> String {
     let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    env::var(&env_key).unwrap_or_default()
+    env::var(&env_key)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
 }
 
 /// Get a string with default from environment variables.

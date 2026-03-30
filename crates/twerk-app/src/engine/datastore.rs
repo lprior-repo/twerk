@@ -20,6 +20,8 @@ use twerk_infrastructure::datastore::{
     inmemory::InMemoryDatastore, Datastore, Error as DatastoreError, Page,
 };
 
+use super::engine_helpers::ensure_config_loaded;
+
 // ── Datastore proxy ────────────────────────────────────────────
 
 /// [`DatastoreProxy`] wraps a [`Datastore`] and adds initialization checks.
@@ -422,6 +424,7 @@ const DEFAULT_POSTGRES_DSN: &str =
     "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable";
 
 pub async fn create_datastore() -> Result<Box<dyn Datastore + Send + Sync>> {
+    ensure_config_loaded();
     let dstype = env_string_default("datastore.type", "postgres");
 
     match dstype.as_str() {
@@ -448,8 +451,10 @@ pub async fn create_datastore() -> Result<Box<dyn Datastore + Send + Sync>> {
 /// should be treated as empty strings rather than errors.
 fn env_string(key: &str) -> String {
     let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    // Explicitly handle the Result: convert to Option, then use unwrap_or_default
-    env::var(&env_key).ok().unwrap_or_default()
+    env::var(&env_key)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
 }
 
 fn env_string_default(key: &str, default: &str) -> String {

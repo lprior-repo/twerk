@@ -3,10 +3,11 @@ use crate::engine::worker::mounter::{BindConfig, BindMounter, TmpfsMounter, Volu
 use crate::engine::worker::podman::PodmanRuntimeAdapter;
 use crate::engine::worker::shell::ShellRuntimeAdapter;
 use anyhow::{anyhow, Result};
-use std::process::ExitCode;
 use std::sync::Arc;
-use twerk_core::task::Task;
-use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait, ShutdownResult};
+use twerk_infrastructure::broker::Broker;
+use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait};
+
+use crate::engine::engine_helpers::ensure_config_loaded;
 
 pub mod runtime_type {
     pub const DOCKER: &str = "docker";
@@ -34,6 +35,7 @@ pub struct RuntimeConfig {
 
 pub async fn create_runtime_from_config(
     config: &RuntimeConfig,
+    broker: Arc<dyn Broker + Send + Sync>,
 ) -> Result<Box<dyn RuntimeTrait + Send + Sync>> {
     match config.runtime_type.as_str() {
         runtime_type::DOCKER => {
@@ -50,21 +52,19 @@ pub async fn create_runtime_from_config(
                 .map_err(|e| anyhow!("{e}"))?;
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
                 .map_err(|e| anyhow!("{e}"))?;
-            let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
             Ok(Box::new(DockerRuntimeAdapter::new(
                 config.docker_privileged,
                 config.docker_image_ttl_secs,
                 Arc::new(m),
-                Arc::new(broker),
+                broker,
             )))
         }
         runtime_type::SHELL => {
-            let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
             Ok(Box::new(ShellRuntimeAdapter::new(
                 config.shell_cmd.clone(),
                 config.shell_uid.clone(),
                 config.shell_gid.clone(),
-                Some(Arc::new(broker)),
+                Some(broker),
             )))
         }
         runtime_type::PODMAN => Ok(Box::new(PodmanRuntimeAdapter::new(
@@ -76,6 +76,7 @@ pub async fn create_runtime_from_config(
 }
 
 pub fn read_runtime_config() -> RuntimeConfig {
+    ensure_config_loaded();
     let rt = config_string_default("runtime.type", runtime_type::DEFAULT);
     RuntimeConfig {
         runtime_type: rt,
@@ -95,7 +96,10 @@ pub fn read_runtime_config() -> RuntimeConfig {
 }
 
 fn config_string(k: &str) -> String {
-    std::env::var(format!("TWERK_{}", k.to_uppercase().replace('.', "_"))).unwrap_or_default()
+    std::env::var(format!("TWERK_{}", k.to_uppercase().replace('.', "_")))
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| twerk_infrastructure::config::string(k))
 }
 
 fn config_string_default(k: &str, d: &str) -> String {
@@ -130,25 +134,4 @@ fn config_strings(k: &str) -> Vec<String> {
 fn config_u64(k: &str) -> u64 {
     let v = config_string(k);
     v.parse().unwrap_or(0)
-}
-
-#[derive(Debug)]
-pub struct MockRuntime;
-
-impl RuntimeTrait for MockRuntime {
-    fn run(&self, _task: &Task) -> twerk_infrastructure::runtime::BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn stop(
-        &self,
-        _task: &Task,
-    ) -> twerk_infrastructure::runtime::BoxedFuture<ShutdownResult<ExitCode>> {
-        // Mock stop is idempotent - always returns success
-        Box::pin(async { Ok(Ok(std::process::ExitCode::SUCCESS)) })
-    }
-
-    fn health_check(&self) -> twerk_infrastructure::runtime::BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
 }

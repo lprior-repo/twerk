@@ -21,6 +21,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tracing::{debug, error, warn};
 use twerk_core::eval::evaluate_task;
+use twerk_core::uuid::new_short_uuid;
 use twerk_core::job::{
     JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
     JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
@@ -127,7 +128,6 @@ pub async fn handle_job_event(
     job: twerk_core::job::Job,
 ) -> Result<()> {
     debug!(job_id = job_id_str(&job), state = %job.state, "Handling job event");
-
     let res = match job.state.as_str() {
         JOB_STATE_PENDING => start_job(ds, broker, job).await,
         JOB_STATE_COMPLETED => complete_job(ds, broker, job).await,
@@ -307,7 +307,7 @@ async fn start_job(
     let job_id = job.id.as_ref().ok_or_else(|| anyhow!("job has no id"))?;
 
     let mut task = evaluate_task(base_task, &job_ctx).map_err(|e| anyhow!("{e}"))?;
-    task.id = Some(uuid::Uuid::new_v4().to_string().into());
+    task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
     task.state = TASK_STATE_PENDING.to_string();
     task.position = 1;
@@ -359,7 +359,7 @@ async fn restart_job(
 
     let mut task =
         evaluate_task(base_task, &build_job_context(&job)).map_err(|e| anyhow!("{e}"))?;
-    task.id = Some(uuid::Uuid::new_v4().to_string().into());
+    task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
     task.state = TASK_STATE_PENDING.to_string();
     task.position = job.position;
@@ -548,7 +548,7 @@ async fn handle_top_level_task_completed(
             .get((next_position - 1) as usize)
             .ok_or_else(|| anyhow!("task out of bounds"))?;
         let mut task = base_task.clone();
-        task.id = Some(uuid::Uuid::new_v4().to_string().into());
+        task.id = Some(new_short_uuid().into());
         task.job_id = Some(job_id.clone().into());
         task.state = TASK_STATE_PENDING.to_string();
         task.position = next_position;
@@ -680,7 +680,7 @@ async fn create_retry_task(
         .ok_or_else(|| anyhow!("task has no retry config"))?;
 
     let mut retry_task = task;
-    retry_task.id = Some(uuid::Uuid::new_v4().to_string().into());
+    retry_task.id = Some(new_short_uuid().into());
     retry_task.created_at = Some(now);
     retry_task.state = TASK_STATE_PENDING.to_string();
     retry_task.error = None;

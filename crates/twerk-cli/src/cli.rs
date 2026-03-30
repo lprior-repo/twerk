@@ -6,10 +6,11 @@ use std::ffi::OsString;
 use std::io::Write;
 
 use clap::{CommandFactory, Parser};
-use config::{Config, Environment};
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use twerk_common::load_config;
 use twerk_infrastructure::reexec;
+use twerk_infrastructure::config as app_config;
 
 use super::banner::{display_banner, BannerMode};
 use super::commands::{Cli, Commands};
@@ -84,7 +85,9 @@ fn get_banner_mode() -> BannerMode {
 
 /// Get endpoint from configuration or default
 fn get_endpoint() -> String {
-    get_config_string("endpoint").unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
+    get_config_string("client.endpoint")
+        .or_else(|| get_config_string("endpoint"))
+        .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
 }
 
 /// Get datastore type from configuration or default
@@ -101,18 +104,11 @@ fn get_postgres_dsn() -> String {
 /// Environment variables are prefixed with `TWERK_` and use single underscore for nesting.
 /// e.g., `TWERK_DATASTORE_POSTGRES_DSN` for `datastore.postgres.dsn`.
 fn get_config_string(key: &str) -> Option<String> {
-    let config = Config::builder()
-        .add_source(config::File::with_name("config"))
-        .add_source(config::File::with_name("config.local"))
-        .add_source(
-            Environment::with_prefix("TWERK")
-                .separator("_")
-                .try_parsing(true),
-        )
-        .build()
-        .ok()?;
-
-    config.get_string(key).ok()
+    let _ = load_config();
+    match app_config::string(key) {
+        value if value.is_empty() => None,
+        value => Some(value),
+    }
 }
 
 fn collect_args() -> Vec<OsString> {
@@ -146,6 +142,8 @@ pub async fn run() -> Result<(), CliError> {
     if reexec::init() {
         return Ok(());
     }
+
+    let _ = load_config();
 
     let args = collect_args();
     let action = match parse_cli_args(&args) {
@@ -281,5 +279,15 @@ mod tests {
 
         std::env::remove_var("TWERK_CLI_BANNER_MODE");
         assert_eq!(result, BannerMode::Off);
+    }
+
+    #[test]
+    fn test_get_endpoint_reads_client_endpoint_env_override() {
+        std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
+
+        let endpoint = get_endpoint();
+
+        std::env::remove_var("TWERK_CLIENT_ENDPOINT");
+        assert_eq!(endpoint, "http://127.0.0.1:9999");
     }
 }

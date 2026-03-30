@@ -285,10 +285,12 @@ pub async fn create_worker(
 ) -> Result<Box<dyn Worker + Send + Sync>> {
     use crate::engine::worker::runtime_adapter::{create_runtime_from_config, read_runtime_config};
     let config = read_runtime_config();
-    let rt = match runtime {
+    let runtime_broker: Arc<dyn Broker + Send + Sync> = Arc::new(broker.clone());
+    let rt: Arc<dyn RuntimeTrait + Send + Sync> = match runtime {
         Some(r) => Arc::from(r),
-        None => Arc::from(create_runtime_from_config(&config).await?),
+        None => Arc::from(create_runtime_from_config(&config, runtime_broker).await?),
     };
+    rt.health_check().await?;
     if let Some(h) = create_hostenv_middleware(&config.hostenv_vars) {
         engine.register_task_middleware(h);
     }

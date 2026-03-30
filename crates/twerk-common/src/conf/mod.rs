@@ -17,6 +17,11 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
+use once_cell::sync::Lazy;
+
+pub(crate) static CONFIG: Lazy<std::sync::RwLock<Option<types::ConfigState>>> =
+    Lazy::new(|| std::sync::RwLock::new(None));
+
 // Re-export public API
 pub use env::extract_env_vars;
 pub use lookup::{

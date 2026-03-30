@@ -5,11 +5,10 @@ use std::collections::HashMap;
 use time::Duration;
 
 use super::types::{ConfigError, ConfigState, WorkerLimits};
+use super::CONFIG;
 
 /// Global config state accessor.
 fn get_config() -> Result<ConfigState, ConfigError> {
-    static CONFIG: std::sync::RwLock<Option<ConfigState>> = std::sync::RwLock::new(None);
-
     let guard = CONFIG
         .read()
         .map_err(|_| ConfigError::KeyNotFound("config poisoned".to_string()))?;

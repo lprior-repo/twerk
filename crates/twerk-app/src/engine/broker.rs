@@ -9,26 +9,23 @@
 //! Matches `engine/broker.go`:
 //! - [`BrokerProxy`] delegates every `Broker` method with init-check
 //! - `create_broker()` dispatches on type (inmemory / rabbitmq)
-//! - `RabbitMQ` broker with full config (URL, consumer timeout, management URL,
-//!   durable queues, queue type)
+//! - delegates RabbitMQ to the infrastructure implementation
 
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use lapin::{
-    options::{BasicPublishOptions, QueueDeclareOptions},
-    types::FieldTable,
-    BasicProperties, Connection, ConnectionProperties,
-};
 use tokio::sync::RwLock;
 use twerk_core::node::Node;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{
-    inmemory::InMemoryBroker, BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler,
-    QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    inmemory::InMemoryBroker, rabbitmq::RabbitMQBroker, BoxedFuture, Broker, EventHandler,
+    HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler,
+    TaskLogPartHandler, TaskProgressHandler,
 };
+
+use super::engine_helpers::ensure_config_loaded;
 
 // ── Broker type enumeration ────────────────────────────────────
 
@@ -225,7 +222,10 @@ impl Broker for BrokerProxy {
 /// Get a string from environment variables (`TWERK_` prefix, dots → underscores).
 fn env_string(key: &str) -> String {
     let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    env::var(&env_key).unwrap_or_default()
+    env::var(&env_key)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
 }
 
 /// Get a string with default from environment variables.
@@ -247,7 +247,7 @@ fn env_duration_ms_default(key: &str, default: u64) -> Duration {
         value
             .parse::<u64>()
             .map(Duration::from_millis)
-            .unwrap_or(Duration::from_millis(default))
+            .unwrap_or_else(|_| Duration::from_millis(default))
     }
 }
 
@@ -271,8 +271,6 @@ const DEFAULT_CONSUMER_TIMEOUT_MS: u64 = 30_000;
 
 /// Queue type constant — classic.
 const QUEUE_TYPE_CLASSIC: &str = "classic";
-/// Queue type constant — quorum.
-const QUEUE_TYPE_QUORUM: &str = "quorum";
 
 /// Creates a broker based on the given type string.
 ///
@@ -285,6 +283,7 @@ const QUEUE_TYPE_QUORUM: &str = "quorum";
 /// Returns an error if:
 /// - The `RabbitMQ` connection cannot be established
 pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>> {
+    ensure_config_loaded();
     match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
         BrokerType::RabbitMQ => {
@@ -310,6 +309,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
                     management_url,
                     durable_queues: durable,
                     queue_type,
+                    consumer_timeout: Some(_consumer_timeout),
                 },
             )
             .await
@@ -317,178 +317,6 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
 
             Ok(Box::new(broker))
         }
-    }
-}
-
-// ── RabbitMQ options ───────────────────────────────────────────
-
-/// Configuration options for [`RabbitMQBroker`].
-///
-/// Matches Go's `broker.With*` option pattern.
-#[derive(Debug, Clone)]
-pub struct RabbitMQOptions {
-    /// `RabbitMQ` Management API URL (e.g., `http://localhost:15672`).
-    pub management_url: Option<String>,
-    /// Whether queues should be durable.
-    pub durable_queues: bool,
-    /// Queue type: `"classic"` or `"quorum"`.
-    pub queue_type: String,
-}
-
-impl Default for RabbitMQOptions {
-    fn default() -> Self {
-        Self {
-            management_url: None,
-            durable_queues: false,
-            queue_type: QUEUE_TYPE_CLASSIC.to_string(),
-        }
-    }
-}
-
-// ── RabbitMQ broker ───────────────────────────────────────────
-
-/// RabbitMQ-backed broker implementation using `lapin`.
-///
-/// Connects to a `RabbitMQ` server and implements the [`Broker`] trait
-/// using AMQP. Matches Go's `broker.NewRabbitMQBroker()`.
-pub struct RabbitMQBroker {
-    conn: Arc<Connection>,
-    #[allow(dead_code)]
-    management_url: Option<String>,
-    durable_queues: bool,
-    queue_type: String,
-}
-
-impl RabbitMQBroker {
-    /// Create a new `RabbitMQ` broker with the given URL and options.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the connection cannot be established.
-    pub async fn new(url: &str, opts: RabbitMQOptions) -> Result<Self> {
-        let conn = Connection::connect(url, ConnectionProperties::default())
-            .await
-            .map_err(|e| anyhow!("RabbitMQ connection failed: {e}"))?;
-
-        Ok(Self {
-            conn: Arc::new(conn),
-            management_url: opts.management_url,
-            durable_queues: opts.durable_queues,
-            queue_type: opts.queue_type,
-        })
-    }
-
-    /// Build queue declare arguments based on configuration.
-    fn queue_args(&self) -> FieldTable {
-        let mut args = FieldTable::default();
-        if self.queue_type == QUEUE_TYPE_QUORUM {
-            args.insert(
-                "x-queue-type".into(),
-                lapin::types::AMQPValue::LongString(self.queue_type.clone().into()),
-            );
-        }
-        args
-    }
-}
-
-impl Broker for RabbitMQBroker {
-    fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
-        let conn = self.conn.clone();
-        let durable = self.durable_queues;
-        let args = self.queue_args();
-        let data = match serde_json::to_vec(task) {
-            Ok(d) => d,
-            Err(e) => return Box::pin(async move { Err(anyhow!("serialize task: {e}")) }),
-        };
-        Box::pin(async move {
-            let ch = conn.create_channel().await?;
-            let opts = QueueDeclareOptions {
-                durable,
-                ..QueueDeclareOptions::default()
-            };
-            ch.queue_declare(&qname, opts, args).await?;
-            ch.basic_publish(
-                "",
-                &qname,
-                BasicPublishOptions::default(),
-                &data,
-                BasicProperties::default(),
-            )
-            .await
-            .map_err(|e| anyhow!("publish task to queue: {e}"))?;
-            Ok(())
-        })
-    }
-
-    fn subscribe_for_tasks(&self, _qname: String, _handler: TaskHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn publish_task_progress(&self, _task: &Task) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn subscribe_for_task_progress(&self, _handler: TaskProgressHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn publish_heartbeat(&self, _node: Node) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn subscribe_for_heartbeats(&self, _handler: HeartbeatHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn publish_job(&self, _job: &twerk_core::job::Job) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn subscribe_for_jobs(&self, _handler: JobHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn publish_event(&self, _topic: String, _event: serde_json::Value) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn subscribe_for_events(&self, _pattern: String, _handler: EventHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn publish_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn subscribe_for_task_log_part(&self, _handler: TaskLogPartHandler) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn queues(&self) -> BoxedFuture<Vec<QueueInfo>> {
-        Box::pin(async { Ok(Vec::new()) })
-    }
-
-    fn queue_info(&self, qname: String) -> BoxedFuture<QueueInfo> {
-        Box::pin(async {
-            Ok(QueueInfo {
-                name: qname,
-                size: 0,
-                subscribers: 0,
-                unacked: 0,
-            })
-        })
-    }
-
-    fn delete_queue(&self, _qname: String) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn health_check(&self) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
-    }
-
-    fn shutdown(&self) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
     }
 }
 

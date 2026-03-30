@@ -266,6 +266,9 @@ fn test_extract_env_vars_with_twerk_prefix() {
         Some("value2")
     );
     assert!(!vars.contains_key("REGULAR_VAR"));
+
+    // Clean up env vars for other tests
+    reset_env();
 }
 
 #[test]
@@ -278,6 +281,9 @@ fn test_extract_env_vars_underscore_to_dot() {
         vars.get("nested.deep.value").and_then(|v| v.as_str()),
         Some("test")
     );
+
+    // Clean up env vars for other tests
+    reset_env();
 }
 
 #[test]

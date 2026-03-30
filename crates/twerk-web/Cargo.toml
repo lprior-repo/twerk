@@ -34,3 +34,5 @@ reqwest = { workspace = true, features = ["json"] }
 serde_json = { workspace = true }
 tower = { workspace = true }
 http-body-util = "0.1"
+testcontainers.workspace = true
+testcontainers-modules.workspace = true

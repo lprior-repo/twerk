@@ -5,11 +5,18 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::types::{ConfigError, ConfigState};
+use super::CONFIG;
 
 const DEFAULT_CONFIG_PATHS: &[&str] = &[
+    "config.local.yaml",
+    "config.yaml",
+    "config.local.yml",
+    "config.yml",
     "config.local.toml",
     "config.toml",
+    "~/twerk/config.yaml",
     "~/twerk/config.toml",
+    "/etc/twerk/config.yaml",
     "/etc/twerk/config.toml",
 ];
 
@@ -112,9 +119,6 @@ pub fn load_config() -> Result<(), ConfigError> {
     let env_values = super::env::extract_env_vars();
     let all_values = merge_values(file_values, env_values);
     let state = ConfigState { values: all_values };
-
-    // Store in global config (thread-safe via RwLock)
-    static CONFIG: std::sync::RwLock<Option<ConfigState>> = std::sync::RwLock::new(None);
 
     *CONFIG
         .write()

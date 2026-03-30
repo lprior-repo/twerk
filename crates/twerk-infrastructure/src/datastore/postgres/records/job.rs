@@ -65,8 +65,15 @@ impl JobRecordExt for JobRecord {
         perms: Vec<Permission>,
         encryption_key: Option<&str>,
     ) -> Result<Job, DatastoreError> {
-        let context: JobContext = serde_json::from_slice(&self.context)
-            .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
+        let context: Option<JobContext> =
+            if self.context.is_empty() || self.context.as_slice() == b"null" {
+                None
+            } else {
+                Some(
+                    serde_json::from_slice(&self.context)
+                        .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?,
+                )
+            };
 
         let inputs: Option<std::collections::HashMap<String, String>> =
             serde_json::from_slice(&self.inputs)
@@ -135,7 +142,7 @@ impl JobRecordExt for JobRecord {
             execution: Some(execution),
             position: self.position,
             inputs,
-            context: Some(context),
+            context,
             task_count: self.task_count,
             output: self.output_.clone(),
             result: self.result.clone(),

@@ -97,6 +97,8 @@ async fn start_coordinator_initializes_broker_and_datastore() -> Result<()> {
 #[tokio::test]
 async fn start_worker_initializes_broker() -> Result<()> {
     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
+    std::env::set_var("TWERK_RUNTIME_TYPE", "shell");
+    std::env::set_var("TWERK_RUNTIME_SHELL_CMD", "bash");
 
     let mut engine = engine_with_mode(Mode::Worker);
     engine.start().await?;
@@ -104,7 +106,29 @@ async fn start_worker_initializes_broker() -> Result<()> {
     assert_eq!(engine.state(), State::Running);
 
     engine.terminate().await?;
+    std::env::remove_var("TWERK_RUNTIME_TYPE");
+    std::env::remove_var("TWERK_RUNTIME_SHELL_CMD");
     Ok(())
+}
+
+#[tokio::test]
+async fn create_runtime_from_config_fails_clearly_when_runtime_is_invalid() {
+    let config = twerk_app::engine::worker::runtime_adapter::RuntimeConfig {
+        runtime_type: "unknown-runtime".to_string(),
+        ..Default::default()
+    };
+
+    let broker: Arc<dyn Broker + Send + Sync> = Arc::new(InMemoryBroker::new());
+    let result =
+        twerk_app::engine::worker::runtime_adapter::create_runtime_from_config(&config, broker)
+            .await;
+
+    assert!(result.is_err());
+    assert!(result
+        .err()
+        .map(|error| error.to_string())
+        .unwrap_or_default()
+        .contains("unknown runtime type"));
 }
 
 #[tokio::test]

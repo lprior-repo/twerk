@@ -14,6 +14,7 @@
 use anyhow::Result;
 use std::sync::Arc;
 use twerk_core::eval::{evaluate_expr, evaluate_task};
+use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
 pub struct Scheduler {
@@ -118,7 +119,7 @@ impl Scheduler {
             pt = evaluate_task(&pt, &job_ctx)
                 .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
 
-            pt.id = Some(uuid::Uuid::new_v4().to_string().into());
+            pt.id = Some(new_short_uuid().into());
             pt.job_id = Some(job_id.clone());
             pt.parent_id = Some(task_id.to_string().into());
             pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
@@ -229,7 +230,7 @@ impl Scheduler {
             et = evaluate_task(&et, &cx)
                 .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
 
-            et.id = Some(uuid::Uuid::new_v4().to_string().into());
+            et.id = Some(new_short_uuid().into());
             et.job_id = Some(job_id.to_string().into());
             et.parent_id = Some(task_id.to_string().into());
             et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
@@ -260,7 +261,7 @@ impl Scheduler {
             .ok_or_else(|| anyhow::anyhow!("missing subjob config"))?;
 
         let subjob = twerk_core::job::Job {
-            id: Some(uuid::Uuid::new_v4().to_string().into()),
+            id: Some(new_short_uuid().into()),
             parent_id: Some(task_id.to_string().into()),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),

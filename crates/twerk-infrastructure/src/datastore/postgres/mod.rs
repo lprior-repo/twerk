@@ -255,12 +255,12 @@ impl Datastore for PostgresDatastore {
             DatastoreError::InvalidInput("job.created_by.id is required".to_string()),
         )?;
 
-        let q = r"INSERT INTO jobs (id, name, description, tags, state, created_at, created_by, tasks, position, inputs, context, task_count, output_, defaults, webhooks, auto_delete, secrets, progress, scheduled_job_id, started_at, completed_at, failed_at, delete_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)";
+        let q = r"INSERT INTO jobs (id, name, description, tags, state, created_at, created_by, tasks, position, inputs, context, task_count, output_, defaults, webhooks, auto_delete, secrets, progress, scheduled_job_id, started_at, completed_at, failed_at, delete_at, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)";
         let query = sqlx::query(q)
             .bind(&**id)
             .bind(&job.name)
             .bind(&job.description)
-            .bind(&job.tags)
+            .bind(job.tags.clone().unwrap_or_default())
             .bind(&job.state)
             .bind(job.created_at)
             .bind(&*created_by)
@@ -283,7 +283,8 @@ impl Datastore for PostgresDatastore {
             .bind(job.started_at)
             .bind(job.completed_at)
             .bind(job.failed_at)
-            .bind(job.delete_at);
+            .bind(job.delete_at)
+            .bind(job.parent_id.as_ref().map(|id| id.as_str()));
 
         match &self.executor {
             Executor::Pool(p) => {
@@ -412,7 +413,7 @@ impl Datastore for PostgresDatastore {
                 let job = modify(job)?;
                 let context = serde_json::to_vec(&job.context)
                     .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
-                sqlx::query(r"UPDATE jobs SET state = $1, started_at = $2, completed_at = $3, failed_at = $4, position = $5, context = $6, result = $7, error_ = $8, delete_at = $9, progress = $10, name = $11, description = $12, tags = $13 WHERE id = $14").bind(&job.state).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.position).bind(&context).bind(&job.result).bind(&job.error).bind(job.delete_at).bind(job.progress).bind(&job.name).bind(&job.description).bind(&job.tags).bind(id).execute(&mut *tx).await.map_err(|e| DatastoreError::Database(format!("update job failed: {e}")))?;
+                sqlx::query(r"UPDATE jobs SET state = $1, started_at = $2, completed_at = $3, failed_at = $4, position = $5, context = $6, result = $7, error_ = $8, delete_at = $9, progress = $10, name = $11, description = $12, tags = $13 WHERE id = $14").bind(&job.state).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.position).bind(&context).bind(&job.result).bind(&job.error).bind(job.delete_at).bind(job.progress).bind(&job.name).bind(&job.description).bind(job.tags.clone().unwrap_or_default()).bind(id).execute(&mut *tx).await.map_err(|e| DatastoreError::Database(format!("update job failed: {e}")))?;
                 tx.commit()
                     .await
                     .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
@@ -435,7 +436,7 @@ impl Datastore for PostgresDatastore {
                 let job = modify(job)?;
                 let context = serde_json::to_vec(&job.context)
                     .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
-                sqlx::query(r"UPDATE jobs SET state = $1, started_at = $2, completed_at = $3, failed_at = $4, position = $5, context = $6, result = $7, error_ = $8, delete_at = $9, progress = $10, name = $11, description = $12, tags = $13 WHERE id = $14").bind(&job.state).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.position).bind(&context).bind(&job.result).bind(&job.error).bind(job.delete_at).bind(job.progress).bind(&job.name).bind(&job.description).bind(&job.tags).bind(id).execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("update job failed: {e}")))?;
+                sqlx::query(r"UPDATE jobs SET state = $1, started_at = $2, completed_at = $3, failed_at = $4, position = $5, context = $6, result = $7, error_ = $8, delete_at = $9, progress = $10, name = $11, description = $12, tags = $13 WHERE id = $14").bind(&job.state).bind(job.started_at).bind(job.completed_at).bind(job.failed_at).bind(job.position).bind(&context).bind(&job.result).bind(&job.error).bind(job.delete_at).bind(job.progress).bind(&job.name).bind(&job.description).bind(job.tags.clone().unwrap_or_default()).bind(id).execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("update job failed: {e}")))?;
             }
         }
         Ok(())
@@ -1020,7 +1021,7 @@ impl Datastore for PostgresDatastore {
             .bind(&defaults)
             .bind(&webhooks)
             .bind(&*created_by)
-            .bind(&sj.tags)
+            .bind(sj.tags.clone().unwrap_or_default())
             .bind(&auto_delete)
             .bind(&secrets_bytes)
             .bind(&sj.cron)

@@ -3,7 +3,7 @@
 use super::broker::BrokerProxy;
 use super::coordinator::create_coordinator;
 use super::datastore::DatastoreProxy;
-use super::engine_helpers::{resolve_locker_type, MockRuntime};
+use super::engine_helpers::{ensure_config_loaded, resolve_broker_type, resolve_locker_type};
 use super::locker::create_locker;
 use super::signals::await_signal_or_channel;
 use super::state::{Mode, State};
@@ -110,6 +110,8 @@ impl Engine {
             anyhow::bail!("engine is not idle");
         }
 
+        ensure_config_loaded();
+
         match self.mode {
             Mode::Coordinator => self.run_coordinator().await,
             Mode::Worker => self.run_worker().await,
@@ -205,7 +207,7 @@ impl Engine {
 
 impl Engine {
     async fn run_coordinator(&mut self) -> Result<()> {
-        self.broker.init("inmemory").await?;
+        self.broker.init(&resolve_broker_type()).await?;
         self.datastore.init().await?;
 
         // Create locker — resolve type from env (locker.type → datastore.type → inmemory)
@@ -276,12 +278,7 @@ impl Engine {
     }
 
     async fn run_worker(&mut self) -> Result<()> {
-        self.broker.init("inmemory").await?;
-
-        // Set up runtime if not already set
-        if self.runtime.is_none() {
-            self.runtime = Some(Box::new(MockRuntime));
-        }
+        self.broker.init(&resolve_broker_type()).await?;
 
         // Take the runtime out, will be replaced after worker creation
         let runtime = self.runtime.take();
@@ -348,18 +345,13 @@ impl Engine {
     }
 
     async fn run_standalone(&mut self) -> Result<()> {
-        self.broker.init("inmemory").await?;
+        self.broker.init(&resolve_broker_type()).await?;
         self.datastore.init().await?;
 
         // Create locker — resolve type from env (locker.type → datastore.type → inmemory)
         let locker_type = resolve_locker_type();
         let locker = create_locker(&locker_type).await?;
         *self.locker.write().await = Some(locker);
-
-        // Set up runtime if not already set
-        if self.runtime.is_none() {
-            self.runtime = Some(Box::new(MockRuntime));
-        }
 
         // Take the runtime out, will be replaced after worker creation
         let runtime = self.runtime.take();

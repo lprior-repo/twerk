@@ -120,8 +120,6 @@ impl Coordinator for DefaultCoordinator {
     }
 
     async fn start(&self) -> Result<()> {
-        info!("Starting coordinator");
-
         // 1. Task Subscription Pipeline
         self.subscribe_task_handler(QUEUE_PENDING, handlers::handle_pending_task)
             .await?;

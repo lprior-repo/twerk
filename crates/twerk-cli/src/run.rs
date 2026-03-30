@@ -4,7 +4,15 @@
 //!
 //! Go parity: `cli/run.go` → parses mode arg, calls `engine.SetMode(mode)` then `engine.Run()`.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use axum::Router;
+use tokio::net::TcpListener;
+use twerk_common::load_config;
 use twerk_app::engine::{Config, Engine, Mode};
+use twerk_infrastructure::config as app_config;
+use twerk_web::api::{create_router, AppState, Config as ApiConfig};
 
 use crate::commands::RunMode;
 use crate::CliError;
@@ -39,7 +47,8 @@ impl RunMode {
 ///
 /// Returns [`CliError::Engine`] if the engine fails to start or run.
 pub async fn run_engine(mode: RunMode) -> Result<(), CliError> {
-    let engine_mode = mode.into_engine_mode();
+    let _ = load_config();
+    let engine_mode = mode.clone().into_engine_mode();
 
     info!("Starting Twerk engine in {engine_mode:?} mode");
 
@@ -50,11 +59,70 @@ pub async fn run_engine(mode: RunMode) -> Result<(), CliError> {
 
     let mut engine = Engine::new(config);
     engine
-        .run()
+        .start()
         .await
         .map_err(|e| CliError::Engine(e.to_string()))?;
 
+    let api_server = start_api_server(&engine, mode)
+        .await
+        .map_err(|e| CliError::Engine(e.to_string()))?;
+
+    engine.await_shutdown().await;
+
+    if let Some(handle) = api_server {
+        handle.abort();
+    }
+
     Ok(())
+}
+
+const fn api_enabled(mode: RunMode) -> bool {
+    matches!(mode, RunMode::Coordinator | RunMode::Standalone)
+}
+
+fn read_api_config() -> ApiConfig {
+    let endpoints = app_config::bool_map("coordinator.api.endpoints");
+    let enabled = if endpoints.is_empty() {
+        HashMap::new()
+    } else {
+        endpoints
+            .into_iter()
+            .map(|(key, value)| (key.replace("endpoints.", ""), value))
+            .collect()
+    };
+
+    ApiConfig {
+        address: app_config::string_default("coordinator.address", "127.0.0.1:8000"),
+        enabled,
+        ..ApiConfig::default()
+    }
+}
+
+async fn start_api_server(
+    engine: &Engine,
+    mode: RunMode,
+) -> Result<Option<tokio::task::JoinHandle<()>>, anyhow::Error> {
+    if !api_enabled(mode) {
+        return Ok(None);
+    }
+
+    let api_config = read_api_config();
+    let address = api_config.address.clone();
+    let state = AppState::new(
+        Arc::new(engine.broker_proxy()),
+        Arc::new(engine.datastore_proxy()),
+        api_config,
+    );
+    let app: Router = create_router(state);
+    let listener = TcpListener::bind(&address).await?;
+
+    info!("Coordinator API listening on http://{address}");
+
+    Ok(Some(tokio::spawn(async move {
+        if let Err(error) = axum::serve(listener, app).await {
+            tracing::error!(error = %error, "coordinator API server failed");
+        }
+    })))
 }
 
 #[cfg(test)]

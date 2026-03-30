@@ -1,11 +1,11 @@
 //! Mounter implementations for Docker runtime.
 
-use std::pin::Pin;
-use std::sync::Arc;
 use crate::runtime::docker::bind::{BindConfig, BindMounter};
-use twerk_core::mount::{mount_type, Mount};
 use crate::runtime::docker::tmpfs::TmpfsMounter;
 use crate::runtime::docker::volume::VolumeMounter;
+use std::pin::Pin;
+use std::sync::Arc;
+use twerk_core::mount::{mount_type, Mount};
 
 pub trait Mounter: Send + Sync {
     fn mount(
@@ -19,7 +19,10 @@ pub trait Mounter: Send + Sync {
 }
 
 impl Mounter for VolumeMounter {
-    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
         Box::pin(async move {
             match self.mount(&mnt).await {
@@ -33,31 +36,46 @@ impl Mounter for VolumeMounter {
         })
     }
 
-    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
         Box::pin(async move { self.unmount(&mnt).await.map_err(|e| e.to_string()) })
     }
 }
 
 impl Mounter for BindMounter {
-    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let result = BindMounter::mount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
 
-    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let result = BindMounter::unmount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
 }
 
 impl Mounter for TmpfsMounter {
-    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let result = TmpfsMounter::mount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
 
-    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let result = TmpfsMounter::unmount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
@@ -73,7 +91,10 @@ impl CompositeMounter {
     pub fn new(client: bollard::Docker) -> Self {
         Self {
             volume_mounter: Arc::new(VolumeMounter::with_client(client)),
-            bind_mounter: Arc::new(BindMounter::new(BindConfig { allowed: true, sources: Vec::new() })),
+            bind_mounter: Arc::new(BindMounter::new(BindConfig {
+                allowed: true,
+                sources: Vec::new(),
+            })),
             tmpfs_mounter: Arc::new(TmpfsMounter::new()),
         }
     }
@@ -88,14 +109,20 @@ impl CompositeMounter {
 }
 
 impl Mounter for CompositeMounter {
-    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
         let mount_type = mnt.mount_type.as_deref().unwrap_or("volume");
         let mounter = self.mounter_for(mount_type);
         Box::pin(async move { mounter.mount(&mnt).await })
     }
 
-    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + '_>> {
         let mnt = mnt.clone();
         let mount_type = mnt.mount_type.as_deref().unwrap_or("volume");
         let mounter = self.mounter_for(mount_type);

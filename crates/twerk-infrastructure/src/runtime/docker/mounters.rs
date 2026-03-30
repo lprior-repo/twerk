@@ -5,13 +5,11 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
-
-
 use crate::runtime::docker::bind::{BindConfig, BindMounter};
 use crate::runtime::docker::tmpfs::TmpfsMounter;
 use crate::runtime::docker::volume::VolumeMounter;
-use twerk_core::mount::{MOUNT_TYPE_BIND, MOUNT_TYPE_TMPFS};
 use twerk_core::mount::Mount;
+use twerk_core::mount::{MOUNT_TYPE_BIND, MOUNT_TYPE_TMPFS};
 
 /// Mounter trait for volume mounts. Must be dyn-compatible.
 pub trait Mounter: Send + Sync {
@@ -29,7 +27,8 @@ impl Mounter for VolumeMounter {
     fn mount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let mnt = mnt.clone();
         Box::pin(async move {
             match self.mount(&mnt).await {
@@ -42,7 +41,8 @@ impl Mounter for VolumeMounter {
     fn unmount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let mnt = mnt.clone();
         Box::pin(async move { self.unmount(&mnt).await.map_err(|e| e.to_string()) })
     }
@@ -52,7 +52,8 @@ impl Mounter for BindMounter {
     fn mount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let result = BindMounter::mount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
@@ -60,7 +61,8 @@ impl Mounter for BindMounter {
     fn unmount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let result = BindMounter::unmount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
@@ -70,7 +72,8 @@ impl Mounter for TmpfsMounter {
     fn mount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let result = TmpfsMounter::mount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
@@ -78,7 +81,8 @@ impl Mounter for TmpfsMounter {
     fn unmount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let result = TmpfsMounter::unmount(self, mnt);
         Box::pin(async move { result.map_err(|e| e.to_string()) })
     }
@@ -117,7 +121,8 @@ impl Mounter for CompositeMounter {
     fn mount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let mnt = mnt.clone();
         let mounter = self.mounter_for(mnt.mount_type.as_deref().map_or("", |t| t));
         Box::pin(async move { mounter.mount(&mnt).await })
@@ -126,7 +131,8 @@ impl Mounter for CompositeMounter {
     fn unmount(
         &self,
         mnt: &Mount,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let mnt = mnt.clone();
         let mounter = self.mounter_for(mnt.mount_type.as_deref().map_or("", |t| t));
         Box::pin(async move { mounter.unmount(&mnt).await })

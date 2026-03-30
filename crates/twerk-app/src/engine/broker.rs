@@ -23,12 +23,12 @@ use lapin::{
     BasicProperties, Connection, ConnectionProperties,
 };
 use tokio::sync::RwLock;
-use twerk_infrastructure::broker::{
-    BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
-    TaskLogPartHandler, TaskProgressHandler, inmemory::InMemoryBroker,
-};
 use twerk_core::node::Node;
 use twerk_core::task::Task;
+use twerk_infrastructure::broker::{
+    inmemory::InMemoryBroker, BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler,
+    QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+};
 
 // ── Broker type enumeration ────────────────────────────────────
 

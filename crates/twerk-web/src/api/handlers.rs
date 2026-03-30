@@ -5,18 +5,20 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use twerk_core::job::{new_job_summary, new_scheduled_job_summary, Job, ScheduledJob, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED};
+use twerk_core::job::{
+    new_job_summary, new_scheduled_job_summary, Job, ScheduledJob, JOB_STATE_CANCELLED,
+    JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_RESTART, JOB_STATE_RUNNING,
+    JOB_STATE_SCHEDULED, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
+};
 use twerk_core::user::UsernameValue;
 use twerk_core::validation::validate_job;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use super::error::ApiError;
-use super::AppState;
 use super::redact::redact_task_log_parts;
-use crate::middleware::hooks::{
-    on_read_job, on_read_job_summary, on_read_task,
-};
+use super::AppState;
+use crate::middleware::hooks::{on_read_job, on_read_job_summary, on_read_task};
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct PaginationQuery {
@@ -51,10 +53,7 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
     let broker_ok = state.broker.health_check().await.is_ok();
 
     let (status, body) = if ds_ok && broker_ok {
-        (
-            StatusCode::OK,
-            json!({"status": "UP", "version": VERSION}),
-        )
+        (StatusCode::OK, json!({"status": "UP", "version": VERSION}))
     } else {
         (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -69,11 +68,7 @@ pub async fn get_task_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let mut task = state
-        .ds
-        .get_task_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let mut task = state.ds.get_task_by_id(&id).await.map_err(ApiError::from)?;
 
     if let Some(ref job_id) = task.job_id {
         if let Ok(job) = state.ds.get_job_by_id(job_id).await {
@@ -94,11 +89,7 @@ pub async fn get_task_log_handler(
     let size = parse_size(qp.size, 25, 100);
     let q = qp.q.unwrap_or_default();
 
-    let task = state
-        .ds
-        .get_task_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let task = state.ds.get_task_by_id(&id).await.map_err(ApiError::from)?;
 
     let mut parts = state
         .ds
@@ -129,10 +120,12 @@ pub async fn create_job_handler(
         .unwrap_or("");
 
     let mut job: Job = match content_type {
-        "application/json" => serde_json::from_slice(&body)
-            .map_err(|e| ApiError::bad_request(e.to_string()))?,
-        "text/yaml" | "application/x-yaml" => serde_yml::from_slice(&body)
-            .map_err(|e| ApiError::bad_request(e.to_string()))?,
+        "application/json" => {
+            serde_json::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
+        }
+        "text/yaml" | "application/x-yaml" => {
+            serde_yml::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
+        }
         _ => return Err(ApiError::bad_request("unsupported content type")),
     };
 
@@ -140,7 +133,12 @@ pub async fn create_job_handler(
         job.id = Some(twerk_core::uuid::new_short_uuid().into());
     }
 
-    if let Err(errors) = validate_job(job.name.as_ref(), job.tasks.as_ref(), job.defaults.as_ref(), job.output.as_ref()) {
+    if let Err(errors) = validate_job(
+        job.name.as_ref(),
+        job.tasks.as_ref(),
+        job.defaults.as_ref(),
+        job.output.as_ref(),
+    ) {
         return Err(ApiError::bad_request(errors.join("; ")));
     }
 
@@ -214,11 +212,7 @@ pub async fn get_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let mut job = state
-        .ds
-        .get_job_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     let secrets = job.secrets.clone().unwrap_or_default();
     on_read_job(&mut job, &secrets);
@@ -253,18 +247,18 @@ pub async fn cancel_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let mut job = state
-        .ds
-        .get_job_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if job.state != JOB_STATE_RUNNING && job.state != JOB_STATE_SCHEDULED {
         return Err(ApiError::bad_request("job is not running"));
     }
 
     job.state = JOB_STATE_CANCELLED.to_string();
-    state.broker.publish_job(&job).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    state
+        .broker
+        .publish_job(&job)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok((StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response())
 }
@@ -273,18 +267,18 @@ pub async fn restart_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Response, ApiError> {
-    let mut job = state
-        .ds
-        .get_job_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if job.state != JOB_STATE_FAILED && job.state != JOB_STATE_CANCELLED {
         return Err(ApiError::bad_request("job cannot be restarted"));
     }
 
     job.state = JOB_STATE_RESTART.to_string();
-    state.broker.publish_job(&job).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    state
+        .broker
+        .publish_job(&job)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     Ok((StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response())
 }
@@ -297,11 +291,7 @@ pub async fn get_job_log_handler(
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 25, 100);
 
-    let job = state
-        .ds
-        .get_job_by_id(&id)
-        .await
-        .map_err(ApiError::from)?;
+    let job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     let mut parts = state
         .ds
@@ -317,7 +307,11 @@ pub async fn get_job_log_handler(
 
 // Queues
 pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
-    let queues = state.broker.queues().await.map_err(|e| ApiError::internal(e.to_string()))?;
+    let queues = state
+        .broker
+        .queues()
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
     Ok(axum::Json(queues).into_response())
 }
 
@@ -338,7 +332,11 @@ pub async fn delete_queue_handler(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Response, ApiError> {
-    state.broker.delete_queue(name).await.map_err(|e| ApiError::internal(e.to_string()))?;
+    state
+        .broker
+        .delete_queue(name)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
     Ok(StatusCode::OK.into_response())
 }
 
@@ -381,10 +379,15 @@ pub async fn create_user_handler(
     State(state): State<AppState>,
     axum::Json(body): axum::Json<CreateUserBody>,
 ) -> Result<Response, ApiError> {
-    let username = body.username.ok_or_else(|| ApiError::bad_request("missing username"))?;
-    let password = body.password.ok_or_else(|| ApiError::bad_request("missing password"))?;
+    let username = body
+        .username
+        .ok_or_else(|| ApiError::bad_request("missing username"))?;
+    let password = body
+        .password
+        .ok_or_else(|| ApiError::bad_request("missing password"))?;
 
-    let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|e| ApiError::internal(e.to_string()))?;
+    let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     let user = twerk_core::user::User {
         id: None,
@@ -410,26 +413,40 @@ pub async fn create_scheduled_job_handler(
         .unwrap_or("");
 
     let sj_input: CreateScheduledJobBody = match content_type {
-        "application/json" => serde_json::from_slice(&body)
-            .map_err(|e| ApiError::bad_request(e.to_string()))?,
-        "text/yaml" | "application/x-yaml" => serde_yml::from_slice(&body)
-            .map_err(|e| ApiError::bad_request(e.to_string()))?,
+        "application/json" => {
+            serde_json::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
+        }
+        "text/yaml" | "application/x-yaml" => {
+            serde_yml::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
+        }
         _ => return Err(ApiError::bad_request("unsupported content type")),
     };
 
-    let cron = sj_input.cron.ok_or_else(|| ApiError::bad_request("cron is required"))?;
-    let tasks = sj_input.tasks.as_ref().ok_or_else(|| ApiError::bad_request("tasks is required"))?;
+    let cron = sj_input
+        .cron
+        .ok_or_else(|| ApiError::bad_request("cron is required"))?;
+    let tasks = sj_input
+        .tasks
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("tasks is required"))?;
 
     use twerk_core::validation::{validate_cron, validate_job};
     if let Err(e) = validate_cron(&cron) {
         return Err(ApiError::bad_request(e.to_string()));
     }
-    if let Err(errors) = validate_job(sj_input.name.as_ref(), sj_input.tasks.as_ref(), sj_input.defaults.as_ref(), sj_input.output.as_ref()) {
+    if let Err(errors) = validate_job(
+        sj_input.name.as_ref(),
+        sj_input.tasks.as_ref(),
+        sj_input.defaults.as_ref(),
+        sj_input.output.as_ref(),
+    ) {
         return Err(ApiError::bad_request(errors.join("; ")));
     }
 
     let sj = ScheduledJob {
-        id: Some(twerk_core::id::ScheduledJobId::new(twerk_core::uuid::new_short_uuid())),
+        id: Some(twerk_core::id::ScheduledJobId::new(
+            twerk_core::uuid::new_short_uuid(),
+        )),
         name: sj_input.name,
         description: sj_input.description,
         cron: Some(cron.clone()),
@@ -447,7 +464,11 @@ pub async fn create_scheduled_job_handler(
         output: sj_input.output,
     };
 
-    state.ds.create_scheduled_job(&sj).await.map_err(ApiError::from)?;
+    state
+        .ds
+        .create_scheduled_job(&sj)
+        .await
+        .map_err(ApiError::from)?;
 
     let summary = new_scheduled_job_summary(&sj);
     Ok((StatusCode::OK, axum::Json(summary)).into_response())
@@ -500,16 +521,22 @@ pub async fn pause_scheduled_job_handler(
 
     state
         .ds
-        .update_scheduled_job(&id, Box::new(|mut sj| {
-            sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
-            Ok(sj)
-        }))
+        .update_scheduled_job(
+            &id,
+            Box::new(|mut sj| {
+                sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+                Ok(sj)
+            }),
+        )
         .await
         .map_err(ApiError::from)?;
 
     state
         .broker
-        .publish_event("scheduled.job".to_string(), serde_json::to_value(()).unwrap())
+        .publish_event(
+            "scheduled.job".to_string(),
+            serde_json::to_value(()).unwrap(),
+        )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -532,16 +559,22 @@ pub async fn resume_scheduled_job_handler(
 
     state
         .ds
-        .update_scheduled_job(&id, Box::new(|mut sj| {
-            sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
-            Ok(sj)
-        }))
+        .update_scheduled_job(
+            &id,
+            Box::new(|mut sj| {
+                sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
+                Ok(sj)
+            }),
+        )
         .await
         .map_err(ApiError::from)?;
 
     state
         .broker
-        .publish_event("scheduled.job".to_string(), serde_json::to_value(()).unwrap())
+        .publish_event(
+            "scheduled.job".to_string(),
+            serde_json::to_value(()).unwrap(),
+        )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -558,14 +591,21 @@ pub async fn delete_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
-    state.ds.delete_scheduled_job(&id).await.map_err(ApiError::from)?;
+    state
+        .ds
+        .delete_scheduled_job(&id)
+        .await
+        .map_err(ApiError::from)?;
 
     if sj.state == SCHEDULED_JOB_STATE_ACTIVE {
         let mut paused_sj = sj.clone();
         paused_sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
         state
             .broker
-            .publish_event("scheduled.job".to_string(), serde_json::to_value(&paused_sj).unwrap())
+            .publish_event(
+                "scheduled.job".to_string(),
+                serde_json::to_value(&paused_sj).unwrap(),
+            )
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
     }

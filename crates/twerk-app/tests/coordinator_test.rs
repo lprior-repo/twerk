@@ -4,8 +4,8 @@
 use anyhow::Result;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
-use twerk_core::job::JOB_STATE_PENDING;
 use twerk_core::job::Job;
+use twerk_core::job::JOB_STATE_PENDING;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
@@ -50,7 +50,9 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for tasks")?;
+    })
+    .await
+    .expect("timeout waiting for tasks")?;
 
     assert_eq!(tasks.len(), 1);
     let task = tasks[0].clone();
@@ -72,7 +74,9 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for job completion")?;
+    })
+    .await
+    .expect("timeout waiting for job completion")?;
 
     assert_eq!(persisted.state, "COMPLETED");
     assert!(persisted.completed_at.is_some());
@@ -130,7 +134,9 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for parallel tasks")?;
+    })
+    .await
+    .expect("timeout waiting for parallel tasks")?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -201,7 +207,9 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for each tasks")?;
+    })
+    .await
+    .expect("timeout waiting for each tasks")?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -265,7 +273,9 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for subjob task")?;
+    })
+    .await
+    .expect("timeout waiting for subjob task")?;
 
     assert_eq!(tasks.len(), 1);
     let subjob_task = &tasks[0];
@@ -291,10 +301,11 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
             tokio::task::yield_now().await;
         }
-    }).await.expect("timeout waiting for subjob scheduling")?;
-    
+    })
+    .await
+    .expect("timeout waiting for subjob scheduling")?;
+
     assert_eq!(persisted_sj.state, "SCHEDULED");
 
     Ok(())
 }
-

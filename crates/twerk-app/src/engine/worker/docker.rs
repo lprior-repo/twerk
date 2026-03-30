@@ -3,16 +3,16 @@ use bollard::query_parameters::RemoveContainerOptions;
 use bollard::Docker;
 use dashmap::DashMap;
 use std::pin::Pin;
+use std::process::ExitCode;
 use std::sync::Arc;
 use twerk_core::id::TaskId;
 use twerk_core::mount::Mount;
 use twerk_core::task::Task;
-use std::process::ExitCode;
-use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
+use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::docker::create_task_container;
 use twerk_infrastructure::runtime::docker::mounters::Mounter as DockerMounter;
 use twerk_infrastructure::runtime::Mounter;
-use twerk_infrastructure::broker::Broker;
+use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
 
 struct DockerMounterAdapter {
     inner: Arc<dyn Mounter + Send + Sync>,
@@ -25,20 +25,24 @@ impl DockerMounterAdapter {
 }
 
 impl DockerMounter for DockerMounterAdapter {
-    fn mount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    fn mount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let inner = self.inner.clone();
         let mnt = mnt.clone();
-        Box::pin(async move {
-            inner.mount(&mnt).await.map_err(|e| e.to_string())
-        })
+        Box::pin(async move { inner.mount(&mnt).await.map_err(|e| e.to_string()) })
     }
 
-    fn unmount(&self, mnt: &Mount) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>> {
+    fn unmount(
+        &self,
+        mnt: &Mount,
+    ) -> Pin<Box<dyn std::future::Future<Output = std::result::Result<(), String>> + Send + '_>>
+    {
         let inner = self.inner.clone();
         let mnt = mnt.clone();
-        Box::pin(async move {
-            inner.unmount(&mnt).await.map_err(|e| e.to_string())
-        })
+        Box::pin(async move { inner.unmount(&mnt).await.map_err(|e| e.to_string()) })
     }
 }
 
@@ -54,8 +58,19 @@ pub struct DockerRuntimeAdapter {
 
 impl DockerRuntimeAdapter {
     #[must_use]
-    pub fn new(privileged: bool, image_ttl_secs: u64, mounter: Arc<dyn Mounter + Send + Sync>, broker: Arc<dyn Broker>) -> Self {
-        Self { privileged, image_ttl_secs, active_tasks: Arc::new(DashMap::new()), mounter, broker }
+    pub fn new(
+        privileged: bool,
+        image_ttl_secs: u64,
+        mounter: Arc<dyn Mounter + Send + Sync>,
+        broker: Arc<dyn Broker>,
+    ) -> Self {
+        Self {
+            privileged,
+            image_ttl_secs,
+            active_tasks: Arc::new(DashMap::new()),
+            mounter,
+            broker,
+        }
     }
 }
 
@@ -92,7 +107,10 @@ impl DockerRuntimeAdapter {
 
             if let Err(e) = start_result {
                 active_tasks.remove(&task_id);
-                tc.remove().await.map_err(|e| anyhow!("failed to remove container: {}", e)).ok();
+                tc.remove()
+                    .await
+                    .map_err(|e| anyhow!("failed to remove container: {}", e))
+                    .ok();
                 return Err(anyhow!("failed to start container: {}", e));
             }
 
@@ -100,11 +118,17 @@ impl DockerRuntimeAdapter {
             active_tasks.remove(&task_id);
 
             if let Err(e) = wait_result {
-                tc.remove().await.map_err(|e| anyhow!("failed to remove container after wait error: {}", e)).ok();
+                tc.remove()
+                    .await
+                    .map_err(|e| anyhow!("failed to remove container after wait error: {}", e))
+                    .ok();
                 return Err(anyhow!("container wait error: {}", e));
             }
 
-            tc.remove().await.map_err(|e| anyhow!("failed to remove container: {}", e)).ok();
+            tc.remove()
+                .await
+                .map_err(|e| anyhow!("failed to remove container: {}", e))
+                .ok();
             Ok(())
         })
     }
@@ -122,13 +146,27 @@ impl RuntimeTrait for DockerRuntimeAdapter {
             if let Some((_, cid)) = active.remove(&tid) {
                 let d = Docker::connect_with_local_defaults()?;
                 let _ = d.stop_container(&cid, None).await;
-                let _ = d.remove_container(&cid, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
+                let _ = d
+                    .remove_container(
+                        &cid,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
             }
             Ok(Ok(ExitCode::SUCCESS))
         })
     }
 
     fn health_check(&self) -> BoxedFuture<()> {
-        Box::pin(async { Docker::connect_with_local_defaults()?.ping().await.map(|_| ()).map_err(|e| anyhow!(e)) })
+        Box::pin(async {
+            Docker::connect_with_local_defaults()?
+                .ping()
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow!(e))
+        })
     }
 }

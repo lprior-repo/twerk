@@ -8,8 +8,8 @@
 use std::sync::{Arc, Mutex};
 use twerk_core::task::{Probe, Task, TaskLimits};
 use twerk_infrastructure::runtime::docker::DockerRuntime;
-use twerk_infrastructure::runtime::podman::{PodmanConfig, PodmanRuntime};
 use twerk_infrastructure::runtime::podman::types::Broker as PodmanBroker;
+use twerk_infrastructure::runtime::podman::{PodmanConfig, PodmanRuntime};
 use twerk_infrastructure::runtime::Runtime;
 
 // ----------------------------------------------------------------------------
@@ -82,8 +82,13 @@ fn make_podman_task(id: &str) -> Task {
 #[tokio::test]
 #[ignore = "requires Docker daemon"]
 async fn test_docker_lifecycle() {
-    let runtime = DockerRuntime::default_runtime().await.expect("should create Docker runtime");
-    assert!(runtime.health_check().await.is_ok(), "Docker health check failed");
+    let runtime = DockerRuntime::default_runtime()
+        .await
+        .expect("should create Docker runtime");
+    assert!(
+        runtime.health_check().await.is_ok(),
+        "Docker health check failed"
+    );
 
     let task = make_task("docker-lifecycle");
     let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
@@ -93,9 +98,11 @@ async fn test_docker_lifecycle() {
 #[tokio::test]
 #[ignore = "requires Docker daemon"]
 async fn test_docker_progress_reporting() {
-    let runtime = DockerRuntime::default_runtime().await.expect("should create Docker runtime");
+    let runtime = DockerRuntime::default_runtime()
+        .await
+        .expect("should create Docker runtime");
     let task = make_progress_task("docker-progress");
-    
+
     let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
     assert!(result.is_ok(), "Docker run failed: {:?}", result.err());
 }
@@ -103,7 +110,9 @@ async fn test_docker_progress_reporting() {
 #[tokio::test]
 #[ignore = "requires Docker daemon"]
 async fn test_docker_resource_limits() {
-    let runtime = DockerRuntime::default_runtime().await.expect("should create Docker runtime");
+    let runtime = DockerRuntime::default_runtime()
+        .await
+        .expect("should create Docker runtime");
     let mut task = make_task("docker-limits");
     task.limits = Some(TaskLimits {
         cpus: Some("0.1".to_string()),
@@ -111,16 +120,26 @@ async fn test_docker_resource_limits() {
     });
 
     let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(result.is_ok(), "Docker run with limits failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Docker run with limits failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
 #[ignore = "requires Docker daemon"]
 async fn test_docker_probe() {
-    let runtime = DockerRuntime::default_runtime().await.expect("should create Docker runtime");
+    let runtime = DockerRuntime::default_runtime()
+        .await
+        .expect("should create Docker runtime");
     let mut task = make_task("docker-probe");
     // Run a simple HTTP server that exits after 5 seconds or when probed
-    task.cmd = Some(vec!["sh".to_string(), "-c".to_string(), "mkdir -p /www && echo 'OK' > /www/health && httpd -p 8080 -h /www && sleep 5".to_string()]);
+    task.cmd = Some(vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        "mkdir -p /www && echo 'OK' > /www/health && httpd -p 8080 -h /www && sleep 5".to_string(),
+    ]);
     task.probe = Some(Probe {
         path: Some("/health".to_string()),
         port: 8080,
@@ -128,7 +147,11 @@ async fn test_docker_probe() {
     });
 
     let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(result.is_ok(), "Docker run with probe failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Docker run with probe failed: {:?}",
+        result.err()
+    );
 }
 
 // ----------------------------------------------------------------------------
@@ -140,7 +163,10 @@ async fn test_docker_probe() {
 async fn test_podman_lifecycle() {
     let config = PodmanConfig::default();
     let runtime = PodmanRuntime::new(config);
-    assert!(runtime.health_check().await.is_ok(), "Podman health check failed");
+    assert!(
+        runtime.health_check().await.is_ok(),
+        "Podman health check failed"
+    );
 
     let task = make_podman_task("podman-lifecycle");
     let _ = runtime.run(&task).await;
@@ -149,13 +175,15 @@ async fn test_podman_lifecycle() {
 #[tokio::test]
 #[ignore = "requires Podman"]
 async fn test_podman_volume_mounts() {
-    let broker = FakeBroker { logs: Arc::new(Mutex::new(Vec::new())) };
+    let broker = FakeBroker {
+        logs: Arc::new(Mutex::new(Vec::new())),
+    };
     let config = PodmanConfig {
         broker: Some(Box::new(broker.clone())),
         ..Default::default()
     };
     let runtime = PodmanRuntime::new(config);
-    
+
     let task = make_podman_task("podman-volume");
     let _ = runtime.run(&task).await;
 }
@@ -165,7 +193,7 @@ async fn test_podman_volume_mounts() {
 async fn test_podman_resource_limits() {
     let config = PodmanConfig::default();
     let runtime = PodmanRuntime::new(config);
-    
+
     let mut task = make_podman_task("podman-limits");
     task.run = Some("echo limited".to_string());
     task.limits = Some(TaskLimits {
@@ -180,16 +208,21 @@ async fn test_podman_resource_limits() {
 #[tokio::test]
 #[ignore = "requires Podman"]
 async fn test_podman_probe() {
-    let broker = FakeBroker { logs: Arc::new(Mutex::new(Vec::new())) };
+    let broker = FakeBroker {
+        logs: Arc::new(Mutex::new(Vec::new())),
+    };
     let config = PodmanConfig {
         broker: Some(Box::new(broker.clone())),
         ..Default::default()
     };
     let runtime = PodmanRuntime::new(config);
-    
+
     let mut task = make_podman_task("podman-probe");
     // Use httpd -f to keep it in foreground, and run it in background of the shell with a sleep.
-    task.run = Some("mkdir -p /www && echo 'OK' > /www/health && httpd -f -p 8080 -h /www & sleep 10".to_string());
+    task.run = Some(
+        "mkdir -p /www && echo 'OK' > /www/health && httpd -f -p 8080 -h /www & sleep 10"
+            .to_string(),
+    );
     task.probe = Some(Probe {
         path: Some("/health".to_string()),
         port: 8080,

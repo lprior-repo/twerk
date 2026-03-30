@@ -16,10 +16,10 @@ use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::broker::queue::{
     QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING, QUEUE_REDELIVERIES, QUEUE_STARTED,
 };
+use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
 
@@ -81,13 +81,12 @@ impl DefaultCoordinator {
     }
 
     /// Helper to subscribe a handler to a specific queue.
-    async fn subscribe_task_handler<F, Fut>(
-        &self,
-        queue: &str,
-        handler: F,
-    ) -> Result<()> 
-    where 
-        F: Fn(Arc<dyn Datastore>, Arc<dyn Broker>, twerk_core::task::Task) -> Fut + Send + Sync + 'static,
+    async fn subscribe_task_handler<F, Fut>(&self, queue: &str, handler: F) -> Result<()>
+    where
+        F: Fn(Arc<dyn Datastore>, Arc<dyn Broker>, twerk_core::task::Task) -> Fut
+            + Send
+            + Sync
+            + 'static,
         Fut: std::future::Future<Output = Result<()>> + Send + 'static,
     {
         let ds = Arc::clone(&self.ds);
@@ -95,17 +94,22 @@ impl DefaultCoordinator {
         let st = self.stop_token.clone();
         let handler = Arc::new(handler);
 
-        self.broker.subscribe_for_tasks(queue.to_string(), Arc::new(move |task| {
-            let (ds, b, st, h) = (ds.clone(), broker.clone(), st.clone(), handler.clone());
-            let task = (*task).clone();
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    h(ds, b, task).await
-                }
-            })
-        })).await
+        self.broker
+            .subscribe_for_tasks(
+                queue.to_string(),
+                Arc::new(move |task| {
+                    let (ds, b, st, h) = (ds.clone(), broker.clone(), st.clone(), handler.clone());
+                    let task = (*task).clone();
+                    Box::pin(async move {
+                        if st.is_cancelled() {
+                            Ok(())
+                        } else {
+                            h(ds, b, task).await
+                        }
+                    })
+                }),
+            )
+            .await
     }
 }
 
@@ -119,77 +123,112 @@ impl Coordinator for DefaultCoordinator {
         info!("Starting coordinator");
 
         // 1. Task Subscription Pipeline
-        self.subscribe_task_handler(QUEUE_PENDING, handlers::handle_pending_task).await?;
-        self.subscribe_task_handler(QUEUE_COMPLETED, handlers::handle_task_completed).await?;
-        self.subscribe_task_handler(QUEUE_FAILED, handlers::handle_error).await?;
-        self.subscribe_task_handler(QUEUE_STARTED, handlers::handle_started).await?;
-        self.subscribe_task_handler(QUEUE_REDELIVERIES, handlers::handle_redelivered).await?;
+        self.subscribe_task_handler(QUEUE_PENDING, handlers::handle_pending_task)
+            .await?;
+        self.subscribe_task_handler(QUEUE_COMPLETED, handlers::handle_task_completed)
+            .await?;
+        self.subscribe_task_handler(QUEUE_FAILED, handlers::handle_error)
+            .await?;
+        self.subscribe_task_handler(QUEUE_STARTED, handlers::handle_started)
+            .await?;
+        self.subscribe_task_handler(QUEUE_REDELIVERIES, handlers::handle_redelivered)
+            .await?;
 
         // 2. Progress Subscription
-        let (ds, b, st) = (self.ds.clone(), self.broker.clone(), self.stop_token.clone());
-        self.broker.subscribe_for_task_progress(Arc::new(move |task| {
-            let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    handlers::handle_task_progress(ds, b, task).await
-                }
-            })
-        })).await?;
+        let (ds, b, st) = (
+            self.ds.clone(),
+            self.broker.clone(),
+            self.stop_token.clone(),
+        );
+        self.broker
+            .subscribe_for_task_progress(Arc::new(move |task| {
+                let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
+                Box::pin(async move {
+                    if st.is_cancelled() {
+                        Ok(())
+                    } else {
+                        handlers::handle_task_progress(ds, b, task).await
+                    }
+                })
+            }))
+            .await?;
 
         // 3. Job Events Subscription
-        let (ds, b, st) = (self.ds.clone(), self.broker.clone(), self.stop_token.clone());
-        self.broker.subscribe_for_jobs(Arc::new(move |job| {
-            let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    handlers::handle_job_event(ds, b, job).await
-                }
-            })
-        })).await?;
+        let (ds, b, st) = (
+            self.ds.clone(),
+            self.broker.clone(),
+            self.stop_token.clone(),
+        );
+        self.broker
+            .subscribe_for_jobs(Arc::new(move |job| {
+                let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
+                Box::pin(async move {
+                    if st.is_cancelled() {
+                        Ok(())
+                    } else {
+                        handlers::handle_job_event(ds, b, job).await
+                    }
+                })
+            }))
+            .await?;
 
         // 4. Heartbeats
-        let (ds, b, st) = (self.ds.clone(), self.broker.clone(), self.stop_token.clone());
-        self.broker.subscribe_for_heartbeats(Arc::new(move |node| {
-            let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    handlers::handle_heartbeat(ds, b, node).await
-                }
-            })
-        })).await?;
+        let (ds, b, st) = (
+            self.ds.clone(),
+            self.broker.clone(),
+            self.stop_token.clone(),
+        );
+        self.broker
+            .subscribe_for_heartbeats(Arc::new(move |node| {
+                let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
+                Box::pin(async move {
+                    if st.is_cancelled() {
+                        Ok(())
+                    } else {
+                        handlers::handle_heartbeat(ds, b, node).await
+                    }
+                })
+            }))
+            .await?;
 
         // 5. Task Log Parts
-        let (ds, b, st) = (self.ds.clone(), self.broker.clone(), self.stop_token.clone());
-        self.broker.subscribe_for_task_log_part(Arc::new(move |part| {
-            let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    handlers::handle_log_part(ds, b, part).await
-                }
-            })
-        })).await?;
+        let (ds, b, st) = (
+            self.ds.clone(),
+            self.broker.clone(),
+            self.stop_token.clone(),
+        );
+        self.broker
+            .subscribe_for_task_log_part(Arc::new(move |part| {
+                let (ds, b, st) = (ds.clone(), b.clone(), st.clone());
+                Box::pin(async move {
+                    if st.is_cancelled() {
+                        Ok(())
+                    } else {
+                        handlers::handle_log_part(ds, b, part).await
+                    }
+                })
+            }))
+            .await?;
 
         // 6. Scheduled Job Events
         let (scheduler, st) = (self.scheduler.clone(), self.stop_token.clone());
-        self.broker.subscribe_for_events("scheduled.job".to_string(), Arc::new(move |sj_val| {
-            let (scheduler, st) = (scheduler.clone(), st.clone());
-            Box::pin(async move {
-                if st.is_cancelled() {
-                    Ok(())
-                } else {
-                    let sj = serde_json::from_value::<twerk_core::job::ScheduledJob>(sj_val)?;
-                    scheduler.handle_scheduled_job(&sj).await
-                }
-            })
-        })).await?;
+        self.broker
+            .subscribe_for_events(
+                "scheduled.job".to_string(),
+                Arc::new(move |sj_val| {
+                    let (scheduler, st) = (scheduler.clone(), st.clone());
+                    Box::pin(async move {
+                        if st.is_cancelled() {
+                            Ok(())
+                        } else {
+                            let sj =
+                                serde_json::from_value::<twerk_core::job::ScheduledJob>(sj_val)?;
+                            scheduler.handle_scheduled_job(&sj).await
+                        }
+                    })
+                }),
+            )
+            .await?;
 
         Ok(())
     }
@@ -201,18 +240,25 @@ impl Coordinator for DefaultCoordinator {
     }
 
     async fn submit_job(&self, job: twerk_core::job::Job) -> Result<twerk_core::job::Job> {
-        let job_id = job.id.clone().unwrap_or_else(|| {
-            twerk_core::uuid::new_short_uuid().into()
-        });
+        let job_id = job
+            .id
+            .clone()
+            .unwrap_or_else(|| twerk_core::uuid::new_short_uuid().into());
         let mut job = job;
         job.id = Some(job_id);
-        
+
         if job.created_at.is_none() {
             job.created_at = Some(time::OffsetDateTime::now_utc());
         }
-        
-        self.ds.create_job(&job).await.map_err(|e| anyhow!("failed to create job: {e}"))?;
-        self.broker.publish_job(&job).await.map_err(|e| anyhow!("failed to publish job: {e}"))?;
+
+        self.ds
+            .create_job(&job)
+            .await
+            .map_err(|e| anyhow!("failed to create job: {e}"))?;
+        self.broker
+            .publish_job(&job)
+            .await
+            .map_err(|e| anyhow!("failed to publish job: {e}"))?;
         Ok(job)
     }
 }
@@ -230,7 +276,7 @@ pub async fn create_coordinator(
     let locker_type = crate::engine::resolve_locker_type();
     let locker: Box<dyn Locker> = crate::engine::locker::create_locker(&locker_type).await?;
     let locker_arc: Arc<dyn Locker> = Arc::from(locker);
-    
+
     DefaultCoordinator::new(Arc::new(ds), Arc::new(broker), locker_arc)
         .await
         .map(|coord| Box::new(coord) as Box<dyn Coordinator>)

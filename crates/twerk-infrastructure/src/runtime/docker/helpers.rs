@@ -10,7 +10,8 @@ pub fn parse_go_duration(input: &str) -> Result<Duration, String> {
         if c.is_ascii_digit() || c == '.' {
             current.push(c);
         } else {
-            let num: f64 = current.parse()
+            let num: f64 = current
+                .parse()
                 .map_err(|e| format!("invalid duration '{}': {}", current, e))?;
             total += match c {
                 'h' => Duration::from_secs_f64(num * 3600.0),
@@ -29,23 +30,36 @@ pub fn parse_go_duration(input: &str) -> Result<Duration, String> {
 
 pub fn parse_memory_bytes(input: &str) -> Result<i64, String> {
     let input = input.trim();
-    let (num_str, multiplier) =
-        if let Some(s) = input.strip_suffix("TB").or_else(|| input.strip_suffix("tb")) {
-            (s.trim(), 1_099_511_627_776_i64)
-        } else if let Some(s) = input.strip_suffix("GB").or_else(|| input.strip_suffix("gb")) {
-            (s.trim(), 1_073_741_824_i64)
-        } else if let Some(s) = input.strip_suffix("MB").or_else(|| input.strip_suffix("mb")) {
-            (s.trim(), 1_048_576_i64)
-        } else if let Some(s) = input.strip_suffix("KB").or_else(|| input.strip_suffix("kb")) {
-            (s.trim(), 1024_i64)
-        } else if let Some(s) = input.strip_suffix("B").or_else(|| input.strip_suffix("b")) {
-            (s.trim(), 1_i64)
-        } else {
-            return input.parse::<i64>()
-                .map_err(|e| format!("cannot parse '{}': {}", input, e));
-        };
+    let (num_str, multiplier) = if let Some(s) = input
+        .strip_suffix("TB")
+        .or_else(|| input.strip_suffix("tb"))
+    {
+        (s.trim(), 1_099_511_627_776_i64)
+    } else if let Some(s) = input
+        .strip_suffix("GB")
+        .or_else(|| input.strip_suffix("gb"))
+    {
+        (s.trim(), 1_073_741_824_i64)
+    } else if let Some(s) = input
+        .strip_suffix("MB")
+        .or_else(|| input.strip_suffix("mb"))
+    {
+        (s.trim(), 1_048_576_i64)
+    } else if let Some(s) = input
+        .strip_suffix("KB")
+        .or_else(|| input.strip_suffix("kb"))
+    {
+        (s.trim(), 1024_i64)
+    } else if let Some(s) = input.strip_suffix("B").or_else(|| input.strip_suffix("b")) {
+        (s.trim(), 1_i64)
+    } else {
+        return input
+            .parse::<i64>()
+            .map_err(|e| format!("cannot parse '{}': {}", input, e));
+    };
 
-    let num = num_str.parse::<f64>()
+    let num = num_str
+        .parse::<f64>()
         .map_err(|e| format!("cannot parse '{}': {}", num_str, e))?;
     Ok((num * multiplier as f64) as i64)
 }
@@ -71,8 +85,15 @@ pub fn parse_tar_contents(tar_bytes: &[u8]) -> String {
 
 #[must_use]
 pub fn slugify(input: &str) -> String {
-    input.chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+    input
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())

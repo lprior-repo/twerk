@@ -39,7 +39,11 @@ impl<V> Item<V> {
 
     /// Creates a new `Item` with the given value and expiration policy.
     #[must_use]
-    pub fn with_expiration(object: V, expiration: Expiration, default_exp: Option<Instant>) -> Self {
+    pub fn with_expiration(
+        object: V,
+        expiration: Expiration,
+        default_exp: Option<Instant>,
+    ) -> Self {
         let expiration = match expiration {
             Expiration::Default => default_exp,
             Expiration::Never => None,

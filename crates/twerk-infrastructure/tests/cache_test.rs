@@ -250,7 +250,8 @@ async fn cache_modify_aborts_on_error() {
     let cache: Cache<&str, i32> = Cache::new();
     cache.insert("counter", 0i32, None);
 
-    let result: Option<Result<(), &'static str>> = cache.modify(&"counter", |_v| Err("intentional error"));
+    let result: Option<Result<(), &'static str>> =
+        cache.modify(&"counter", |_v| Err("intentional error"));
     assert!(result.is_some());
     assert!(result.unwrap().is_err());
 

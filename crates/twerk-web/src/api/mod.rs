@@ -23,8 +23,8 @@ use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 
-pub mod handlers;
 pub mod error;
+pub mod handlers;
 pub mod redact;
 
 #[derive(Clone)]
@@ -81,10 +81,9 @@ pub fn create_router(state: AppState) -> Router {
     // Go parity: body limit always applied (default 500K)
     let body_limit = state.config.body_limit.clone();
     if let Some(bl) = body_limit {
-        router = router.layer(axum::middleware::from_fn_with_state(
-            bl,
-            |st, req, next| Box::pin(async move { body_limit_middleware(st, req, next).await }),
-        ));
+        router = router.layer(axum::middleware::from_fn_with_state(bl, |st, req, next| {
+            Box::pin(async move { body_limit_middleware(st, req, next).await })
+        }));
     }
 
     // Go parity: CORS config-gated
@@ -110,10 +109,9 @@ pub fn create_router(state: AppState) -> Router {
 
     // Go parity: rate limit (config-gated)
     if let Some(rl) = state.config.rate_limit.clone() {
-        router = router.layer(axum::middleware::from_fn_with_state(
-            rl,
-            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
-        ));
+        router = router.layer(axum::middleware::from_fn_with_state(rl, |st, req, next| {
+            Box::pin(async move { rate_limit_middleware(st, req, next).await })
+        }));
     }
 
     // Go parity: HTTP logger (default enabled)

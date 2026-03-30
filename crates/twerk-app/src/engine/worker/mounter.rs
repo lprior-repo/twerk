@@ -66,9 +66,7 @@ impl Mounter for BindMounter {
             }
 
             // Source validation
-            if !sources.is_empty()
-                && !sources.iter().any(|s| s.eq_ignore_ascii_case(&source))
-            {
+            if !sources.is_empty() && !sources.iter().any(|s| s.eq_ignore_ascii_case(&source)) {
                 return Err(anyhow::anyhow!("src bind mount is not allowed: {source}"));
             }
 
@@ -164,21 +162,36 @@ mod tests {
 
     #[test]
     fn test_bind_mounter_is_source_allowed_empty_sources() {
-        let mounter = BindMounter::new(BindConfig { allowed: true, sources: Vec::new() });
+        let mounter = BindMounter::new(BindConfig {
+            allowed: true,
+            sources: Vec::new(),
+        });
         assert!(mounter.is_source_allowed("/any/path"));
     }
 
     #[tokio::test]
     async fn test_bind_mounter_mount_disallowed() {
         let mounter = BindMounter::new(BindConfig::default());
-        let mnt = Mount { id: Some("test".into()), mount_type: Some("bind".into()), source: Some("/tmp/test".into()), target: Some("/mnt/test".into()), opts: None };
+        let mnt = Mount {
+            id: Some("test".into()),
+            mount_type: Some("bind".into()),
+            source: Some("/tmp/test".into()),
+            target: Some("/mnt/test".into()),
+            opts: None,
+        };
         assert!(mounter.mount(&mnt).await.is_err());
     }
 
     #[tokio::test]
     async fn test_volume_mounter_mount() {
         let mounter = VolumeMounter::new();
-        let mnt = Mount { id: Some("vol-1".into()), mount_type: Some("volume".into()), source: None, target: Some("/data".into()), opts: None };
+        let mnt = Mount {
+            id: Some("vol-1".into()),
+            mount_type: Some("volume".into()),
+            source: None,
+            target: Some("/data".into()),
+            opts: None,
+        };
         assert!(mounter.mount(&mnt).await.is_ok());
     }
 }

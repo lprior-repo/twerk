@@ -19,7 +19,9 @@ use tracing::{debug, error, info, warn};
 
 use twerk_core::id::{NodeId, TaskId};
 use twerk_core::node::{Node, NodeStatus};
-use twerk_core::task::{Task, TaskLimits, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING};
+use twerk_core::task::{
+    Task, TaskLimits, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING,
+};
 use twerk_core::uuid::new_short_uuid;
 
 use crate::broker::is_worker_queue;
@@ -54,8 +56,6 @@ pub struct Limits {
     /// Default timeout duration (e.g., "5m", "1h")
     pub default_timeout: String,
 }
-
-
 
 /// Errors that can occur during worker operations
 #[derive(Debug, Error)]
@@ -171,14 +171,17 @@ impl Worker {
                             let _ = running.cancel_tx.send(());
                         }
                     }
-                    let _ = runtime.health_check().await.map_err(|e| {
-                        warn!("Runtime health check failed during cancel: {}", e)
-                    });
+                    let _ = runtime
+                        .health_check()
+                        .await
+                        .map_err(|e| warn!("Runtime health check failed during cancel: {}", e));
                     Ok(())
                 })
             });
 
-            let _ = cancel_broker.subscribe_for_tasks(cancel_queue, handler).await;
+            let _ = cancel_broker
+                .subscribe_for_tasks(cancel_queue, handler)
+                .await;
         });
 
         // Subscribe to task queues
@@ -207,7 +210,9 @@ impl Worker {
                 // Subscribe and run - the subscription is blocking
                 let broker_for_subscribe = self.broker.clone();
                 tokio::spawn(async move {
-                    let _ = broker_for_subscribe.subscribe_for_tasks(qname_clone, handler).await;
+                    let _ = broker_for_subscribe
+                        .subscribe_for_tasks(qname_clone, handler)
+                        .await;
                 });
             }
         }

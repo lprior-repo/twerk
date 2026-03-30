@@ -3,10 +3,10 @@
 //! This module provides runtime implementations for executing tasks
 //! in different environments (Docker, Podman, Shell).
 
-use std::pin::Pin;
-use std::future::Future;
-use std::process::ExitCode;
 use anyhow::Result;
+use std::future::Future;
+use std::pin::Pin;
+use std::process::ExitCode;
 
 use twerk_core::task::Task;
 
@@ -20,31 +20,31 @@ use thiserror::Error;
 pub enum ShutdownError {
     #[error("task is not in a running state: {0}")]
     TaskNotRunning(String),
-    
+
     #[error("process not found: task_id={0}")]
     ProcessNotFound(String),
-    
+
     #[error("invalid task ID: {0}")]
     InvalidTaskId(String),
-    
+
     #[error("timeout waiting for graceful shutdown: {0}s elapsed")]
     ShutdownTimeout(u64),
-    
+
     #[error("failed to send termination signal: {0}")]
     SignalError(String),
-    
+
     #[error("failed to terminate process: {0}")]
     TerminationFailed(String),
-    
+
     #[error("cleanup failed: {0}")]
     CleanupFailed(String),
-    
+
     #[error("resource not available: {0}")]
     ResourceUnavailable(String),
-    
+
     #[error("exit code: {0}")]
     ExitCode(i32),
-    
+
     #[error("runtime error: {0}")]
     RuntimeError(String),
 }
@@ -114,7 +114,11 @@ impl MultiMounter {
         Self { mounters }
     }
 
-    pub fn register_mounter(&mut self, _name: &str, mounter: Box<dyn Mounter>) -> Result<(), MountError> {
+    pub fn register_mounter(
+        &mut self,
+        _name: &str,
+        mounter: Box<dyn Mounter>,
+    ) -> Result<(), MountError> {
         self.mounters.push(std::sync::Arc::from(mounter));
         Ok(())
     }

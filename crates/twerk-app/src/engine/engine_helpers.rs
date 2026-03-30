@@ -1,7 +1,7 @@
 //! Twerk Engine - Helper functions and types
 
-use twerk_infrastructure::runtime::Runtime;
 use twerk_core::task::Task;
+use twerk_infrastructure::runtime::Runtime;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 
 /// Resolves the locker type from environment variables.
@@ -32,10 +32,7 @@ impl Runtime for MockRuntime {
         Box::pin(async { Ok(()) })
     }
 
-    fn stop(
-        &self,
-        _task: &Task,
-    ) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {
+    fn stop(&self, _task: &Task) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {
         Box::pin(async { Ok(Ok(std::process::ExitCode::SUCCESS)) })
     }
 

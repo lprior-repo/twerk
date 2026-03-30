@@ -1,5 +1,7 @@
 use std::sync::Arc;
-use twerk_app::engine::coordinator::auth::{basic_auth_layer, key_auth_layer, BasicAuthConfig, KeyAuthConfig};
+use twerk_app::engine::coordinator::auth::{
+    basic_auth_layer, key_auth_layer, BasicAuthConfig, KeyAuthConfig,
+};
 
 #[tokio::test]
 async fn basic_auth_layer_creates_proper_layer() {
@@ -16,17 +18,26 @@ async fn basic_auth_layer_creates_proper_layer() {
         async fn update_task(
             &self,
             _id: &str,
-            _modify: Box<dyn FnOnce(twerk_core::task::Task) -> DatastoreResult<twerk_core::task::Task> + Send>,
+            _modify: Box<
+                dyn FnOnce(twerk_core::task::Task) -> DatastoreResult<twerk_core::task::Task>
+                    + Send,
+            >,
         ) -> DatastoreResult<()> {
             unimplemented!()
         }
         async fn get_task_by_id(&self, _id: &str) -> DatastoreResult<twerk_core::task::Task> {
             unimplemented!()
         }
-        async fn get_active_tasks(&self, _job_id: &str) -> DatastoreResult<Vec<twerk_core::task::Task>> {
+        async fn get_active_tasks(
+            &self,
+            _job_id: &str,
+        ) -> DatastoreResult<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
-        async fn get_next_task(&self, _parent_task_id: &str) -> DatastoreResult<twerk_core::task::Task> {
+        async fn get_next_task(
+            &self,
+            _parent_task_id: &str,
+        ) -> DatastoreResult<twerk_core::task::Task> {
             unimplemented!()
         }
         async fn create_task_log_part(
@@ -51,7 +62,10 @@ async fn basic_auth_layer_creates_proper_layer() {
         async fn update_node(
             &self,
             _id: &str,
-            _modify: Box<dyn FnOnce(twerk_core::node::Node) -> DatastoreResult<twerk_core::node::Node> + Send>,
+            _modify: Box<
+                dyn FnOnce(twerk_core::node::Node) -> DatastoreResult<twerk_core::node::Node>
+                    + Send,
+            >,
         ) -> DatastoreResult<()> {
             unimplemented!()
         }
@@ -67,7 +81,9 @@ async fn basic_auth_layer_creates_proper_layer() {
         async fn update_job(
             &self,
             _id: &str,
-            _modify: Box<dyn FnOnce(twerk_core::job::Job) -> DatastoreResult<twerk_core::job::Job> + Send>,
+            _modify: Box<
+                dyn FnOnce(twerk_core::job::Job) -> DatastoreResult<twerk_core::job::Job> + Send,
+            >,
         ) -> DatastoreResult<()> {
             unimplemented!()
         }
@@ -100,7 +116,9 @@ async fn basic_auth_layer_creates_proper_layer() {
         ) -> DatastoreResult<()> {
             unimplemented!()
         }
-        async fn get_active_scheduled_jobs(&self) -> DatastoreResult<Vec<twerk_core::job::ScheduledJob>> {
+        async fn get_active_scheduled_jobs(
+            &self,
+        ) -> DatastoreResult<Vec<twerk_core::job::ScheduledJob>> {
             unimplemented!()
         }
         async fn get_scheduled_jobs(
@@ -108,8 +126,9 @@ async fn basic_auth_layer_creates_proper_layer() {
             _current_user: &str,
             _page: i64,
             _size: i64,
-        ) -> DatastoreResult<twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>>
-        {
+        ) -> DatastoreResult<
+            twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>,
+        > {
             unimplemented!()
         }
         async fn get_scheduled_job_by_id(
@@ -121,7 +140,12 @@ async fn basic_auth_layer_creates_proper_layer() {
         async fn update_scheduled_job(
             &self,
             _id: &str,
-            _modify: Box<dyn FnOnce(twerk_core::job::ScheduledJob) -> DatastoreResult<twerk_core::job::ScheduledJob> + Send>,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::ScheduledJob,
+                    ) -> DatastoreResult<twerk_core::job::ScheduledJob>
+                    + Send,
+            >,
         ) -> DatastoreResult<()> {
             unimplemented!()
         }
@@ -143,7 +167,10 @@ async fn basic_auth_layer_creates_proper_layer() {
         async fn get_roles(&self) -> DatastoreResult<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> DatastoreResult<Vec<twerk_core::role::Role>> {
+        async fn get_user_roles(
+            &self,
+            _user_id: &str,
+        ) -> DatastoreResult<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
         async fn assign_role(&self, _user_id: &str, _role_id: &str) -> DatastoreResult<()> {
@@ -157,7 +184,13 @@ async fn basic_auth_layer_creates_proper_layer() {
         }
         async fn with_tx(
             &self,
-            _f: Box<dyn for<'a> FnOnce(&'a dyn twerk_infrastructure::datastore::Datastore) -> futures_util::future::BoxFuture<'a, DatastoreResult<()>> + Send>,
+            _f: Box<
+                dyn for<'a> FnOnce(
+                        &'a dyn twerk_infrastructure::datastore::Datastore,
+                    )
+                        -> futures_util::future::BoxFuture<'a, DatastoreResult<()>>
+                    + Send,
+            >,
         ) -> DatastoreResult<()> {
             unimplemented!()
         }

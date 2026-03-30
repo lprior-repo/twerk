@@ -26,8 +26,8 @@ pub mod container;
 pub mod credential_helper;
 pub mod error;
 pub mod helpers;
-pub mod mounters;
 pub mod mount;
+pub mod mounters;
 pub mod network;
 pub mod pull;
 pub mod reference;
@@ -38,14 +38,14 @@ pub mod volume;
 
 // Re-export public types
 pub use archive::{Archive, ArchiveEntry, ArchiveError};
-pub use auth::{
-    decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config,
-    KubernetesConfig, ProxyConfig,
-};
 pub use auth::config_path;
+pub use auth::{
+    decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config, KubernetesConfig,
+    ProxyConfig,
+};
 pub use bind::{BindConfig, BindMounter, BindMounterError};
 pub use config::{DockerConfig, DockerConfigBuilder};
-pub use container::{Container, Tcontainer, create_task_container};
+pub use container::{create_task_container, Container, Tcontainer};
 pub use error::DockerError;
 pub use mounters::{CompositeMounter, Mounter};
 pub use reference::{parse, Reference, ReferenceError};
@@ -55,5 +55,5 @@ pub use volume::{VolumeMounter, VolumeMounterError};
 
 // Re-export twerk types for convenience
 pub use twerk_core::id::TaskId;
-pub use twerk_core::mount::{Mount, mount_type};
+pub use twerk_core::mount::{mount_type, Mount};
 pub use twerk_core::task::{Probe, Registry, Task, TaskLimits};

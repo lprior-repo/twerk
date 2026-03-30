@@ -1,14 +1,14 @@
-use std::sync::Arc;
-use dashmap::DashMap;
 use async_trait::async_trait;
+use dashmap::DashMap;
+use std::sync::Arc;
 
+use super::{Datastore, Error as DatastoreError, Page, Result};
 use twerk_core::id::{JobId, NodeId, ScheduledJobId, TaskId};
 use twerk_core::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use twerk_core::node::Node;
 use twerk_core::role::Role;
 use twerk_core::task::{Task, TaskLogPart};
 use twerk_core::user::User;
-use super::{Datastore, Page, Error as DatastoreError, Result};
 
 pub struct InMemoryDatastore {
     tasks: Arc<DashMap<TaskId, Task>>,
@@ -53,62 +53,112 @@ impl InMemoryDatastore {
 #[async_trait]
 impl Datastore for InMemoryDatastore {
     async fn create_task(&self, task: &Task) -> Result<()> {
-        let id = task.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = task
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         self.tasks.insert(id, task.clone());
         Ok(())
     }
 
-    async fn update_task(&self, id: &str, modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>) -> Result<()> {
-        let mut task = self.tasks.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::TaskNotFound)?;
+    async fn update_task(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,
+    ) -> Result<()> {
+        let mut task = self
+            .tasks
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::TaskNotFound)?;
         task = modify(task)?;
         self.tasks.insert(TaskId::new(id), task);
         Ok(())
     }
 
     async fn get_task_by_id(&self, id: &str) -> Result<Task> {
-        self.tasks.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::TaskNotFound)
+        self.tasks
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::TaskNotFound)
     }
 
     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {
-        Ok(self.tasks.iter()
+        Ok(self
+            .tasks
+            .iter()
             .filter(|e| e.value().job_id.as_deref() == Some(job_id) && e.value().is_active())
             .map(|e| e.value().clone())
             .collect())
     }
 
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {
-        self.tasks.iter()
-            .find(|e| e.value().parent_id.as_deref() == Some(parent_task_id) && e.value().state == "CREATED")
+        self.tasks
+            .iter()
+            .find(|e| {
+                e.value().parent_id.as_deref() == Some(parent_task_id)
+                    && e.value().state == "CREATED"
+            })
             .map(|e| e.value().clone())
             .ok_or(DatastoreError::TaskNotFound)
     }
 
     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {
-        let task_id = part.task_id.clone().ok_or_else(|| DatastoreError::InvalidInput("task_id required".to_string()))?;
-        self.task_log_parts.entry(task_id).or_default().push(part.clone());
+        let task_id = part
+            .task_id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("task_id required".to_string()))?;
+        self.task_log_parts
+            .entry(task_id)
+            .or_default()
+            .push(part.clone());
         Ok(())
     }
 
-    async fn get_task_log_parts(&self, task_id: &str, _q: &str, page: i64, size: i64) -> Result<Page<TaskLogPart>> {
-        let parts = self.task_log_parts.get(task_id).map(|r| r.value().clone()).unwrap_or_default();
+    async fn get_task_log_parts(
+        &self,
+        task_id: &str,
+        _q: &str,
+        page: i64,
+        size: i64,
+    ) -> Result<Page<TaskLogPart>> {
+        let parts = self
+            .task_log_parts
+            .get(task_id)
+            .map(|r| r.value().clone())
+            .unwrap_or_default();
         Ok(Self::paginate(parts, page, size))
     }
 
     async fn create_node(&self, node: &Node) -> Result<()> {
-        let id = node.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = node
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         self.nodes.insert(id, node.clone());
         Ok(())
     }
 
-    async fn update_node(&self, id: &str, modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>) -> Result<()> {
-        let mut node = self.nodes.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::NodeNotFound)?;
+    async fn update_node(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>,
+    ) -> Result<()> {
+        let mut node = self
+            .nodes
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::NodeNotFound)?;
         node = modify(node)?;
         self.nodes.insert(NodeId::new(id), node);
         Ok(())
     }
 
     async fn get_node_by_id(&self, id: &str) -> Result<Node> {
-        self.nodes.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::NodeNotFound)
+        self.nodes
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::NodeNotFound)
     }
 
     async fn get_active_nodes(&self) -> Result<Vec<Node>> {
@@ -116,24 +166,46 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn create_job(&self, job: &Job) -> Result<()> {
-        let id = job.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = job
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         self.jobs.insert(id, job.clone());
         Ok(())
     }
 
-    async fn update_job(&self, id: &str, modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>) -> Result<()> {
-        let mut job = self.jobs.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::JobNotFound)?;
+    async fn update_job(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,
+    ) -> Result<()> {
+        let mut job = self
+            .jobs
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::JobNotFound)?;
         job = modify(job)?;
         self.jobs.insert(JobId::new(id), job);
         Ok(())
     }
 
     async fn get_job_by_id(&self, id: &str) -> Result<Job> {
-        self.jobs.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::JobNotFound)
+        self.jobs
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::JobNotFound)
     }
 
-    async fn get_job_log_parts(&self, job_id: &str, _q: &str, page: i64, size: i64) -> Result<Page<TaskLogPart>> {
-        let task_ids: Vec<TaskId> = self.tasks.iter()
+    async fn get_job_log_parts(
+        &self,
+        job_id: &str,
+        _q: &str,
+        page: i64,
+        size: i64,
+    ) -> Result<Page<TaskLogPart>> {
+        let task_ids: Vec<TaskId> = self
+            .tasks
+            .iter()
             .filter(|e| e.value().job_id.as_deref() == Some(job_id))
             .filter_map(|e| e.value().id.clone())
             .collect();
@@ -146,39 +218,70 @@ impl Datastore for InMemoryDatastore {
         Ok(Self::paginate(all_parts, page, size))
     }
 
-    async fn get_jobs(&self, _current_user: &str, _q: &str, page: i64, size: i64) -> Result<Page<JobSummary>> {
-        let summaries: Vec<JobSummary> = self.jobs.iter()
+    async fn get_jobs(
+        &self,
+        _current_user: &str,
+        _q: &str,
+        page: i64,
+        size: i64,
+    ) -> Result<Page<JobSummary>> {
+        let summaries: Vec<JobSummary> = self
+            .jobs
+            .iter()
             .map(|e| twerk_core::job::new_job_summary(e.value()))
             .collect();
         Ok(Self::paginate(summaries, page, size))
     }
 
     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
-        let id = sj.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = sj
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         self.scheduled_jobs.insert(id, sj.clone());
         Ok(())
     }
 
     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {
-        Ok(self.scheduled_jobs.iter()
+        Ok(self
+            .scheduled_jobs
+            .iter()
             .filter(|e| e.value().state == "ACTIVE")
             .map(|e| e.value().clone())
             .collect())
     }
 
-    async fn get_scheduled_jobs(&self, _current_user: &str, page: i64, size: i64) -> Result<Page<ScheduledJobSummary>> {
-        let summaries: Vec<ScheduledJobSummary> = self.scheduled_jobs.iter()
+    async fn get_scheduled_jobs(
+        &self,
+        _current_user: &str,
+        page: i64,
+        size: i64,
+    ) -> Result<Page<ScheduledJobSummary>> {
+        let summaries: Vec<ScheduledJobSummary> = self
+            .scheduled_jobs
+            .iter()
             .map(|e| twerk_core::job::new_scheduled_job_summary(e.value()))
             .collect();
         Ok(Self::paginate(summaries, page, size))
     }
 
     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {
-        self.scheduled_jobs.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::ScheduledJobNotFound)
+        self.scheduled_jobs
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::ScheduledJobNotFound)
     }
 
-    async fn update_scheduled_job(&self, id: &str, modify: Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob> + Send>) -> Result<()> {
-        let mut sj = self.scheduled_jobs.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::ScheduledJobNotFound)?;
+    async fn update_scheduled_job(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob> + Send>,
+    ) -> Result<()> {
+        let mut sj = self
+            .scheduled_jobs
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::ScheduledJobNotFound)?;
         sj = modify(sj)?;
         self.scheduled_jobs.insert(ScheduledJobId::new(id), sj);
         Ok(())
@@ -190,7 +293,10 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn create_user(&self, user: &User) -> Result<()> {
-        let id = user.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = user
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         if let Some(ref username) = user.username {
             self.users.insert(username.clone(), user.clone());
         }
@@ -199,17 +305,26 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_user(&self, username: &str) -> Result<User> {
-        self.users.get(username).map(|r| r.value().clone()).ok_or(DatastoreError::UserNotFound)
+        self.users
+            .get(username)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::UserNotFound)
     }
 
     async fn create_role(&self, role: &Role) -> Result<()> {
-        let id = role.id.clone().ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+        let id = role
+            .id
+            .clone()
+            .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
         self.roles.insert(id.to_string(), role.clone());
         Ok(())
     }
 
     async fn get_role(&self, id: &str) -> Result<Role> {
-        self.roles.get(id).map(|r| r.value().clone()).ok_or(DatastoreError::RoleNotFound)
+        self.roles
+            .get(id)
+            .map(|r| r.value().clone())
+            .ok_or(DatastoreError::RoleNotFound)
     }
 
     async fn get_roles(&self) -> Result<Vec<Role>> {
@@ -217,12 +332,22 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_user_roles(&self, user_id: &str) -> Result<Vec<Role>> {
-        let role_ids = self.user_roles.get(user_id).map(|r| r.value().clone()).unwrap_or_default();
-        Ok(role_ids.iter().filter_map(|rid| self.roles.get(rid).map(|r| r.value().clone())).collect())
+        let role_ids = self
+            .user_roles
+            .get(user_id)
+            .map(|r| r.value().clone())
+            .unwrap_or_default();
+        Ok(role_ids
+            .iter()
+            .filter_map(|rid| self.roles.get(rid).map(|r| r.value().clone()))
+            .collect())
     }
 
     async fn assign_role(&self, user_id: &str, role_id: &str) -> Result<()> {
-        self.user_roles.entry(user_id.to_string()).or_default().push(role_id.to_string());
+        self.user_roles
+            .entry(user_id.to_string())
+            .or_default()
+            .push(role_id.to_string());
         Ok(())
     }
 
@@ -234,19 +359,37 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_metrics(&self) -> Result<twerk_core::stats::Metrics> {
-        let jobs_running = self.jobs.iter().filter(|e| e.value().state == "RUNNING").count() as i32;
-        let tasks_running = self.tasks.iter().filter(|e| e.value().state == "RUNNING").count() as i32;
+        let jobs_running = self
+            .jobs
+            .iter()
+            .filter(|e| e.value().state == "RUNNING")
+            .count() as i32;
+        let tasks_running = self
+            .tasks
+            .iter()
+            .filter(|e| e.value().state == "RUNNING")
+            .count() as i32;
         let nodes_running = self.nodes.len() as i32;
         Ok(twerk_core::stats::Metrics {
-            jobs: twerk_core::stats::JobMetrics { running: jobs_running },
-            tasks: twerk_core::stats::TaskMetrics { running: tasks_running },
-            nodes: twerk_core::stats::NodeMetrics { running: nodes_running, cpu_percent: 0.0 },
+            jobs: twerk_core::stats::JobMetrics {
+                running: jobs_running,
+            },
+            tasks: twerk_core::stats::TaskMetrics {
+                running: tasks_running,
+            },
+            nodes: twerk_core::stats::NodeMetrics {
+                running: nodes_running,
+                cpu_percent: 0.0,
+            },
         })
     }
 
     async fn with_tx(
         &self,
-        f: Box<dyn for<'a> FnOnce(&'a dyn Datastore) -> futures_util::future::BoxFuture<'a, Result<()>> + Send>,
+        f: Box<
+            dyn for<'a> FnOnce(&'a dyn Datastore) -> futures_util::future::BoxFuture<'a, Result<()>>
+                + Send,
+        >,
     ) -> Result<()> {
         f(self).await
     }

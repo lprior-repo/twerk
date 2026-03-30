@@ -24,15 +24,15 @@ pub mod types;
 pub mod worker;
 
 // Re-export commonly used types
+pub use self::engine::Engine;
 pub use broker::BrokerProxy;
 pub use datastore::DatastoreProxy;
-pub use self::engine::Engine;
-pub use engine_helpers::{MockRuntime, resolve_locker_type};
+pub use engine_helpers::{resolve_locker_type, MockRuntime};
 pub use types::{
     Config, EndpointHandler, JobEventType, JobHandlerError, JobHandlerFunc, JobListener,
-    JobMiddlewareFunc, LogHandlerError, LogHandlerFunc, LogMiddlewareFunc, Middleware,
-    Mode, NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, TaskEventType,
-    TaskHandlerError, TaskHandlerFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
+    JobMiddlewareFunc, LogHandlerError, LogHandlerFunc, LogMiddlewareFunc, Middleware, Mode,
+    NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, TaskEventType, TaskHandlerError,
+    TaskHandlerFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 
 /// Topic constant for job events

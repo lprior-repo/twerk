@@ -3,15 +3,15 @@
 //! This module provides broker implementations for delivering tasks
 //! and coordinating between workers and the coordinator.
 
-use std::sync::Arc;
-use std::pin::Pin;
-use std::future::Future;
 use anyhow::Result;
 use serde_json::Value;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
-use twerk_core::task::{Task, TaskLogPart};
-use twerk_core::node::Node;
 use twerk_core::job::Job;
+use twerk_core::node::Node;
+use twerk_core::task::{Task, TaskLogPart};
 
 pub type BoxedFuture<T> = Pin<Box<dyn Future<Output = Result<T>> + Send>>;
 pub type BoxedHandlerFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
@@ -46,7 +46,17 @@ pub mod queue {
 }
 
 pub fn is_coordinator_queue(qname: &str) -> bool {
-    matches!(qname, queue::QUEUE_COMPLETED | queue::QUEUE_FAILED | queue::QUEUE_STARTED | queue::QUEUE_HEARTBEAT | queue::QUEUE_JOBS | queue::QUEUE_PROGRESS | queue::QUEUE_TASK_LOG_PART | queue::QUEUE_REDELIVERIES)
+    matches!(
+        qname,
+        queue::QUEUE_COMPLETED
+            | queue::QUEUE_FAILED
+            | queue::QUEUE_STARTED
+            | queue::QUEUE_HEARTBEAT
+            | queue::QUEUE_JOBS
+            | queue::QUEUE_PROGRESS
+            | queue::QUEUE_TASK_LOG_PART
+            | queue::QUEUE_REDELIVERIES
+    )
 }
 
 pub fn is_worker_queue(qname: &str) -> bool {
@@ -85,8 +95,8 @@ pub trait Broker: Send + Sync {
     fn shutdown(&self) -> BoxedFuture<()>;
 }
 
-pub mod rabbitmq;
 pub mod inmemory;
+pub mod rabbitmq;
 
 #[cfg(test)]
 mod tests {
@@ -145,7 +155,10 @@ mod tests {
 
     #[test]
     fn is_worker_queue_returns_false_for_exclusive_prefix_queue() {
-        assert!(!is_worker_queue(&format!("{}test", queue::QUEUE_EXCLUSIVE_PREFIX)));
+        assert!(!is_worker_queue(&format!(
+            "{}test",
+            queue::QUEUE_EXCLUSIVE_PREFIX
+        )));
     }
 
     #[test]
@@ -195,7 +208,10 @@ mod tests {
 
     #[test]
     fn is_coordinator_queue_returns_false_for_exclusive_prefix_queue() {
-        assert!(!is_coordinator_queue(&format!("{}test", queue::QUEUE_EXCLUSIVE_PREFIX)));
+        assert!(!is_coordinator_queue(&format!(
+            "{}test",
+            queue::QUEUE_EXCLUSIVE_PREFIX
+        )));
     }
 
     #[test]

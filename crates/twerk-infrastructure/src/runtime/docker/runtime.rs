@@ -11,11 +11,14 @@ use dashmap::DashMap;
 
 use bollard::config::NetworkingConfig;
 use bollard::models::HostConfig;
-use bollard::models::{Mount as BollardMount, MountTypeEnum, PortBinding, EndpointSettings, HealthConfig, DeviceRequest};
+use bollard::models::{
+    DeviceRequest, EndpointSettings, HealthConfig, Mount as BollardMount, MountTypeEnum,
+    PortBinding,
+};
 
 use bollard::query_parameters::{
-    CreateContainerOptions, CreateImageOptions, RemoveContainerOptions, RemoveImageOptions, RemoveVolumeOptions,
-    ListImagesOptions,
+    CreateContainerOptions, CreateImageOptions, ListImagesOptions, RemoveContainerOptions,
+    RemoveImageOptions, RemoveVolumeOptions,
 };
 use futures_util::StreamExt;
 use tokio::sync::{mpsc, RwLock};
@@ -25,14 +28,14 @@ use super::config::DockerConfig;
 use super::error::DockerError;
 use super::mounters::{CompositeMounter, Mounter};
 
-use super::helpers::{parse_go_duration, parse_memory_bytes, slugify};
-use super::container::Container;
-use super::reference::parse as parse_reference;
 use super::auth::{config_path, Config as DockerConfigFile};
-use twerk_core::mount::mount_type;
+use super::container::Container;
+use super::helpers::{parse_go_duration, parse_memory_bytes, slugify};
+use super::reference::parse as parse_reference;
 use twerk_core::id::TaskId;
+use twerk_core::mount::mount_type;
 
-use twerk_core::task::{Registry, TaskLimits, Task};
+use twerk_core::task::{Registry, Task, TaskLimits};
 use twerk_core::uuid::new_uuid;
 
 // ----------------------------------------------------------------------------
@@ -56,8 +59,6 @@ const DEFAULT_PROBE_TIMEOUT: &str = "1m";
 // ----------------------------------------------------------------------------
 // Type Aliases
 // ----------------------------------------------------------------------------
-
-
 
 // ----------------------------------------------------------------------------
 // Type Definitions
@@ -93,7 +94,7 @@ impl crate::runtime::Runtime for DockerRuntime {
         let config = self.config.clone();
         let mounter = Arc::clone(&self.mounter);
         let (pruner_cancel, _) = tokio::sync::oneshot::channel::<()>();
-        
+
         Box::pin(async move {
             let runtime = DockerRuntime {
                 client,
@@ -104,11 +105,17 @@ impl crate::runtime::Runtime for DockerRuntime {
                 pruner_cancel,
                 mounter,
             };
-            runtime.run(&mut task_clone).await.map_err(|e| anyhow::anyhow!(e))
+            runtime
+                .run(&mut task_clone)
+                .await
+                .map_err(|e| anyhow::anyhow!(e))
         })
     }
 
-    fn stop(&self, _task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
+    fn stop(
+        &self,
+        _task: &twerk_core::task::Task,
+    ) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
         Box::pin(async move {
             // Docker runtime stop - returns success as no-op for now
             Ok(Ok(std::process::ExitCode::SUCCESS))
@@ -118,7 +125,11 @@ impl crate::runtime::Runtime for DockerRuntime {
     fn health_check(&self) -> crate::runtime::BoxedFuture<()> {
         let client = self.client.clone();
         Box::pin(async move {
-            client.ping().await.map(|_| ()).map_err(|e| anyhow::anyhow!(e))
+            client
+                .ping()
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!(e))
         })
     }
 }
@@ -325,16 +336,23 @@ impl DockerRuntime {
                     let sidecar_id = sidecar_container.id.clone();
                     let sidecar_twerkdir = sidecar_container.twerkdir_source.clone();
 
-                    sidecar_container.start().await
-                    .map_err(|e| DockerError::ContainerStart(e.to_string()))?;
+                    sidecar_container
+                        .start()
+                        .await
+                        .map_err(|e| DockerError::ContainerStart(e.to_string()))?;
 
                     // Defer sidecar removal
                     let sc = self.client.clone();
                     tokio::spawn(async move {
-                        let _ = sc.remove_container(
-                            &sidecar_id,
-                            Some(RemoveContainerOptions { force: true, ..Default::default() }),
-                        ).await;
+                        let _ = sc
+                            .remove_container(
+                                &sidecar_id,
+                                Some(RemoveContainerOptions {
+                                    force: true,
+                                    ..Default::default()
+                                }),
+                            )
+                            .await;
                         if let Some(source) = sidecar_twerkdir {
                             let _ = sc.remove_volume(&source, None::<RemoveVolumeOptions>).await;
                         }
@@ -348,15 +366,25 @@ impl DockerRuntime {
             // Wait for completion and capture result
             task.result = Some(container.wait().await?);
             Ok(())
-        }.await;
+        }
+        .await;
 
         // Clean up main container
-        let _ = self.client.remove_container(
-            &container_id,
-            Some(RemoveContainerOptions { force: true, ..Default::default() }),
-        ).await;
+        let _ = self
+            .client
+            .remove_container(
+                &container_id,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
         if let Some(source) = twerkdir_source {
-            let _ = self.client.remove_volume(&source, None::<RemoveVolumeOptions>).await;
+            let _ = self
+                .client
+                .remove_volume(&source, None::<RemoveVolumeOptions>)
+                .await;
         }
 
         result
@@ -364,13 +392,19 @@ impl DockerRuntime {
 
     /// Health check on the Docker daemon.
     pub async fn health_check(&self) -> Result<(), DockerError> {
-        self.client.ping().await
+        self.client
+            .ping()
+            .await
             .map(|_| ())
             .map_err(|e| DockerError::ClientCreate(e.to_string()))
     }
 
     /// Pull an image via the serialized pull queue.
-    async fn pull_image(&self, image: &str, registry: Option<&Registry>) -> Result<(), DockerError> {
+    async fn pull_image(
+        &self,
+        image: &str,
+        registry: Option<&Registry>,
+    ) -> Result<(), DockerError> {
         let (result_tx, result_rx) = tokio::sync::oneshot::channel();
         let request = PullRequest {
             image: image.to_string(),
@@ -378,9 +412,12 @@ impl DockerRuntime {
             logger: Box::new(std::io::sink()),
             result_tx,
         };
-        self.pull_tx.send(request).await
+        self.pull_tx
+            .send(request)
+            .await
             .map_err(|_| DockerError::ImagePull("pull queue closed".to_string()))?;
-        result_rx.await
+        result_rx
+            .await
             .map_err(|_| DockerError::ImagePull("pull worker died".to_string()))?
     }
 
@@ -420,7 +457,13 @@ impl DockerRuntime {
         // Verify if enabled (Go parity: verifyImage)
         if config.image_verify {
             if let Err(_e) = Self::verify_image(client, image).await {
-                let _ = client.remove_image(image, None::<RemoveImageOptions>, None::<bollard::auth::DockerCredentials>).await;
+                let _ = client
+                    .remove_image(
+                        image,
+                        None::<RemoveImageOptions>,
+                        None::<bollard::auth::DockerCredentials>,
+                    )
+                    .await;
                 return Err(DockerError::CorruptedImage(image.to_string()));
             }
         }
@@ -437,9 +480,13 @@ impl DockerRuntime {
             all: true,
             ..Default::default()
         };
-        let image_list = client.list_images(Some(options)).await
+        let image_list = client
+            .list_images(Some(options))
+            .await
             .map_err(|e| DockerError::ImagePull(e.to_string()))?;
-        Ok(image_list.iter().any(|img| img.repo_tags.iter().any(|tag| tag == name)))
+        Ok(image_list
+            .iter()
+            .any(|img| img.repo_tags.iter().any(|tag| tag == name)))
     }
 
     /// Verifies image integrity by creating a test container and removing it.
@@ -453,17 +500,25 @@ impl DockerRuntime {
         };
         let response = client
             .create_container(
-                Some(CreateContainerOptions { name: None, platform: String::new() }),
+                Some(CreateContainerOptions {
+                    name: None,
+                    platform: String::new(),
+                }),
                 config,
             )
             .await
             .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
 
         // Clean up test container
-        let _ = client.remove_container(
-            &response.id,
-            Some(RemoveContainerOptions { force: true, ..Default::default() }),
-        ).await;
+        let _ = client
+            .remove_container(
+                &response.id,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
 
         Ok(())
     }
@@ -473,8 +528,8 @@ impl DockerRuntime {
         config: &DockerConfig,
         image: &str,
     ) -> Result<Option<bollard::auth::DockerCredentials>, DockerError> {
-        let reference = parse_reference(image)
-            .map_err(|e| DockerError::ImagePull(e.to_string()))?;
+        let reference =
+            parse_reference(image).map_err(|e| DockerError::ImagePull(e.to_string()))?;
 
         if reference.domain.is_empty() {
             return Ok(None);
@@ -533,11 +588,15 @@ impl DockerRuntime {
         }
 
         // Pull image
-        let image = task.image.as_ref().ok_or_else(|| DockerError::ImageRequired)?;
+        let image = task
+            .image
+            .as_ref()
+            .ok_or_else(|| DockerError::ImageRequired)?;
         self.pull_image(image, task.registry.as_ref()).await?;
         // Build env (Go parity: iterates t.Env HashMap, formats KEY=VALUE, adds TWERK_OUTPUT and TWERK_PROGRESS)
         let mut env: Vec<String> = if let Some(ref env_map) = task.env {
-            env_map.iter()
+            env_map
+                .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect()
         } else {
@@ -582,11 +641,14 @@ impl DockerRuntime {
 
         // Create twerkdir volume
         let twerkdir_volume_name = new_uuid();
-        let _ = self.client.create_volume(bollard::models::VolumeCreateRequest {
-            name: Some(twerkdir_volume_name.clone()),
-            driver: Some("local".to_string()),
-            ..Default::default()
-        }).await
+        let _ = self
+            .client
+            .create_volume(bollard::models::VolumeCreateRequest {
+                name: Some(twerkdir_volume_name.clone()),
+                driver: Some("local".to_string()),
+                ..Default::default()
+            })
+            .await
             .map_err(|e| DockerError::VolumeCreate(e.to_string()))?;
 
         mounts.push(BollardMount {
@@ -615,11 +677,12 @@ impl DockerRuntime {
             task.cmd.clone().unwrap_or_default()
         };
 
-        let entrypoint: Vec<String> = if task.entrypoint.as_ref().is_none_or(|e| e.is_empty()) && task.run.is_some() {
-            RUN_ENTRYPOINT.iter().map(|s| s.to_string()).collect()
-        } else {
-            task.entrypoint.clone().unwrap_or_default()
-        };
+        let entrypoint: Vec<String> =
+            if task.entrypoint.as_ref().is_none_or(|e| e.is_empty()) && task.run.is_some() {
+                RUN_ENTRYPOINT.iter().map(|s| s.to_string()).collect()
+            } else {
+                task.entrypoint.clone().unwrap_or_default()
+            };
 
         // Probe port configuration (Go parity: exposed ports + port bindings)
         let mut exposed_ports: Vec<String> = Vec::new();
@@ -630,16 +693,21 @@ impl DockerRuntime {
             let port = probe.port;
             let port_key = format!("{}/tcp", port);
             exposed_ports.push(port_key.clone());
-            port_bindings.insert(port_key, Some(vec![PortBinding {
-                host_ip: Some("127.0.0.1".to_string()),
-                host_port: Some("0".to_string()),
-            }]));
+            port_bindings.insert(
+                port_key,
+                Some(vec![PortBinding {
+                    host_ip: Some("127.0.0.1".to_string()),
+                    host_port: Some("0".to_string()),
+                }]),
+            );
 
             // Build Docker HEALTHCHECK for native container health monitoring
             let probe_path = probe.path.as_deref().map_or(DEFAULT_PROBE_PATH, |p| p);
-            let timeout_str = probe.timeout.as_deref().map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
-            let timeout = parse_go_duration(timeout_str)
-                .map_or(Duration::from_secs(60), |v| v);
+            let timeout_str = probe
+                .timeout
+                .as_deref()
+                .map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
+            let timeout = parse_go_duration(timeout_str).map_or(Duration::from_secs(60), |v| v);
             let interval = Duration::from_secs(30);
 
             healthcheck = Some(HealthConfig {
@@ -659,7 +727,9 @@ impl DockerRuntime {
         }
 
         // GPU device requests (Go parity: `gpuOpts.Set(t.GPUs)`)
-        let device_requests = task.gpus.as_ref()
+        let device_requests = task
+            .gpus
+            .as_ref()
             .map(|gpu_str| Self::parse_gpu_options(gpu_str))
             .transpose()?;
 
@@ -669,7 +739,7 @@ impl DockerRuntime {
         } else {
             false
         };
-        
+
         // Validate host network usage
         if host_network_mode && !self.config.host_network {
             return Err(DockerError::HostNetworkDisabled);
@@ -677,33 +747,46 @@ impl DockerRuntime {
 
         // Networking config with aliases (Go parity: `slug.Make(t.Name)`)
         // Note: Network aliases are not supported with host networking
-        let networking_config = if task.networks.as_ref().is_none_or(|n| n.is_empty()) || host_network_mode {
-            None
-        } else {
-            let mut endpoints = HashMap::new();
-            if let Some(ref networks) = task.networks {
-                for nw in networks {
-                    let alias = slugify(task.name.as_deref().map_or(task.id.as_ref().map(|id| id.as_str()).unwrap_or("unknown"), |n| n));
-                    endpoints.insert(nw.clone(), EndpointSettings {
-                        aliases: Some(vec![alias]),
-                        ..Default::default()
-                    });
+        let networking_config =
+            if task.networks.as_ref().is_none_or(|n| n.is_empty()) || host_network_mode {
+                None
+            } else {
+                let mut endpoints = HashMap::new();
+                if let Some(ref networks) = task.networks {
+                    for nw in networks {
+                        let alias = slugify(task.name.as_deref().map_or(
+                            task.id.as_ref().map(|id| id.as_str()).unwrap_or("unknown"),
+                            |n| n,
+                        ));
+                        endpoints.insert(
+                            nw.clone(),
+                            EndpointSettings {
+                                aliases: Some(vec![alias]),
+                                ..Default::default()
+                            },
+                        );
+                    }
                 }
-            }
-              Some(NetworkingConfig {
-                endpoints_config: Some(endpoints),
-            })
-        };
+                Some(NetworkingConfig {
+                    endpoints_config: Some(endpoints),
+                })
+            };
 
-      // Build container config
+        // Build container config
         let container_config = bollard::models::ContainerCreateBody {
             image: task.image.clone(),
             env: Some(env),
             cmd: Some(cmd),
-            entrypoint: if entrypoint.is_empty() { None } else { Some(entrypoint) },
+            entrypoint: if entrypoint.is_empty() {
+                None
+            } else {
+                Some(entrypoint)
+            },
             working_dir: workdir.clone(),
-            exposed_ports: if exposed_ports.is_empty() { None } else { 
-                Some(exposed_ports) 
+            exposed_ports: if exposed_ports.is_empty() {
+                None
+            } else {
+                Some(exposed_ports)
             },
             host_config: Some(HostConfig {
                 mounts: Some(mounts),
@@ -711,8 +794,16 @@ impl DockerRuntime {
                 memory,
                 privileged: Some(self.config.privileged),
                 device_requests,
-                port_bindings: if port_bindings.is_empty() { None } else { Some(port_bindings) },
-                network_mode: if host_network_mode { Some("host".to_string()) } else { None },
+                port_bindings: if port_bindings.is_empty() {
+                    None
+                } else {
+                    Some(port_bindings)
+                },
+                network_mode: if host_network_mode {
+                    Some("host".to_string())
+                } else {
+                    None
+                },
                 ..Default::default()
             }),
             networking_config,
@@ -724,16 +815,20 @@ impl DockerRuntime {
         let create_response = tokio::time::timeout(
             Duration::from_secs(30),
             self.client.create_container(
-                Some(CreateContainerOptions { name: None, platform: String::new() }),
+                Some(CreateContainerOptions {
+                    name: None,
+                    platform: String::new(),
+                }),
                 container_config,
             ),
-        ).await
-            .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
-            .map_err(|e| {
-                let image_str = task.image.as_deref().unwrap_or("unknown");
-                tracing::error!(image = image_str, error = %e, "Error creating container");
-                DockerError::ContainerCreate(e.to_string())
-            })?;
+        )
+        .await
+        .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
+        .map_err(|e| {
+            let image_str = task.image.as_deref().unwrap_or("unknown");
+            tracing::error!(image = image_str, error = %e, "Error creating container");
+            DockerError::ContainerCreate(e.to_string())
+        })?;
 
         // Clone volume name before moving into struct (needed for cleanup on error)
         let twerkdir_volume_name_clone = twerkdir_volume_name.clone();
@@ -757,7 +852,10 @@ impl DockerRuntime {
             let _ = cleanup_client
                 .remove_container(
                     &container_id,
-                    Some(RemoveContainerOptions { force: true, ..Default::default() }),
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        ..Default::default()
+                    }),
                 )
                 .await;
             let _ = cleanup_client
@@ -774,7 +872,10 @@ impl DockerRuntime {
             let _ = cleanup_client
                 .remove_container(
                     &container_id,
-                    Some(RemoveContainerOptions { force: true, ..Default::default() }),
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        ..Default::default()
+                    }),
                 )
                 .await;
             let _ = cleanup_client
@@ -788,17 +889,21 @@ impl DockerRuntime {
     }
 
     /// Parses task limits into Docker resource values.
-    fn parse_limits(limits: Option<&TaskLimits>) -> Result<(Option<i64>, Option<i64>), DockerError> {
+    fn parse_limits(
+        limits: Option<&TaskLimits>,
+    ) -> Result<(Option<i64>, Option<i64>), DockerError> {
         let limits = match limits {
             Some(l) => l,
             None => return Ok((None, None)),
         };
 
         let nano_cpus = match &limits.cpus {
-            Some(cpus) if !cpus.is_empty() => {
-                Some((cpus.parse::<f64>()
-                    .map_err(|_| DockerError::InvalidCpus(cpus.clone()))? * 1e9) as i64)
-            }
+            Some(cpus) if !cpus.is_empty() => Some(
+                (cpus
+                    .parse::<f64>()
+                    .map_err(|_| DockerError::InvalidCpus(cpus.clone()))?
+                    * 1e9) as i64,
+            ),
             _ => None,
         };
 
@@ -835,7 +940,9 @@ impl DockerRuntime {
                             })?)
                         };
                     }
-                    "driver" => { driver = Some(value.trim().to_string()); }
+                    "driver" => {
+                        driver = Some(value.trim().to_string());
+                    }
                     "capabilities" => {
                         for cap in value.split(';') {
                             capabilities.push(cap.trim().to_string());
@@ -847,7 +954,10 @@ impl DockerRuntime {
                         }
                     }
                     other => {
-                        return Err(DockerError::InvalidGpuOptions(format!("unknown GPU option: {}", other)));
+                        return Err(DockerError::InvalidGpuOptions(format!(
+                            "unknown GPU option: {}",
+                            other
+                        )));
                     }
                 }
             }
@@ -861,7 +971,11 @@ impl DockerRuntime {
             count,
             driver,
             capabilities: Some(vec![capabilities]),
-            device_ids: if device_ids.is_empty() { None } else { Some(device_ids) },
+            device_ids: if device_ids.is_empty() {
+                None
+            } else {
+                Some(device_ids)
+            },
             options: None,
         }])
     }
@@ -885,7 +999,13 @@ impl DockerRuntime {
             .collect();
 
         for image in to_remove {
-            let _ = client.remove_image(&image, None::<RemoveImageOptions>, None::<bollard::auth::DockerCredentials>).await;
+            let _ = client
+                .remove_image(
+                    &image,
+                    None::<RemoveImageOptions>,
+                    None::<bollard::auth::DockerCredentials>,
+                )
+                .await;
             images.remove(&image);
             tracing::debug!(image = %image, "pruned image");
         }
@@ -898,9 +1018,9 @@ impl DockerRuntime {
 
 #[cfg(test)]
 mod ttl_cache_tests {
+    use dashmap::DashMap;
     use std::sync::Arc;
     use std::time::{Duration, Instant};
-    use dashmap::DashMap;
     use tokio::sync::RwLock;
 
     #[test]
@@ -949,7 +1069,10 @@ mod ttl_cache_tests {
         let expired_image = "ubuntu:22.04";
         let fresh_image = "alpine:3.18";
 
-        images.insert(expired_image.to_string(), now - ttl - Duration::from_secs(1));
+        images.insert(
+            expired_image.to_string(),
+            now - ttl - Duration::from_secs(1),
+        );
         images.insert(fresh_image.to_string(), now);
 
         let now_check = Instant::now();
@@ -990,7 +1113,10 @@ mod ttl_cache_tests {
         let ttl = Duration::from_secs(300);
 
         let now = Instant::now();
-        images.insert("ubuntu:22.04".to_string(), now - ttl - Duration::from_secs(1));
+        images.insert(
+            "ubuntu:22.04".to_string(),
+            now - ttl - Duration::from_secs(1),
+        );
 
         let result = tasks.try_read();
         assert!(result.is_ok());
@@ -1008,7 +1134,10 @@ mod ttl_cache_tests {
                 .collect()
         };
 
-        assert!(to_remove.is_empty(), "should not prune when tasks are running");
+        assert!(
+            to_remove.is_empty(),
+            "should not prune when tasks are running"
+        );
     }
 
     #[test]
@@ -1018,7 +1147,10 @@ mod ttl_cache_tests {
         let now = Instant::now();
 
         images.insert("ubuntu:22.04".to_string(), now);
-        images.insert("alpine:3.18".to_string(), now - ttl - Duration::from_secs(60));
+        images.insert(
+            "alpine:3.18".to_string(),
+            now - ttl - Duration::from_secs(60),
+        );
         images.insert("nginx:1.25".to_string(), now - Duration::from_secs(100));
 
         let now_check = Instant::now();
@@ -1078,4 +1210,3 @@ mod ttl_cache_tests {
 // =============================================================================
 // Task type
 // =============================================================================
-

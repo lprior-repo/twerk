@@ -1,14 +1,17 @@
+use dashmap::DashMap;
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use dashmap::DashMap;
 use tracing::debug;
-use serde_json::Value;
 
-use twerk_core::task::{Task, TaskLogPart};
-use twerk_core::node::Node;
-use twerk_core::job::Job;
+use super::{
+    BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
+    TaskLogPartHandler, TaskProgressHandler,
+};
 use twerk_common::wildcard::wildcard_match;
-use super::{Broker, BoxedFuture, TaskHandler, TaskProgressHandler, HeartbeatHandler, JobHandler, EventHandler, TaskLogPartHandler, QueueInfo};
+use twerk_core::job::Job;
+use twerk_core::node::Node;
+use twerk_core::task::{Task, TaskLogPart};
 
 /// In-memory broker implementation for testing and single-process usage.
 pub struct InMemoryBroker {
@@ -91,10 +94,7 @@ impl Broker for InMemoryBroker {
     }
 
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
-        self.handlers
-            .entry(qname)
-            .or_default()
-            .push(handler);
+        self.handlers.entry(qname).or_default().push(handler);
         Box::pin(async { Ok(()) })
     }
 
@@ -128,7 +128,10 @@ impl Broker for InMemoryBroker {
         let heartbeats = self.heartbeats.clone();
         Box::pin(async move {
             if let Some(ref node_id) = node.id {
-                heartbeats.write().await.insert(node_id.to_string(), node.clone());
+                heartbeats
+                    .write()
+                    .await
+                    .insert(node_id.to_string(), node.clone());
             }
             let handlers = handlers.read().await;
             for handler in handlers.iter() {
@@ -146,7 +149,12 @@ impl Broker for InMemoryBroker {
         let handlers = self.heartbeat_handlers.clone();
         let heartbeats = self.heartbeats.clone();
         Box::pin(async move {
-            let nodes: Vec<Node> = heartbeats.read().await.iter().map(|e| e.value().clone()).collect();
+            let nodes: Vec<Node> = heartbeats
+                .read()
+                .await
+                .iter()
+                .map(|e| e.value().clone())
+                .collect();
             for node in nodes {
                 let handler_clone = handler.clone();
                 tokio::spawn(async move {
@@ -163,7 +171,11 @@ impl Broker for InMemoryBroker {
         let handlers = self.job_handlers.clone();
         Box::pin(async move {
             let handlers = handlers.read().await;
-            debug!("Publishing job {} to {} handlers", job.id.as_deref().unwrap_or("unknown"), handlers.len());
+            debug!(
+                "Publishing job {} to {} handlers",
+                job.id.as_deref().unwrap_or("unknown"),
+                handlers.len()
+            );
             for handler in handlers.iter() {
                 let job_clone = job.clone();
                 let handler_clone = handler.clone();
@@ -240,7 +252,10 @@ impl Broker for InMemoryBroker {
         let handlers = self.task_log_part_handlers.clone();
         let task_log_parts = self.task_log_parts.clone();
         Box::pin(async move {
-            let parts: Vec<TaskLogPart> = task_log_parts.read().await.iter()
+            let parts: Vec<TaskLogPart> = task_log_parts
+                .read()
+                .await
+                .iter()
                 .flat_map(|e| e.value().clone())
                 .collect();
             for part in parts {
@@ -320,9 +335,7 @@ mod tests {
     use twerk_core::node::NodeStatus;
     use twerk_core::uuid::new_uuid;
 
-    fn make_heartbeat_handler(
-        received: Arc<RwLock<Vec<Node>>>,
-    ) -> HeartbeatHandler {
+    fn make_heartbeat_handler(received: Arc<RwLock<Vec<Node>>>) -> HeartbeatHandler {
         Arc::new(move |node: Node| {
             let received = received.clone();
             Box::pin(async move {
@@ -332,9 +345,7 @@ mod tests {
         })
     }
 
-    fn make_task_log_part_handler(
-        received: Arc<RwLock<Vec<TaskLogPart>>>,
-    ) -> TaskLogPartHandler {
+    fn make_task_log_part_handler(received: Arc<RwLock<Vec<TaskLogPart>>>) -> TaskLogPartHandler {
         Arc::new(move |part: TaskLogPart| {
             let received = received.clone();
             Box::pin(async move {
@@ -502,7 +513,10 @@ mod tests {
             ..Default::default()
         };
 
-        broker.publish_task_log_part(&part_no_task_id).await.unwrap();
+        broker
+            .publish_task_log_part(&part_no_task_id)
+            .await
+            .unwrap();
 
         let received = Arc::new(RwLock::new(Vec::new()));
         let handler = make_task_log_part_handler(received.clone());
@@ -532,7 +546,10 @@ mod tests {
             })
         });
 
-        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
 
         let task = Task {
             id: Some(TaskId::new("task-1")),
@@ -555,7 +572,10 @@ mod tests {
         let qname = format!("test-queue-{}", new_uuid());
 
         // Publish a task to create the queue
-        broker.publish_task(qname.clone(), &Task::default()).await.unwrap();
+        broker
+            .publish_task(qname.clone(), &Task::default())
+            .await
+            .unwrap();
 
         let queues = broker.queues().await.unwrap();
         assert_eq!(queues.len(), 1);
@@ -565,7 +585,10 @@ mod tests {
         // Add multiple subscribers
         for _ in 0..10 {
             let handler: TaskHandler = Arc::new(|_| Box::pin(async { Ok(()) }));
-            broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+            broker
+                .subscribe_for_tasks(qname.clone(), handler)
+                .await
+                .unwrap();
         }
 
         let queues = broker.queues().await.unwrap();
@@ -578,7 +601,10 @@ mod tests {
         let broker = InMemoryBroker::new();
         let qname = format!("test-queue-{}", new_uuid());
 
-        broker.publish_task(qname.clone(), &Task::default()).await.unwrap();
+        broker
+            .publish_task(qname.clone(), &Task::default())
+            .await
+            .unwrap();
 
         let queues = broker.queues().await.unwrap();
         assert_eq!(queues.len(), 1);
@@ -592,11 +618,17 @@ mod tests {
         let qname = format!("test-queue-{}", new_uuid());
 
         // Publish a task to create the queue
-        broker.publish_task(qname.clone(), &Task::default()).await.unwrap();
+        broker
+            .publish_task(qname.clone(), &Task::default())
+            .await
+            .unwrap();
 
         // Add a subscriber
         let handler: TaskHandler = Arc::new(|_| Box::pin(async { Ok(()) }));
-        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
 
         let queues = broker.queues().await.unwrap();
         assert_eq!(queues.len(), 1);
@@ -646,21 +678,28 @@ mod tests {
         let received = Arc::new(RwLock::new(Vec::new()));
         let count = Arc::new(RwLock::new(0));
 
-        let make_handler = |received: Arc<RwLock<Vec<Job>>>, count: Arc<RwLock<i32>>| -> JobHandler {
-            Arc::new(move |job: Job| {
-                let received = received.clone();
-                let count = count.clone();
-                Box::pin(async move {
-                    received.write().await.push(job.clone());
-                    *count.write().await += 1;
-                    Ok(())
+        let make_handler =
+            |received: Arc<RwLock<Vec<Job>>>, count: Arc<RwLock<i32>>| -> JobHandler {
+                Arc::new(move |job: Job| {
+                    let received = received.clone();
+                    let count = count.clone();
+                    Box::pin(async move {
+                        received.write().await.push(job.clone());
+                        *count.write().await += 1;
+                        Ok(())
+                    })
                 })
-            })
-        };
+            };
 
         // Subscribe two handlers
-        broker.subscribe_for_jobs(make_handler(received.clone(), count.clone())).await.unwrap();
-        broker.subscribe_for_jobs(make_handler(received.clone(), count.clone())).await.unwrap();
+        broker
+            .subscribe_for_jobs(make_handler(received.clone(), count.clone()))
+            .await
+            .unwrap();
+        broker
+            .subscribe_for_jobs(make_handler(received.clone(), count.clone()))
+            .await
+            .unwrap();
 
         // Publish multiple jobs
         for i in 0..10 {
@@ -705,9 +744,15 @@ mod tests {
         });
 
         // Subscribe to JOB.* pattern
-        broker.subscribe_for_events("job.*".to_string(), handler1).await.unwrap();
+        broker
+            .subscribe_for_events("job.*".to_string(), handler1)
+            .await
+            .unwrap();
         // Subscribe to JOB_COMPLETED pattern
-        broker.subscribe_for_events("job.completed".to_string(), handler2).await.unwrap();
+        broker
+            .subscribe_for_events("job.completed".to_string(), handler2)
+            .await
+            .unwrap();
 
         let job = serde_json::json!({
             "id": "job-1",
@@ -715,7 +760,10 @@ mod tests {
         });
 
         // Publish to JOB_COMPLETED topic
-        broker.publish_event("job.completed".to_string(), job.clone()).await.unwrap();
+        broker
+            .publish_event("job.completed".to_string(), job.clone())
+            .await
+            .unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
@@ -826,7 +874,10 @@ mod tests {
         let qname = format!("exclusive-queue-{}", new_uuid());
 
         let handler: TaskHandler = Arc::new(|_| Box::pin(async { Ok(()) }));
-        broker.subscribe_for_tasks(qname.clone(), handler).await.unwrap();
+        broker
+            .subscribe_for_tasks(qname.clone(), handler)
+            .await
+            .unwrap();
 
         let task = Task {
             id: Some(TaskId::new("task-1")),

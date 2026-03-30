@@ -24,8 +24,8 @@ use twerk_core::uuid::new_uuid;
 use super::errors::PodmanError;
 use super::slug::make as slugify;
 use super::types::{
-    Mount, Mounter, PullRequest, RegistryCredentials,
-    DEFAULT_WORKDIR, HOST_NETWORK_NAME, PROGRESS_POLL_INTERVAL, CoreTask,
+    CoreTask, Mount, Mounter, PullRequest, RegistryCredentials, DEFAULT_WORKDIR, HOST_NETWORK_NAME,
+    PROGRESS_POLL_INTERVAL,
 };
 
 // ── Runtime struct ────────────────────────────────────────────────
@@ -179,7 +179,10 @@ impl crate::runtime::Runtime for PodmanRuntime {
         })
     }
 
-    fn stop(&self, task: &CoreTask) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
+    fn stop(
+        &self,
+        task: &CoreTask,
+    ) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
         let task_id = task.id.as_ref().map_or(String::new(), |id| id.to_string());
         let tasks = Arc::clone(&self.tasks);
 
@@ -304,14 +307,12 @@ impl PodmanRuntime {
         // Convert mounted mounts back to CoreMount format for task execution
         let task_mounts: Vec<twerk_core::mount::Mount> = mounted_mounts
             .iter()
-            .map(|m| {
-                twerk_core::mount::Mount {
-                    id: Some(m.id.clone()),
-                    mount_type: Some(m.mount_type.as_str().to_string()),
-                    source: Some(m.source.clone()),
-                    target: Some(m.target.clone()),
-                    opts: m.opts.clone(),
-                }
+            .map(|m| twerk_core::mount::Mount {
+                id: Some(m.id.clone()),
+                mount_type: Some(m.mount_type.as_str().to_string()),
+                source: Some(m.source.clone()),
+                target: Some(m.target.clone()),
+                opts: m.opts.clone(),
             })
             .collect();
 
@@ -492,13 +493,12 @@ impl PodmanRuntime {
         }
 
         // Create container
-        let create_output =
-            tokio::time::timeout(Duration::from_secs(30), create_cmd.output())
-                .await
-                .map_err(|_| {
-                    PodmanError::ContainerCreation("create timed out after 30 seconds".to_string())
-                })?
-                .map_err(|e| PodmanError::ContainerCreation(e.to_string()))?;
+        let create_output = tokio::time::timeout(Duration::from_secs(30), create_cmd.output())
+            .await
+            .map_err(|_| {
+                PodmanError::ContainerCreation("create timed out after 30 seconds".to_string())
+            })?
+            .map_err(|e| PodmanError::ContainerCreation(e.to_string()))?;
 
         if !create_output.status.success() {
             return Err(PodmanError::ContainerCreation(
@@ -511,7 +511,9 @@ impl PodmanRuntime {
             .to_string();
 
         if container_id.is_empty() {
-            return Err(PodmanError::ContainerCreation("empty container ID".to_string()));
+            return Err(PodmanError::ContainerCreation(
+                "empty container ID".to_string(),
+            ));
         }
 
         debug!("created container {}", container_id);
@@ -547,7 +549,12 @@ impl PodmanRuntime {
         let progress_task_id = task_id_str.to_string();
         let broker = self.broker.clone();
         let progress_handle = tokio::spawn(async move {
-            PodmanRuntime::report_progress(&progress_task_id, &progress_file_buf, broker.as_deref()).await;
+            PodmanRuntime::report_progress(
+                &progress_task_id,
+                &progress_file_buf,
+                broker.as_deref(),
+            )
+            .await;
         });
 
         // Start container
@@ -647,14 +654,9 @@ impl PodmanRuntime {
         }
 
         // Environment variables
-        let env_vars: Vec<String> = task
-            .env
-            .as_ref()
-            .map_or(Vec::new(), |env| {
-                env.iter()
-                    .map(|(k, v)| format!("{}={}", k, v))
-                    .collect()
-            });
+        let env_vars: Vec<String> = task.env.as_ref().map_or(Vec::new(), |env| {
+            env.iter().map(|(k, v)| format!("{}={}", k, v)).collect()
+        });
 
         let mut all_env = env_vars;
         all_env.push("TWERK_OUTPUT=/twerk/stdout".to_string());
@@ -857,10 +859,7 @@ impl PodmanRuntime {
 
     /// Stop and remove container
     async fn stop_container_static(container_id: &str) -> Result<(), PodmanError> {
-        debug!(
-            "Attempting to stop and remove container {}",
-            container_id
-        );
+        debug!("Attempting to stop and remove container {}", container_id);
         let mut cmd = Command::new("podman");
         cmd.arg("rm").arg("-f").arg("-t").arg("0").arg(container_id);
         cmd.stdout(std::process::Stdio::piped());
@@ -973,10 +972,7 @@ impl PodmanRuntime {
     ) -> Result<(), PodmanError> {
         // Check if image exists locally
         if Self::image_exists_locally(image).await {
-            debug!(
-                "image {} already exists locally, skipping pull",
-                image
-            );
+            debug!("image {} already exists locally, skipping pull", image);
             return Ok(());
         }
 
@@ -1080,9 +1076,7 @@ impl PodmanRuntime {
     /// Extract registry host from image name
     fn extract_registry_host(image: &str) -> String {
         match image.split_once('/') {
-            Some((host, _rest)) if host.contains('.') || host.contains(':') => {
-                host.to_string()
-            }
+            Some((host, _rest)) if host.contains('.') || host.contains(':') => host.to_string(),
             _ => "docker.io".to_string(),
         }
     }

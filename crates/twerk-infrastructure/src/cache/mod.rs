@@ -93,7 +93,8 @@ where
             let on_evicted_clone = Arc::clone(&on_evicted);
 
             tokio::spawn(async move {
-                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone).await;
+                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone)
+                    .await;
             });
 
             Self {
@@ -137,7 +138,8 @@ where
             let on_evicted_clone = Arc::clone(&on_evicted);
 
             tokio::spawn(async move {
-                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone).await;
+                Self::janitor_loop(items_clone, interval, shutdown_flag_clone, on_evicted_clone)
+                    .await;
             });
 
             Self {
@@ -238,9 +240,7 @@ where
         // We must clone key and value while we have the borrow
         let keys_to_remove: Vec<K> = items
             .iter()
-            .filter(|entry| {
-                entry.is_expired() && entry.expiration().is_some_and(|exp| now > exp)
-            })
+            .filter(|entry| entry.is_expired() && entry.expiration().is_some_and(|exp| now > exp))
             .map(|entry| entry.key().clone())
             .collect();
 
@@ -250,9 +250,7 @@ where
             // Remove expired items and collect values for callback
             let evicted: Vec<(K, V)> = keys_to_remove
                 .iter()
-                .filter_map(|k| {
-                    items.remove(k).map(|(key, item)| (key, item.object()))
-                })
+                .filter_map(|k| items.remove(k).map(|(key, item)| (key, item.object())))
                 .collect();
             // Invoke callbacks after removal
             if let Some(callback) = on_evicted {
@@ -307,7 +305,9 @@ where
     ///
     /// If the key already existed, the old item is returned.
     pub fn insert_expiring(&self, key: K, value: V, expiration: Expiration) -> Option<Item<V>> {
-        let default_exp = self.default_expiration.map(|d| tokio::time::Instant::now() + d);
+        let default_exp = self
+            .default_expiration
+            .map(|d| tokio::time::Instant::now() + d);
         let item = Item::with_expiration(value, expiration, default_exp);
         self.items.insert(key, item)
     }
@@ -327,9 +327,7 @@ where
 
     /// Returns `true` if the cache contains the given key and it is not expired.
     pub fn contains(&self, key: &K) -> bool {
-        self.items
-            .get(key)
-            .is_some_and(|entry| !entry.is_expired())
+        self.items.get(key).is_some_and(|entry| !entry.is_expired())
     }
 
     /// Removes the item with the given key, returning it if it existed.
@@ -587,10 +585,10 @@ mod tests {
             *v *= 2;
             Ok::<(), ()>(())
         });
-        
+
         // Assert concrete outcome
         match result {
-            Some(Ok(())) => {},
+            Some(Ok(())) => {}
             _ => panic!("Expected Some(Ok(())), got {:?}", result),
         }
 
@@ -606,10 +604,13 @@ mod tests {
 
         // Modify that returns error
         let result = cache.modify(&1, |_v| Err::<(), &str>("something went wrong"));
-        
+
         match result {
             Some(Err(e)) => assert_eq!(e, "something went wrong"),
-            _ => panic!("Expected Some(Err(\"something went wrong\")), got {:?}", result),
+            _ => panic!(
+                "Expected Some(Err(\"something went wrong\")), got {:?}",
+                result
+            ),
         }
 
         // Value should be unchanged
@@ -752,4 +753,3 @@ mod tests {
         assert_eq!(count, 1);
     }
 }
-

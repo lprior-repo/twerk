@@ -14,10 +14,10 @@
 //! containers are still connected, so we retry with exponential backoff
 //! (200ms, 400ms, 800ms, 1600ms, 3200ms) up to 5 attempts.
 
-use std::time::Duration;
+use crate::runtime::docker::error::DockerError;
 use bollard::models::NetworkCreateRequest;
 use bollard::Docker;
-use crate::runtime::docker::error::DockerError;
+use std::time::Duration;
 
 /// Creates a network for sidecar communication.
 ///
@@ -34,7 +34,9 @@ pub async fn create_network(client: &Docker) -> Result<String, DockerError> {
         driver: Some("bridge".to_string()),
         ..Default::default()
     };
-    let response = client.create_network(request).await
+    let response = client
+        .create_network(request)
+        .await
         .map_err(|e| DockerError::NetworkCreate(e.to_string()))?;
     Ok(response.id)
 }

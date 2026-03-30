@@ -262,7 +262,8 @@ fn redact_job_tasks_parallel_tasks_recursively_redacted() {
     let parallel_secret = task.parallel.as_ref().unwrap().tasks.as_ref().unwrap()[0]
         .env
         .as_ref()
-        .unwrap()["PARALLEL_SECRET_TOKEN"].clone();
+        .unwrap()["PARALLEL_SECRET_TOKEN"]
+        .clone();
     assert_eq!(parallel_secret, "[REDACTED]");
 }
 
@@ -311,7 +312,8 @@ fn redact_job_execution_tasks_redacted() {
         ..Default::default()
     };
     redact_job(&mut job);
-    let exec_secret = job.execution.as_ref().unwrap()[0].env.as_ref().unwrap()["EXECUTION_SECRET"].clone();
+    let exec_secret =
+        job.execution.as_ref().unwrap()[0].env.as_ref().unwrap()["EXECUTION_SECRET"].clone();
     assert_eq!(exec_secret, "[REDACTED]");
 }
 

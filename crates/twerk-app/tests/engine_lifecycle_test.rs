@@ -5,13 +5,16 @@ use twerk_app::engine::coordinator::middleware::HttpLogConfig;
 use twerk_app::engine::{BrokerProxy, Config, DatastoreProxy, Engine, Mode, State};
 use twerk_core::job::{Job, JOB_STATE_PENDING};
 use twerk_core::task::Task;
-use twerk_infrastructure::broker::{Broker, inmemory::InMemoryBroker};
-use twerk_infrastructure::datastore::{Datastore, inmemory::InMemoryDatastore};
+use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
+use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 
 fn engine_with_mode(mode: Mode) -> Engine {
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
-    Engine::new(Config { mode, ..Default::default() })
+    Engine::new(Config {
+        mode,
+        ..Default::default()
+    })
 }
 
 #[tokio::test]
@@ -52,7 +55,7 @@ async fn engine_start_fails_when_not_idle() {
     let result = engine.start().await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not idle"));
-    
+
     let _ = engine.terminate().await;
 }
 
@@ -153,7 +156,10 @@ async fn broker_proxy_init_creates_inmemory_broker() -> Result<()> {
 
 #[tokio::test]
 async fn broker_proxy_init_accepts_rabbitmq_type() -> Result<()> {
-    std::env::set_var("TWERK_BROKER_RABBITMQ_URL", "amqp://guest:guest@localhost:5672/");
+    std::env::set_var(
+        "TWERK_BROKER_RABBITMQ_URL",
+        "amqp://guest:guest@localhost:5672/",
+    );
     let broker = BrokerProxy::new();
     let result = broker.init("rabbitmq").await;
     std::env::remove_var("TWERK_BROKER_RABBITMQ_URL");
@@ -216,7 +222,10 @@ async fn engine_submit_job_returns_error_when_not_coordinator_mode() -> Result<(
 
     let result = engine.submit_job(job, vec![]).await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("not in coordinator/standalone mode"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("not in coordinator/standalone mode"));
 
     engine.terminate().await?;
     Ok(())
@@ -258,7 +267,9 @@ async fn engine_submit_job_submits_to_coordinator_in_standalone_mode() -> Result
 async fn engine_register_middleware_allowed_when_idle() {
     let mut engine = engine_with_mode(Mode::Standalone);
 
-    engine.register_web_middleware(Arc::new(|_req, _next| Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })));
+    engine.register_web_middleware(Arc::new(|_req, _next| {
+        Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
+    }));
     engine.register_task_middleware(Arc::new(|_handler| _handler));
     engine.register_job_middleware(Arc::new(|_handler| _handler));
     engine.register_node_middleware(Arc::new(|_handler| _handler));
@@ -273,7 +284,9 @@ async fn engine_register_middleware_ignored_when_running() -> Result<()> {
     let mut engine = engine_with_mode(Mode::Standalone);
     engine.start().await?;
 
-    engine.register_web_middleware(Arc::new(|_req, _next| Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })));
+    engine.register_web_middleware(Arc::new(|_req, _next| {
+        Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
+    }));
     engine.register_task_middleware(Arc::new(|_handler| _handler));
     engine.register_job_middleware(Arc::new(|_handler| _handler));
     engine.register_node_middleware(Arc::new(|_handler| _handler));
@@ -489,7 +502,9 @@ async fn broker_proxy_set_broker_allows_custom_implementation() -> Result<()> {
 #[tokio::test]
 async fn datastore_proxy_set_datastore_allows_custom_implementation() -> Result<()> {
     let datastore = DatastoreProxy::new();
-    datastore.set_datastore(Box::new(InMemoryDatastore::new())).await;
+    datastore
+        .set_datastore(Box::new(InMemoryDatastore::new()))
+        .await;
     Ok(())
 }
 

@@ -7,7 +7,11 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
-#![allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#![allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
@@ -15,11 +19,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::{debug, error, info};
-use uuid::Uuid;
-use twerk_core::job::{Job as TorkJob, JobState, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED};
+use twerk_core::job::{
+    Job as TorkJob, JobState, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
+};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
+use uuid::Uuid;
 
 // ── Calculations (Pure) ────────────────────────────────────────
 
@@ -63,7 +69,7 @@ impl JobSchedulerHandler {
                 active_jobs.into_iter().try_for_each(|sj| {
                     // This is still a bit imperative but using functional try_for_each
                     // In a real app we'd spawn these or handle errors individually
-                    let _ = sj; 
+                    let _ = sj;
                     Ok::<(), anyhow::Error>(())
                 })?;
                 Ok(handler)
@@ -87,7 +93,9 @@ impl JobSchedulerHandler {
         let sj_id = sj_id_str(sj).to_string();
         info!(sj_id = %sj_id, cron = ?sj.cron, "Scheduling job");
 
-        let cron_expr = sj.cron.as_deref()
+        let cron_expr = sj
+            .cron
+            .as_deref()
             .ok_or_else(|| anyhow!("scheduled job {sj_id} has no cron expression"))?;
 
         let ds = self.ds.clone();
@@ -96,7 +104,12 @@ impl JobSchedulerHandler {
         let sj_id_clone = sj_id.clone();
 
         let job = Job::new_async(cron_expr, move |_uuid, _lock| {
-            let (ds, b, l, id) = (ds.clone(), broker.clone(), locker.clone(), sj_id_clone.clone());
+            let (ds, b, l, id) = (
+                ds.clone(),
+                broker.clone(),
+                locker.clone(),
+                sj_id_clone.clone(),
+            );
             Box::pin(async move {
                 if let Err(e) = trigger_scheduled_job(&ds, &b, &l, &id).await {
                     error!(sj_id = %id, error = %e, "error triggering scheduled job");
@@ -105,7 +118,11 @@ impl JobSchedulerHandler {
         })
         .map_err(|e| anyhow!("error creating job: {e}"))?;
 
-        let job_id = self.scheduler.add(job).await.map_err(|e| anyhow!("error adding job: {e}"))?;
+        let job_id = self
+            .scheduler
+            .add(job)
+            .await
+            .map_err(|e| anyhow!("error adding job: {e}"))?;
 
         let mut jobs = self.jobs.lock().await;
         jobs.insert(sj_id, job_id);
@@ -116,12 +133,15 @@ impl JobSchedulerHandler {
     async fn handle_paused(&self, sj: &ScheduledJob) -> Result<()> {
         let sj_id = sj_id_str(sj);
         let mut jobs = self.jobs.lock().await;
-        
+
         jobs.remove(sj_id)
             .ok_or_else(|| anyhow!("unknown scheduled job: {sj_id}"))
             .pipe(|res| async move {
                 let job_id = res?;
-                self.scheduler.remove(&job_id).await.map_err(|e| anyhow!("error removing job: {e}"))
+                self.scheduler
+                    .remove(&job_id)
+                    .await
+                    .map_err(|e| anyhow!("error removing job: {e}"))
             })
             .await?;
 
@@ -183,10 +203,13 @@ async fn trigger_scheduled_job(
         ..Default::default()
     };
 
-    ds.create_job(&job).await
+    ds.create_job(&job)
+        .await
         .map_err(|e| anyhow!("error creating scheduled job instance: {e}"))?;
 
-    broker.publish_job(&job).await
+    broker
+        .publish_job(&job)
+        .await
         .map_err(|e| anyhow!("error publishing scheduled job instance: {e}"))?;
 
     debug!(sj_id = %sj_id, "Successfully triggered scheduled job");
@@ -195,8 +218,15 @@ async fn trigger_scheduled_job(
 
 /// Extension trait for functional piping.
 trait Pipe: Sized {
-    fn pipe<F, R>(self, f: F) -> R where F: FnOnce(Self) -> R;
+    fn pipe<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Self) -> R;
 }
 impl<T> Pipe for T {
-    fn pipe<F, R>(self, f: F) -> R where F: FnOnce(Self) -> R { f(self) }
+    fn pipe<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Self) -> R,
+    {
+        f(self)
+    }
 }

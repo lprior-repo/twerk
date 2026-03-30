@@ -1,20 +1,29 @@
 //! RabbitMQ broker implementation using `lapin`.
 
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-use std::time::Duration;
 use anyhow::{anyhow, Result};
 use lapin::{
-    options::{BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, BasicQosOptions, QueueDeclareOptions, QueueDeleteOptions},
+    options::{
+        BasicAckOptions, BasicConsumeOptions, BasicPublishOptions, BasicQosOptions,
+        QueueDeclareOptions, QueueDeleteOptions,
+    },
     types::FieldTable,
     BasicProperties, Connection, ConnectionProperties,
 };
-use tokio::sync::RwLock;
 use serde_json::Value;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use std::time::Duration;
+use tokio::sync::RwLock;
 
-use twerk_core::task::{Task, TaskLogPart};
-use twerk_core::node::Node;
+use super::{
+    queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler, JobHandler,
+    QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+};
 use twerk_core::job::Job;
-use super::{Broker, BoxedFuture, BoxedHandlerFuture, TaskHandler, TaskProgressHandler, HeartbeatHandler, JobHandler, EventHandler, TaskLogPartHandler, QueueInfo, queue, RabbitMQOptions};
+use twerk_core::node::Node;
+use twerk_core::task::{Task, TaskLogPart};
 
 /// AMQP message type constants
 const MSG_TYPE_TASK: &str = "*twerk.Task";
@@ -46,7 +55,7 @@ impl RabbitMQBroker {
         let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
             .map_err(|e| anyhow!("RabbitMQ connection 1 failed: {e}"))?;
-        
+
         let conn2 = Connection::connect(url, ConnectionProperties::default())
             .await
             .map_err(|e| anyhow!("RabbitMQ connection 2 failed: {e}"))?;
@@ -93,16 +102,20 @@ impl RabbitMQBroker {
 
     async fn get_connection(&self) -> Result<Arc<Connection>> {
         let idx = self.last_conn_idx.fetch_add(1, Ordering::SeqCst) % self.conn_pool.len();
-        let conn = self.conn_pool.get(idx).ok_or_else(|| anyhow!("Connection pool index out of bounds"))?;
-        
+        let conn = self
+            .conn_pool
+            .get(idx)
+            .ok_or_else(|| anyhow!("Connection pool index out of bounds"))?;
+
         if conn.status().connected() {
             return Ok(Arc::clone(conn));
         }
 
-        // If connection is dead, we could try to reconnect, but for high-throughput 
-        // with 3 connections, we just fail and let the next one handle it, 
+        // If connection is dead, we could try to reconnect, but for high-throughput
+        // with 3 connections, we just fail and let the next one handle it,
         // or we could try the other 2 in the pool.
-        self.conn_pool.iter()
+        self.conn_pool
+            .iter()
             .find(|c| c.status().connected())
             .map(Arc::clone)
             .ok_or_else(|| anyhow!("All RabbitMQ connections are down"))
@@ -117,7 +130,10 @@ impl RabbitMQBroker {
             );
         }
         if super::is_worker_queue(qname) {
-            args.insert("x-max-priority".into(), lapin::types::AMQPValue::LongLongInt(10));
+            args.insert(
+                "x-max-priority".into(),
+                lapin::types::AMQPValue::LongLongInt(10),
+            );
         }
         if let Some(timeout) = self.consumer_timeout {
             let timeout_ms = i64::try_from(timeout.as_millis()).map_or(30 * 60 * 1000, |v| v);
@@ -177,27 +193,65 @@ impl RabbitMQBroker {
         Ok(())
     }
 
-    async fn subscribe_raw(&self, qname: &str, handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>) -> Result<()> {
+    async fn subscribe_raw(
+        &self,
+        qname: &str,
+        handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>,
+    ) -> Result<()> {
         self.subscribe_with_binding("", "", qname, handler).await
     }
 
-    async fn subscribe_with_binding(&self, exchange: &str, routing_key: &str, qname: &str, handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>) -> Result<()> {
+    async fn subscribe_with_binding(
+        &self,
+        exchange: &str,
+        routing_key: &str,
+        qname: &str,
+        handler: Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>,
+    ) -> Result<()> {
         let conn = self.get_connection().await?;
         let ch = conn.create_channel().await?;
         self.declare_queue(&ch, qname).await?;
         if !exchange.is_empty() {
-            ch.queue_bind(qname, exchange, routing_key, lapin::options::QueueBindOptions::default(), FieldTable::default()).await?;
+            ch.queue_bind(
+                qname,
+                exchange,
+                routing_key,
+                lapin::options::QueueBindOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
         }
         ch.basic_qos(1, BasicQosOptions::default()).await?;
-        let mut consumer = ch.basic_consume(qname, "", BasicConsumeOptions::default(), FieldTable::default()).await?;
+        let mut consumer = ch
+            .basic_consume(
+                qname,
+                "",
+                BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
         let b = self.clone();
         tokio::spawn(async move {
             while let Some(delivery) = futures_util::StreamExt::next(&mut consumer).await {
-                if b.is_shutting_down().await { break; }
+                if b.is_shutting_down().await {
+                    break;
+                }
                 if let Ok(delivery) = delivery {
                     if delivery.redelivered {
-                        let msg_type = delivery.properties.kind().as_ref().map_or("", |s| s.as_str());
-                        let _ = b.publish_raw("", queue::QUEUE_REDELIVERIES, delivery.data.clone(), msg_type, 0).await;
+                        let msg_type = delivery
+                            .properties
+                            .kind()
+                            .as_ref()
+                            .map_or("", |s| s.as_str());
+                        let _ = b
+                            .publish_raw(
+                                "",
+                                queue::QUEUE_REDELIVERIES,
+                                delivery.data.clone(),
+                                msg_type,
+                                0,
+                            )
+                            .await;
                         let _ = delivery.ack(BasicAckOptions::default()).await;
                         continue;
                     }
@@ -341,7 +395,11 @@ impl Broker for RabbitMQBroker {
     fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()> {
         let b = self.clone();
         Box::pin(async move {
-            let qname = format!("{}.{}", queue::QUEUE_EXCLUSIVE_PREFIX, twerk_core::uuid::new_short_uuid());
+            let qname = format!(
+                "{}.{}",
+                queue::QUEUE_EXCLUSIVE_PREFIX,
+                twerk_core::uuid::new_short_uuid()
+            );
             b.subscribe_with_binding(
                 "amq.topic",
                 &pattern,
@@ -363,8 +421,14 @@ impl Broker for RabbitMQBroker {
         let b = self.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&part)?;
-            b.publish_raw("", queue::QUEUE_TASK_LOG_PART, data, MSG_TYPE_TASK_LOG_PART, 0)
-                .await
+            b.publish_raw(
+                "",
+                queue::QUEUE_TASK_LOG_PART,
+                data,
+                MSG_TYPE_TASK_LOG_PART,
+                0,
+            )
+            .await
         })
     }
 
@@ -427,7 +491,12 @@ impl Broker for RabbitMQBroker {
             if let Some(mgmt_url) = &b.management_url {
                 let client = reqwest::Client::new();
                 let url = format!("{}/api/queues/%2f/{}", mgmt_url, qname);
-                let q = client.get(&url).send().await?.json::<serde_json::Value>().await?;
+                let q = client
+                    .get(&url)
+                    .send()
+                    .await?
+                    .json::<serde_json::Value>()
+                    .await?;
                 let name = q["name"].as_str().map_or(String::new(), |s| s.to_string());
                 let size = q["messages"].as_i64().map_or(0, |v| v) as i32;
                 let subscribers = q["consumers"].as_i64().map_or(0, |v| v) as i32;

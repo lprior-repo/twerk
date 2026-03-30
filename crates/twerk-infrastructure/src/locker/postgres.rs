@@ -396,7 +396,9 @@ impl Locker for PostgresLocker {
             // Get these before consuming pooled
             let pool_ref = pooled.pool_ref();
             let created_at = pooled.created_at;
-            let client = pooled.take_client().ok_or_else(|| LockError::Connection("no client in pool".to_string()))?;
+            let client = pooled
+                .take_client()
+                .ok_or_else(|| LockError::Connection("no client in pool".to_string()))?;
 
             acquire_advisory_lock(key, key_hash, client, pool_ref, created_at)
         });
@@ -498,7 +500,6 @@ mod tests {
     #[ignore = "requires postgres"]
     #[allow(clippy::expect_used)]
     async fn test_postgres_locker_acquire_lock_returns_error_when_locked() {
-
         let dsn = "postgres://twerk:twerk@localhost:5432/twerk";
         let locker = PostgresLocker::new(dsn)
             .await

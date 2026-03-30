@@ -28,8 +28,11 @@ pub use twerk_infrastructure::locker::LockError;
 pub use twerk_infrastructure::locker::{LOCKER_INMEMORY, LOCKER_POSTGRES};
 
 /// Boxed future for locker operations
-pub type BoxedFuture<T> =
-    Pin<Box<dyn std::future::Future<Output = Result<T, twerk_infrastructure::locker::LockError>> + Send>>;
+pub type BoxedFuture<T> = Pin<
+    Box<
+        dyn std::future::Future<Output = Result<T, twerk_infrastructure::locker::LockError>> + Send,
+    >,
+>;
 
 /// Default DSN for PostgreSQL connections (matches Go default)
 const DEFAULT_POSTGRES_DSN: &str =
@@ -86,9 +89,10 @@ pub async fn create_locker(
                 .conn_max_lifetime(lifetime)
                 .conn_max_idle_time(idle_time);
 
-            let pg_locker = twerk_infrastructure::locker::postgres::PostgresLocker::with_options(&dsn, opts)
-                .await
-                .map_err(|e| anyhow::anyhow!("unable to connect to postgres locker: {}", e))?;
+            let pg_locker =
+                twerk_infrastructure::locker::postgres::PostgresLocker::with_options(&dsn, opts)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("unable to connect to postgres locker: {}", e))?;
 
             Ok(Box::new(pg_locker))
         }

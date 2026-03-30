@@ -58,7 +58,11 @@ pub async fn http_log_middleware(
     let path = uri.path().to_string();
     let pattern = format!("{} {}", method.as_str(), path);
 
-    if config.skip_paths.iter().any(|p| wildcard_match(p, &pattern)) {
+    if config
+        .skip_paths
+        .iter()
+        .any(|p| wildcard_match(p, &pattern))
+    {
         return next.run(request).await;
     }
 
@@ -68,7 +72,8 @@ pub async fn http_log_middleware(
         .get("X-Forwarded-For")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.split(',').next())
-        .map(str::trim).map_or_else(|| "unknown".to_string(), std::string::ToString::to_string);
+        .map(str::trim)
+        .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string);
 
     let span = tracing::info_span!(
         "http_request",
@@ -118,17 +123,21 @@ pub fn create_web_middlewares(
     Option<HttpLogConfig>,
 ) {
     let cors = config::bool("middleware.web.cors.enabled").then(cors_layer);
-    let basic_auth = config::bool("middleware.web.basicauth.enabled").then(|| BasicAuthConfig::new(datastore));
-    let key_auth = config::bool("middleware.web.keyauth.enabled").then(|| KeyAuthConfig::new(config::string_default("middleware.web.keyauth.key", "")));
+    let basic_auth =
+        config::bool("middleware.web.basicauth.enabled").then(|| BasicAuthConfig::new(datastore));
+    let key_auth = config::bool("middleware.web.keyauth.enabled")
+        .then(|| KeyAuthConfig::new(config::string_default("middleware.web.keyauth.key", "")));
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let rate_limit = config::bool("middleware.web.ratelimit.enabled").then(|| RateLimitConfig::new(config::int_default("middleware.web.ratelimit.rps", 20) as u32));
-    let body_limit = parse_body_limit(&config::string_default("middleware.web.bodylimit", "500K")).map(BodyLimitConfig::new);
-    let http_log = config::bool_default("middleware.web.logger.enabled", true).then(|| {
-        HttpLogConfig {
+    let rate_limit = config::bool("middleware.web.ratelimit.enabled").then(|| {
+        RateLimitConfig::new(config::int_default("middleware.web.ratelimit.rps", 20) as u32)
+    });
+    let body_limit = parse_body_limit(&config::string_default("middleware.web.bodylimit", "500K"))
+        .map(BodyLimitConfig::new);
+    let http_log =
+        config::bool_default("middleware.web.logger.enabled", true).then(|| HttpLogConfig {
             level: config::string_default("middleware.web.logger.level", "DEBUG"),
             skip_paths: config::strings_default("middleware.web.logger.skip", &["GET /health"]),
-        }
-    });
+        });
 
     (cors, basic_auth, key_auth, rate_limit, body_limit, http_log)
 }

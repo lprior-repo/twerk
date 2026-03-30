@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use dashmap::DashMap;
 use std::process::{ExitCode, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
@@ -6,17 +7,25 @@ use tokio::process::Command;
 use tokio::time::interval;
 use twerk_core::task::{Task, TASK_STATE_ACTIVE};
 use twerk_infrastructure::broker::Broker;
-use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult};
-use dashmap::DashMap;
+use twerk_infrastructure::runtime::{
+    BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult,
+};
 
 // Module-level function to avoid lifetime issues with associated functions
 // Module-level function to avoid lifetime issues with associated functions
-fn terminate_process(pid: u32, graceful_timeout: u64, _force_timeout: u64) -> ShutdownResult<ExitCode> {
+fn terminate_process(
+    pid: u32,
+    graceful_timeout: u64,
+    _force_timeout: u64,
+) -> ShutdownResult<ExitCode> {
     use nix::sys::signal::{self, Signal};
     use nix::unistd::Pid;
 
     if pid == 0 {
-        return Err(ShutdownError::ProcessNotFound(format!("invalid pid: {}", pid)));
+        return Err(ShutdownError::ProcessNotFound(format!(
+            "invalid pid: {}",
+            pid
+        )));
     }
 
     let pid = Pid::from_raw(pid as i32);
@@ -133,24 +142,20 @@ pub struct ShellRuntimeAdapter {
 
 impl ShellRuntimeAdapter {
     #[must_use]
-    pub fn new(cmd: Vec<String>, uid: String, gid: String, broker: Option<Arc<dyn Broker>>) -> Self {
+    pub fn new(
+        cmd: Vec<String>,
+        uid: String,
+        gid: String,
+        broker: Option<Arc<dyn Broker>>,
+    ) -> Self {
         Self {
             config: ShellRuntimeConfig {
                 cmd,
                 uid,
                 gid,
-                graceful_timeout: Self::read_timeout_env(
-                    "TASK_STOP_GRACEFUL_TIMEOUT",
-                    30,
-                ),
-                force_timeout: Self::read_timeout_env(
-                    "TASK_STOP_FORCE_TIMEOUT",
-                    5,
-                ),
-                enable_cleanup: Self::read_cleanup_env(
-                    "TASK_STOP_ENABLE_CLEANUP",
-                    true,
-                ),
+                graceful_timeout: Self::read_timeout_env("TASK_STOP_GRACEFUL_TIMEOUT", 30),
+                force_timeout: Self::read_timeout_env("TASK_STOP_FORCE_TIMEOUT", 5),
+                enable_cleanup: Self::read_cleanup_env("TASK_STOP_ENABLE_CLEANUP", true),
             },
             active_processes: Arc::new(DashMap::new()),
             temp_dirs: Arc::new(DashMap::new()),
@@ -166,7 +171,10 @@ impl ShellRuntimeAdapter {
     }
 
     fn read_cleanup_env(key: &str, default: bool) -> bool {
-        match std::env::var(key).ok().map(|v| v.to_lowercase() == "true" || v == "1") {
+        match std::env::var(key)
+            .ok()
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+        {
             Some(val) => val,
             None => default,
         }
@@ -188,8 +196,7 @@ impl ShellRuntimeAdapter {
 
         Ok(())
     }
-
- }
+}
 
 impl RuntimeTrait for ShellRuntimeAdapter {
     fn run(&self, task: &Task) -> BoxedFuture<()> {
@@ -341,11 +348,8 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             };
 
             // Terminate the process
-            let exit_code = terminate_process(
-                handle.pid,
-                config.graceful_timeout,
-                config.force_timeout,
-            )?;
+            let exit_code =
+                terminate_process(handle.pid, config.graceful_timeout, config.force_timeout)?;
 
             // Remove from active processes map
             active_processes.remove(task_id_str.as_str());

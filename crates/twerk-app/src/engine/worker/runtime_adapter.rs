@@ -1,12 +1,12 @@
+use crate::engine::worker::docker::DockerRuntimeAdapter;
+use crate::engine::worker::mounter::{BindConfig, BindMounter, TmpfsMounter, VolumeMounter};
+use crate::engine::worker::podman::PodmanRuntimeAdapter;
+use crate::engine::worker::shell::ShellRuntimeAdapter;
 use anyhow::{anyhow, Result};
 use std::process::ExitCode;
 use std::sync::Arc;
-use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait, ShutdownResult};
-use crate::engine::worker::mounter::{BindConfig, BindMounter, TmpfsMounter, VolumeMounter};
-use crate::engine::worker::docker::DockerRuntimeAdapter;
-use crate::engine::worker::shell::ShellRuntimeAdapter;
-use crate::engine::worker::podman::PodmanRuntimeAdapter;
 use twerk_core::task::Task;
+use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait, ShutdownResult};
 
 pub mod runtime_type {
     pub const DOCKER: &str = "docker";
@@ -51,7 +51,12 @@ pub async fn create_runtime_from_config(
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
                 .map_err(|e| anyhow!("{e}"))?;
             let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
-            Ok(Box::new(DockerRuntimeAdapter::new(config.docker_privileged, config.docker_image_ttl_secs, Arc::new(m), Arc::new(broker))))
+            Ok(Box::new(DockerRuntimeAdapter::new(
+                config.docker_privileged,
+                config.docker_image_ttl_secs,
+                Arc::new(m),
+                Arc::new(broker),
+            )))
         }
         runtime_type::SHELL => {
             let broker = twerk_infrastructure::broker::inmemory::InMemoryBroker::new();
@@ -90,8 +95,7 @@ pub fn read_runtime_config() -> RuntimeConfig {
 }
 
 fn config_string(k: &str) -> String {
-    std::env::var(format!("TWERK_{}", k.to_uppercase().replace('.', "_")))
-        .unwrap_or_default()
+    std::env::var(format!("TWERK_{}", k.to_uppercase().replace('.', "_"))).unwrap_or_default()
 }
 
 fn config_string_default(k: &str, d: &str) -> String {
@@ -119,9 +123,7 @@ fn config_strings(k: &str) -> Vec<String> {
             .filter(|s| !s.is_empty())
             .collect()
     } else {
-        v.split(',')
-            .map(|s| s.trim().to_string())
-            .collect()
+        v.split(',').map(|s| s.trim().to_string()).collect()
     }
 }
 
@@ -138,7 +140,10 @@ impl RuntimeTrait for MockRuntime {
         Box::pin(async { Ok(()) })
     }
 
-   fn stop(&self, _task: &Task) -> twerk_infrastructure::runtime::BoxedFuture<ShutdownResult<ExitCode>> {
+    fn stop(
+        &self,
+        _task: &Task,
+    ) -> twerk_infrastructure::runtime::BoxedFuture<ShutdownResult<ExitCode>> {
         // Mock stop is idempotent - always returns success
         Box::pin(async { Ok(Ok(std::process::ExitCode::SUCCESS)) })
     }

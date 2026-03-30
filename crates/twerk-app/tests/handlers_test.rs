@@ -230,7 +230,10 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let result = handlers::handle_log_part(ds, b, log_part.clone()).await;
     assert!(result.is_ok());
 
-    let parts = datastore.clone_inner().get_task_log_parts(task_id, "", 1, 10).await?;
+    let parts = datastore
+        .clone_inner()
+        .get_task_log_parts(task_id, "", 1, 10)
+        .await?;
     assert_eq!(parts.items.len(), 1);
     assert_eq!(parts.items[0].contents, Some("First log line".to_string()));
 
@@ -273,7 +276,10 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
         assert!(result.is_ok());
     }
 
-    let parts = datastore.clone_inner().get_task_log_parts(task_id, "", 1, 10).await?;
+    let parts = datastore
+        .clone_inner()
+        .get_task_log_parts(task_id, "", 1, 10)
+        .await?;
     assert_eq!(parts.items.len(), 3);
 
     Ok(())

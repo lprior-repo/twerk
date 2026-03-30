@@ -96,7 +96,7 @@ impl HostEnv {
     }
 
     /// Returns the middleware function for injecting host environment variables.
-    #[must_use] 
+    #[must_use]
     pub fn middleware(&self) -> TaskMiddlewareFunc {
         let vars = self.vars.clone();
         Arc::new(move |next: TaskHandlerFunc| {
@@ -114,7 +114,7 @@ impl HostEnv {
 }
 
 /// Creates a hostenv middleware from configuration, if any variables are defined.
-#[must_use] 
+#[must_use]
 pub fn create_hostenv_middleware_from_config() -> Option<TaskMiddlewareFunc> {
     let vars = config::strings_default("middleware.task.hostenv.vars", &[]);
     if vars.is_empty() {

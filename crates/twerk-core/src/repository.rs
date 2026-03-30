@@ -89,7 +89,11 @@ pub struct Page<T> {
 pub trait Repository: Send + Sync {
     // Task operations
     async fn create_task(&self, task: &Task) -> Result<()>;
-    async fn update_task(&self, id: &str, modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>) -> Result<()>;
+    async fn update_task(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,
+    ) -> Result<()>;
     async fn get_task_by_id(&self, id: &str) -> Result<Task>;
     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>>;
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task>;
@@ -104,13 +108,21 @@ pub trait Repository: Send + Sync {
 
     // Node operations
     async fn create_node(&self, node: &Node) -> Result<()>;
-    async fn update_node(&self, id: &str, modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>) -> Result<()>;
+    async fn update_node(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>,
+    ) -> Result<()>;
     async fn get_node_by_id(&self, id: &str) -> Result<Node>;
     async fn get_active_nodes(&self) -> Result<Vec<Node>>;
 
     // Job operations
     async fn create_job(&self, job: &Job) -> Result<()>;
-    async fn update_job(&self, id: &str, modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>) -> Result<()>;
+    async fn update_job(
+        &self,
+        id: &str,
+        modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,
+    ) -> Result<()>;
     async fn get_job_by_id(&self, id: &str) -> Result<Job>;
     async fn get_job_log_parts(
         &self,
@@ -160,7 +172,12 @@ pub trait Repository: Send + Sync {
 
     async fn with_tx(
         &self,
-        f: Box<dyn for<'a> FnOnce(&'a dyn Repository) -> futures_util::future::BoxFuture<'a, Result<()>> + Send>,
+        f: Box<
+            dyn for<'a> FnOnce(
+                    &'a dyn Repository,
+                ) -> futures_util::future::BoxFuture<'a, Result<()>>
+                + Send,
+        >,
     ) -> Result<()>;
 
     // Health check

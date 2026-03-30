@@ -12,8 +12,8 @@ use anyhow::Result;
 use std::sync::Arc;
 use twerk_core::job::Job;
 use twerk_core::task::{Task, TaskSummary};
-use twerk_infrastructure::datastore::Datastore;
 use twerk_core::webhook::{self, Webhook};
+use twerk_infrastructure::datastore::Datastore;
 
 // ── Actions ───────────────────────────────────────────────────
 
@@ -22,15 +22,14 @@ use twerk_core::webhook::{self, Webhook};
 /// This is an **Action** that spawns background tasks for network calls.
 pub fn fire_job_webhooks(job: &Job, event: &str) {
     let event = event.to_string();
-    
+
     // Pure Calculation: Filter webhooks that match the event
-    let matching_webhooks = job.webhooks.as_ref()
-        .map_or_else(Vec::new, |whs| {
-            whs.iter()
-                .filter(|wh| wh.event.as_deref().is_some_and(|e| e == event))
-                .cloned()
-                .collect::<Vec<_>>()
-        });
+    let matching_webhooks = job.webhooks.as_ref().map_or_else(Vec::new, |whs| {
+        whs.iter()
+            .filter(|wh| wh.event.as_deref().is_some_and(|e| e == event))
+            .cloned()
+            .collect::<Vec<_>>()
+    });
 
     // Action: Spawn blocking tasks for network calls
     let job_clone = job.clone();
@@ -55,7 +54,9 @@ pub fn fire_job_webhooks(job: &Job, event: &str) {
 /// # Errors
 /// Returns error if the datastore query fails.
 pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str) -> Result<()> {
-    let job_id = task.job_id.as_ref()
+    let job_id = task
+        .job_id
+        .as_ref()
         .map(std::string::ToString::to_string)
         .ok_or_else(|| anyhow::anyhow!("task has no job_id"))?;
 
@@ -63,13 +64,12 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
     let event = event.to_string();
 
     // Pure Calculation: Filter webhooks and create summary
-    let matching_webhooks = job.webhooks.as_ref()
-        .map_or_else(Vec::new, |whs| {
-            whs.iter()
-                .filter(|wh| wh.event.as_deref().is_some_and(|e| e == event))
-                .cloned()
-                .collect::<Vec<_>>()
-        });
+    let matching_webhooks = job.webhooks.as_ref().map_or_else(Vec::new, |whs| {
+        whs.iter()
+            .filter(|wh| wh.event.as_deref().is_some_and(|e| e == event))
+            .cloned()
+            .collect::<Vec<_>>()
+    });
 
     if matching_webhooks.is_empty() {
         return Ok(());

@@ -5,6 +5,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
+use crate::engine::coordinator::utils::{base64_decode, check_password_hash, wildcard_match};
 use anyhow::Result;
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
@@ -13,7 +14,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use tracing::error;
-use crate::engine::coordinator::utils::{base64_decode, check_password_hash, wildcard_match};
 pub use twerk_core::user::UsernameValue;
 
 // ── Basic Authentication ───────────────────────────────────────
@@ -44,9 +44,7 @@ pub async fn basic_auth_middleware(
         .and_then(|v| v.to_str().ok());
 
     let credentials = auth_header
-        .and_then(|header_value| {
-            header_value.strip_prefix("Basic ")
-        })
+        .and_then(|header_value| header_value.strip_prefix("Basic "))
         .and_then(base64_decode)
         .and_then(|decoded| {
             let parts: Vec<&str> = decoded.splitn(2, ':').collect();
@@ -63,7 +61,9 @@ pub async fn basic_auth_middleware(
 
     let user = match config.datastore.get_user(&username).await {
         Ok(u) => u,
-        Err(twerk_infrastructure::datastore::Error::UserNotFound) => return Err(StatusCode::UNAUTHORIZED),
+        Err(twerk_infrastructure::datastore::Error::UserNotFound) => {
+            return Err(StatusCode::UNAUTHORIZED)
+        }
         Err(e) => {
             error!("error getting user: {}", e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -120,7 +120,11 @@ pub async fn key_auth_middleware(
     let path = request.uri().path();
     let pattern = format!("{method} {path}");
 
-    if config.skip_paths.iter().any(|p| wildcard_match(p, &pattern)) {
+    if config
+        .skip_paths
+        .iter()
+        .any(|p| wildcard_match(p, &pattern))
+    {
         return Ok(next.run(request).await);
     }
 
@@ -131,9 +135,8 @@ pub async fn key_auth_middleware(
         .map(String::from)
         .or_else(|| {
             request.uri().query().and_then(|q| {
-                q.split('&').find_map(|pair| {
-                    pair.strip_prefix("api_key=").map(String::from)
-                })
+                q.split('&')
+                    .find_map(|pair| pair.strip_prefix("api_key=").map(String::from))
             })
         });
 

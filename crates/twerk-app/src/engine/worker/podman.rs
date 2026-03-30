@@ -1,12 +1,16 @@
 use anyhow::anyhow;
+use dashmap::DashMap;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
 use twerk_core::task::Task;
 use twerk_core::task::TASK_STATE_ACTIVE;
-use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult, ENV_TASK_STOP_GRACEFUL_TIMEOUT, ENV_TASK_STOP_FORCE_TIMEOUT, ENV_TASK_STOP_ENABLE_CLEANUP, DEFAULT_GRACEFUL_TIMEOUT, DEFAULT_FORCE_TIMEOUT};
-use dashmap::DashMap;
+use twerk_infrastructure::runtime::{
+    BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult, DEFAULT_FORCE_TIMEOUT,
+    DEFAULT_GRACEFUL_TIMEOUT, ENV_TASK_STOP_ENABLE_CLEANUP, ENV_TASK_STOP_FORCE_TIMEOUT,
+    ENV_TASK_STOP_GRACEFUL_TIMEOUT,
+};
 
 // Container handle to track running containers
 #[derive(Debug, Clone)]
@@ -59,8 +63,14 @@ impl PodmanRuntimeAdapter {
             config: PodmanRuntimeConfig {
                 privileged,
                 host_network,
-                graceful_timeout: Self::read_timeout_env(ENV_TASK_STOP_GRACEFUL_TIMEOUT, DEFAULT_GRACEFUL_TIMEOUT),
-                force_timeout: Self::read_timeout_env(ENV_TASK_STOP_FORCE_TIMEOUT, DEFAULT_FORCE_TIMEOUT),
+                graceful_timeout: Self::read_timeout_env(
+                    ENV_TASK_STOP_GRACEFUL_TIMEOUT,
+                    DEFAULT_GRACEFUL_TIMEOUT,
+                ),
+                force_timeout: Self::read_timeout_env(
+                    ENV_TASK_STOP_FORCE_TIMEOUT,
+                    DEFAULT_FORCE_TIMEOUT,
+                ),
                 enable_cleanup: Self::read_cleanup_env(ENV_TASK_STOP_ENABLE_CLEANUP, true),
             },
             active_containers: Arc::new(DashMap::new()),
@@ -75,7 +85,10 @@ impl PodmanRuntimeAdapter {
     }
 
     fn read_cleanup_env(key: &str, default: bool) -> bool {
-        match std::env::var(key).ok().map(|v| v.to_lowercase() == "true" || v == "1") {
+        match std::env::var(key)
+            .ok()
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+        {
             Some(val) => val,
             None => default,
         }
@@ -86,7 +99,7 @@ impl PodmanRuntimeAdapter {
         // Check for empty task ID
         if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
-                task.id.clone().unwrap_or_default().to_string()
+                task.id.clone().unwrap_or_default().to_string(),
             ));
         }
 
@@ -110,7 +123,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
             task.workdir.clone(),
             task.env.clone(),
         );
-        
+
         Box::pin(async move {
             if tid.is_empty() || img.is_empty() {
                 return Err(anyhow!("id and image required"));
@@ -118,8 +131,12 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
 
             let mut c = Command::new("podman");
             c.arg("run");
-            if p { c.arg("--privileged"); }
-            if h { c.arg("--network").arg("host"); }
+            if p {
+                c.arg("--privileged");
+            }
+            if h {
+                c.arg("--network").arg("host");
+            }
             c.arg(&img);
             if let Some(ref a) = cmd {
                 for arg in a {
@@ -175,7 +192,9 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
             };
 
             // Stop the container
-            let exit_code = Self::stop_container(&handle, config.graceful_timeout, config.force_timeout).await?;
+            let exit_code =
+                Self::stop_container(&handle, config.graceful_timeout, config.force_timeout)
+                    .await?;
 
             // Remove from active containers map
             active_containers.remove(task_id_str.as_str());
@@ -204,7 +223,7 @@ impl PodmanRuntimeAdapter {
 
         // Stop container gracefully with timeout
         let stop_timeout = Duration::from_secs(graceful_timeout);
-        
+
         let mut stop_cmd = Command::new("podman");
         stop_cmd
             .arg("stop")
@@ -221,7 +240,8 @@ impl PodmanRuntimeAdapter {
                     Ok(ExitCode::SUCCESS)
                 } else {
                     // Container stop failed, try force remove
-                    let exit_code = Self::force_remove_container(container_id, force_timeout).await?;
+                    let exit_code =
+                        Self::force_remove_container(container_id, force_timeout).await?;
                     Ok(exit_code)
                 }
             }
@@ -245,10 +265,7 @@ impl PodmanRuntimeAdapter {
         let remove_timeout = Duration::from_secs(force_timeout);
 
         let mut remove_cmd = Command::new("podman");
-        remove_cmd
-            .arg("rm")
-            .arg("--force")
-            .arg(container_id);
+        remove_cmd.arg("rm").arg("--force").arg(container_id);
 
         let remove_result = tokio::time::timeout(remove_timeout, remove_cmd.output()).await;
 
@@ -263,15 +280,11 @@ impl PodmanRuntimeAdapter {
                     )))
                 }
             }
-            Ok(Err(e)) => {
-                Err(ShutdownError::TerminationFailed(format!(
-                    "failed to execute podman rm: {}",
-                    e
-                )))
-            }
-            Err(_) => {
-                Err(ShutdownError::ShutdownTimeout(force_timeout))
-            }
+            Ok(Err(e)) => Err(ShutdownError::TerminationFailed(format!(
+                "failed to execute podman rm: {}",
+                e
+            ))),
+            Err(_) => Err(ShutdownError::ShutdownTimeout(force_timeout)),
         }
     }
 
@@ -311,7 +324,7 @@ mod tests {
     fn test_validate_task_empty_id() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("", "RUNNING");
-        
+
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::InvalidTaskId(_))));
     }
@@ -320,7 +333,7 @@ mod tests {
     fn test_validate_task_completed_state() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("task-1", "COMPLETED");
-        
+
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));
     }
@@ -329,7 +342,7 @@ mod tests {
     fn test_validate_task_running_state() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("task-1", "RUNNING");
-        
+
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(result.is_ok());
     }

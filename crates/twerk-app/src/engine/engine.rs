@@ -3,14 +3,13 @@
 use super::broker::BrokerProxy;
 use super::coordinator::create_coordinator;
 use super::datastore::DatastoreProxy;
-use super::engine_helpers::{MockRuntime, resolve_locker_type};
+use super::engine_helpers::{resolve_locker_type, MockRuntime};
 use super::locker::create_locker;
 use super::signals::await_signal_or_channel;
 use super::state::{Mode, State};
 use super::types::{
-    Config, EndpointHandler, JobListener, LogMiddlewareFunc,
-    Middleware, NodeMiddlewareFunc, TaskMiddlewareFunc,
-    WebMiddlewareFunc, JobMiddlewareFunc,
+    Config, EndpointHandler, JobListener, JobMiddlewareFunc, LogMiddlewareFunc, Middleware,
+    NodeMiddlewareFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 use super::worker::create_worker;
 use anyhow::{anyhow, Result};
@@ -228,20 +227,22 @@ impl Engine {
 
         // Spawn signal handler task
         tokio::spawn(async move {
-            let sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGINT: {e}");
-                    None
-                }
-            };
-            let sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGTERM: {e}");
-                    None
-                }
-            };
+            let sigint =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGINT: {e}");
+                        None
+                    }
+                };
+            let sigterm =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGTERM: {e}");
+                        None
+                    }
+                };
             let terminate_rx = {
                 let terminated_tx = terminated_tx_clone.read().await;
                 match terminated_tx.as_ref() {
@@ -298,20 +299,22 @@ impl Engine {
 
         // Spawn signal handler task
         tokio::spawn(async move {
-            let sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGINT: {e}");
-                    None
-                }
-            };
-            let sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGTERM: {e}");
-                    None
-                }
-            };
+            let sigint =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGINT: {e}");
+                        None
+                    }
+                };
+            let sigterm =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGTERM: {e}");
+                        None
+                    }
+                };
             let terminate_rx = {
                 let terminated_tx = terminated_tx_clone.read().await;
                 match terminated_tx.as_ref() {
@@ -379,20 +382,22 @@ impl Engine {
 
         // Spawn signal handler task
         tokio::spawn(async move {
-            let sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGINT: {e}");
-                    None
-                }
-            };
-            let sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to register SIGTERM: {e}");
-                    None
-                }
-            };
+            let sigint =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGINT: {e}");
+                        None
+                    }
+                };
+            let sigterm =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        error!("Failed to register SIGTERM: {e}");
+                        None
+                    }
+                };
             let terminate_rx = {
                 let terminated_tx = terminated_tx_clone.read().await;
                 match terminated_tx.as_ref() {

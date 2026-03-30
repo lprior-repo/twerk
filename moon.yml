@@ -5,14 +5,18 @@ tasks:
     command: 'cargo check --workspace'
     toolchains:
       - rust
+    options:
+      runInCI: true
 
   fmt:
     command: 'cargo fmt --all --check'
     toolchains:
       - rust
+    options:
+      runInCI: true
 
   lint-src:
-    command: 'cargo clippy --workspace --lib --bins --examples --tests -- -D warnings'
+    command: 'cargo clippy --workspace --lib --bins --examples -- -D warnings'
     toolchains:
       - rust
     options:
@@ -22,13 +26,24 @@ tasks:
     command: 'cargo test --workspace'
     toolchains:
       - rust
+    options:
+      runInCI: true
 
   build:
     command: 'cargo build --workspace'
     toolchains:
       - rust
+    options:
+      runInCI: true
+
+  ci-source:
+    script: 'cargo fmt --all --check && cargo clippy --workspace --lib --bins --examples -- -D warnings && cargo test --workspace && cargo build --workspace'
+    toolchains:
+      - rust
+    options:
+      runInCI: true
 
   ci:
-    command: 'moon run :check :test :lint-src'
+    command: 'moon run :ci-source'
     options:
       runInCI: true

@@ -7,24 +7,27 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{LazyLock, Mutex};
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
-
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 /// Type alias for the initializer function type.
 type Initializer = fn();
 
 /// Global registry of registered initializers.
 #[allow(clippy::type_complexity)]
-static REGISTERED_INITIALIZERS: Lazy<Mutex<HashMap<String, Initializer>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static REGISTERED_INITIALIZERS: LazyLock<Mutex<HashMap<String, Initializer>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Registers an initialization function under the specified name.
 ///
 /// If a handler is already registered under the given name, an error is returned.
+///
+/// # Errors
+///
+/// Returns [`ReexecError::LockError`] when the registry lock is poisoned and
+/// [`ReexecError::AlreadyRegistered`] when a handler already exists for `name`.
 #[allow(non_snake_case)]
 pub fn Register(name: &str, initializer: Initializer) -> Result<(), ReexecError> {
     let mut initializers = REGISTERED_INITIALIZERS
@@ -44,11 +47,10 @@ pub fn Register(name: &str, initializer: Initializer) -> Result<(), ReexecError>
 #[allow(non_snake_case)]
 pub fn Init() -> bool {
     let args: Vec<String> = env::args().collect();
-    let argv0 = args.first().map(|s| s.as_str()).unwrap_or("");
+    let argv0 = args.first().map_or("", String::as_str);
 
-    let initializers = match REGISTERED_INITIALIZERS.lock() {
-        Ok(guards) => guards,
-        Err(_) => return false,
+    let Ok(initializers) = REGISTERED_INITIALIZERS.lock() else {
+        return false;
     };
 
     if let Some(&initializer) = initializers.get(argv0) {
@@ -82,6 +84,7 @@ pub fn naive_self() -> String {
 /// Returns the path to the current process's binary.
 /// Uses `/proc/self/exe` on Linux, falls back to `naive_self()` elsewhere.
 #[cfg(target_os = "linux")]
+#[must_use]
 pub fn self_path() -> String {
     "/proc/self/exe".to_string()
 }
@@ -89,12 +92,14 @@ pub fn self_path() -> String {
 /// Returns the path to the current process's binary.
 /// Uses `naive_self()` on non-Linux Unix systems.
 #[cfg(all(unix, not(target_os = "linux")))]
+#[must_use]
 pub fn self_path() -> String {
     naive_self()
 }
 
 /// Returns an empty string on unsupported platforms.
 #[cfg(not(unix))]
+#[must_use]
 pub fn self_path() -> String {
     String::new()
 }
@@ -102,6 +107,7 @@ pub fn self_path() -> String {
 /// Creates a `Command` that points to the current process's binary.
 /// On Linux, sets `pdeathsig` to `SIGTERM`.
 #[cfg(target_os = "linux")]
+#[must_use]
 pub fn command(args: &[String]) -> Command {
     let mut cmd = Command::new(self_path());
     cmd.args(args);
@@ -121,6 +127,7 @@ pub fn command(args: &[String]) -> Command {
 /// Creates a `Command` that points to the current process's binary.
 /// On non-Linux Unix systems, no special handling is applied.
 #[cfg(all(unix, not(target_os = "linux")))]
+#[must_use]
 pub fn command(args: &[String]) -> Command {
     let mut cmd = Command::new(self_path());
     cmd.args(args);

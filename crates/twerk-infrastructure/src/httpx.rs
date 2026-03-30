@@ -83,11 +83,24 @@ pub async fn start_async(
         .map_err(|_| HttpxError::InvalidAddress(address.clone()))?;
 
     // Create the TCP listener first
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .map_err(|e| HttpxError::ServerError(e.to_string()))?;
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(listener) => listener,
+        Err(bind_error) => {
+            for _ in 0..config.max_attempts {
+                if can_connect(&address) {
+                    return Err(HttpxError::ServerError(bind_error.to_string()));
+                }
 
-    let actual_addr = listener.local_addr().map_err(|e| HttpxError::ServerError(e.to_string()))?;
+                sleep(config.delay).await;
+            }
+
+            return Err(HttpxError::ConnectionTimeout(config.max_attempts));
+        }
+    };
+
+    let actual_addr = listener
+        .local_addr()
+        .map_err(|e| HttpxError::ServerError(e.to_string()))?;
 
     // Channel to capture server errors
     let (err_sender, mut err_receiver) = tokio::sync::mpsc::channel::<HttpxError>(1);
@@ -97,7 +110,9 @@ pub async fn start_async(
         let server = axum::serve(listener, router);
 
         if let Err(e) = server.await {
-            let _ = err_sender.send(HttpxError::ServerError(e.to_string())).await;
+            let _ = err_sender
+                .send(HttpxError::ServerError(e.to_string()))
+                .await;
         }
     });
 
@@ -201,7 +216,9 @@ mod tests {
         let addr_str = format!("{}", addr);
 
         // Start a TCP listener
-        let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind");
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .expect("failed to bind");
 
         // Should be able to connect now
         assert!(can_connect(&addr_str));

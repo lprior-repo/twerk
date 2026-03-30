@@ -51,13 +51,13 @@ pub fn wildcard_match(pattern: &str, s: &str) -> bool {
     dp[lp * (ls + 1) + ls]
 }
 
-/// Alias for wildcard_match for Go parity
+/// Alias for `wildcard_match` for Go parity.
 #[must_use]
 pub fn match_pattern(pattern: &str, s: &str) -> bool {
     wildcard_match(pattern, s)
 }
 
-/// Match is an alias for wildcard_match (Go's Match -> Rust's match)
+/// Match is an alias for `wildcard_match` (Go's `Match` -> Rust's `match`).
 #[must_use]
 pub fn match_wildcard(pattern: &str, s: &str) -> bool {
     wildcard_match(pattern, s)

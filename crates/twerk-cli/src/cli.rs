@@ -2,16 +2,17 @@
 //!
 //! Orchestrates the CLI: parses arguments, displays banner, and dispatches commands.
 
-use std::env;
+use std::ffi::OsString;
+use std::io::Write;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use config::{Config, Environment};
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use twerk_infrastructure::reexec;
 
 use super::banner::{display_banner, BannerMode};
-use super::commands::Commands;
+use super::commands::{Cli, Commands};
 use super::error::CliError;
 use super::health::health_check;
 use super::migrate::{run_migration, DEFAULT_POSTGRES_DSN};
@@ -28,6 +29,13 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Git commit hash (placeholder - would be set by build script in production)
 pub const GIT_COMMIT: &str = "unknown";
+
+/// Parsed top-level CLI action.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CliAction {
+    ShowHelp,
+    Execute(Commands),
+}
 
 /// Get the current git commit hash at runtime
 ///
@@ -65,9 +73,13 @@ pub fn setup_logging() -> Result<(), CliError> {
 
 /// Get banner mode from configuration
 fn get_banner_mode() -> BannerMode {
-    get_config_string("cli.banner.mode")
-        .map(|s| BannerMode::from_str(&s))
-        .unwrap_or_default()
+    std::env::var("TWERK_CLI_BANNER_MODE").ok().map_or_else(
+        || {
+            get_config_string("cli.banner.mode")
+                .map_or_else(BannerMode::default, |value| BannerMode::from_str(&value))
+        },
+        |value| BannerMode::from_str(&value),
+    )
 }
 
 /// Get endpoint from configuration or default
@@ -103,6 +115,28 @@ fn get_config_string(key: &str) -> Option<String> {
     config.get_string(key).ok()
 }
 
+fn collect_args() -> Vec<OsString> {
+    std::env::args_os().collect()
+}
+
+fn parse_cli_args(args: &[OsString]) -> Result<CliAction, clap::Error> {
+    if args.len() <= 1 {
+        Ok(CliAction::ShowHelp)
+    } else {
+        Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command))
+    }
+}
+
+fn print_help() -> Result<(), CliError> {
+    Cli::command().print_long_help()?;
+    writeln!(std::io::stdout())?;
+    Ok(())
+}
+
+fn exit_for_parse_error(error: clap::Error) -> ! {
+    error.exit()
+}
+
 /// Execute the CLI with the given command
 ///
 /// # Errors
@@ -113,6 +147,22 @@ pub async fn run() -> Result<(), CliError> {
         return Ok(());
     }
 
+    let args = collect_args();
+    let action = match parse_cli_args(&args) {
+        Ok(action) => action,
+        Err(error) => exit_for_parse_error(error),
+    };
+
+    if action == CliAction::ShowHelp {
+        return print_help();
+    }
+
+    let CliAction::Execute(cmd) = action else {
+        return Ok(());
+    };
+
+    // Parse command line arguments before any output side effects.
+
     // Setup logging
     setup_logging()?;
 
@@ -120,12 +170,9 @@ pub async fn run() -> Result<(), CliError> {
     let banner_mode = get_banner_mode();
     display_banner(banner_mode, VERSION, GIT_COMMIT);
 
-    // Parse command line arguments
-    let cmd = Commands::parse();
-
     match cmd {
         Commands::Run { mode } => {
-            run_engine(&mode).await?;
+            run_engine(mode).await?;
         }
         Commands::Migration { yes: _ } => {
             let dstype = get_datastore_type();
@@ -144,6 +191,9 @@ pub async fn run() -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+
+    use clap::error::ErrorKind;
 
     #[test]
     fn test_default_endpoint() {
@@ -188,5 +238,48 @@ mod tests {
         let _pg_dsn = DEFAULT_POSTGRES_DSN;
         let _ver = VERSION;
         let _git = GIT_COMMIT;
+    }
+
+    #[test]
+    fn test_parse_cli_args_without_subcommand_shows_help() {
+        let args = vec![OsString::from("twerk")];
+
+        assert!(matches!(parse_cli_args(&args), Ok(CliAction::ShowHelp)));
+    }
+
+    #[test]
+    fn test_parse_cli_args_for_version_short_circuits() {
+        let args = vec![OsString::from("twerk"), OsString::from("--version")];
+
+        match parse_cli_args(&args) {
+            Ok(_) => unreachable!("expected version flag to short-circuit clap parsing"),
+            Err(error) => assert_eq!(error.kind(), ErrorKind::DisplayVersion),
+        }
+    }
+
+    #[test]
+    fn test_parse_cli_args_for_run_command_executes() {
+        let args = vec![
+            OsString::from("twerk"),
+            OsString::from("run"),
+            OsString::from("coordinator"),
+        ];
+
+        assert!(matches!(
+            parse_cli_args(&args),
+            Ok(CliAction::Execute(Commands::Run {
+                mode: crate::commands::RunMode::Coordinator
+            }))
+        ));
+    }
+
+    #[test]
+    fn test_get_banner_mode_prefers_environment_override() {
+        std::env::set_var("TWERK_CLI_BANNER_MODE", "off");
+
+        let result = get_banner_mode();
+
+        std::env::remove_var("TWERK_CLI_BANNER_MODE");
+        assert_eq!(result, BannerMode::Off);
     }
 }

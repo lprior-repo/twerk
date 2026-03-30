@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_banner_mode_clone() {
         let mode = BannerMode::Log;
-        let cloned = mode.clone();
+        let cloned = mode;
         assert_eq!(mode, cloned);
     }
 }

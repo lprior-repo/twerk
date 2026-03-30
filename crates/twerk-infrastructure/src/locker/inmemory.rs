@@ -110,32 +110,11 @@ impl Locker for InMemoryLocker {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
+#[allow(clippy::panic)]
 mod tests {
     use super::*;
     use super::super::Lock;
-
-    #[tokio::test]
-    async fn test_inmemory_locker_acquire_and_release() {
-        let locker = InMemoryLocker::new();
-        let key = "test_key";
-
-        // First acquisition should succeed
-        let lock = locker
-            .acquire_lock(key)
-            .await
-            .expect("first acquire should succeed");
-        lock.release_lock().await.expect("release should succeed");
-
-        // After release, we should be able to acquire again
-        let lock2 = locker
-            .acquire_lock(key)
-            .await
-            .expect("second acquire should succeed");
-        lock2
-            .release_lock()
-            .await
-            .expect("second release should succeed");
-    }
 
     #[tokio::test]
     async fn test_inmemory_locker_double_acquire_fails() {
@@ -171,11 +150,14 @@ mod tests {
         let lock2 = locker.acquire_lock(key).await;
         assert!(lock2.is_err(), "second acquire should fail");
 
-        lock.release_lock().await.expect("release should succeed");
+        lock.release_lock()
+            .await
+            .expect("release should succeed");
 
         let lock3 = locker.acquire_lock(key).await;
         assert!(lock3.is_ok(), "acquire after release should succeed");
-        lock3.expect("lock should be Some")
+        lock3
+            .expect("lock should be Some")
             .release_lock()
             .await
             .expect("release should succeed");

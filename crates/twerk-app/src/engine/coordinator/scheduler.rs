@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Task scheduler for the coordinator
 
 #![deny(clippy::unwrap_used)]
@@ -542,7 +543,7 @@ mod tests {
         
         let child = ds.tasks.iter().find(|r| r.value().parent_id.is_some());
         assert!(child.is_some());
-        assert_eq!(child.unwrap().value().parent_id, Some(twerk_core::id::TaskId::new("task-parallel-2").into()));
+        assert_eq!(child.unwrap().value().parent_id, Some(twerk_core::id::TaskId::new("task-parallel-2")));
     }
 
     #[tokio::test]
@@ -710,7 +711,7 @@ mod tests {
         task.id = Some(twerk_core::id::TaskId::new("task-dispatch-each"));
         task.each = Some(Box::new(EachTask {
             var: Some("i".to_string()),
-            list: Some(r#"[1, 2]"#.to_string()),
+            list: Some(r"[1, 2]".to_string()),
             task: Some(Box::new(Task {
                 id: None,
                 name: Some("Each Child".to_string()),

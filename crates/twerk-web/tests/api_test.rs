@@ -73,7 +73,7 @@ impl twerk_infrastructure::broker::Broker for FailingHealthBroker {
     fn queues(&self) -> twerk_infrastructure::broker::BoxedFuture<Vec<twerk_infrastructure::broker::QueueInfo>> { self.inner.queues() }
     fn queue_info(&self, qname: String) -> twerk_infrastructure::broker::BoxedFuture<twerk_infrastructure::broker::QueueInfo> { self.inner.queue_info(qname) }
     fn delete_queue(&self, qname: String) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.delete_queue(qname) }
-    fn health_check(&self) -> twerk_infrastructure::broker::BoxedFuture<()> { Box::pin(async { Err(anyhow::anyhow!("broker unhealthy").into()) }) }
+    fn health_check(&self) -> twerk_infrastructure::broker::BoxedFuture<()> { Box::pin(async { Err(anyhow::anyhow!("broker unhealthy")) }) }
     fn shutdown(&self) -> twerk_infrastructure::broker::BoxedFuture<()> { self.inner.shutdown() }
 }
 

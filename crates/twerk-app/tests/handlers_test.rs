@@ -19,6 +19,7 @@ fn to_broker(b: &BrokerProxy) -> Arc<dyn Broker> {
 
 async fn setup() -> Result<(DatastoreProxy, BrokerProxy)> {
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
+    std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
     broker.init("inmemory").await?;
@@ -32,14 +33,23 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "redeliver-test-job";
+    let task_id = "redeliver-test-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("redeliver-test-task".into()),
-        job_id: Some("redeliver-test-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: TASK_STATE_RUNNING.to_string(),
         redelivered: 1,
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_redelivered(ds, b, task.clone()).await;
@@ -59,19 +69,28 @@ async fn handle_started_updates_task_state() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "started-job";
+    let task_id = "started-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("started-task".into()),
-        job_id: Some("started-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: twerk_core::task::TASK_STATE_SCHEDULED.to_string(),
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_started(ds, b, task.clone()).await;
     assert!(result.is_ok());
 
-    let updated_task = datastore.clone_inner().get_task_by_id("started-task").await?;
+    let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TASK_STATE_RUNNING);
     assert!(updated_task.started_at.is_some());
 
@@ -84,20 +103,29 @@ async fn handle_error_updates_task_state() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "error-job";
+    let task_id = "error-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("error-task".into()),
-        job_id: Some("error-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: TASK_STATE_RUNNING.to_string(),
         error: Some("something went wrong".to_string()),
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_error(ds, b, task.clone()).await;
     assert!(result.is_ok());
 
-    let updated_task = datastore.clone_inner().get_task_by_id("error-task").await?;
+    let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TASK_STATE_FAILED);
     assert!(updated_task.failed_at.is_some());
     assert_eq!(updated_task.error, Some("something went wrong".to_string()));
@@ -111,14 +139,23 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "error-queue-job";
+    let task_id = "error-queue-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("error-queue-task".into()),
-        job_id: Some("error-queue-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: TASK_STATE_RUNNING.to_string(),
         error: Some("task failed".to_string()),
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_error(ds, b, task.clone()).await;
@@ -164,18 +201,27 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "log-job";
+    let task_id = "log-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("log-task".into()),
-        job_id: Some("log-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: TASK_STATE_RUNNING.to_string(),
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     let log_part = TaskLogPart {
         id: Some("log-part-1".to_string()),
-        task_id: Some("log-task".into()),
+        task_id: Some(task_id.into()),
         number: 1,
         contents: Some("First log line".to_string()),
         ..Default::default()
@@ -184,7 +230,7 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let result = handlers::handle_log_part(ds, b, log_part.clone()).await;
     assert!(result.is_ok());
 
-    let parts = datastore.clone_inner().get_task_log_parts("log-task", "", 1, 10).await?;
+    let parts = datastore.clone_inner().get_task_log_parts(task_id, "", 1, 10).await?;
     assert_eq!(parts.items.len(), 1);
     assert_eq!(parts.items[0].contents, Some("First log line".to_string()));
 
@@ -197,19 +243,28 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
+    let job_id = "multi-log-job";
+    let task_id = "multi-log-task";
+
+    let job = twerk_core::job::Job {
+        id: Some(job_id.into()),
+        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
     let task = Task {
-        id: Some("multi-log-task".into()),
-        job_id: Some("multi-log-job".into()),
+        id: Some(task_id.into()),
+        job_id: Some(job_id.into()),
         state: TASK_STATE_RUNNING.to_string(),
         ..Default::default()
     };
-
     datastore.clone_inner().create_task(&task).await?;
 
     for i in 1..=3 {
         let log_part = TaskLogPart {
             id: Some(format!("log-part-{}", i)),
-            task_id: Some("multi-log-task".into()),
+            task_id: Some(task_id.into()),
             number: i,
             contents: Some(format!("Log line {}", i)),
             ..Default::default()
@@ -218,7 +273,7 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
         assert!(result.is_ok());
     }
 
-    let parts = datastore.clone_inner().get_task_log_parts("multi-log-task", "", 1, 10).await?;
+    let parts = datastore.clone_inner().get_task_log_parts(task_id, "", 1, 10).await?;
     assert_eq!(parts.items.len(), 3);
 
     Ok(())

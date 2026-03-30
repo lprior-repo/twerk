@@ -11,3 +11,4 @@ pub mod volume;
 
 pub use errors::PodmanError;
 pub use runtime::{Broker, MountType, PodmanConfig, PodmanRuntime};
+pub use types::{PodmanMount, PodmanProbe, PodmanTaskLimits};

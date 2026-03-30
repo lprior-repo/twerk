@@ -112,7 +112,7 @@ mod tests {
         assert_eq!(cloned.password_hash, Some("hash".to_string()));
         assert!(cloned.password.is_none());
         assert_eq!(cloned.created_at, Some(now));
-        assert_eq!(cloned.disabled, true);
+        assert!(cloned.disabled);
     }
 
     #[test]

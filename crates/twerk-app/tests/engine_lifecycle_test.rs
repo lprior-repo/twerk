@@ -9,6 +9,8 @@ use twerk_infrastructure::broker::{Broker, inmemory::InMemoryBroker};
 use twerk_infrastructure::datastore::{Datastore, inmemory::InMemoryDatastore};
 
 fn engine_with_mode(mode: Mode) -> Engine {
+    std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
+    std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
     Engine::new(Config { mode, ..Default::default() })
 }
 
@@ -43,11 +45,15 @@ async fn engine_debug_shows_state_and_mode() {
 #[tokio::test]
 async fn engine_start_fails_when_not_idle() {
     let mut engine = engine_with_mode(Mode::Standalone);
+    engine.register_runtime(Box::new(twerk_app::engine::MockRuntime));
     let _ = engine.start().await;
+    assert_eq!(engine.state(), State::Running);
 
     let result = engine.start().await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not idle"));
+    
+    let _ = engine.terminate().await;
 }
 
 #[tokio::test]

@@ -481,25 +481,28 @@ mod tests {
 
     #[test]
     fn test_apply_limits_partial_task() {
-        let mut task = Task::default();
-        task.limits = Some(TaskLimits {
-            cpus: Some("4".to_string()),
-            memory: None,
-        });
+        let task = Task {
+            limits: Some(TaskLimits {
+                cpus: Some("4".to_string()),
+                memory: None,
+            }),
+            ..Default::default()
+        };
         let limits = Limits {
             default_cpus_limit: "2".to_string(),
             default_memory_limit: "1g".to_string(),
             default_timeout: "10m".to_string(),
         };
 
-        apply_limits(&mut task, &limits);
+        let mut modified_task = task.clone();
+        apply_limits(&mut modified_task, &limits);
 
         // CPU should remain as set
-        let task_limits = task.limits.as_ref().unwrap();
+        let task_limits = modified_task.limits.as_ref().unwrap();
         assert_eq!(task_limits.cpus, Some("4".to_string()));
         // Memory should get default
         assert_eq!(task_limits.memory, Some("1g".to_string()));
         // Timeout should get default
-        assert_eq!(task.timeout, Some("10m".to_string()));
+        assert_eq!(modified_task.timeout, Some("10m".to_string()));
     }
 }

@@ -99,7 +99,7 @@ mod tests {
             time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
                 time::Date::from_calendar_date(2026, time::Month::January, 1).unwrap()
             }),
-            time::Time::from_hms(12, 0, 0).unwrap_or_else(|_| time::Time::MIDNIGHT),
+            time::Time::from_hms(12, 0, 0).unwrap_or(time::Time::MIDNIGHT),
         )
     }
 

@@ -1,3 +1,7 @@
+#![allow(clippy::needless_update)]
+#![allow(clippy::to_string_in_format_args)]
+#![allow(clippy::useless_conversion)]
+
 use futures_util::FutureExt;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;

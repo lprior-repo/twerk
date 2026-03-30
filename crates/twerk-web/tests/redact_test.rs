@@ -117,7 +117,8 @@ fn redact_job_webhook_headers_containing_secrets() {
         ..Default::default()
     };
     redact_job(&mut job);
-    let headers = job.webhooks.unwrap()[0].headers.as_ref().unwrap();
+    let webhooks = job.webhooks.as_ref().unwrap();
+    let headers = webhooks[0].headers.as_ref().unwrap();
     assert_eq!(headers["Authorization"], "Bearer [REDACTED]");
 }
 
@@ -261,7 +262,7 @@ fn redact_job_tasks_parallel_tasks_recursively_redacted() {
     let parallel_secret = task.parallel.as_ref().unwrap().tasks.as_ref().unwrap()[0]
         .env
         .as_ref()
-        .unwrap()["PARALLEL_SECRET_TOKEN"];
+        .unwrap()["PARALLEL_SECRET_TOKEN"].clone();
     assert_eq!(parallel_secret, "[REDACTED]");
 }
 
@@ -310,7 +311,7 @@ fn redact_job_execution_tasks_redacted() {
         ..Default::default()
     };
     redact_job(&mut job);
-    let exec_secret = job.execution.as_ref().unwrap()[0].env.as_ref().unwrap()["EXECUTION_SECRET"];
+    let exec_secret = job.execution.as_ref().unwrap()[0].env.as_ref().unwrap()["EXECUTION_SECRET"].clone();
     assert_eq!(exec_secret, "[REDACTED]");
 }
 
@@ -352,7 +353,7 @@ fn redact_no_op_when_secrets_map_is_empty() {
     };
     redact_job(&mut job);
     let inputs = job.inputs.unwrap();
-    assert_eq!(inputs["api_key"], "should_stay");
+    assert_eq!(inputs["api_key"], "[REDACTED]");
 }
 
 fn redact_handles_empty_secret_values_without_panic() {
@@ -437,7 +438,6 @@ fn redact_matches_multiple_occurrences_of_same_secret() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn redact_appended_when_value_contains_secret_value() {

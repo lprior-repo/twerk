@@ -1,8 +1,11 @@
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::{oneshot, RwLock};
-use twerk_app::engine::coordinator::{create_coordinator, Coordinator};
+use std::sync::{Arc, RwLock};
+use tokio::sync::oneshot;
+use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
 use twerk_core::job::{Job, JOB_STATE_PENDING};
 use twerk_core::task::Task;
@@ -33,7 +36,7 @@ struct FailableDatastore {
 #[async_trait]
 impl Datastore for FailableDatastore {
     async fn create_task(&self, task: &Task) -> DatastoreResult<()> {
-        if self.config.read().await.fail_create_task {
+        if self.config.read().unwrap().fail_create_task {
             return Err(DatastoreError::Database("simulated create_task failure".into()));
         }
         self.inner.create_task(task).await
@@ -69,13 +72,13 @@ impl Datastore for FailableDatastore {
         self.inner.get_active_nodes().await
     }
     async fn create_job(&self, job: &Job) -> DatastoreResult<()> {
-        if self.config.read().await.fail_create_job {
+        if self.config.read().unwrap().fail_create_job {
             return Err(DatastoreError::Database("simulated create_job failure".into()));
         }
         self.inner.create_job(job).await
     }
     async fn update_job(&self, id: &str, modify: Box<dyn FnOnce(Job) -> DatastoreResult<Job> + Send>) -> DatastoreResult<()> {
-        if self.config.read().await.fail_update_job {
+        if self.config.read().unwrap().fail_update_job {
             return Err(DatastoreError::Database("simulated update_job failure".into()));
         }
         self.inner.update_job(id, modify).await
@@ -152,7 +155,7 @@ impl Broker for FailableBroker {
         let config = Arc::clone(&self.config);
         let inner_fut = self.inner.publish_task(qname, task);
         Box::pin(async move {
-            if config.read().await.fail_publish_task {
+            if config.read().unwrap().fail_publish_task {
                 return Err(anyhow!("simulated publish_task failure"));
             }
             inner_fut.await
@@ -177,7 +180,7 @@ impl Broker for FailableBroker {
         let config = Arc::clone(&self.config);
         let inner_fut = self.inner.publish_job(job);
         Box::pin(async move {
-            if config.read().await.fail_publish_job {
+            if config.read().unwrap().fail_publish_job {
                 return Err(anyhow!("simulated publish_job failure"));
             }
             inner_fut.await
@@ -328,7 +331,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     datastore.create_job(&job).await?;
 
     // 2. Set fail_publish_task to true so the task dispatch fails
-    fail_config.write().await.fail_publish_task = true;
+    fail_config.write().unwrap().fail_publish_task = true;
 
     // 3. Publish the job event to trigger the coordinator's start_job handler
     broker.publish_job(&job).await?;

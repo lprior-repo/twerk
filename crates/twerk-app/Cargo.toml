@@ -10,8 +10,7 @@ license.workspace = true
 twerk-common.workspace = true
 twerk-core.workspace = true
 twerk-infrastructure.workspace = true
-
-tokio.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 tokio-util = { workspace = true, features = ["rt"] }
 async-trait.workspace = true
 serde.workspace = true
@@ -40,3 +39,6 @@ bytes.workspace = true
  once_cell.workspace = true
  nix = { version = "0.29", features = ["process", "signal"] }
 tokio-cron-scheduler = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber.workspace = true

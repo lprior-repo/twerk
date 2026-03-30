@@ -429,9 +429,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_worker_api_creation() {
-        let broker = Arc::new(MockBroker::default());
-        let datastore = Arc::new(MockDatastore::default());
-        let runtime = Arc::new(MockRuntime::default());
+        let broker = Arc::new(MockBroker);
+        let datastore = Arc::new(MockDatastore);
+        let runtime = Arc::new(MockRuntime);
 
         let api = new_api(broker, datastore, runtime);
 
@@ -440,9 +440,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_check_impl_all_healthy() {
-        let broker = Arc::new(MockBroker::default());
-        let datastore = Arc::new(MockDatastore::default());
-        let runtime = Arc::new(MockRuntime::default());
+        let broker = Arc::new(MockBroker);
+        let datastore = Arc::new(MockDatastore);
+        let runtime = Arc::new(MockRuntime);
 
         let response = health_check_impl(broker, datastore, runtime).await;
 

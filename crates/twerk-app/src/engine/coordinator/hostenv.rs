@@ -39,7 +39,7 @@ fn parse_var_spec(spec: &str) -> Result<(String, String), String> {
 }
 
 /// Parses all variable specification strings into a mapping.
-/// Returns a HashMap of host_var -> task_var.
+/// Returns a `HashMap` of `host_var` -> `task_var`.
 ///
 /// # Errors
 /// Returns an error if any spec string is invalid.
@@ -87,7 +87,7 @@ fn apply_host_vars_recursive(task: &mut Task, env_vars: &HashMap<String, String>
 }
 
 impl HostEnv {
-    /// Creates a new HostEnv from a list of variable specification strings.
+    /// Creates a new `HostEnv` from a list of variable specification strings.
     ///
     /// # Errors
     /// Returns an error if any specification string is invalid.
@@ -96,6 +96,7 @@ impl HostEnv {
     }
 
     /// Returns the middleware function for injecting host environment variables.
+    #[must_use] 
     pub fn middleware(&self) -> TaskMiddlewareFunc {
         let vars = self.vars.clone();
         Arc::new(move |next: TaskHandlerFunc| {
@@ -113,6 +114,7 @@ impl HostEnv {
 }
 
 /// Creates a hostenv middleware from configuration, if any variables are defined.
+#[must_use] 
 pub fn create_hostenv_middleware_from_config() -> Option<TaskMiddlewareFunc> {
     let vars = config::strings_default("middleware.task.hostenv.vars", &[]);
     if vars.is_empty() {
@@ -128,19 +130,18 @@ pub fn create_hostenv_middleware_from_config() -> Option<TaskMiddlewareFunc> {
 mod tests {
     use super::*;
 
+    #[allow(clippy::expect_used)]
     #[test]
     fn parse_var_spec_single_host_var() {
-        let result = parse_var_spec("HOME");
-        assert_eq!(result.unwrap(), ("HOME".to_string(), "HOME".to_string()));
+        let result = parse_var_spec("HOME").expect("parse should succeed");
+        assert_eq!(result, ("HOME".to_string(), "HOME".to_string()));
     }
 
+    #[allow(clippy::expect_used)]
     #[test]
     fn parse_var_spec_with_task_mapping() {
-        let result = parse_var_spec("HOST_PATH:PATH");
-        assert_eq!(
-            result.unwrap(),
-            ("HOST_PATH".to_string(), "PATH".to_string())
-        );
+        let result = parse_var_spec("HOST_PATH:PATH").expect("parse should succeed");
+        assert_eq!(result, ("HOST_PATH".to_string(), "PATH".to_string()));
     }
 
     #[test]
@@ -149,10 +150,11 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[allow(clippy::expect_used)]
     #[test]
     fn parse_var_specs_multiple() {
         let specs = vec!["HOME".to_string(), "HOST_PATH:PATH".to_string()];
-        let result = parse_var_specs(&specs).unwrap();
+        let result = parse_var_specs(&specs).expect("parse should succeed");
         assert_eq!(result.len(), 2);
         assert_eq!(result.get("HOME"), Some(&"HOME".to_string()));
         assert_eq!(result.get("HOST_PATH"), Some(&"PATH".to_string()));

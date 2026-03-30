@@ -54,6 +54,7 @@ pub async fn health_check(endpoint: &str) -> Result<String, CliError> {
 mod tests {
     use super::*;
 
+    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_health_response_deserialize() {
         let json = r#"{"status": "ok"}"#;
@@ -61,6 +62,7 @@ mod tests {
         assert_eq!(response.status, "ok");
     }
 
+    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_health_response_deserialize_with_extra_fields() {
         let json = r#"{"status": "ok", "extra": "ignored"}"#;

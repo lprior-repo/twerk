@@ -1,8 +1,11 @@
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 use anyhow::Result;
-use std::sync::Arc;
-use twerk_app::engine::coordinator::{create_coordinator, Coordinator};
+use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
-use twerk_core::job::{Job, JOB_STATE_PENDING, JOB_STATE_SCHEDULED};
+use twerk_core::job::JOB_STATE_PENDING;
+use twerk_core::job::Job;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;

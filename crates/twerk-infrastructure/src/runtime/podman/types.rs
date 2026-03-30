@@ -23,6 +23,31 @@ pub enum MountType {
     Tmpfs,
 }
 
+/// PodmanMount represents a mount configuration for Podman
+#[derive(Debug, Clone)]
+pub struct PodmanMount {
+    pub id: String,
+    pub target: String,
+    pub source: String,
+    pub mount_type: MountType,
+    pub opts: Option<std::collections::HashMap<String, String>>,
+}
+
+/// PodmanProbe represents a health check configuration for Podman
+#[derive(Debug, Clone)]
+pub struct PodmanProbe {
+    pub path: String,
+    pub port: i64,
+    pub timeout: String,
+}
+
+/// PodmanTaskLimits represents resource limits for a Podman task
+#[derive(Debug, Clone)]
+pub struct PodmanTaskLimits {
+    pub cpus: String,
+    pub memory: String,
+}
+
 impl From<&str> for MountType {
     fn from(s: &str) -> Self {
         match s {

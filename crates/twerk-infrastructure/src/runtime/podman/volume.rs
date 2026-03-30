@@ -32,6 +32,7 @@ impl super::types::Mounter for VolumeMounter {
 
         // Set permissions to 0777 (world-writable) matching Go behavior
         let path = temp_dir.path();
+        #[cfg(unix)]
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o777))
             .map_err(|e| PodmanError::WorkdirCreation(e.to_string()))?;
 
@@ -106,7 +107,7 @@ mod tests {
         let vm = VolumeMounter::new();
         let mount = Mount {
             id: "test".to_string(),
-            mount_type: super::MountType::Volume,
+            mount_type: MountType::Volume,
             source: "/nonexistent/path/that/does/not/exist".to_string(),
             target: "/somevol".to_string(),
             opts: None,
@@ -122,7 +123,7 @@ mod tests {
         let vm = VolumeMounter::new();
         let mount = Mount {
             id: "test".to_string(),
-            mount_type: super::MountType::Volume,
+            mount_type: MountType::Volume,
             source: String::new(),
             target: "/somevol".to_string(),
             opts: None,
@@ -138,8 +139,8 @@ mod tests {
 
         for _ in 0..5 {
             let mut mount = Mount {
-                id: uuid::Uuid::new_v4().to_string(),
-                mount_type: super::MountType::Volume,
+                id: twerk_common::uuid::new_uuid(),
+                mount_type: MountType::Volume,
                 source: String::new(),
                 target: "/vol".to_string(),
                 opts: None,

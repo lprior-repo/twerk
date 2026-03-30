@@ -140,7 +140,7 @@ fn redact_task_internal(task: &mut Task, secrets: &HashMap<String, String>) {
 
 fn is_secret_key(key: &str) -> bool {
     let k = key.to_uppercase();
-    k.contains("SECRET") || k.contains("PASSWORD") || k.contains("ACCESS_KEY")
+    k.contains("SECRET") || k.contains("PASSWORD") || k.contains("ACCESS_KEY") || k.contains("TOKEN") || k.contains("API_KEY")
 }
 
 fn redact_vars(
@@ -152,13 +152,15 @@ fn redact_vars(
         let mut val = v.clone();
         if is_secret_key(k) {
             val = REDACTED_STR.to_string();
-        } else {
-            for secret_val in secrets.values() {
-                if !secret_val.is_empty() {
-                    val = val.replace(secret_val, REDACTED_STR);
-                }
+        } 
+        
+        // Also redact if value matches any known secret value, regardless of key
+        for secret_val in secrets.values() {
+            if !secret_val.is_empty() {
+                val = val.replace(secret_val, REDACTED_STR);
             }
         }
+        
         redacted.insert(k.clone(), val);
     }
     redacted

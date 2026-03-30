@@ -496,6 +496,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore = "requires postgres"]
+    #[allow(clippy::expect_used)]
     async fn test_postgres_locker_acquire_lock_returns_error_when_locked() {
 
         let dsn = "postgres://twerk:twerk@localhost:5432/twerk";

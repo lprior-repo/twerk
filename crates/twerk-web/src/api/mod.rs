@@ -22,7 +22,6 @@ use twerk_app::engine::coordinator::limits::{
 use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware, HttpLogConfig};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
-use tower_http::cors::CorsLayer;
 
 pub mod handlers;
 pub mod error;

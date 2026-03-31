@@ -1,0 +1,103 @@
+//! Container health check probing.
+//!
+//! Provides HTTP health probe functionality for containers with configurable
+//! timeout, port, and path.
+
+use crate::runtime::docker::error::DockerError;
+use crate::runtime::docker::helpers::parse_go_duration;
+use bollard::Docker;
+use std::time::Duration;
+use tokio::time::sleep;
+
+const DEFAULT_PROBE_PATH: &str = "/";
+const DEFAULT_PROBE_TIMEOUT: &str = "1m";
+
+/// Probes a container for readiness via HTTP health check.
+///
+/// # Errors
+/// - `DockerError::ProbeError` if port mapping cannot be found or HTTP client fails
+/// - `DockerError::ProbeTimeout` if probe doesn't succeed within timeout
+pub async fn probe_container(
+    client: &Docker,
+    container_id: &str,
+    port: u16,
+    path: Option<&str>,
+    timeout_str: Option<&str>,
+) -> Result<(), DockerError> {
+    let path = path.unwrap_or(DEFAULT_PROBE_PATH);
+    let timeout_str = timeout_str.unwrap_or(DEFAULT_PROBE_TIMEOUT);
+
+    let timeout = parse_go_duration(timeout_str)
+        .map_err(|e| DockerError::ProbeTimeout(format!("invalid timeout: {}", e)))?;
+
+    let inspect = client
+        .inspect_container(container_id, None)
+        .await
+        .map_err(|e| DockerError::ContainerInspect(format!("{}: {}", container_id, e)))?;
+
+    let port_key = format!("{}/tcp", port);
+    let host_port = inspect
+        .network_settings
+        .as_ref()
+        .and_then(|ns| ns.ports.as_ref())
+        .and_then(|ports| ports.get(&port_key))
+        .and_then(|opt| opt.as_ref())
+        .and_then(|bindings| bindings.first())
+        .and_then(|b| b.host_port.as_ref())
+        .ok_or_else(|| DockerError::ProbeError(format!("no port found for {}", container_id)))?;
+
+    let probe_url = format!("http://localhost:{}{}", host_port, path);
+
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(3))
+        .build()
+        .map_err(|e| DockerError::ProbeError(format!("HTTP client: {}", e)))?;
+
+    let deadline = tokio::time::Instant::now() + timeout;
+
+    loop {
+        if tokio::time::Instant::now() >= deadline {
+            return Err(DockerError::ProbeTimeout(timeout_str.to_string()));
+        }
+
+        match http_client.get(&probe_url).send().await {
+            Ok(resp) if resp.status().as_u16() == 200 => return Ok(()),
+            Ok(resp) => {
+                tracing::debug!(
+                    container_id = %container_id,
+                    status = resp.status().as_u16(),
+                    "probe non-200"
+                );
+            }
+            Err(e) => {
+                tracing::debug!(container_id = %container_id, error = %e, "probe failed");
+            }
+        }
+
+        sleep(Duration::from_secs(1)).await;
+    }
+}
+
+/// Probes a container if a probe is configured.
+///
+/// Returns `Ok(())` immediately if probe is `None`.
+pub async fn probe_if_configured(
+    client: &Docker,
+    container_id: &str,
+    probe: Option<&twerk_core::task::Probe>,
+) -> Result<(), DockerError> {
+    let probe = match probe {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+
+    probe_container(
+        client,
+        container_id,
+        probe.port,
+        probe.path.as_deref(),
+        probe.timeout.as_deref(),
+    )
+    .await
+}

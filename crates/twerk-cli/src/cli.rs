@@ -9,8 +9,8 @@ use clap::{CommandFactory, Parser};
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use twerk_common::load_config;
-use twerk_infrastructure::reexec;
 use twerk_infrastructure::config as app_config;
+use twerk_infrastructure::reexec;
 
 use super::banner::{display_banner, BannerMode};
 use super::commands::{Cli, Commands};

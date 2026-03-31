@@ -59,14 +59,12 @@ pub async fn create_runtime_from_config(
                 broker,
             )))
         }
-        runtime_type::SHELL => {
-            Ok(Box::new(ShellRuntimeAdapter::new(
-                config.shell_cmd.clone(),
-                config.shell_uid.clone(),
-                config.shell_gid.clone(),
-                Some(broker),
-            )))
-        }
+        runtime_type::SHELL => Ok(Box::new(ShellRuntimeAdapter::new(
+            config.shell_cmd.clone(),
+            config.shell_uid.clone(),
+            config.shell_gid.clone(),
+            Some(broker),
+        ))),
         runtime_type::PODMAN => Ok(Box::new(PodmanRuntimeAdapter::new(
             config.podman_privileged,
             config.podman_host_network,

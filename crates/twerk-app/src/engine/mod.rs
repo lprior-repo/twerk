@@ -14,6 +14,8 @@ pub mod endpoints;
 #[allow(clippy::module_inception)]
 pub mod engine;
 pub mod engine_helpers;
+pub mod engine_lifecycle;
+pub mod engine_registration;
 pub mod locker;
 pub mod middleware;
 pub mod mounts;

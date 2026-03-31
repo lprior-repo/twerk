@@ -14,11 +14,10 @@ pub(crate) fn queues(broker: &InMemoryBroker) -> BoxedFuture<Vec<QueueInfo>> {
             let subscribers = broker
                 .handlers
                 .get(&qname)
-                .map(|h| h.len() as i32)
-                .unwrap_or(0);
+                .map_or(0, |h| i32::try_from(h.len()).unwrap_or(0));
             QueueInfo {
                 name: qname,
-                size: task_list.len() as i32,
+                size: i32::try_from(task_list.len()).unwrap_or(0),
                 subscribers,
                 unacked: 0,
             }
@@ -32,13 +31,11 @@ pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<
     let size = broker
         .tasks
         .get(&qname)
-        .map(|entry| entry.len() as i32)
-        .unwrap_or(0);
+        .map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
     let subscribers = broker
         .handlers
         .get(&qname)
-        .map(|entry| entry.len() as i32)
-        .unwrap_or(0);
+        .map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
     Box::pin(async move {
         Ok(QueueInfo {
             name: qname,
@@ -50,6 +47,7 @@ pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<
 }
 
 /// Delete a queue.
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn delete_queue(broker: &InMemoryBroker, qname: String) -> BoxedFuture<()> {
     broker.tasks.remove(&qname);
     broker.handlers.remove(&qname);

@@ -34,6 +34,7 @@ pub enum EncryptError {
 ///
 /// # Returns
 /// A 32-byte key suitable for AES-256
+#[must_use]
 pub fn derive_key(password: &str) -> [u8; 32] {
     Sha256::digest(password).into()
 }
@@ -48,10 +49,13 @@ pub fn derive_key(password: &str) -> [u8; 32] {
 ///
 /// # Returns
 /// Base64-encoded ciphertext with prepended nonce, or an error
+///
+/// # Errors
+/// Returns `EncryptError::CipherCreation` if the key length is invalid.
 pub fn encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>, EncryptError> {
     let _key_array: [u8; 32] = key
         .try_into()
-        .map_err(|e| EncryptError::CipherCreation(format!("invalid key length: {}", e)))?;
+        .map_err(|e| EncryptError::CipherCreation(format!("invalid key length: {e}")))?;
 
     let cipher =
         Aes256Gcm::new_from_slice(key).map_err(|e| EncryptError::CipherCreation(e.to_string()))?;
@@ -78,15 +82,19 @@ pub fn encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>, EncryptError> {
 ///
 /// # Returns
 /// The decrypted plaintext, or an error
+///
+/// # Errors
+/// Returns `EncryptError::CipherCreation` if the key length is invalid.
+/// Returns `EncryptError::InvalidCiphertext` if the ciphertext is too short.
 pub fn decrypt(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, EncryptError> {
+    const NONCE_SIZE: usize = 12;
+
     let _key_array: [u8; 32] = key
         .try_into()
-        .map_err(|e| EncryptError::CipherCreation(format!("invalid key length: {}", e)))?;
+        .map_err(|e| EncryptError::CipherCreation(format!("invalid key length: {e}")))?;
 
     let cipher =
         Aes256Gcm::new_from_slice(key).map_err(|e| EncryptError::CipherCreation(e.to_string()))?;
-
-    const NONCE_SIZE: usize = 12;
 
     if ciphertext.len() < NONCE_SIZE {
         return Err(EncryptError::InvalidCiphertext);
@@ -108,6 +116,9 @@ pub fn decrypt(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, EncryptError> {
 ///
 /// # Returns
 /// Base64-encoded ciphertext, or an error
+///
+/// # Errors
+/// Returns `EncryptError` if encryption fails.
 pub fn encrypt_string(plaintext: &str, password: &str) -> Result<String, EncryptError> {
     let key = derive_key(password);
     encrypt(plaintext.as_bytes(), &key).map(|ct| BASE64.encode(ct))
@@ -121,6 +132,9 @@ pub fn encrypt_string(plaintext: &str, password: &str) -> Result<String, Encrypt
 ///
 /// # Returns
 /// The decrypted string, or an error
+///
+/// # Errors
+/// Returns `EncryptError` if decryption fails or the decrypted data is not valid UTF-8.
 pub fn decrypt_string(ciphertext: &str, password: &str) -> Result<String, EncryptError> {
     let key = derive_key(password);
     let decoded = BASE64.decode(ciphertext)?;

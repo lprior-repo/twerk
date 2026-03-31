@@ -15,6 +15,9 @@ use evalexpr::Value;
 /// # Returns
 /// A random integer in the range [0, max) if max is provided and positive,
 /// or a random positive integer if no argument is provided.
+///
+/// # Errors
+/// Returns an error if the argument is not a valid numeric type.
 pub fn random_int_fn(args: &Value) -> Result<Value, String> {
     let max_opt = match args.as_tuple() {
         Ok(tuple) => match tuple.len() {
@@ -57,6 +60,9 @@ pub fn random_int_fn(args: &Value) -> Result<Value, String> {
 ///
 /// # Returns
 /// A tuple of integers in the range [start, stop), or an empty tuple if start >= stop.
+///
+/// # Errors
+/// Returns an error if the arguments are not numeric or not exactly 2 arguments.
 pub fn sequence_fn(args: &Value) -> Result<Value, String> {
     let tuple = args
         .as_tuple()
@@ -89,6 +95,9 @@ pub fn sequence_fn(args: &Value) -> Result<Value, String> {
 ///
 /// # Returns
 /// A tuple of string segments.
+///
+/// # Errors
+/// Returns an error if the arguments are not strings or not exactly 2 arguments.
 pub fn split_fn(args: &Value) -> Result<Value, String> {
     let tuple = args
         .as_tuple()

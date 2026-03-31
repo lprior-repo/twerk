@@ -28,14 +28,14 @@ pub async fn probe_container(
     let timeout_str = timeout_str.unwrap_or(DEFAULT_PROBE_TIMEOUT);
 
     let timeout = parse_go_duration(timeout_str)
-        .map_err(|e| DockerError::ProbeTimeout(format!("invalid timeout: {}", e)))?;
+        .map_err(|e| DockerError::ProbeTimeout(format!("invalid timeout: {e}")))?;
 
     let inspect = client
         .inspect_container(container_id, None)
         .await
-        .map_err(|e| DockerError::ContainerInspect(format!("{}: {}", container_id, e)))?;
+        .map_err(|e| DockerError::ContainerInspect(format!("{container_id}: {e}")))?;
 
-    let port_key = format!("{}/tcp", port);
+    let port_key = format!("{port}/tcp");
     let host_port = inspect
         .network_settings
         .as_ref()
@@ -44,15 +44,15 @@ pub async fn probe_container(
         .and_then(|opt| opt.as_ref())
         .and_then(|bindings| bindings.first())
         .and_then(|b| b.host_port.as_ref())
-        .ok_or_else(|| DockerError::ProbeError(format!("no port found for {}", container_id)))?;
+        .ok_or_else(|| DockerError::ProbeError(format!("no port found for {container_id}")))?;
 
-    let probe_url = format!("http://localhost:{}{}", host_port, path);
+    let probe_url = format!("http://localhost:{host_port}{path}");
 
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(3))
         .connect_timeout(Duration::from_secs(3))
         .build()
-        .map_err(|e| DockerError::ProbeError(format!("HTTP client: {}", e)))?;
+        .map_err(|e| DockerError::ProbeError(format!("HTTP client: {e}")))?;
 
     let deadline = tokio::time::Instant::now() + timeout;
 
@@ -82,20 +82,23 @@ pub async fn probe_container(
 /// Probes a container if a probe is configured.
 ///
 /// Returns `Ok(())` immediately if probe is `None`.
+///
+/// # Errors
+///
+/// Returns `DockerError` if the probe fails.
 pub async fn probe_if_configured(
     client: &Docker,
     container_id: &str,
     probe: Option<&twerk_core::task::Probe>,
 ) -> Result<(), DockerError> {
-    let probe = match probe {
-        Some(p) => p,
-        None => return Ok(()),
+    let Some(probe) = probe else {
+        return Ok(());
     };
 
     probe_container(
         client,
         container_id,
-        probe.port,
+        u16::try_from(probe.port).unwrap_or(0),
         probe.path.as_deref(),
         probe.timeout.as_deref(),
     )

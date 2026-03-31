@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use time::OffsetDateTime;
 
-/// TaskState represents the list of states that a task can be in at any given moment.
+/// `TaskState` represents the list of states that a task can be in at any given moment.
 pub type TaskState = String;
 
 pub const TASK_STATE_CREATED: &str = "CREATED";
@@ -175,7 +175,7 @@ impl Task {
     }
 }
 
-/// TaskSummary provides a summary view of a task.
+/// `TaskSummary` provides a summary view of a task.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSummary {
@@ -246,7 +246,7 @@ pub fn new_task_summary(t: &Task) -> TaskSummary {
     }
 }
 
-/// TaskLogPart represents a part of a task's log output.
+/// `TaskLogPart` represents a part of a task's log output.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskLogPart {
@@ -266,7 +266,7 @@ pub struct TaskLogPart {
     pub created_at: Option<OffsetDateTime>,
 }
 
-/// AutoDelete defines automatic cleanup configuration.
+/// `AutoDelete` defines automatic cleanup configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoDelete {
@@ -274,7 +274,7 @@ pub struct AutoDelete {
     pub after: Option<String>,
 }
 
-/// SubJobTask represents a sub-job task configuration.
+/// `SubJobTask` represents a sub-job task configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SubJobTask {
@@ -309,7 +309,7 @@ pub struct SubJobTask {
     pub webhooks: Option<Vec<Webhook>>,
 }
 
-/// ParallelTask represents a task that runs other tasks in parallel.
+/// `ParallelTask` represents a task that runs other tasks in parallel.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelTask {
@@ -320,7 +320,7 @@ pub struct ParallelTask {
     pub completions: i64,
 }
 
-/// EachTask represents a task that iterates over a list.
+/// `EachTask` represents a task that iterates over a list.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct EachTask {
@@ -346,7 +346,7 @@ pub struct EachTask {
     pub index: i64,
 }
 
-/// TaskRetry defines retry configuration for a task.
+/// `TaskRetry` defines retry configuration for a task.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskRetry {
@@ -357,7 +357,7 @@ pub struct TaskRetry {
     pub attempts: i64,
 }
 
-/// TaskLimits defines resource limits for a task.
+/// `TaskLimits` defines resource limits for a task.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskLimits {

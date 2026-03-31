@@ -7,7 +7,7 @@
 //!
 //! - **Data**: `Command` struct holds executable path and arguments
 //! - **Calc**: Path resolution via `naive_self`
-//! - **Actions**: Process spawning via std::process::Command
+//! - **Actions**: Process spawning via `std::process::Command`
 //!
 //! # Go Parity Notes
 //!
@@ -70,14 +70,12 @@ pub fn init() -> bool {
         return false;
     };
 
-    let registry = match REGISTERED_INITIALIZERS.get() {
-        Some(r) => r,
-        None => return false,
+    let Some(registry) = REGISTERED_INITIALIZERS.get() else {
+        return false;
     };
 
-    let guard = match registry.read() {
-        Ok(g) => g,
-        Err(_) => return false,
+    let Ok(guard) = registry.read() else {
+        return false;
     };
 
     let Some(initializer) = guard.get(&executable) else {

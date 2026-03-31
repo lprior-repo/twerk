@@ -21,9 +21,8 @@ fn get_template_regex() -> Result<Regex, EvalError> {
 #[must_use]
 pub fn sanitize_expr(expr: &str) -> String {
     let trimmed = expr.trim();
-    let re = match get_template_regex() {
-        Ok(r) => r,
-        Err(_) => return trimmed.to_string(),
+    let Ok(re) = get_template_regex() else {
+        return trimmed.to_string();
     };
     let without_braces = re
         .captures(trimmed)

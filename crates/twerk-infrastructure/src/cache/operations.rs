@@ -113,6 +113,7 @@ where
     ///
     /// If no filters are provided, returns all non-expired items.
     /// Items are returned as clones and order is not guaranteed.
+    #[must_use]
     #[allow(clippy::type_complexity)]
     pub fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
     where

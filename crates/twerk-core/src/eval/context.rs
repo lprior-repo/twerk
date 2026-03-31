@@ -18,6 +18,9 @@ use crate::eval::EvalError;
 /// - JSON string → evalexpr String
 /// - JSON array → evalexpr Tuple
 /// - JSON object → evalexpr Tuple of (key, value) pairs
+///
+/// # Errors
+/// Returns `EvalError::InvalidExpression` if the number type is unsupported.
 pub fn json_to_eval_value(json: &serde_json::Value) -> Result<Value, EvalError> {
     match json {
         serde_json::Value::Null => Ok(Value::Empty),
@@ -80,6 +83,9 @@ pub fn eval_value_to_json(value: &Value) -> serde_json::Value {
 ///
 /// # Returns
 /// The parsed evalexpr Value.
+///
+/// # Errors
+/// Returns an error if the arguments are invalid or JSON parsing fails.
 pub fn from_json_fn(args: &Value) -> Result<Value, String> {
     let s = match args.as_tuple() {
         Ok(tuple) => {
@@ -92,8 +98,8 @@ pub fn from_json_fn(args: &Value) -> Result<Value, String> {
     }
     .map_err(|_| "fromJSON requires a string argument".to_string())?;
     let parsed: serde_json::Value =
-        serde_json::from_str(&s).map_err(|e| format!("fromJSON parse error: {}", e))?;
-    json_to_eval_value(&parsed).map_err(|e| format!("fromJSON conversion error: {}", e))
+        serde_json::from_str(&s).map_err(|e| format!("fromJSON parse error: {e}"))?;
+    json_to_eval_value(&parsed).map_err(|e| format!("fromJSON conversion error: {e}"))
 }
 
 /// Converts an evalexpr value to a JSON string.
@@ -103,11 +109,14 @@ pub fn from_json_fn(args: &Value) -> Result<Value, String> {
 ///
 /// # Returns
 /// A JSON string representation of the value.
+///
+/// # Errors
+/// Returns an error if JSON serialization fails.
 pub fn to_json_fn(args: &Value) -> Result<Value, String> {
     let json = eval_value_to_json(args);
     serde_json::to_string(&json)
         .map(Value::String)
-        .map_err(|e| format!("toJSON error: {}", e))
+        .map_err(|e| format!("toJSON error: {e}"))
 }
 
 /// Creates an evalexpr context with registered built-in functions and variables.
@@ -121,6 +130,10 @@ pub fn to_json_fn(args: &Value) -> Result<Value, String> {
 ///
 /// # Arguments
 /// * `context` - JSON key-value pairs to add as context variables
+///
+/// # Errors
+/// Returns `EvalError` if function registration or variable setting fails.
+#[allow(clippy::implicit_hasher)]
 pub fn create_context(
     context: &HashMap<String, serde_json::Value>,
 ) -> Result<HashMapContext, EvalError> {

@@ -4,7 +4,6 @@
 //! This module handles the full lifecycle of container creation including
 //! image pull, env, mounts, limits, GPU, probe ports, networking aliases,
 //! workdir, and file initialization.
-
 //!
 //! Go parity: `createTaskContainer`
 
@@ -21,12 +20,12 @@ use super::super::config::DockerConfig;
 use super::super::container::Container;
 use super::super::error::DockerError;
 use super::super::mounters::Mounter;
-use super::super::task::Task;
 use super::container_config::{
     ContainerCmd, ContainerEnv, ContainerMounts, ContainerNetworking, ContainerProbe,
 };
 use super::image::pull_image;
-use super::types::PullRequest;
+use twerk_core::mount::mount_type;
+use twerk_core::task::Task;
 use twerk_core::uuid::new_uuid;
 
 /// Creates a container for a task.
@@ -34,6 +33,7 @@ use twerk_core::uuid::new_uuid;
 /// Go parity: `createTaskContainer` — full lifecycle setup including
 /// image pull, env, mounts, limits, GPU, probe ports, networking aliases,
 /// workdir, and file initialization.
+#[allow(clippy::too_many_lines, clippy::expect_used)]
 #[allow(dead_code)]
 pub(super) async fn create_container(
     client: &Docker,
@@ -144,13 +144,33 @@ pub(super) async fn create_container(
     // Clone volume name before moving into struct (needed for cleanup on error)
     let twerkdir_volume_name_clone = twerkdir_volume_name.clone();
 
+    // Extract task_id - we know it exists because we checked earlier
+    let task_id = task.id.as_ref().expect("Task ID must be set"); // TODO: replace with proper error handling
+
+    // Build torkdir mount struct for the container
+    let torkdir = twerk_core::mount::Mount {
+        id: Some(twerkdir_volume_name.clone()),
+        mount_type: Some(mount_type::VOLUME.to_string()),
+        target: Some("/twerk".to_string()),
+        source: Some(twerkdir_volume_name.clone()),
+        opts: None,
+    };
+
+    // Create a no-op logger for container (logger used for task output in factory.rs path)
+    let logger: Box<dyn std::io::Write + Send + Sync> =
+        Box::new(std::io::sink()) as Box<dyn std::io::Write + Send + Sync>;
+
     let container = Container {
         id: create_response.id.clone(),
         client: client.clone(),
-        twerkdir_source: Some(twerkdir_volume_name),
-        task_id: task.id.clone().expect("Task ID must be set"),
-        probe: task.probe.clone(),
+        mounter: mounter.clone(),
         broker: config.broker.clone(),
+        task: task.clone(),
+        logger,
+        torkdir,
+        twerkdir_source: Some(twerkdir_volume_name),
+        task_id: task_id.clone(),
+        probe: task.probe.clone(),
     };
 
     // Capture values for cleanup before init (since init consumes self)
@@ -175,10 +195,13 @@ pub(super) async fn create_container(
         return Err(e);
     }
 
-    let effective_workdir = cmd.workdir.as_deref().map_or(super::types::DEFAULT_WORKDIR, |w| w);
+    let effective_workdir = cmd
+        .workdir
+        .as_deref()
+        .map_or(super::types::DEFAULT_WORKDIR, |w| w);
 
     // Clean up container and volume on initialization failure (Go parity: defer tc.Remove)
-    let files = task.files.as_ref().cloned().unwrap_or_default();
+    let files = task.files.clone().unwrap_or_default();
     if let Err(e) = container.init_workdir(&files, effective_workdir).await {
         let _ = cleanup_client
             .remove_container(

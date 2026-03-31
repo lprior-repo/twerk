@@ -12,6 +12,11 @@ use bollard::Docker;
 use futures_util::StreamExt;
 use twerk_core::task::Registry;
 
+/// Checks if a Docker image exists locally.
+///
+/// # Errors
+///
+/// Returns `DockerError` if listing images fails.
 pub async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, DockerError> {
     use bollard::query_parameters::ListImagesOptions;
     let options = ListImagesOptions {
@@ -27,6 +32,11 @@ pub async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, D
         .any(|img| img.repo_tags.iter().any(|tag| tag == name)))
 }
 
+/// Verifies a Docker image by running a container.
+///
+/// # Errors
+///
+/// Returns `DockerError` if image verification fails.
 pub async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerError> {
     let config = ContainerCreateBody {
         image: Some(image.to_string()),
@@ -42,7 +52,7 @@ pub async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerErro
             config,
         )
         .await
-        .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
+        .map_err(|e| DockerError::ImageVerifyFailed(format!("{image}: {e}")))?;
     let _ = client
         .remove_container(
             &response.id,
@@ -55,6 +65,12 @@ pub async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerErro
     Ok(())
 }
 
+/// Gets registry credentials for an image.
+///
+/// # Errors
+///
+/// Returns `DockerError` if credentials cannot be retrieved.
+#[allow(clippy::unused_async)]
 pub async fn get_registry_credentials(
     config: &crate::runtime::docker::config::DockerConfig,
     image: &str,
@@ -85,11 +101,16 @@ pub async fn get_registry_credentials(
     }))
 }
 
-pub async fn pull_image(
+/// Pulls a Docker image from a registry.
+///
+/// # Errors
+///
+/// Returns `DockerError` if the image pull fails.
+pub async fn pull_image<S: std::hash::BuildHasher>(
     client: &Docker,
     config: &crate::runtime::docker::config::DockerConfig,
     images: &std::sync::Arc<
-        tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant>>,
+        tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>,
     >,
     image: &str,
     _registry: Option<&Registry>,

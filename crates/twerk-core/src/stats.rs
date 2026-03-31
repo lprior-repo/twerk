@@ -11,21 +11,21 @@ pub struct Metrics {
     pub nodes: NodeMetrics,
 }
 
-/// JobMetrics holds metrics about twerk jobs.
+/// `JobMetrics` holds metrics about twerk jobs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobMetrics {
     #[serde(rename = "running")]
     pub running: i32,
 }
 
-/// TaskMetrics holds metrics about twerk tasks.
+/// `TaskMetrics` holds metrics about twerk tasks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskMetrics {
     #[serde(rename = "running")]
     pub running: i32,
 }
 
-/// NodeMetrics holds metrics about twerk nodes.
+/// `NodeMetrics` holds metrics about twerk nodes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct NodeMetrics {
     #[serde(rename = "online")]

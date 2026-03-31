@@ -89,30 +89,32 @@ impl Mounter for TmpfsMounter {
 }
 
 /// Composite mounter that dispatches to the appropriate mounter based on mount type.
+#[allow(clippy::struct_field_names)]
 pub struct CompositeMounter {
-    volume_mounter: Arc<VolumeMounter>,
-    bind_mounter: Arc<BindMounter>,
-    tmpfs_mounter: Arc<TmpfsMounter>,
+    volume: Arc<VolumeMounter>,
+    bind: Arc<BindMounter>,
+    tmpfs: Arc<TmpfsMounter>,
 }
 
 impl CompositeMounter {
     /// Creates a new composite mounter with all mounters initialized.
+    #[must_use]
     pub fn new(client: bollard::Docker) -> Self {
         Self {
-            volume_mounter: Arc::new(VolumeMounter::with_client(client)),
-            bind_mounter: Arc::new(BindMounter::new(BindConfig {
+            volume: Arc::new(VolumeMounter::with_client(client)),
+            bind: Arc::new(BindMounter::new(BindConfig {
                 allowed: true,
                 sources: Vec::new(),
             })),
-            tmpfs_mounter: Arc::new(TmpfsMounter::new()),
+            tmpfs: Arc::new(TmpfsMounter::new()),
         }
     }
 
     fn mounter_for(&self, mount_type: &str) -> Arc<dyn Mounter> {
         match mount_type {
-            MOUNT_TYPE_BIND => self.bind_mounter.clone(),
-            MOUNT_TYPE_TMPFS => self.tmpfs_mounter.clone(),
-            _ => self.volume_mounter.clone(),
+            MOUNT_TYPE_BIND => self.bind.clone(),
+            MOUNT_TYPE_TMPFS => self.tmpfs.clone(),
+            _ => self.volume.clone(),
         }
     }
 }

@@ -93,6 +93,7 @@ impl DockerRuntime {
     /// # Errors
     ///
     /// Returns `DockerError` if the Docker client cannot be created.
+    #[allow(clippy::unused_async)]
     pub async fn new(config: DockerConfig) -> Result<Self, DockerError> {
         let client = Docker::connect_with_local_defaults()
             .map_err(|e| DockerError::ClientCreate(e.to_string()))?;
@@ -159,6 +160,10 @@ impl DockerRuntime {
     }
 
     /// Creates a new runtime with default configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DockerError` if the runtime cannot be created.
     pub async fn default_runtime() -> Result<Self, DockerError> {
         Self::new(DockerConfig::default()).await
     }
@@ -182,6 +187,10 @@ impl DockerRuntime {
     }
 
     /// Health check on the Docker daemon.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DockerError` if the health check fails.
     pub async fn health_check(&self) -> Result<(), DockerError> {
         self.client
             .ping()
@@ -191,6 +200,10 @@ impl DockerRuntime {
     }
 
     /// Creates a container for a task.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DockerError` if the container cannot be created.
     ///
     /// Go parity: `createTaskContainer` — full lifecycle setup including
     /// image pull, env, mounts, limits, GPU, probe ports, networking aliases,

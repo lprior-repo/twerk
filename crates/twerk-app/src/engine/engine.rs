@@ -17,6 +17,7 @@ use twerk_infrastructure::runtime::{MultiMounter, Runtime};
 pub struct Engine {
     pub(crate) state: State,
     pub(crate) mode: Mode,
+    pub(crate) engine_id: String,
     pub(crate) broker: BrokerProxy,
     pub(crate) datastore: DatastoreProxy,
     pub(crate) runtime: Option<Box<dyn Runtime + Send + Sync>>,
@@ -49,9 +50,15 @@ impl Engine {
     /// Creates a new engine with the given configuration
     pub fn new(config: Config) -> Self {
         let (terminate_tx, terminate_rx) = broadcast::channel(1);
+        // Generate UUID if engine_id is None or empty
+        let engine_id = config
+            .engine_id
+            .filter(|id| !id.is_empty())
+            .unwrap_or_else(twerk_core::uuid::new_uuid);
         Self {
             state: State::Idle,
             mode: config.mode,
+            engine_id,
             broker: BrokerProxy::new(),
             datastore: DatastoreProxy::new(),
             runtime: None,
@@ -86,6 +93,11 @@ impl Engine {
     /// Returns the engine mode
     pub fn mode(&self) -> Mode {
         self.mode
+    }
+
+    /// Returns the engine ID
+    pub fn engine_id(&self) -> &str {
+        &self.engine_id
     }
 
     /// Sets the engine mode (only when idle)

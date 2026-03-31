@@ -22,7 +22,7 @@ async fn setup() -> Result<(DatastoreProxy, BrokerProxy)> {
     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
     Ok((datastore, broker))
 }

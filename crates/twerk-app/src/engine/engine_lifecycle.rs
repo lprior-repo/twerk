@@ -87,7 +87,10 @@ impl super::Engine {
 
     async fn run_coordinator(&mut self) -> Result<()> {
         self.broker
-            .init(&super::engine_helpers::resolve_broker_type())
+            .init(
+                &super::engine_helpers::resolve_broker_type(),
+                Some(&self.engine_id),
+            )
             .await?;
         self.datastore.init().await?;
 
@@ -162,7 +165,10 @@ impl super::Engine {
 
     async fn run_worker(&mut self) -> Result<()> {
         self.broker
-            .init(&super::engine_helpers::resolve_broker_type())
+            .init(
+                &super::engine_helpers::resolve_broker_type(),
+                Some(&self.engine_id),
+            )
             .await?;
 
         // Take the runtime out, will be replaced after worker creation
@@ -231,7 +237,10 @@ impl super::Engine {
 
     async fn run_standalone(&mut self) -> Result<()> {
         self.broker
-            .init(&super::engine_helpers::resolve_broker_type())
+            .init(
+                &super::engine_helpers::resolve_broker_type(),
+                Some(&self.engine_id),
+            )
             .await?;
         self.datastore.init().await?;
 

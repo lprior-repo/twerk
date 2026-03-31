@@ -9,6 +9,10 @@ use crate::runtime::docker::auth::{get_from_helper, AuthError};
 use crate::runtime::docker::{AuthConfig, Config};
 
 /// Resolves credentials from an auth config.
+///
+/// # Errors
+///
+/// Returns `AuthError` if credentials cannot be resolved.
 pub fn resolve_auth_config(auth: &AuthConfig) -> Result<(String, String), AuthError> {
     // Check for identity token first
     if let Some(token) = &auth.identitytoken {
@@ -34,7 +38,7 @@ pub fn resolve_auth_config(auth: &AuthConfig) -> Result<(String, String), AuthEr
 
 /// Decodes the legacy file-based auth storage from docker CLI.
 ///
-/// Takes the "Auth" field from AuthConfig and decodes it into username and password.
+/// Takes the "Auth" field from `AuthConfig` and decodes it into username and password.
 ///
 /// If "Auth" is empty, returns empty user/pass without error.
 ///

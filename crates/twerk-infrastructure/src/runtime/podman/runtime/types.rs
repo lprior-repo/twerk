@@ -1,4 +1,4 @@
-//! PodmanRuntime struct and core types.
+//! `PodmanRuntime` struct and core types.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -22,6 +22,7 @@ pub struct PodmanRuntime {
     pub(crate) image_ttl: Duration,
 }
 
+#[allow(clippy::missing_fields_in_debug)]
 impl std::fmt::Debug for PodmanRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PodmanRuntime")
@@ -31,7 +32,7 @@ impl std::fmt::Debug for PodmanRuntime {
             .field("mounter", &"<mounter>")
             .field("image_verify", &self.image_verify)
             .field("image_ttl", &self.image_ttl)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -53,22 +54,23 @@ impl Clone for PodmanRuntime {
 }
 
 impl PodmanRuntime {
-    /// Creates a new PodmanRuntime from configuration.
+    /// Creates a new `PodmanRuntime` from configuration.
     #[must_use]
     pub fn new(config: super::PodmanConfig) -> Self {
         let (tx, rx) = mpsc::channel::<PullRequest>(100);
-        let mounter: Arc<dyn Mounter + Send + Sync> = config
-            .mounter
-            .map(|m| {
-                // SAFETY: Transmuting boxed trait object to Arc.
-                // The Box is created externally and we're converting to Arc for shared ownership.
-                unsafe {
-                    let raw = Box::into_raw(m);
-                    Arc::from_raw(raw as *const (dyn Mounter + Send + Sync))
-                }
-            })
-            .unwrap_or_else(|| Arc::new(super::super::volume::VolumeMounter::new()));
-        let image_ttl = config.image_ttl.unwrap_or(super::super::types::DEFAULT_IMAGE_TTL);
+        let mounter: Arc<dyn Mounter + Send + Sync> = if let Some(m) = config.mounter {
+            // SAFETY: Transmuting boxed trait object to Arc.
+            // The Box is created externally and we're converting to Arc for shared ownership.
+            unsafe {
+                let raw = Box::into_raw(m);
+                Arc::from_raw(raw as *const (dyn Mounter + Send + Sync))
+            }
+        } else {
+            Arc::new(super::super::volume::VolumeMounter::new())
+        };
+        let image_ttl = config
+            .image_ttl
+            .unwrap_or(super::super::types::DEFAULT_IMAGE_TTL);
 
         let images = Arc::new(RwLock::new(HashMap::new()));
         let tasks = Arc::new(RwLock::new(HashMap::new()));

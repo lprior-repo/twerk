@@ -28,7 +28,7 @@ impl Redacter {
         Self { keys }
     }
 
-    /// Creates a new Redacter with default sensitive keys (SECRET, PASSWORD, ACCESS_KEY).
+    /// Creates a new Redacter with default sensitive keys (SECRET, PASSWORD, `ACCESS_KEY`).
     #[must_use]
     pub fn default_redacter() -> Self {
         Self {
@@ -117,7 +117,7 @@ impl Default for Redacter {
 /// Checks if a key name indicates a sensitive variable.
 ///
 /// A key is considered sensitive if it contains any of:
-/// SECRET, PASSWORD, or ACCESS_KEY (case-insensitive).
+/// SECRET, PASSWORD, or `ACCESS_KEY` (case-insensitive).
 #[must_use]
 pub fn is_secret_key(key: &str) -> bool {
     let k = key.to_uppercase();
@@ -127,7 +127,7 @@ pub fn is_secret_key(key: &str) -> bool {
 /// Redacts variables in a map.
 ///
 /// For each key-value pair:
-/// - If the key is sensitive (matches SECRET, PASSWORD, ACCESS_KEY), the value is redacted
+/// - If the key is sensitive (matches SECRET, PASSWORD, `ACCESS_KEY`), the value is redacted
 /// - Otherwise, all secret values are replaced with `[REDACTED]`
 ///
 /// # Arguments
@@ -137,8 +137,9 @@ pub fn is_secret_key(key: &str) -> bool {
 ///
 /// # Returns
 ///
-/// A new HashMap with sensitive values redacted
+/// A new `HashMap` with sensitive values redacted
 #[must_use]
+#[allow(clippy::implicit_hasher)]
 pub fn redact_vars(
     m: &HashMap<String, String>,
     secrets: &HashMap<String, String>,
@@ -151,7 +152,7 @@ pub fn redact_vars(
                 secrets
                     .values()
                     .filter(|sv| !sv.is_empty())
-                    .fold(v.to_string(), |acc, sv| acc.replace(sv, REDACTED_STR))
+                    .fold(v.clone(), |acc, sv| acc.replace(sv, REDACTED_STR))
             };
             (k.clone(), redacted_value)
         })
@@ -164,6 +165,7 @@ pub fn redact_vars(
 ///
 /// * `task` - The task to redact (mutated in place)
 /// * `secrets` - A map of secret names to secret values
+#[allow(clippy::implicit_hasher)]
 pub fn redact_task(task: &mut crate::task::Task, secrets: &HashMap<String, String>) {
     redact_task_internal(task, secrets);
 }
@@ -240,6 +242,7 @@ fn redact_task_internal(task: &mut crate::task::Task, secrets: &HashMap<String, 
 ///
 /// * `parts` - The log parts to redact (mutated in place)
 /// * `secrets` - A map of secret names to secret values
+#[allow(clippy::implicit_hasher)]
 pub fn redact_task_log_parts(
     parts: &mut [crate::task::TaskLogPart],
     secrets: &HashMap<String, String>,

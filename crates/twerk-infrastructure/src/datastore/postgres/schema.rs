@@ -35,7 +35,7 @@ CREATE TABLE users (
     is_disabled boolean      not null default false
 );
 
-insert into users (id,name,username_,password_,created_at,is_disabled) (SELECT REPLACE(gen_random_uuid()::text, '-', ''),'Guest','guest','',current_timestamp,true);
+insert into users (id,name,username_,password_,created_at,is_disabled) (SELECT REPLACE(gen_random_uuid()::text, '-', ''),'Guest','guest','',current_timestamp,false);
 
 CREATE TABLE roles (
     id          varchar(32)  not null primary key,

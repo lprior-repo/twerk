@@ -21,6 +21,15 @@ use tokio::sync::Mutex;
 pub use super::{Datastore, Error as DatastoreError, Options, Page, Result as DatastoreResult};
 pub mod encrypt;
 pub mod impl_datastore;
+pub mod impl_health;
+pub mod impl_jobs;
+pub mod impl_metrics;
+pub mod impl_nodes;
+pub mod impl_scheduled_jobs;
+pub mod impl_task_logs;
+pub mod impl_tasks;
+pub mod impl_transaction;
+pub mod impl_users_roles;
 pub mod records;
 pub mod schema;
 #[cfg(test)]
@@ -117,6 +126,7 @@ impl PostgresDatastore {
     ///
     /// Panics if called on a transaction-scoped datastore.
     #[must_use]
+    #[allow(clippy::panic)]
     pub fn pool(&self) -> &PgPool {
         match &self.executor {
             Executor::Pool(p) => p,

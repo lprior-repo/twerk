@@ -23,7 +23,7 @@ pub enum MountType {
     Tmpfs,
 }
 
-/// PodmanMount represents a mount configuration for Podman
+/// `PodmanMount` represents a mount configuration for Podman
 #[derive(Debug, Clone)]
 pub struct PodmanMount {
     pub id: String,
@@ -33,7 +33,7 @@ pub struct PodmanMount {
     pub opts: Option<std::collections::HashMap<String, String>>,
 }
 
-/// PodmanProbe represents a health check configuration for Podman
+/// `PodmanProbe` represents a health check configuration for Podman
 #[derive(Debug, Clone)]
 pub struct PodmanProbe {
     pub path: String,
@@ -41,7 +41,7 @@ pub struct PodmanProbe {
     pub timeout: String,
 }
 
-/// PodmanTaskLimits represents resource limits for a Podman task
+/// `PodmanTaskLimits` represents resource limits for a Podman task
 #[derive(Debug, Clone)]
 pub struct PodmanTaskLimits {
     pub cpus: String,
@@ -151,7 +151,17 @@ impl Broker for () {
 
 /// Mounter trait for volume mounts
 pub trait Mounter: Send + Sync {
+    /// Mounts a volume.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PodmanError` if the mount fails.
     fn mount(&self, mount: &mut Mount) -> Result<(), PodmanError>;
+    /// Unmounts a volume.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PodmanError` if the unmount fails.
     fn unmount(&self, mount: &Mount) -> Result<(), PodmanError>;
 }
 

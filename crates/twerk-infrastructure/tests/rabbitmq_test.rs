@@ -20,7 +20,7 @@ async fn setup_rabbitmq() -> anyhow::Result<(testcontainers::ContainerAsync<Rabb
 #[tokio::test]
 async fn task_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
     let (tx, mut rx) = mpsc::channel(1);
 
     let qname = format!(
@@ -55,7 +55,7 @@ async fn task_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
 #[tokio::test]
 async fn heartbeat_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
     let (tx, mut rx) = mpsc::channel(1);
 
     broker
@@ -81,7 +81,7 @@ async fn heartbeat_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> 
 #[tokio::test]
 async fn job_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
     let (tx, mut rx) = mpsc::channel(1);
 
     broker
@@ -107,7 +107,7 @@ async fn job_delivered_when_published_to_rabbitmq() -> anyhow::Result<()> {
 #[tokio::test]
 async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
 
     let qname = format!("worker-priority-{}", twerk_core::uuid::new_short_uuid());
     let (tx, mut rx) = mpsc::channel(4);
@@ -186,7 +186,7 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
 #[tokio::test]
 async fn events_routed_correctly_when_patterns_match() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
 
     let job_id = twerk_core::uuid::new_short_uuid();
     let (tx1, mut rx1) = mpsc::channel(30);
@@ -257,7 +257,7 @@ async fn events_routed_correctly_when_patterns_match() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_rabbitmq_health_check() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
 
     broker.health_check().await?;
     broker.shutdown().await?;
@@ -268,7 +268,7 @@ async fn test_rabbitmq_health_check() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_rabbitmq_all() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
-    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default()).await?;
+    let broker = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("")).await?;
 
     // 1. Verify queue naming (constants should have x- prefix)
     assert!(queue::QUEUE_PENDING.starts_with("x-"));

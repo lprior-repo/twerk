@@ -61,6 +61,7 @@ where
     /// Creates a new empty cache without a janitor thread.
     ///
     /// This is equivalent to `newCache` in the Go implementation.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             items: Arc::new(DashMap::new()),
@@ -79,6 +80,7 @@ where
     ///
     /// If `cleanup_interval` is `Some(Duration::ZERO)`, returns a cache without
     /// a janitor (same as `new()`).
+    #[must_use]
     pub fn with_cleanup(cleanup_interval: Option<Duration>) -> Self {
         if let Some(interval) = cleanup_interval {
             if interval.is_zero() {
@@ -119,6 +121,7 @@ where
     ///   default (items must be deleted manually).
     /// - `cleanup_interval`: Interval between automatic cleanup runs. If `None`, no
     ///   automatic cleanup is performed.
+    #[must_use]
     pub fn with_expiration_and_cleanup(
         default_expiration: Option<Duration>,
         cleanup_interval: Option<Duration>,
@@ -190,16 +193,19 @@ where
     }
 
     /// Returns the number of items in the cache.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
     /// Returns `true` if the cache contains no items.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// Returns `true` if the cache has a janitor thread running.
+    #[must_use]
     pub fn has_janitor(&self) -> bool {
         self.cleanup_interval().is_some()
     }
@@ -221,7 +227,7 @@ where
         &self.shutdown_flag
     }
 
-    /// Returns the on_evicted callback reference for internal use.
+    /// Returns the `on_evicted` callback reference for internal use.
     fn on_evicted(&self) -> &OnEvictedCallback<K, V> {
         &self.on_evicted
     }

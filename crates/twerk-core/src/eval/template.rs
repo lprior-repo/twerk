@@ -28,6 +28,10 @@ fn get_template_regex() -> Result<Regex, EvalError> {
 /// # Example
 /// - Input: `"Hello {{ name }}!"` with context `{"name": "World"}`
 /// - Output: `"Hello World!"`
+///
+/// # Errors
+/// Returns `EvalError` if the template regex fails to compile or expression evaluation fails.
+#[allow(clippy::implicit_hasher)]
 pub fn evaluate_template(
     template: &str,
     context: &HashMap<String, serde_json::Value>,
@@ -91,6 +95,10 @@ pub fn evaluate_template(
 ///
 /// # Returns
 /// The result as a JSON value.
+///
+/// # Errors
+/// Returns `EvalError` if expression evaluation fails.
+#[allow(clippy::implicit_hasher)]
 pub fn evaluate_expr(
     expr_str: &str,
     context: &HashMap<String, serde_json::Value>,

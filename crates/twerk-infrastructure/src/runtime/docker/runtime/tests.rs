@@ -1,8 +1,12 @@
 //! TTL-based image caching tests.
 
+#[allow(unused_imports)]
 use dashmap::DashMap;
+#[allow(unused_imports)]
 use std::sync::Arc;
+#[allow(unused_imports)]
 use std::time::{Duration, Instant};
+#[allow(unused_imports)]
 use tokio::sync::RwLock;
 
 #[test]

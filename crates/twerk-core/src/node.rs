@@ -19,7 +19,6 @@ impl From<&str> for NodeStatus {
         match s.to_uppercase().as_str() {
             "UP" => NodeStatus::UP,
             "DOWN" => NodeStatus::DOWN,
-            "OFFLINE" => NodeStatus::OFFLINE,
             _ => NodeStatus::OFFLINE,
         }
     }

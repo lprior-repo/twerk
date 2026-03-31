@@ -20,24 +20,27 @@ use twerk_core::task::{Probe, Task, TaskLimits};
 pub(super) fn parse_limits(
     limits: Option<&TaskLimits>,
 ) -> Result<(Option<i64>, Option<i64>), DockerError> {
-    let limits = match limits {
-        Some(l) => l,
-        None => return Ok((None, None)),
+    let Some(limits) = limits else {
+        return Ok((None, None));
     };
 
     let nano_cpus = match &limits.cpus {
-        Some(cpus) if !cpus.is_empty() => Some(
-            (cpus
-                .parse::<f64>()
-                .map_err(|_| DockerError::InvalidCpus(cpus.clone()))?
-                * 1e9) as i64,
-        ),
+        Some(cpus) if !cpus.is_empty() =>
+        {
+            #[allow(clippy::cast_possible_truncation)]
+            Some(
+                (cpus
+                    .parse::<f64>()
+                    .map_err(|_| DockerError::InvalidCpus(cpus.clone()))?
+                    * 1e9) as i64,
+            )
+        }
         _ => None,
     };
 
     let memory = match &limits.memory {
         Some(mem) if !mem.is_empty() => {
-            Some(super::helpers::parse_memory_bytes(mem).map_err(DockerError::InvalidMemory)?)
+            Some(parse_memory_bytes(mem).map_err(DockerError::InvalidMemory)?)
         }
         _ => None,
     };
@@ -45,7 +48,7 @@ pub(super) fn parse_limits(
     Ok((nano_cpus, memory))
 }
 
-/// Parses GPU options into DeviceRequests.
+/// Parses GPU options into `DeviceRequests`.
 ///
 /// Go parity: `cliopts.GpuOpts.Set(t.GPUs)` — handles count, driver,
 /// capabilities, device IDs.
@@ -64,7 +67,7 @@ pub(super) fn parse_gpu_options(gpu_str: &str) -> Result<Vec<DeviceRequest>, Doc
                         Some(-1)
                     } else {
                         Some(value.trim().parse::<i64>().map_err(|_| {
-                            DockerError::InvalidGpuOptions(format!("invalid count: {}", value))
+                            DockerError::InvalidGpuOptions(format!("invalid count: {value}"))
                         })?)
                     };
                 }
@@ -83,8 +86,7 @@ pub(super) fn parse_gpu_options(gpu_str: &str) -> Result<Vec<DeviceRequest>, Doc
                 }
                 other => {
                     return Err(DockerError::InvalidGpuOptions(format!(
-                        "unknown GPU option: {}",
-                        other
+                        "unknown GPU option: {other}"
                     )));
                 }
             }
@@ -117,10 +119,7 @@ impl ContainerEnv {
     /// Builds environment variables from task configuration.
     pub(super) fn build(task: &Task) -> Self {
         let mut env: Vec<String> = if let Some(ref env_map) = task.env {
-            env_map
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect()
+            env_map.iter().map(|(k, v)| format!("{k}={v}")).collect()
         } else {
             Vec::new()
         };
@@ -144,16 +143,16 @@ impl ContainerMounts {
             for mnt in mounts_list {
                 let typ = match mnt.mount_type.as_deref() {
                     Some(mount_type::VOLUME) => {
-                        if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
+                        if mnt.target.as_ref().is_none_or(String::is_empty) {
                             return Err(DockerError::VolumeTargetRequired);
                         }
                         MountTypeEnum::VOLUME
                     }
                     Some(mount_type::BIND) => {
-                        if mnt.target.as_ref().is_none_or(|t| t.is_empty()) {
+                        if mnt.target.as_ref().is_none_or(String::is_empty) {
                             return Err(DockerError::BindTargetRequired);
                         }
-                        if mnt.source.as_ref().is_none_or(|s| s.is_empty()) {
+                        if mnt.source.as_ref().is_none_or(String::is_empty) {
                             return Err(DockerError::BindSourceRequired);
                         }
                         MountTypeEnum::BIND
@@ -200,7 +199,7 @@ impl ContainerProbe {
 
         if let Some(probe) = probe {
             let port = probe.port;
-            let port_key = format!("{}/tcp", port);
+            let port_key = format!("{port}/tcp");
             exposed_ports.push(port_key.clone());
             port_bindings.insert(
                 port_key,
@@ -226,9 +225,11 @@ impl ContainerProbe {
                     "curl".to_string(),
                     "-f".to_string(),
                     "-s".to_string(),
-                    format!("http://localhost:{}{}", port, probe_path),
+                    format!("http://localhost:{port}{probe_path}"),
                 ]),
+                #[allow(clippy::cast_possible_truncation)]
                 interval: Some(interval.as_nanos() as i64),
+                #[allow(clippy::cast_possible_truncation)]
                 timeout: Some(timeout.as_nanos() as i64),
                 retries: Some(3),
                 start_period: Some(0),
@@ -257,22 +258,26 @@ impl ContainerCmd {
         // Working directory
         let workdir = if task.workdir.is_some() {
             task.workdir.clone()
-        } else if task.files.as_ref().is_none_or(|f| f.is_empty()) {
+        } else if task
+            .files
+            .as_ref()
+            .is_none_or(std::collections::HashMap::is_empty)
+        {
             None
         } else {
             Some(DEFAULT_WORKDIR.to_string())
         };
 
         // Entrypoint auto-detection (Go parity)
-        let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(|c| c.is_empty()) {
-            DEFAULT_CMD.iter().map(|s| s.to_string()).collect()
+        let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(Vec::is_empty) {
+            DEFAULT_CMD.iter().map(ToString::to_string).collect()
         } else {
             task.cmd.clone().unwrap_or_default()
         };
 
         let entrypoint: Vec<String> =
-            if task.entrypoint.as_ref().is_none_or(|e| e.is_empty()) && task.run.is_some() {
-                RUN_ENTRYPOINT.iter().map(|s| s.to_string()).collect()
+            if task.entrypoint.as_ref().is_none_or(Vec::is_empty) && task.run.is_some() {
+                RUN_ENTRYPOINT.iter().map(ToString::to_string).collect()
             } else {
                 task.entrypoint.clone().unwrap_or_default()
             };
@@ -309,16 +314,17 @@ impl ContainerNetworking {
         // Networking config with aliases (Go parity: `slug.Make(t.Name)`)
         // Note: Network aliases are not supported with host networking
         let networking_config =
-            if task.networks.as_ref().is_none_or(|n| n.is_empty()) || host_network_mode {
+            if task.networks.as_ref().is_none_or(Vec::is_empty) || host_network_mode {
                 None
             } else {
                 let mut endpoints = HashMap::new();
                 if let Some(ref networks) = task.networks {
                     for nw in networks {
-                        let alias = slugify(task.name.as_deref().map_or(
-                            task.id.as_ref().map(|id| id.as_str()).unwrap_or("unknown"),
-                            |n| n,
-                        ));
+                        let alias =
+                            slugify(task.name.as_deref().map_or(
+                                task.id.as_ref().map_or("unknown", |id| id.as_str()),
+                                |n| n,
+                            ));
                         endpoints.insert(
                             nw.clone(),
                             EndpointSettings {

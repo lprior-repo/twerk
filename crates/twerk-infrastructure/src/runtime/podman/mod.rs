@@ -1,6 +1,6 @@
 //! Podman runtime module
 //!
-//! Implements the Runtime trait for PodmanRuntime using podman CLI.
+//! Implements the Runtime trait for `PodmanRuntime` using podman CLI.
 //! This is a functional Rust implementation following Data->Calc->Actions architecture.
 
 pub mod errors;

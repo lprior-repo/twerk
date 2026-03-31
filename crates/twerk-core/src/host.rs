@@ -14,7 +14,7 @@ pub fn get_cpu_percent() -> f64 {
 
     // Get global CPU usage (average across all CPUs)
     // The Go code returns perc[0] for "total" CPU usage
-    sys.global_cpu_usage() as f64
+    f64::from(sys.global_cpu_usage())
 }
 
 #[cfg(test)]

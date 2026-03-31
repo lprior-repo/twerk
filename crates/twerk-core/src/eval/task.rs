@@ -27,6 +27,9 @@ use crate::task::Task;
 ///
 /// # Returns
 /// A new task with all template expressions evaluated.
+///
+/// # Errors
+/// Returns `EvalError` if any template evaluation fails.
 #[allow(clippy::too_many_lines, clippy::implicit_hasher)]
 pub fn evaluate_task(
     task: &Task,

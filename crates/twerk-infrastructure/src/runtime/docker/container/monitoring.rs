@@ -34,24 +34,24 @@ pub async fn stream_logs(
     let mut part_num = 0i64;
 
     while let Some(result) = stream.next().await {
-        match result {
-            Ok(bollard::container::LogOutput::StdOut { message })
-            | Ok(bollard::container::LogOutput::StdErr { message }) => {
-                let msg = String::from_utf8_lossy(message.as_ref()).to_string();
-                if !msg.is_empty() {
-                    part_num += 1;
-                    let _ = broker
-                        .publish_task_log_part(&TaskLogPart {
-                            id: None,
-                            number: part_num,
-                            task_id: Some(task_id.clone()),
-                            contents: Some(msg),
-                            created_at: None,
-                        })
-                        .await;
-                }
+        if let Ok(
+            bollard::container::LogOutput::StdOut { message }
+            | bollard::container::LogOutput::StdErr { message },
+        ) = result
+        {
+            let msg = String::from_utf8_lossy(message.as_ref()).to_string();
+            if !msg.is_empty() {
+                part_num += 1;
+                let _ = broker
+                    .publish_task_log_part(&TaskLogPart {
+                        id: None,
+                        number: part_num,
+                        task_id: Some(task_id.clone()),
+                        contents: Some(msg),
+                        created_at: None,
+                    })
+                    .await;
             }
-            _ => {}
         }
     }
 }
@@ -117,6 +117,10 @@ async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerEr
 }
 
 /// Reads the last N lines of container logs.
+///
+/// # Errors
+///
+/// Returns `DockerError` if reading logs fails.
 pub async fn read_logs_tail(
     client: &Docker,
     container_id: &str,
@@ -144,6 +148,10 @@ pub async fn read_logs_tail(
 }
 
 /// Reads the stdout file from a container's runtime directory.
+///
+/// # Errors
+///
+/// Returns `DockerError` if reading the output file fails.
 pub async fn read_output_file(
     client: &Docker,
     container_id: &str,

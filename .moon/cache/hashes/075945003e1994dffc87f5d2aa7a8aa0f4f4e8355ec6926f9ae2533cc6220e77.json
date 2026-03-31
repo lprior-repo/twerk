@@ -1,0 +1,1 @@
+[{"actionNode":{"members":["crates/twerk-common","crates/twerk-core","crates/twerk-infrastructure","crates/twerk-app","crates/twerk-web","crates/twerk-cli"],"root":"","toolchainId":"rust"},"lockfileHash":null,"manifestDependencies":{},"manifestPaths":[],"project":null,"toolchainConfig":{"syncToolchainConfig":true,"version":"1.94.0"},"vendorDirExists":true}]

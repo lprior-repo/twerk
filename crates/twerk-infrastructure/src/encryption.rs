@@ -68,6 +68,10 @@ fn derive_key(passphrase: &str) -> [u8; 32] {
 /// # Returns
 ///
 /// Base64-encoded ciphertext on success, or an error if encryption fails.
+///
+/// # Errors
+///
+/// Returns `EncryptError` if encryption fails (cipher creation or encryption error).
 pub fn encrypt(plaintext: &str, key: &str) -> Result<String, EncryptError> {
     let key_bytes = derive_key(key);
     let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|_| EncryptError::CipherError)?;
@@ -98,6 +102,10 @@ pub fn encrypt(plaintext: &str, key: &str) -> Result<String, EncryptError> {
 ///
 /// The original plaintext on success, or an error if decryption fails
 /// (wrong key, corrupted data, or invalid format).
+///
+/// # Errors
+///
+/// Returns `EncryptError` if decryption fails (base64 decode, cipher creation, or decryption error).
 pub fn decrypt(ciphertext: &str, key: &str) -> Result<String, EncryptError> {
     let data = STANDARD
         .decode(ciphertext)

@@ -162,6 +162,10 @@ impl Read for Archive {
 /// Returns the file type bits for the given path.
 ///
 /// This is equivalent to Go's `FileType` function which uses `os.Lstat`.
+///
+/// # Errors
+///
+/// Returns `ArchiveError` if the file metadata cannot be read.
 pub fn file_type(path: &Path) -> Result<u32, ArchiveError> {
     let meta = fs::symlink_metadata(path).map_err(ArchiveError::Io)?;
     Ok(meta.mode() & S_IFMT)

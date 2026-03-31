@@ -11,14 +11,14 @@ use std::os::unix::fs::PermissionsExt;
 use super::errors::PodmanError;
 use super::types::Mount;
 
-/// VolumeMounter creates temporary directories for volume mounts
+/// `VolumeMounter` creates temporary directories for volume mounts
 #[derive(Debug, Default)]
 pub struct VolumeMounter {
     _priv: (),
 }
 
 impl VolumeMounter {
-    /// Creates a new VolumeMounter
+    /// Creates a new `VolumeMounter`
     #[must_use]
     pub fn new() -> Self {
         Self { _priv: () }
@@ -40,7 +40,7 @@ impl super::types::Mounter for VolumeMounter {
         let kept = temp_dir.keep();
         let mount_source = kept.to_string_lossy().to_string();
 
-        mount.source = mount_source.clone();
+        mount.source.clone_from(&mount_source);
 
         tracing::debug!("Created volume at {}", mount_source);
 

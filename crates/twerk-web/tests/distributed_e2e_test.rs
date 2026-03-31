@@ -41,6 +41,10 @@ fn set_distributed_env(postgres_dsn: &str, rabbitmq_url: &str) {
     std::env::set_var("TWERK_LOCKER_POSTGRES_DSN", postgres_dsn);
     std::env::set_var("TWERK_BROKER_TYPE", "rabbitmq");
     std::env::set_var("TWERK_BROKER_RABBITMQ_URL", rabbitmq_url);
+    // Use 60 second consumer timeout for tests (instead of default 30 minutes).
+    // This ensures jobs don't get stuck in SCHEDULED state for too long if
+    // a worker gets stuck during test execution.
+    std::env::set_var("TWERK_BROKER_RABBITMQ_CONSUMER_TIMEOUT", "60000");
     std::env::set_var("TWERK_RUNTIME_TYPE", "shell");
     std::env::set_var("TWERK_RUNTIME_SHELL_CMD", "bash,-c");
     std::env::set_var("TWERK_WORKER_QUEUES", "default:1");
@@ -57,9 +61,15 @@ fn clear_distributed_env() {
         "TWERK_RUNTIME_TYPE",
         "TWERK_RUNTIME_SHELL_CMD",
         "TWERK_WORKER_QUEUES",
+        "TWERK_ENGINE_ID",
     ]
     .into_iter()
     .for_each(|key| std::env::remove_var(key));
+}
+
+fn generate_engine_id() -> String {
+    use twerk_core::uuid::new_short_uuid;
+    format!("test-{}", &new_short_uuid()[..8])
 }
 
 async fn start_api(engine: &Engine) -> anyhow::Result<(String, tokio::task::JoinHandle<()>)> {
@@ -176,16 +186,23 @@ impl DistributedEnv {
     async fn new() -> anyhow::Result<Self> {
         let (postgres, postgres_dsn) = setup_postgres().await?;
         let (rabbitmq, rabbitmq_url) = setup_rabbitmq().await?;
+
+        // Generate unique engine_id for this test instance to ensure queue isolation
+        let engine_id = generate_engine_id();
+        std::env::set_var("TWERK_ENGINE_ID", &engine_id);
+
         set_distributed_env(&postgres_dsn, &rabbitmq_url);
 
         let mut coordinator = Engine::new(EngineConfig {
             mode: Mode::Coordinator,
+            engine_id: Some(engine_id.clone()),
             ..EngineConfig::default()
         });
         coordinator.start().await?;
 
         let mut worker = Engine::new(EngineConfig {
             mode: Mode::Worker,
+            engine_id: Some(engine_id.clone()),
             ..EngineConfig::default()
         });
         worker.start().await?;
@@ -1173,5 +1190,63 @@ async fn distributed_each_task_with_numeric_list() -> anyhow::Result<()> {
     );
 
     env.teardown().await;
+    Ok(())
+}
+
+// ── Concurrent Test: Multiple Jobs Across Independent Engines ─────────────────
+
+/// Tests that 4 engines running concurrently (each with own infrastructure)
+/// can each complete jobs independently without interference.
+/// Note: This tests concurrent execution, NOT queue isolation.
+/// The actual queue isolation regression test is in concurrent_isolation_test.rs
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn four_concurrent_engines_complete_independent_jobs() -> anyhow::Result<()> {
+    // Run 4 test tasks concurrently
+    let mut handles = Vec::new();
+
+    for i in 0..4 {
+        handles.push(tokio::spawn(async move {
+            let env = DistributedEnv::new().await?;
+
+            let (status, body) = submit_job(
+                &env.client,
+                &env.base_url,
+                &json!({
+                    "name": format!("concurrent-isolation-job-{i}"),
+                    "tasks": [{
+                        "name": format!("task-{i}"),
+                        "run": format!("echo 'job {i} completed'")
+                    }]
+                }),
+            )
+            .await?;
+
+            assert_eq!(status, StatusCode::OK, "submit response: {body}");
+            let job_id = body["id"].as_str().unwrap();
+
+            let job = poll_job_until_terminal(
+                &env.client,
+                &env.base_url,
+                job_id,
+                Duration::from_secs(60), // Generous timeout
+            )
+            .await?;
+
+            let state = job["state"].as_str().unwrap();
+            assert_eq!(
+                state, "COMPLETED",
+                "job {i} should complete, got state: {state}"
+            );
+
+            env.teardown().await;
+            Ok::<_, anyhow::Error>(())
+        }));
+    }
+
+    // All 4 must complete - if any get stuck in SCHEDULED, the test fails
+    for handle in handles {
+        handle.await??;
+    }
+
     Ok(())
 }

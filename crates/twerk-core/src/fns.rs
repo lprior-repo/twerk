@@ -3,6 +3,10 @@ use std::io::{self, Write};
 
 /// Trait for types that can be closed.
 pub trait Close {
+    /// Closes the resource.
+    ///
+    /// # Errors
+    /// Returns an error if the close operation fails.
     fn close(self) -> io::Result<()>;
 }
 
@@ -16,6 +20,9 @@ pub fn close_ignore<C: Close>(c: C) {
 /// Formats and writes to `w` using the given format string and arguments.
 /// Note: This is a simplified implementation that formats each argument with `{}`
 /// and concatenates them. For full fmt.Fprintf behavior, use the `flexi_logger` crate.
+///
+/// # Errors
+/// Returns an error if writing to the output fails.
 #[inline]
 pub fn fprintf<W: Write>(mut w: W, fmt_str: &str, args: &[&dyn fmt::Display]) -> io::Result<()> {
     // Simple implementation: concatenate format string with formatted args
@@ -27,7 +34,7 @@ pub fn fprintf<W: Write>(mut w: W, fmt_str: &str, args: &[&dyn fmt::Display]) ->
         result.push_str(part);
         if let Some(arg) = arg_iter.next() {
             use std::fmt::Write;
-            let _ = write!(result, "{}", arg);
+            let _ = write!(result, "{arg}");
         }
     }
 

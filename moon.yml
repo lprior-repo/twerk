@@ -36,12 +36,67 @@ tasks:
     options:
       runInCI: true
 
-  ci-source:
-    script: 'cargo fmt --all --check && cargo clippy --workspace --lib --bins --examples -- -D warnings && cargo test --workspace && cargo build --workspace'
+  # ─── DOCKER-REQUIRED E2E TESTS ───────────────────────────────────────────────
+  #
+  # ⚠️  DOCKER REQUIRED FOR DISTRIBUTED E2E TESTS ⚠️
+  #
+  # These tests spin up real Postgres (16-alpine) and RabbitMQ containers via
+  # the testcontainers crate. Docker MUST be running on the host machine.
+  #
+  # All distributed-e2e tests run SINGLE-THREADED (--test-threads=1) to avoid
+  # port conflicts between multiple container instances spun up in parallel.
+  #
+  # Usage:
+  #   moon run :ci-distributed-e2e    # Run only distributed E2E (requires Docker)
+  #   moon run :ci-e2e               # Run ALL E2E tests (requires Docker)
+  #   moon run :ci-standalone-e2e    # Run only standalone E2E (no Docker needed)
+
+  docker-check:
+    script: 'docker info > /dev/null 2>&1 || { echo "=============================================="; echo "ERROR: Docker is not running!"; echo "The distributed-e2e tests require Docker to spin up"; echo "real Postgres and RabbitMQ containers via testcontainers."; echo ""; echo "Please start Docker and retry."; echo "=============================================="; exit 1; }'
+    options:
+      runInCI: false
+    description: 'Verifies Docker is running (prerequisite for distributed-e2e)'
+
+  ci-standalone-e2e:
+    command: 'cargo test -p twerk-app --test standalone_e2e_test'
     toolchains:
       - rust
     options:
       runInCI: true
+    description: 'E2E tests with mock runtime (no Docker required)'
+
+  ci-distributed-e2e:
+    command: 'cargo test -p twerk-web --test distributed_e2e_test -- --test-threads=1'
+    toolchains:
+      - rust
+    options:
+      runInCI: false
+    deps:
+      - 'docker-check'
+    description: '⚠️  DOCKER REQUIRED: E2E tests with real Postgres + RabbitMQ containers (single-threaded)'
+
+  ci-e2e:
+    script: 'moon run :ci-standalone-e2e && moon run :ci-distributed-e2e'
+    options:
+      runInCI: false
+    description: '⚠️  DOCKER REQUIRED: ALL E2E tests (standalone + distributed with containers)'
+
+  # ─── CI SOURCE (standard gate - excludes docker-dependent tests) ─────────────
+  #
+  # ci-source runs the standard CI gate: fmt, clippy, tests (excluding
+  # distributed-e2e which requires Docker), and build.
+  #
+  # For full E2E validation with real infrastructure, run:
+  #   moon run :ci-e2e
+  # (requires Docker to be running)
+
+  ci-source:
+    script: 'cargo fmt --all --check && cargo clippy --workspace --lib --bins --examples -- -D warnings && cargo test --workspace --exclude twerk-web && cargo build --workspace'
+    toolchains:
+      - rust
+    options:
+      runInCI: true
+    description: 'Standard CI gate (excludes distributed-e2e which requires Docker)'
 
   ci:
     command: 'moon run :ci-source'

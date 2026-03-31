@@ -46,6 +46,7 @@ impl VolumeMounter {
     /// # Errors
     ///
     /// Returns `VolumeMounterError` if the Docker client cannot be created.
+    #[allow(clippy::unused_async)]
     pub async fn new() -> Result<Self, VolumeMounterError> {
         let client = bollard::Docker::connect_with_local_defaults()
             .map_err(|e| VolumeMounterError::ClientCreate(e.to_string()))?;
@@ -128,7 +129,7 @@ impl VolumeMounter {
             .await
             .map_err(|e| VolumeMounterError::VolumeList(e.to_string()))?;
 
-        if volumes.volumes.as_ref().is_none_or(|v| v.is_empty()) {
+        if volumes.volumes.as_ref().is_none_or(Vec::is_empty) {
             return Err(VolumeMounterError::UnknownVolume(source.clone()));
         }
 

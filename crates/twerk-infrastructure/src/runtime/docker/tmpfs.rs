@@ -61,6 +61,10 @@ impl TmpfsMounter {
     /// Unmounts a tmpfs mount.
     ///
     /// This is a no-op since tmpfs unmounting is handled by the Docker runtime.
+    ///
+    /// # Errors
+    ///
+    /// This function always returns `Ok(())`.
     pub fn unmount(&self, _mnt: &Mount) -> Result<(), TmpfsMounterError> {
         Ok(())
     }

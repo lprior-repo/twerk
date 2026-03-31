@@ -1,8 +1,6 @@
 //! Task-related event handlers
 
-use super::task_workflow::{
-    handle_top_level_task_completed, handle_top_level_task_failed,
-};
+use super::task_workflow::{handle_top_level_task_completed, handle_top_level_task_failed};
 use crate::engine::coordinator::handlers::retry::create_retry_task;
 use crate::engine::coordinator::handlers::subtask_handlers::{
     handle_subtask_completed, handle_subtask_failed,

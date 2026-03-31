@@ -14,8 +14,8 @@
 //! - **Calc**: Pure parsing functions with regex
 //! - **Actions**: I/O pushed to boundary (file loading, etc.)
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 /// Maximum total number of characters in a repository name.
@@ -81,74 +81,70 @@ impl Reference {
 // 4. These are hardcoded patterns, not user input
 
 /// Matches alphanumeric characters (lowercase only).
-static ALPHA_NUMERIC_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[a-z0-9]+").expect("regex should be valid"));
+static ALPHA_NUMERIC_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[a-z0-9]+").expect("regex should be valid"));
 
 /// Matches separators: period, underscore, double underscore, or dashes.
-static SEPARATOR_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?:[._]|__|[-]*)").expect("regex should be valid"));
+static SEPARATOR_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:[._]|__|[-]*)").expect("regex should be valid"));
 
 /// Matches a domain component (alphanumeric with optional hyphens).
-static DOMAIN_COMPONENT_REGEX: Lazy<Regex> = Lazy::new(|| {
+static DOMAIN_COMPONENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])")
         .expect("regex should be valid")
 });
 
 /// Matches tag names per Docker spec.
-static TAG_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[\w][\w.-]{0,127}").expect("regex should be valid"));
+static TAG_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[\w][\w.-]{0,127}").expect("regex should be valid"));
 
 /// Matches digest values.
-static DIGEST_REGEX: Lazy<Regex> = Lazy::new(|| {
+static DIGEST_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}")
         .expect("regex should be valid")
 });
 
 /// Matches name components.
-static NAME_COMPONENT_REGEX: Lazy<Regex> = Lazy::new(|| {
+static NAME_COMPONENT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let base = ALPHA_NUMERIC_REGEX.to_string();
     let sep = SEPARATOR_REGEX.to_string();
-    Regex::new(&format!("(?:{})(?:{})*", base, sep)).expect("regex should be valid")
+    Regex::new(&format!("(?:{base})(?:{sep})*")).expect("regex should be valid")
 });
 
 /// Matches domain with optional port.
-static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
+static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let dc = DOMAIN_COMPONENT_REGEX.to_string();
-    Regex::new(&format!("{}(?:\\.{})*(?::[0-9]+)?", dc, dc)).expect("regex should be valid")
+    Regex::new(&format!("{dc}(?:\\.{dc})*(?::[0-9]+)?")).expect("regex should be valid")
 });
 
 /// Matches name part of reference (domain/name components).
-static NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
+static NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let name_comp = NAME_COMPONENT_REGEX.to_string();
     let slash = r"\/";
     // Domain and slash are grouped together so both are optional when no domain
     let dom = format!("(?:({}){})?", *DOMAIN_REGEX, slash);
-    let path = format!("(?:{})(?:{}(?:{}))*", name_comp, slash, name_comp);
-    Regex::new(&format!("{}{}", dom, path)).expect("regex should be valid")
+    let path = format!("(?:{name_comp})(?:{slash}(?:{name_comp}))*");
+    Regex::new(&format!("{dom}{path}")).expect("regex should be valid")
 });
 
 /// Matches name with domain captured.
-static ANCHORED_NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
+static ANCHORED_NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let dom = DOMAIN_REGEX.to_string();
     let slash = r"\/";
     let name_comp = NAME_COMPONENT_REGEX.to_string();
-    let _path = format!("(?:{})(?:{}(?:{}))*", name_comp, slash, name_comp);
-    let full = format!(
-        "^(?:({}){})?({}(?:{}(?:{}))*)$",
-        dom, slash, name_comp, slash, name_comp
-    );
+    let full = format!("^(?:({dom}){slash})?({name_comp}(?:{slash}(?:{name_comp}))*)$");
     Regex::new(&full).expect("regex should be valid")
 });
 
 /// Full reference regex with captures for name, tag, and digest.
-static REFERENCE_REGEX: Lazy<Regex> = Lazy::new(|| {
+static REFERENCE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let name = NAME_REGEX.to_string();
     let tag = TAG_REGEX.to_string();
     let digest = DIGEST_REGEX.to_string();
     // Format: ^(name)(?:(tag))?@(digest))?$
     // Note: : and @ are literal characters in the format string
     // The outer tag group is non-capturing to avoid shifting indices
-    let full = format!("^({})(?:(?::({})))?(?:@({}))?$", name, tag, digest);
+    let full = format!("^({name})(?:(?::({tag})))?(?:@({digest}))?$");
     Regex::new(&full).expect("regex should be valid")
 });
 
@@ -175,7 +171,7 @@ pub fn parse(s: &str) -> Result<Reference, ReferenceError> {
         }
     })?;
 
-    let full_match = captures.get(1).map(|m| m.as_str()).unwrap_or("");
+    let full_match = captures.get(1).map_or("", |m| m.as_str());
     if full_match.len() > NAME_TOTAL_LENGTH_MAX {
         return Err(ReferenceError::NameTooLong(full_match.len()));
     }
@@ -192,16 +188,15 @@ pub fn parse(s: &str) -> Result<Reference, ReferenceError> {
 }
 
 /// Parses the name component (domain + path) from a reference.
+#[allow(clippy::unnecessary_wraps)]
 fn parse_name(name: &str) -> Result<(String, String), ReferenceError> {
     if let Some(captures) = ANCHORED_NAME_REGEX.captures(name) {
         let domain = captures
             .get(1)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
+            .map_or(String::new(), |m| m.as_str().to_string());
         let path = captures
             .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_else(|| name.to_string());
+            .map_or_else(|| name.to_string(), |m| m.as_str().to_string());
         Ok((domain, path))
     } else {
         Ok((String::new(), name.to_string()))

@@ -18,7 +18,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -92,7 +92,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -163,7 +163,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -236,7 +236,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;

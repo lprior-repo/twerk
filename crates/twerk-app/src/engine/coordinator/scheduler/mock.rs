@@ -227,7 +227,8 @@ impl Datastore for MockDatastore {
         _f: Box<
             dyn for<'a> FnOnce(
                     &'a dyn Datastore,
-                ) -> futures_util::future::BoxFuture<'a, DatastoreResult<()>>
+                )
+                    -> futures_util::future::BoxFuture<'a, DatastoreResult<()>>
                 + Send,
         >,
     ) -> DatastoreResult<()> {

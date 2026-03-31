@@ -121,6 +121,10 @@ impl BindMounter {
     }
 
     /// Unmounts a bind mount.
+    ///
+    /// # Errors
+    ///
+    /// This function always returns `Ok(())` as bind mounts don't need explicit unmounting.
     pub fn unmount(&self, _mnt: &Mount) -> Result<(), BindMounterError> {
         // Bind mounts don't need explicit unmounting in the mounter
         Ok(())

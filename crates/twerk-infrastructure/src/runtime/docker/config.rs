@@ -28,7 +28,7 @@ pub const RUN_ENTRYPOINT: &[&str] = &["sh", "-c"];
 pub struct DockerConfig {
     /// Docker config file path for registry credentials.
     pub config_file: Option<String>,
-    /// Docker config path for registry credentials (alternative to config_file).
+    /// Docker config path for registry credentials (alternative to `config_file`).
     pub config_path: Option<String>,
     /// Whether to run containers in privileged mode.
     pub privileged: bool,

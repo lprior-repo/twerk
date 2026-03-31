@@ -150,6 +150,7 @@ pub struct Middleware {
 #[derive(Default)]
 pub struct Config {
     pub mode: Mode,
+    pub engine_id: Option<String>,
     pub middleware: Middleware,
     pub endpoints: HashMap<String, EndpointHandler>,
 }

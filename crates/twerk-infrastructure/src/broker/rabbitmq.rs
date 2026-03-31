@@ -1,4 +1,4 @@
-//! RabbitMQ broker implementation using `lapin`.
+//! `RabbitMQ` broker implementation using `lapin`.
 
 use anyhow::{anyhow, Result};
 use lapin::{
@@ -16,10 +16,11 @@ use std::sync::{
 };
 use std::time::Duration;
 use tokio::sync::RwLock;
+use tracing::debug;
 
 use super::{
-    queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler, JobHandler,
-    QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler,
+    JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
 use twerk_core::job::Job;
 use twerk_core::node::Node;
@@ -43,6 +44,7 @@ pub struct RabbitMQBroker {
     consumer_timeout: Option<Duration>,
     shutting_down: Arc<RwLock<bool>>,
     declared_queues: Arc<RwLock<std::collections::HashMap<String, String>>>,
+    engine_id: String,
 }
 
 impl RabbitMQBroker {
@@ -50,8 +52,9 @@ impl RabbitMQBroker {
     ///
     /// # Errors
     ///
-    /// Returns an error if the connection to RabbitMQ fails.
-    pub async fn new(url: &str, opts: RabbitMQOptions) -> Result<Self> {
+    /// Returns an error if the connection to `RabbitMQ` fails.
+    pub async fn new(url: &str, opts: RabbitMQOptions, engine_id: Option<&str>) -> Result<Self> {
+        let engine_id = engine_id.unwrap_or("");
         let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
             .map_err(|e| anyhow!("RabbitMQ connection 1 failed: {e}"))?;
@@ -77,8 +80,9 @@ impl RabbitMQBroker {
         .await?;
 
         let durable = opts.durable_queues || opts.queue_type == "quorum";
+        let redelivery_queue = prefixed_queue(queue::QUEUE_REDELIVERIES, engine_id);
         ch.queue_declare(
-            queue::QUEUE_REDELIVERIES,
+            &redelivery_queue,
             lapin::options::QueueDeclareOptions {
                 durable,
                 ..lapin::options::QueueDeclareOptions::default()
@@ -97,9 +101,11 @@ impl RabbitMQBroker {
             consumer_timeout: opts.consumer_timeout,
             shutting_down: Arc::new(RwLock::new(false)),
             declared_queues: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            engine_id: engine_id.to_string(),
         })
     }
 
+    #[allow(clippy::unused_async)]
     async fn get_connection(&self) -> Result<Arc<Connection>> {
         let idx = self.last_conn_idx.fetch_add(1, Ordering::SeqCst) % self.conn_pool.len();
         let conn = self
@@ -231,6 +237,7 @@ impl RabbitMQBroker {
             )
             .await?;
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         tokio::spawn(async move {
             while let Some(delivery) = futures_util::StreamExt::next(&mut consumer).await {
                 if b.is_shutting_down().await {
@@ -243,14 +250,10 @@ impl RabbitMQBroker {
                             .kind()
                             .as_ref()
                             .map_or("", |s| s.as_str());
+                        let redelivery_queue =
+                            prefixed_queue(queue::QUEUE_REDELIVERIES, &engine_id);
                         let _ = b
-                            .publish_raw(
-                                "",
-                                queue::QUEUE_REDELIVERIES,
-                                delivery.data.clone(),
-                                msg_type,
-                                0,
-                            )
+                            .publish_raw("", &redelivery_queue, delivery.data.clone(), msg_type, 0)
                             .await;
                         let _ = delivery.ack(BasicAckOptions::default()).await;
                         continue;
@@ -270,19 +273,23 @@ impl Broker for RabbitMQBroker {
     fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
         let task = task.clone();
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&task)?;
             let priority = u8::try_from(task.priority).map_or(0, |v| v);
-            b.publish_raw("", &qname, data, MSG_TYPE_TASK, priority)
+            let queue = prefixed_queue(&qname, &engine_id);
+            b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority)
                 .await
         })
     }
 
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
+            let queue = prefixed_queue(&qname, &engine_id);
             b.subscribe_raw(
-                &qname,
+                &queue,
                 Arc::new(move |val| {
                     let handler = handler.clone();
                     Box::pin(async move {
@@ -300,18 +307,21 @@ impl Broker for RabbitMQBroker {
     fn publish_task_progress(&self, task: &Task) -> BoxedFuture<()> {
         let task = task.clone();
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&task)?;
-            b.publish_raw("", queue::QUEUE_PROGRESS, data, MSG_TYPE_TASK, 0)
-                .await
+            let queue = prefixed_queue(queue::QUEUE_PROGRESS, &engine_id);
+            b.publish_raw("", &queue, data, MSG_TYPE_TASK, 0).await
         })
     }
 
     fn subscribe_for_task_progress(&self, handler: TaskProgressHandler) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
+            let queue = prefixed_queue(queue::QUEUE_PROGRESS, &engine_id);
             b.subscribe_raw(
-                queue::QUEUE_PROGRESS,
+                &queue,
                 Arc::new(move |val| {
                     let handler = handler.clone();
                     Box::pin(async move {
@@ -328,18 +338,21 @@ impl Broker for RabbitMQBroker {
 
     fn publish_heartbeat(&self, node: Node) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&node)?;
-            b.publish_raw("", queue::QUEUE_HEARTBEAT, data, MSG_TYPE_NODE, 0)
-                .await
+            let queue = prefixed_queue(queue::QUEUE_HEARTBEAT, &engine_id);
+            b.publish_raw("", &queue, data, MSG_TYPE_NODE, 0).await
         })
     }
 
     fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
+            let queue = prefixed_queue(queue::QUEUE_HEARTBEAT, &engine_id);
             b.subscribe_raw(
-                queue::QUEUE_HEARTBEAT,
+                &queue,
                 Arc::new(move |val| {
                     let handler = handler.clone();
                     Box::pin(async move {
@@ -357,18 +370,21 @@ impl Broker for RabbitMQBroker {
     fn publish_job(&self, job: &Job) -> BoxedFuture<()> {
         let job = job.clone();
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&job)?;
-            b.publish_raw("", queue::QUEUE_JOBS, data, MSG_TYPE_JOB, 0)
-                .await
+            let queue = prefixed_queue(queue::QUEUE_JOBS, &engine_id);
+            b.publish_raw("", &queue, data, MSG_TYPE_JOB, 0).await
         })
     }
 
     fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
+            let queue = prefixed_queue(queue::QUEUE_JOBS, &engine_id);
             b.subscribe_raw(
-                queue::QUEUE_JOBS,
+                &queue,
                 Arc::new(move |val| {
                     let handler = handler.clone();
                     Box::pin(async move {
@@ -419,24 +435,22 @@ impl Broker for RabbitMQBroker {
     fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()> {
         let part = part.clone();
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let data = serde_json::to_vec(&part)?;
-            b.publish_raw(
-                "",
-                queue::QUEUE_TASK_LOG_PART,
-                data,
-                MSG_TYPE_TASK_LOG_PART,
-                0,
-            )
-            .await
+            let queue = prefixed_queue(queue::QUEUE_TASK_LOG_PART, &engine_id);
+            b.publish_raw("", &queue, data, MSG_TYPE_TASK_LOG_PART, 0)
+                .await
         })
     }
 
     fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()> {
         let b = self.clone();
+        let engine_id = self.engine_id.clone();
         Box::pin(async move {
+            let queue = prefixed_queue(queue::QUEUE_TASK_LOG_PART, &engine_id);
             b.subscribe_raw(
-                queue::QUEUE_TASK_LOG_PART,
+                &queue,
                 Arc::new(move |val| {
                     let handler = handler.clone();
                     Box::pin(async move {
@@ -456,7 +470,7 @@ impl Broker for RabbitMQBroker {
         Box::pin(async move {
             if let Some(mgmt_url) = &b.management_url {
                 let client = reqwest::Client::new();
-                let url = format!("{}/api/queues", mgmt_url);
+                let url = format!("{mgmt_url}/api/queues");
                 let res = client
                     .get(&url)
                     .send()
@@ -466,10 +480,32 @@ impl Broker for RabbitMQBroker {
                 let queues = res
                     .into_iter()
                     .map(|q| {
-                        let name = q["name"].as_str().map_or(String::new(), |s| s.to_string());
-                        let size = q["messages"].as_i64().map_or(0, |v| v) as i32;
-                        let subscribers = q["consumers"].as_i64().map_or(0, |v| v) as i32;
-                        let unacked = q["messages_unacknowledged"].as_i64().map_or(0, |v| v) as i32;
+                        let name = q["name"]
+                            .as_str()
+                            .map_or(String::new(), ToString::to_string);
+                        // Use unwrap_or(0) for null/missing values - reasonable default for monitoring
+                        // i64→i32 overflow is practically impossible for message counts
+                        let size = match q["messages"].as_i64().unwrap_or(0) {
+                            v if v < 0 => {
+                                debug!(queue = %name, field = "messages", value = v, "negative message count, using 0");
+                                0
+                            }
+                            v => i32::try_from(v).unwrap_or(0),
+                        };
+                        let subscribers = match q["consumers"].as_i64().unwrap_or(0) {
+                            v if v < 0 => {
+                                debug!(queue = %name, field = "consumers", value = v, "negative subscriber count, using 0");
+                                0
+                            }
+                            v => i32::try_from(v).unwrap_or(0),
+                        };
+                        let unacked = match q["messages_unacknowledged"].as_i64().unwrap_or(0) {
+                            v if v < 0 => {
+                                debug!(queue = %name, field = "messages_unacknowledged", value = v, "negative unacked count, using 0");
+                                0
+                            }
+                            v => i32::try_from(v).unwrap_or(0),
+                        };
                         QueueInfo {
                             name,
                             size,
@@ -490,17 +526,39 @@ impl Broker for RabbitMQBroker {
         Box::pin(async move {
             if let Some(mgmt_url) = &b.management_url {
                 let client = reqwest::Client::new();
-                let url = format!("{}/api/queues/%2f/{}", mgmt_url, qname);
+                let url = format!("{mgmt_url}/api/queues/%2f/{qname}");
                 let q = client
                     .get(&url)
                     .send()
                     .await?
                     .json::<serde_json::Value>()
                     .await?;
-                let name = q["name"].as_str().map_or(String::new(), |s| s.to_string());
-                let size = q["messages"].as_i64().map_or(0, |v| v) as i32;
-                let subscribers = q["consumers"].as_i64().map_or(0, |v| v) as i32;
-                let unacked = q["messages_unacknowledged"].as_i64().map_or(0, |v| v) as i32;
+                let name = q["name"]
+                    .as_str()
+                    .map_or(String::new(), ToString::to_string);
+                // Use unwrap_or(0) for null/missing values - reasonable default for monitoring
+                // i64→i32 overflow is practically impossible for message counts
+                let size = match q["messages"].as_i64().unwrap_or(0) {
+                    v if v < 0 => {
+                        debug!(queue = %qname, field = "messages", value = v, "negative message count, using 0");
+                        0
+                    }
+                    v => i32::try_from(v).unwrap_or(0),
+                };
+                let subscribers = match q["consumers"].as_i64().unwrap_or(0) {
+                    v if v < 0 => {
+                        debug!(queue = %qname, field = "consumers", value = v, "negative subscriber count, using 0");
+                        0
+                    }
+                    v => i32::try_from(v).unwrap_or(0),
+                };
+                let unacked = match q["messages_unacknowledged"].as_i64().unwrap_or(0) {
+                    v if v < 0 => {
+                        debug!(queue = %qname, field = "messages_unacknowledged", value = v, "negative unacked count, using 0");
+                        0
+                    }
+                    v => i32::try_from(v).unwrap_or(0),
+                };
                 Ok(QueueInfo {
                     name,
                     size,
@@ -559,6 +617,7 @@ impl Clone for RabbitMQBroker {
             consumer_timeout: self.consumer_timeout,
             shutting_down: Arc::clone(&self.shutting_down),
             declared_queues: Arc::clone(&self.declared_queues),
+            engine_id: self.engine_id.clone(),
         }
     }
 }

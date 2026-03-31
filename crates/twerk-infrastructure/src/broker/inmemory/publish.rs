@@ -11,20 +11,20 @@ use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
 /// Publish a task to a queue.
-pub(crate) fn task(broker: &InMemoryBroker, qname: String, task: &Task) -> BoxedFuture<()> {
+pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFuture<()> {
     let task = Arc::new(task.clone());
 
     // Store the task
     broker
         .tasks
-        .entry(qname.clone())
+        .entry(qname.to_string())
         .or_default()
         .push(Arc::clone(&task));
 
     // Collect handlers for this queue before spawning tasks
     let handlers: Vec<super::TaskHandler> = broker
         .handlers
-        .get(&qname)
+        .get(qname)
         .map(|entry| entry.value().clone())
         .unwrap_or_default();
 
@@ -57,6 +57,7 @@ pub(crate) fn task_progress(broker: &InMemoryBroker, task: &Task) -> BoxedFuture
 }
 
 /// Publish a heartbeat.
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn heartbeat(broker: &InMemoryBroker, node: Node) -> BoxedFuture<()> {
     let node = node.clone();
     let handlers = broker.heartbeat_handlers.clone();

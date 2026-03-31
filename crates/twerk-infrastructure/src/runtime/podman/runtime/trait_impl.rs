@@ -1,4 +1,4 @@
-//! Runtime trait implementation for PodmanRuntime.
+//! Runtime trait implementation for `PodmanRuntime`.
 
 use std::sync::Arc;
 
@@ -48,7 +48,7 @@ impl Runtime for PodmanRuntime {
         &self,
         task: &CoreTask,
     ) -> crate::runtime::BoxedFuture<crate::runtime::ShutdownResult<std::process::ExitCode>> {
-        let task_id = task.id.as_ref().map_or(String::new(), |id| id.to_string());
+        let task_id = task.id.as_ref().map_or(String::new(), ToString::to_string);
         let tasks = Arc::clone(&self.tasks);
 
         Box::pin(async move {

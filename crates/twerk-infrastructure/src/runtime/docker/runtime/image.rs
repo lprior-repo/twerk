@@ -129,7 +129,7 @@ pub(super) async fn verify_image(client: &Docker, image: &str) -> Result<(), Doc
             config,
         )
         .await
-        .map_err(|e| DockerError::ImageVerifyFailed(format!("{}: {}", image, e)))?;
+        .map_err(|e| DockerError::ImageVerifyFailed(format!("{image}: {e}")))?;
 
     // Clean up test container
     let _ = client
@@ -146,12 +146,12 @@ pub(super) async fn verify_image(client: &Docker, image: &str) -> Result<(), Doc
 }
 
 /// Gets registry credentials for an image.
+#[allow(clippy::unused_async)]
 pub(super) async fn get_registry_credentials(
     config: &DockerConfig,
     image: &str,
 ) -> Result<Option<bollard::auth::DockerCredentials>, DockerError> {
-    let reference =
-        parse_reference(image).map_err(|e| DockerError::ImagePull(e.to_string()))?;
+    let reference = parse_reference(image).map_err(|e| DockerError::ImagePull(e.to_string()))?;
 
     if reference.domain.is_empty() {
         return Ok(None);
@@ -159,8 +159,9 @@ pub(super) async fn get_registry_credentials(
 
     // Load auth config: config_file takes priority, then config_path, then default path
     let auth_config = match (&config.config_file, &config.config_path) {
-        (Some(path), _) | (_, Some(path)) => AuthConfig::load_from_path(path)
-            .map_err(|e| DockerError::ImagePull(e.to_string()))?,
+        (Some(path), _) | (_, Some(path)) => {
+            AuthConfig::load_from_path(path).map_err(|e| DockerError::ImagePull(e.to_string()))?
+        }
         (None, None) => {
             let path = config_path().map_err(|e| DockerError::ImagePull(e.to_string()))?;
             AuthConfig::load_from_path(&path).map_err(|e| DockerError::ImagePull(e.to_string()))?

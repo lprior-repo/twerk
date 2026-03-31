@@ -85,8 +85,8 @@ impl BrokerProxy {
     /// # Errors
     ///
     /// Returns an error if the underlying broker creation fails.
-    pub async fn init(&self, broker_type: &str) -> Result<()> {
-        let broker = create_broker(broker_type).await?;
+    pub async fn init(&self, broker_type: &str, engine_id: Option<&str>) -> Result<()> {
+        let broker = create_broker(broker_type, engine_id).await?;
         *self.inner.write().await = Some(broker);
         Ok(())
     }
@@ -282,7 +282,10 @@ const QUEUE_TYPE_CLASSIC: &str = "classic";
 ///
 /// Returns an error if:
 /// - The `RabbitMQ` connection cannot be established
-pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>> {
+pub async fn create_broker(
+    btype: &str,
+    engine_id: Option<&str>,
+) -> Result<Box<dyn Broker + Send + Sync>> {
     ensure_config_loaded();
     match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
@@ -311,6 +314,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
                     queue_type,
                     consumer_timeout: Some(_consumer_timeout),
                 },
+                engine_id,
             )
             .await
             .map_err(|e| anyhow!("unable to connect to RabbitMQ: {e}"))?;

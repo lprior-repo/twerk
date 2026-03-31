@@ -1,0 +1,10 @@
+
+running 6 tests
+test standalone_engine_marks_job_as_failed_when_task_fails ... ok
+test standalone_engine_marks_parallel_job_as_failed_when_subtask_fails ... ok
+test standalone_engine_retries_failed_task ... ok
+test standalone_engine_completes_parallel_job_naturally ... ok
+test standalone_engine_completes_job_naturally ... ok
+test standalone_engine_completes_each_job_naturally ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s

@@ -1,0 +1,29 @@
+
+running 25 tests
+test distributed_complex_pipeline_completes ... ok
+test distributed_concurrent_job_submissions_all_complete ... ok
+test distributed_conditional_task_skips_when_false ... ok
+test distributed_each_task_completes ... ok
+test distributed_each_task_fails_when_item_fails ... ok
+test distributed_each_task_with_numeric_list ... ok
+test distributed_get_job_by_id_returns_consistent_data ... ok
+test distributed_get_nonexistent_job_returns_404 ... ok
+test distributed_health_endpoint_returns_ok ... ok
+test distributed_health_response_includes_version ... ok
+test distributed_http_job_completes_with_real_postgres_rabbitmq_and_shell_runtime ... ok
+test distributed_job_captures_task_output_as_var ... ok
+test distributed_job_fails_when_task_exits_nonzero ... ok
+test distributed_job_with_env_vars ... ok
+test distributed_job_with_inputs_completes ... ok
+test distributed_job_with_tags_completes ... ok
+test distributed_list_jobs_returns_submitted_jobs ... ok
+test distributed_multi_task_sequential_job_completes ... ok
+test distributed_parallel_task_completes ... ok
+test distributed_parallel_task_fails_when_child_fails ... ok
+test distributed_subjob_task_completes ... ok
+test distributed_submit_invalid_json_returns_400 ... ok
+test distributed_submit_job_via_yaml ... ok
+test distributed_submit_job_with_empty_tasks_returns_400 ... ok
+test distributed_submit_job_without_tasks_returns_400 ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 145.77s

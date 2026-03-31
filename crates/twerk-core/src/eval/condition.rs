@@ -24,11 +24,14 @@ use super::transform::{sanitize_expr, transform_operators};
 /// - `Ok(true)` if the condition evaluates to true
 /// - `Ok(false)` if the condition evaluates to false
 /// - `Err` if evaluation fails
+///
+/// # Errors
+/// Returns an error if the expression cannot be evaluated or doesn't produce a boolean.
 pub fn evaluate_condition(expr: &str, summary: &crate::job::JobSummary) -> Result<bool, String> {
     let mut context = HashMap::new();
     context.insert(
         "job_state".to_string(),
-        serde_json::Value::String(summary.state.to_string()),
+        serde_json::Value::String(summary.state.clone()),
     );
     context.insert(
         "job_id".to_string(),
@@ -37,13 +40,13 @@ pub fn evaluate_condition(expr: &str, summary: &crate::job::JobSummary) -> Resul
     if let Some(name) = &summary.name {
         context.insert(
             "job_name".to_string(),
-            serde_json::Value::String(name.to_string()),
+            serde_json::Value::String(name.clone()),
         );
     }
     if let Some(error) = &summary.error {
         context.insert(
             "job_error".to_string(),
-            serde_json::Value::String(error.to_string()),
+            serde_json::Value::String(error.clone()),
         );
     }
 
@@ -61,12 +64,11 @@ pub fn evaluate_condition(expr: &str, summary: &crate::job::JobSummary) -> Resul
             match json_val.as_bool() {
                 Some(b) => Ok(b),
                 None => Err(format!(
-                    "expression did not evaluate to a boolean, got: {}",
-                    json_val
+                    "expression did not evaluate to a boolean, got: {json_val}"
                 )),
             }
         }
-        Err(e) => Err(format!("expression evaluation failed: {}", e)),
+        Err(e) => Err(format!("expression evaluation failed: {e}")),
     }
 }
 
@@ -87,6 +89,9 @@ pub fn evaluate_condition(expr: &str, summary: &crate::job::JobSummary) -> Resul
 /// - `Ok(true)` if the condition evaluates to true
 /// - `Ok(false)` if the condition evaluates to false
 /// - `Err` if evaluation fails
+///
+/// # Errors
+/// Returns an error if the expression cannot be evaluated or doesn't produce a boolean.
 pub fn evaluate_task_condition(
     expr: &str,
     task_summary: &crate::task::TaskSummary,
@@ -97,7 +102,7 @@ pub fn evaluate_task_condition(
     // Flattened job context
     context.insert(
         "job_state".to_string(),
-        serde_json::Value::String(job_summary.state.to_string()),
+        serde_json::Value::String(job_summary.state.clone()),
     );
     context.insert(
         "job_id".to_string(),
@@ -107,7 +112,7 @@ pub fn evaluate_task_condition(
     // Flattened task context
     context.insert(
         "task_state".to_string(),
-        serde_json::Value::String(task_summary.state.to_string()),
+        serde_json::Value::String(task_summary.state.clone()),
     );
     context.insert(
         "task_id".to_string(),
@@ -128,11 +133,10 @@ pub fn evaluate_task_condition(
             match json_val.as_bool() {
                 Some(b) => Ok(b),
                 None => Err(format!(
-                    "expression did not evaluate to a boolean, got: {}",
-                    json_val
+                    "expression did not evaluate to a boolean, got: {json_val}"
                 )),
             }
         }
-        Err(e) => Err(format!("expression evaluation failed: {}", e)),
+        Err(e) => Err(format!("expression evaluation failed: {e}")),
     }
 }

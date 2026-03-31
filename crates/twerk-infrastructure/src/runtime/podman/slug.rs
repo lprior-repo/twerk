@@ -1,5 +1,6 @@
 //! Minimal slug implementation
 
+#[must_use]
 pub fn make(s: &str) -> String {
     s.to_lowercase()
         .chars()

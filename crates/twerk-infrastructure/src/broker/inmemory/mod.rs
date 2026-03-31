@@ -32,11 +32,11 @@ pub struct InMemoryBroker {
     pub(crate) event_handlers: Arc<DashMap<String, Vec<EventHandler>>>,
     /// Heartbeat handlers
     pub(crate) heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,
-    /// Stored heartbeats (node_id -> node)
+    /// Stored heartbeats (`node_id` -> node)
     pub(crate) heartbeats: Arc<RwLock<DashMap<String, Node>>>,
     /// Task log part handlers
     pub(crate) task_log_part_handlers: Arc<RwLock<Vec<TaskLogPartHandler>>>,
-    /// Stored task log parts (task_id -> Vec<TaskLogPart>)
+    /// Stored task log parts (`task_id` -> Vec<TaskLogPart>)
     pub(crate) task_log_parts: Arc<RwLock<DashMap<String, Vec<TaskLogPart>>>>,
 }
 
@@ -72,7 +72,7 @@ pub fn new_in_memory_broker() -> Box<dyn Broker + Send + Sync> {
 
 impl Broker for InMemoryBroker {
     fn publish_task(&self, qname: String, task: &twerk_core::task::Task) -> BoxedFuture<()> {
-        publish::task(self, qname, task)
+        publish::task(self, &qname, task)
     }
 
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {

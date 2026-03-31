@@ -7,6 +7,7 @@
 //! - Handles heartbeats with coordinator
 
 mod api;
+mod internal;
 mod worker_impl;
 
 pub use api::{new_api as new_worker_api, WorkerApi};

@@ -3,6 +3,11 @@
 use std::time::Duration;
 use tar::Archive as TarArchive;
 
+/// Parses a Go-style duration string (e.g., "5s", "10m", "1h").
+///
+/// # Errors
+///
+/// Returns a String error if the duration format is invalid.
 pub fn parse_go_duration(input: &str) -> Result<Duration, String> {
     let mut total = Duration::ZERO;
     let mut current = String::new();
@@ -12,22 +17,28 @@ pub fn parse_go_duration(input: &str) -> Result<Duration, String> {
         } else {
             let num: f64 = current
                 .parse()
-                .map_err(|e| format!("invalid duration '{}': {}", current, e))?;
+                .map_err(|e| format!("invalid duration '{current}': {e}"))?;
             total += match c {
                 'h' => Duration::from_secs_f64(num * 3600.0),
                 'm' => Duration::from_secs_f64(num * 60.0),
                 's' => Duration::from_secs_f64(num),
-                _ => return Err(format!("unknown unit: {}", c)),
+                _ => return Err(format!("unknown unit: {c}")),
             };
             current.clear();
         }
     }
     if !current.is_empty() {
-        return Err(format!("trailing: {}", current));
+        return Err(format!("trailing: {current}"));
     }
     Ok(total)
 }
 
+/// Parses a memory size string with units (e.g., "1GB", "512MB", "1TB").
+///
+/// # Errors
+///
+/// Returns a String error if the format is invalid.
+#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 pub fn parse_memory_bytes(input: &str) -> Result<i64, String> {
     let input = input.trim();
     let (num_str, multiplier) = if let Some(s) = input
@@ -55,15 +66,17 @@ pub fn parse_memory_bytes(input: &str) -> Result<i64, String> {
     } else {
         return input
             .parse::<i64>()
-            .map_err(|e| format!("cannot parse '{}': {}", input, e));
+            .map_err(|e| format!("cannot parse '{input}': {e}"));
     };
 
     let num = num_str
         .parse::<f64>()
-        .map_err(|e| format!("cannot parse '{}': {}", num_str, e))?;
+        .map_err(|e| format!("cannot parse '{num_str}': {e}"))?;
     Ok((num * multiplier as f64) as i64)
 }
 
+/// Parses tar archive contents and returns the first file as a String.
+#[must_use]
 pub fn parse_tar_contents(tar_bytes: &[u8]) -> String {
     let mut archive = TarArchive::new(tar_bytes);
     let Ok(entries) = archive.entries() else {

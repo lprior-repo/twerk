@@ -18,7 +18,7 @@ use super::types::{
     POLLING_MAX_ATTEMPTS,
 };
 
-/// WorkerApi provides HTTP endpoints for worker health and status
+/// `WorkerApi` provides HTTP endpoints for worker health and status
 #[derive(Clone)]
 pub struct WorkerApi {
     broker: Arc<dyn Broker>,
@@ -29,7 +29,7 @@ pub struct WorkerApi {
 }
 
 impl WorkerApi {
-    /// Create a new WorkerApi
+    /// Create a new `WorkerApi`
     #[must_use]
     pub fn new(
         broker: Arc<dyn Broker>,
@@ -82,18 +82,26 @@ impl WorkerApi {
     }
 
     /// Start the API server asynchronously
+    ///
+    /// # Errors
+    ///
+    /// Returns `ApiError` if the server fails to start.
     pub async fn start(&mut self) -> Result<(), ApiError> {
         self.start_on_port(0).await
     }
 
     /// Start the API server on a specific port
+    ///
+    /// # Errors
+    ///
+    /// Returns `ApiError` if the server fails to start.
     pub async fn start_on_port(&mut self, port: u16) -> Result<(), ApiError> {
         if port == 0 {
             // Dynamic port assignment
             self.start_on_available_port().await
         } else {
-            let addr = format!(":{}", port);
-            self.addr = addr.clone();
+            let addr = format!(":{port}");
+            self.addr.clone_from(&addr);
             self.port = port;
             self.start_server(&addr).await
         }
@@ -102,14 +110,14 @@ impl WorkerApi {
     /// Start the API server, finding an available port
     async fn start_on_available_port(&mut self) -> Result<(), ApiError> {
         for port in MIN_PORT..MAX_PORT {
-            let addr = format!(":{}", port);
+            let addr = format!(":{port}");
             match self.try_start_server(&addr).await {
                 Ok(()) => {
-                    self.addr = addr.clone();
+                    self.addr.clone_from(&addr);
                     self.port = port;
                     return Ok(());
                 }
-                Err(ApiError::AddressInUse) => continue,
+                Err(ApiError::AddressInUse) => {}
                 Err(e) => return Err(e),
             }
         }
@@ -120,7 +128,7 @@ impl WorkerApi {
     async fn try_start_server(&mut self, addr: &str) -> Result<(), ApiError> {
         let addr_parsed: SocketAddr = addr
             .parse()
-            .map_err(|e| ApiError::BindError(format!("invalid address: {}", e)))?;
+            .map_err(|e| ApiError::BindError(format!("invalid address: {e}")))?;
 
         let listener = TcpListener::bind(addr_parsed).await.map_err(|e| {
             if e.to_string().contains("address already in use") {
@@ -155,7 +163,7 @@ impl WorkerApi {
     async fn start_server(&mut self, addr: &str) -> Result<(), ApiError> {
         let addr_parsed: SocketAddr = addr
             .parse()
-            .map_err(|e| ApiError::BindError(format!("invalid address: {}", e)))?;
+            .map_err(|e| ApiError::BindError(format!("invalid address: {e}")))?;
 
         let listener = TcpListener::bind(addr_parsed)
             .await
@@ -198,6 +206,11 @@ impl WorkerApi {
     }
 
     /// Shutdown the API server gracefully
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the shutdown operation fails.
+    #[allow(clippy::unused_async)]
     pub async fn shutdown(&self) -> Result<(), ApiError> {
         // In this implementation, the server is spawned on a tokio task
         // Graceful shutdown would require storing the shutdown signal
@@ -237,7 +250,7 @@ pub(crate) async fn health_check_impl(
     }
 }
 
-/// Create a new WorkerApi with the given broker and datastore
+/// Create a new `WorkerApi` with the given broker and datastore
 #[must_use]
 pub fn new_api(
     broker: Arc<dyn Broker>,

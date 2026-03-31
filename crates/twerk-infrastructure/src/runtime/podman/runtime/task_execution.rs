@@ -1,4 +1,4 @@
-//! Task execution logic for PodmanRuntime.
+//! Task execution logic for `PodmanRuntime`.
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -45,6 +45,7 @@ impl PodmanRuntime {
     }
 
     /// Prepare mounts for task.
+    #[allow(clippy::unused_async)]
     async fn prepare_mounts(&self, task: &CoreTask) -> Result<Vec<Mount>, PodmanError> {
         let mut mounted = Vec::new();
         if let Some(ref mounts) = task.mounts {
@@ -62,6 +63,7 @@ impl PodmanRuntime {
     }
 
     /// Cleanup mounts after task execution.
+    #[allow(clippy::unused_async)]
     async fn cleanup_mounts(&self, mounts: &[Mount]) {
         for mnt in mounts {
             if let Err(e) = self.mounter.unmount(mnt) {

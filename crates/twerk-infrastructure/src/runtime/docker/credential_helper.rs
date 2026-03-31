@@ -61,7 +61,7 @@ pub fn get_from_helper(
         return Ok((String::new(), String::new()));
     }
 
-    let helper_path = format!("docker-credential-{}", helper);
+    let helper_path = format!("docker-credential-{helper}");
 
     // Check if the helper exists
     if Command::new(&helper_path)

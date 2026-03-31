@@ -3,40 +3,61 @@
 //! Ported from Go tcontainer.go. Provides container lifecycle management
 //! for task execution with tork directory support.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use bollard::query_parameters::{RemoveContainerOptions, RemoveVolumeOptions};
+use bollard::Docker;
+
 use super::archive::{init_runtime_dir, upload_files_to_container};
 use super::monitoring::{read_logs_tail, read_output_file};
 use super::probe::probe_if_configured;
 use crate::broker::Broker;
 use crate::runtime::docker::error::DockerError;
 use crate::runtime::docker::mounters::Mounter;
-use bollard::query_parameters::{RemoveContainerOptions, RemoveVolumeOptions};
-use bollard::Docker;
-use std::sync::Arc;
-use twerk_core::task::Task;
+use twerk_core::id::TaskId;
+use twerk_core::task::{Probe, Task};
 
 /// Tcontainer is the Docker container wrapper for task execution.
 /// Ported from Go tcontainer struct.
 pub struct Tcontainer {
+    /// Container ID.
     pub id: String,
+    /// Docker client.
     pub client: Docker,
+    /// Mount manager for bind/tmpfs mounts.
     pub mounter: Arc<dyn Mounter>,
-    pub broker: Arc<dyn Broker>,
+    /// Broker for log shipping and progress. May be None if not configured.
+    pub broker: Option<Arc<dyn Broker>>,
+    /// Task being executed in this container.
     pub task: Task,
+    /// Logger for task output.
     pub logger: Box<dyn std::io::Write + Send + Sync>,
+    /// Twerk directory mount info.
     pub torkdir: twerk_core::mount::Mount,
+    /// Source volume name for twerk directory. Used for cleanup.
+    pub twerkdir_source: Option<String>,
+    /// Task ID extracted from task for monitoring.
+    pub task_id: TaskId,
+    /// Probe configuration for health checking.
+    pub probe: Option<Probe>,
 }
 
 impl Tcontainer {
     /// Creates a new Tcontainer instance.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
         client: Docker,
         mounter: Arc<dyn Mounter>,
-        broker: Arc<dyn Broker>,
+        broker: Option<Arc<dyn Broker>>,
         task: Task,
         logger: Box<dyn std::io::Write + Send + Sync>,
         torkdir: twerk_core::mount::Mount,
+        twerkdir_source: Option<String>,
+        task_id: TaskId,
+        probe: Option<Probe>,
     ) -> Self {
         Self {
             id,
@@ -46,7 +67,148 @@ impl Tcontainer {
             task,
             logger,
             torkdir,
+            twerkdir_source,
+            task_id,
+            probe,
         }
+    }
+
+    /// Starts monitoring tasks (log streaming and progress reporting).
+    pub fn start_monitoring(&self) {
+        let progress_client = self.client.clone();
+        let progress_id = self.id.clone();
+        let progress_task_id = self.task_id.clone();
+        let progress_broker = self.broker.clone();
+        tokio::spawn(async move {
+            Self::report_progress(
+                progress_client,
+                progress_id,
+                progress_task_id,
+                progress_broker,
+            )
+            .await;
+        });
+
+        let log_client = self.client.clone();
+        let log_id = self.id.clone();
+        let log_task_id = self.task_id.clone();
+        let log_broker = self.broker.clone();
+        tokio::spawn(async move {
+            Self::stream_logs(log_client, log_id, log_task_id, log_broker).await;
+        });
+    }
+
+    /// Reports task progress periodically to the broker.
+    async fn report_progress(
+        client: Docker,
+        container_id: String,
+        task_id: TaskId,
+        broker: Option<Arc<dyn Broker>>,
+    ) {
+        use std::time::Duration;
+
+        let Some(broker) = broker else {
+            return;
+        };
+        let mut tick = tokio::time::interval(Duration::from_secs(10));
+        let mut prev: Option<f64> = None;
+        loop {
+            tokio::select! {
+                _ = tick.tick() => {
+                    match Self::read_progress_value(&client, &container_id).await {
+                        Ok(p) if prev.is_none_or(|old| (old - p).abs() > 0.001) => {
+                            prev = Some(p);
+                            let twerk_task = Task {
+                                id: Some(task_id.clone()),
+                                progress: p,
+                                ..Default::default()
+                            };
+                            if let Err(e) = broker.publish_task_progress(&twerk_task).await {
+                                tracing::warn!(task_id = %task_id, error = %e, "error publishing task progress");
+                            }
+                        }
+                        Err(_) => break,
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    /// Streams container logs to the broker.
+    async fn stream_logs(
+        client: Docker,
+        container_id: String,
+        task_id: TaskId,
+        broker: Option<Arc<dyn Broker>>,
+    ) {
+        use bollard::query_parameters::LogsOptions;
+        use futures_util::StreamExt;
+
+        let Some(broker) = broker else {
+            return;
+        };
+
+        let options = LogsOptions {
+            stdout: true,
+            stderr: true,
+            follow: true,
+            tail: "all".to_string(),
+            ..Default::default()
+        };
+
+        let mut stream = client.logs(&container_id, Some(options));
+        let mut part_num = 0i64;
+
+        while let Some(result) = stream.next().await {
+            if let Ok(
+                bollard::container::LogOutput::StdOut { message }
+                | bollard::container::LogOutput::StdErr { message },
+            ) = result
+            {
+                let msg = String::from_utf8_lossy(message.as_ref()).to_string();
+                if !msg.is_empty() {
+                    part_num += 1;
+                    let _ = broker
+                        .publish_task_log_part(&twerk_core::task::TaskLogPart {
+                            id: None,
+                            number: part_num,
+                            task_id: Some(task_id.clone()),
+                            contents: Some(msg),
+                            created_at: None,
+                        })
+                        .await;
+                }
+            }
+        }
+    }
+
+    /// Reads the progress value from the container's /twerk/progress file.
+    async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerError> {
+        use bollard::query_parameters::DownloadFromContainerOptions;
+        use futures_util::StreamExt;
+
+        let options = DownloadFromContainerOptions {
+            path: "/twerk/progress".to_string(),
+        };
+
+        let mut stream = client.download_from_container(cid, Some(options));
+
+        let bytes = stream
+            .next()
+            .await
+            .ok_or_else(|| DockerError::CopyFromContainer("empty".to_string()))?
+            .map_err(|e| DockerError::CopyFromContainer(e.to_string()))?;
+
+        let contents = crate::runtime::docker::helpers::parse_tar_contents(&bytes);
+        let s = contents.trim();
+
+        if s.is_empty() {
+            return Ok(0.0);
+        }
+
+        s.parse::<f64>()
+            .map_err(|_| DockerError::CopyFromContainer("invalid progress".to_string()))
     }
 
     /// Starts the container and waits for the probe to be ready.
@@ -148,15 +310,14 @@ impl Tcontainer {
 
     /// Reads the output file from the container.
     async fn read_output(&self) -> Result<String, DockerError> {
-        read_output_file(&self.client, &self.id, "/tork/stdout").await
+        read_output_file(&self.client, &self.id, "/twerk/stdout").await
     }
 
-    /// Initializes the tork directory in the container.
+    /// Initializes the twerk directory in the container.
     ///
     /// # Errors
     /// - `DockerError::CopyToContainer` if upload fails
-    pub async fn init_torkdir(&self) -> Result<(), DockerError> {
-        let run_script = self.task.run.as_deref();
+    pub async fn init_twerkdir(&self, run_script: Option<&str>) -> Result<(), DockerError> {
         init_runtime_dir(&self.client, &self.id, run_script, "/twerk/").await
     }
 
@@ -164,17 +325,15 @@ impl Tcontainer {
     ///
     /// # Errors
     /// - `DockerError::CopyToContainer` if upload fails
-    pub async fn init_workdir(&self) -> Result<(), DockerError> {
-        let files = match &self.task.files {
-            Some(f) => f,
-            None => return Ok(()),
-        };
-
+    pub async fn init_workdir(
+        &self,
+        files: &HashMap<String, String>,
+        workdir: &str,
+    ) -> Result<(), DockerError> {
         if files.is_empty() {
             return Ok(());
         }
 
-        let workdir = self.task.workdir.as_deref().unwrap_or("/workspace");
         upload_files_to_container(&self.client, &self.id, files, workdir).await
     }
 }

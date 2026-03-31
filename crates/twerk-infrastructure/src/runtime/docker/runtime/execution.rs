@@ -6,15 +6,15 @@ use bollard::query_parameters::{RemoveContainerOptions, RemoveVolumeOptions};
 use dashmap::DashMap;
 use tokio::sync::{mpsc, RwLock};
 
-use super::config::DockerConfig;
-use super::container::Container;
-use super::error::DockerError;
-use super::mounters::Mounter;
-use super::network;
+use super::super::config::DockerConfig;
+use super::super::error::DockerError;
+use super::super::mounters::Mounter;
+use super::super::network;
+use super::container_create::create_container;
 use super::types::PullRequest;
-use super::{create_container, twerk_core::uuid::new_uuid};
 use twerk_core::id::TaskId;
 use twerk_core::task::Task;
+use twerk_core::uuid::new_uuid;
 
 /// Runs a task in a Docker container.
 ///
@@ -24,18 +24,12 @@ use twerk_core::task::Task;
 pub(super) async fn run(
     client: bollard::Docker,
     config: DockerConfig,
-    images: Arc<DashMap<String, std::time::Instant>>,
+    _images: Arc<DashMap<String, std::time::Instant>>,
     pull_tx: mpsc::Sender<PullRequest>,
     tasks: Arc<RwLock<usize>>,
     mounter: Arc<dyn Mounter>,
     task: &mut Task,
 ) -> Result<(), DockerError> {
-    // Increment task count
-    {
-        let mut count = tasks.write().await;
-        *count += 1;
-    }
-
     // Decrement task count when done (deferred via drop guard)
     struct Guard(Arc<RwLock<usize>>);
     impl Drop for Guard {
@@ -45,18 +39,24 @@ pub(super) async fn run(
             }
         }
     }
+
+    // Increment task count
+    {
+        let mut count = tasks.write().await;
+        *count += 1;
+    }
     let _guard = Guard(tasks.clone());
 
     // If the task has sidecars, create a network
     let network_id = if let Some(ref sidecars) = task.sidecars {
-        if !sidecars.is_empty() {
+        if sidecars.is_empty() {
+            None
+        } else {
             let id = network::create_network(&client).await?;
             if let Some(ref mut networks) = task.networks {
                 networks.push(id.clone());
             }
             Some(id)
-        } else {
-            None
         }
     } else {
         None
@@ -78,7 +78,7 @@ pub(super) async fn run(
 
     // Execute pre-tasks
     let pre_tasks: Vec<Task> = if let Some(ref pre) = task.pre {
-        pre.to_vec()
+        pre.clone()
     } else {
         Vec::new()
     };
@@ -87,14 +87,7 @@ pub(super) async fn run(
         pre_task.mounts = Some(mounted_mounts.clone());
         pre_task.networks = task.networks.clone();
         pre_task.limits = task.limits.clone();
-        run_task(
-            &client,
-            &config,
-            &pull_tx,
-            &mounter,
-            &mut pre_task,
-        )
-        .await?;
+        run_task(&client, &config, &pull_tx, &mounter, &mut pre_task).await?;
     }
 
     // Run the actual task
@@ -102,7 +95,7 @@ pub(super) async fn run(
 
     // Execute post-tasks
     let post_tasks: Vec<Task> = if let Some(ref post) = task.post {
-        post.to_vec()
+        post.clone()
     } else {
         Vec::new()
     };

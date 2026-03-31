@@ -148,7 +148,7 @@ async fn engine_run_starts_without_panic() -> Result<()> {
 #[tokio::test]
 async fn broker_proxy_can_be_used_as_broker_trait() -> Result<()> {
     let broker = BrokerProxy::new();
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     broker.health_check().await?;
     Ok(())
 }
@@ -173,7 +173,7 @@ async fn broker_proxy_check_init_returns_error_when_not_initialized() {
 #[tokio::test]
 async fn broker_proxy_init_creates_inmemory_broker() -> Result<()> {
     let broker = BrokerProxy::new();
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     broker.check_init().await?;
     Ok(())
 }
@@ -185,7 +185,7 @@ async fn broker_proxy_init_accepts_rabbitmq_type() -> Result<()> {
         "amqp://guest:guest@localhost:5672/",
     );
     let broker = BrokerProxy::new();
-    let result = broker.init("rabbitmq").await;
+    let result = broker.init("rabbitmq", Some("")).await;
     std::env::remove_var("TWERK_BROKER_RABBITMQ_URL");
     assert!(result.is_err());
     Ok(())
@@ -202,7 +202,7 @@ async fn datastore_proxy_init_creates_inmemory_datastore() -> Result<()> {
 #[tokio::test]
 async fn create_broker_inmemory_creates_broker() -> Result<()> {
     use twerk_app::engine::broker::create_broker;
-    let broker = create_broker("inmemory").await?;
+    let broker = create_broker("inmemory", Some("")).await?;
     broker.health_check().await?;
     Ok(())
 }
@@ -387,7 +387,7 @@ async fn coordinator_submit_job_creates_job_in_datastore() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -415,7 +415,7 @@ async fn coordinator_submit_job_generates_id_when_missing() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -441,7 +441,7 @@ async fn coordinator_submit_job_sets_created_at() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -468,7 +468,7 @@ async fn coordinator_stop_cancels_tasks() -> Result<()> {
     let broker = BrokerProxy::new();
     let datastore = DatastoreProxy::new();
 
-    broker.init("inmemory").await?;
+    broker.init("inmemory", Some("")).await?;
     datastore.init().await?;
 
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
@@ -535,7 +535,7 @@ async fn datastore_proxy_set_datastore_allows_custom_implementation() -> Result<
 #[tokio::test]
 async fn broker_proxy_clone_inner_creates_independent_copy() -> Result<()> {
     let original = BrokerProxy::new();
-    original.init("inmemory").await?;
+    original.init("inmemory", Some("")).await?;
 
     let cloned = original.clone_inner();
     cloned.check_init().await?;

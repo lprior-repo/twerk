@@ -90,7 +90,7 @@ impl Job {
     }
 }
 
-/// ScheduledJob represents a scheduled job.
+/// `ScheduledJob` represents a scheduled job.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledJob {
@@ -128,7 +128,7 @@ pub struct ScheduledJob {
     pub output: Option<String>,
 }
 
-/// JobSchedule defines a job schedule.
+/// `JobSchedule` defines a job schedule.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct JobSchedule {
@@ -138,7 +138,7 @@ pub struct JobSchedule {
     pub cron: Option<String>,
 }
 
-/// JobSummary provides a summary view of a job.
+/// `JobSummary` provides a summary view of a job.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct JobSummary {
@@ -180,7 +180,7 @@ pub struct JobSummary {
     pub schedule: Option<JobSchedule>,
 }
 
-/// ScheduledJobSummary provides a summary view of a scheduled job.
+/// `ScheduledJobSummary` provides a summary view of a scheduled job.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledJobSummary {
@@ -204,7 +204,7 @@ pub struct ScheduledJobSummary {
     pub cron: Option<String>,
 }
 
-/// JobContext holds contextual information for a job.
+/// `JobContext` holds contextual information for a job.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct JobContext {
@@ -250,7 +250,7 @@ impl JobContext {
     }
 }
 
-/// JobDefaults defines default values for job tasks.
+/// `JobDefaults` defines default values for job tasks.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct JobDefaults {

@@ -114,6 +114,11 @@ impl MultiMounter {
         Self { mounters }
     }
 
+    /// Registers a mounter.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MountError` if the mounter cannot be registered.
     pub fn register_mounter(
         &mut self,
         _name: &str,

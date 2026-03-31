@@ -40,7 +40,7 @@ pub async fn janitor_loop<K, V>(
                 let callback = on_evicted.lock().clone();
                 delete_expired_from_map(&items, callback);
             }
-            _ = tokio::task::yield_now() => {
+            () = tokio::task::yield_now() => {
                 if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
                     tracing::debug!("Janitor thread shutting down");
                     break;

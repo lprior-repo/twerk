@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-/// TempArchive is a consuming builder for temporary tar archives.
+/// `TempArchive` is a consuming builder for temporary tar archives.
 /// Follows functional-rust: Data-Calc-Actions separation.
 ///
 /// # Architecture
@@ -19,26 +19,46 @@ use std::io::{BufReader, Read};
 /// - **Calc**: Pure file entry construction
 /// - **Actions**: File I/O at boundary (new, remove)
 ///
-/// Go parity: NewTempArchive in tcontainer.go
+/// Go parity: `NewTempArchive` in tcontainer.go
 #[must_use]
 pub struct TempArchive {
     inner: Archive,
 }
 
 impl TempArchive {
+    /// Creates a new `TempArchive`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArchiveError` if the archive cannot be created.
     pub fn new() -> Result<Self, ArchiveError> {
         Archive::new().map(Self::from)
     }
 
+    /// Writes a file to the archive.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArchiveError` if the file cannot be written.
     pub fn write_file(mut self, name: &str, mode: u32, data: &[u8]) -> Result<Self, ArchiveError> {
         self.inner.write_file(name, mode, data)?;
         Ok(self)
     }
 
+    /// Returns a reader for the archive.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArchiveError` if the reader cannot be created.
     pub fn reader(&mut self) -> Result<BufReader<File>, ArchiveError> {
         self.inner.reader()
     }
 
+    /// Removes the temporary archive file.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArchiveError` if the file cannot be removed.
     pub fn remove(self) -> Result<(), ArchiveError> {
         self.inner.remove()
     }
@@ -51,18 +71,21 @@ impl From<Archive> for TempArchive {
 }
 
 /// Uploads files to a container at the specified path.
-pub async fn upload_files_to_container(
+///
+/// # Errors
+///
+/// Returns `DockerError` if the upload fails.
+pub async fn upload_files_to_container<S: std::hash::BuildHasher>(
     client: &Docker,
     container_id: &str,
-    files: &HashMap<String, String>,
+    files: &HashMap<String, String, S>,
     target_path: &str,
 ) -> Result<(), DockerError> {
     if files.is_empty() {
         return Ok(());
     }
 
-    let mut archive =
-        Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+    let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
 
     for (name, data) in files {
         archive
@@ -101,14 +124,17 @@ pub async fn upload_files_to_container(
 }
 
 /// Creates a twerk/tork directory structure in the container.
+///
+/// # Errors
+///
+/// Returns `DockerError` if the initialization fails.
 pub async fn init_runtime_dir(
     client: &Docker,
     container_id: &str,
     run_script: Option<&str>,
     target_path: &str,
 ) -> Result<(), DockerError> {
-    let mut archive =
-        Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+    let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
 
     archive
         .write_file("stdout", 0o222, &[])

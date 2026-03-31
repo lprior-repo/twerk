@@ -1,4 +1,4 @@
-//! Container execution logic for PodmanRuntime.
+//! Container execution logic for `PodmanRuntime`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -11,11 +11,12 @@ use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
 use super::super::errors::PodmanError;
-use super::super::types::{Broker, CoreTask, RegistryCredentials};
+use super::super::types::{CoreTask, RegistryCredentials};
 use super::types::PodmanRuntime;
 
 impl PodmanRuntime {
     /// Execute container and handle logs.
+    #[allow(clippy::too_many_lines)]
     pub(crate) async fn execute_container(
         &self,
         task: &mut CoreTask,
@@ -23,6 +24,24 @@ impl PodmanRuntime {
         output_file: &Path,
         progress_file: &Path,
     ) -> Result<(), PodmanError> {
+        // Container guard to ensure cleanup on exit
+        struct ContainerGuard {
+            container_id: String,
+            tasks: Arc<RwLock<HashMap<String, String>>>,
+        }
+        impl Drop for ContainerGuard {
+            fn drop(&mut self) {
+                let cid = self.container_id.clone();
+                let tasks = self.tasks.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = PodmanRuntime::stop_container_static(&cid).await {
+                        warn!("error stopping container {}: {}", cid, e);
+                    }
+                    tasks.write().await.remove(&cid);
+                });
+            }
+        }
+
         // Convert to owned PathBuf for async tasks
         let progress_file_buf = progress_file.to_path_buf();
         let task_id_str = task.id.as_ref().map_or("unknown", |id| id.as_str());
@@ -56,8 +75,12 @@ impl PodmanRuntime {
         }
 
         // Build entrypoint
-        let entrypoint = if task.entrypoint.as_ref().is_some_and(|e| !e.is_empty()) {
-            task.entrypoint.clone().unwrap()
+        let entrypoint = if let Some(ref ep) = task.entrypoint {
+            if ep.is_empty() {
+                vec!["sh".to_string()]
+            } else {
+                ep.clone()
+            }
         } else {
             vec!["sh".to_string()]
         };
@@ -101,22 +124,6 @@ impl PodmanRuntime {
             .insert(task_id_str.to_string(), container_id.clone());
 
         // Ensure container is stopped on exit
-        struct ContainerGuard {
-            container_id: String,
-            tasks: Arc<RwLock<HashMap<String, String>>>,
-        }
-        impl Drop for ContainerGuard {
-            fn drop(&mut self) {
-                let cid = self.container_id.clone();
-                let tasks = self.tasks.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = PodmanRuntime::stop_container_static(&cid).await {
-                        warn!("error stopping container {}: {}", cid, e);
-                    }
-                    tasks.write().await.remove(&cid);
-                });
-            }
-        }
         let _guard = ContainerGuard {
             container_id: container_id.clone(),
             tasks: Arc::clone(&self.tasks),

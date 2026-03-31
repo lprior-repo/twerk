@@ -36,7 +36,8 @@ impl SharedInfra {
     async fn new() -> anyhow::Result<Self> {
         let postgres = Postgres::default().with_tag("16-alpine").start().await?;
         let postgres_port = postgres.get_host_port_ipv4(5432).await?;
-        let postgres_dsn = format!("postgres://postgres:postgres@127.0.0.1:{postgres_port}/postgres");
+        let postgres_dsn =
+            format!("postgres://postgres:postgres@127.0.0.1:{postgres_port}/postgres");
 
         // Initialize schema
         let datastore = PostgresDatastore::new(&postgres_dsn, Options::default()).await?;
@@ -70,11 +71,7 @@ struct EngineEnv {
 }
 
 impl EngineEnv {
-    async fn new(
-        infra: &SharedInfra,
-        engine_id: &str,
-        port: u16,
-    ) -> anyhow::Result<Self> {
+    async fn new(infra: &SharedInfra, engine_id: &str, port: u16) -> anyhow::Result<Self> {
         // Set env vars for THIS engine only
         std::env::set_var("TWERK_DATASTORE_TYPE", "postgres");
         std::env::set_var("TWERK_DATASTORE_POSTGRES_DSN", &infra.postgres_dsn);
@@ -211,7 +208,10 @@ async fn poll_job_until_terminal(
 ) -> anyhow::Result<serde_json::Value> {
     let start = std::time::Instant::now();
     loop {
-        let resp = client.get(format!("{base_url}/jobs/{job_id}")).send().await?;
+        let resp = client
+            .get(format!("{base_url}/jobs/{job_id}"))
+            .send()
+            .await?;
         let job: serde_json::Value = resp.json().await?;
         let state = job["state"].as_str().unwrap_or("UNKNOWN");
         if matches!(state, "COMPLETED" | "FAILED" | "CANCELLED") {
@@ -257,8 +257,7 @@ async fn four_engines_on_shared_rabbitmq_complete_independent_jobs() -> anyhow::
     // Submit jobs to each engine
     let mut job_ids = Vec::new();
     for (i, env) in envs.iter().enumerate() {
-        let (status, body) =
-            submit_job(&env.client, &env.base_url, &format!("job-{}", i)).await?;
+        let (status, body) = submit_job(&env.client, &env.base_url, &format!("job-{}", i)).await?;
         assert_eq!(
             status,
             StatusCode::OK,
@@ -273,13 +272,9 @@ async fn four_engines_on_shared_rabbitmq_complete_independent_jobs() -> anyhow::
     let mut results = Vec::new();
     for (i, job_id) in job_ids {
         let env = &envs[i];
-        let job = poll_job_until_terminal(
-            &env.client,
-            &env.base_url,
-            &job_id,
-            Duration::from_secs(60),
-        )
-        .await?;
+        let job =
+            poll_job_until_terminal(&env.client, &env.base_url, &job_id, Duration::from_secs(60))
+                .await?;
         results.push((i, job["state"].as_str().unwrap().to_string()));
     }
 
@@ -288,8 +283,7 @@ async fn four_engines_on_shared_rabbitmq_complete_independent_jobs() -> anyhow::
         assert_eq!(
             state, "COMPLETED",
             "engine {} job state: {} (should be COMPLETED, indicating no cross-talk)",
-            i,
-            state
+            i, state
         );
     }
 

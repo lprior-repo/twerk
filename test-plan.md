@@ -271,62 +271,149 @@ impl Engine {
 
 These test pure functions with no side effects.
 
-**NOTE:** The functions `prefixed_queue()` and `extract_engine_id()` are **new helper functions** to be implemented in `broker/mod.rs` as part of the fix. They are not yet present in the codebase.
+**NOTE:** The functions `prefixed_queue()` and `extract_engine_id()` are implemented in `broker/mod.rs`.
+
+**Test Suite (Munger-Inversion Improved):**
 
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Queue naming behavior
-    // Tests for prefixed_queue(qname, engine_id) and extract_engine_id(qname)
-    // These are NEW functions to implement alongside the engine_id feature
+    // ── Queue prefixing behavior ─────────────────────────────────────────────
+
     #[test]
-    fn empty_engine_id_produces_no_prefix() {
-        let engine_id = "";
-        let queue = "x-pending";
-        let result = prefixed_queue(queue, engine_id);
-        assert_eq!(result, "x-pending"); // unchanged
+    fn empty_engine_id_produces_unprefixed_queue() {
+        assert_eq!(prefixed_queue("x-pending", ""), "x-pending");
+        assert_eq!(prefixed_queue("x-jobs", ""), "x-jobs");
     }
 
     #[test]
-    fn non_empty_engine_id_produces_prefix() {
+    fn non_empty_engine_id_produces_prefixed_queue() {
+        assert_eq!(prefixed_queue("x-pending", "test-abc"), "x-pending.test-abc");
+        assert_eq!(prefixed_queue("x-jobs", "engine-xyz"), "x-jobs.engine-xyz");
+    }
+
+    // ── Round-trip property (bidirectional contract) ──────────────────────────
+
+    #[test]
+    fn prefixed_queue_extract_round_trip_is_identity_when_engine_id_empty() {
+        let queue = "x-pending";
+        let result = prefixed_queue(queue, "");
+        assert_eq!(result, queue);
+        assert_eq!(extract_engine_id(&result), None);
+    }
+
+    #[test]
+    fn prefixed_queue_extract_and_reprefix_round_trip() {
+        // prefixed → extract → re-prefix should give equivalent result
+        let queue = "x-pending";
         let engine_id = "test-abc";
-        let queue = "x-pending";
-        let result = prefixed_queue(queue, engine_id);
-        assert_eq!(result, "x-pending.test-abc");
+        let prefixed = prefixed_queue(queue, engine_id);
+        let extracted = extract_engine_id(&prefixed)
+            .expect("[BUG] round-trip failed - implementation broken");
+        let round_tripped = prefixed_queue(queue, &extracted);
+        assert_eq!(prefixed, round_tripped);
     }
 
     #[test]
-    fn extract_engine_id_from_prefixed_queue() {
-        assert_eq!(extract_engine_id("x-jobs.test-abc"), Some("test-abc".to_string()));
+    fn all_coordinator_queues_round_trip_correctly() {
+        let engine_id = "engine-xyz";
+        let queues = [
+            queue::QUEUE_COMPLETED,
+            queue::QUEUE_FAILED,
+            queue::QUEUE_STARTED,
+            queue::QUEUE_HEARTBEAT,
+            queue::QUEUE_JOBS,
+            queue::QUEUE_PROGRESS,
+            queue::QUEUE_TASK_LOG_PART,
+            queue::QUEUE_REDELIVERIES,
+        ];
+        for queue in queues {
+            let prefixed = prefixed_queue(queue, engine_id);
+            let extracted = extract_engine_id(&prefixed);
+            assert_eq!(extracted, Some(engine_id.to_string()));
+        }
     }
 
+    // ── Already-prefixed queue handling (known limitation) ───────────────────
+
     #[test]
-    fn extract_engine_id_returns_none_for_unprefixed() {
+    fn prefixed_queue_appends_suffix_when_queue_already_prefixed() {
+        // KNOWN LIMITATION: calling prefixed_queue on already-prefixed queue
+        // just appends, creating double-suffix "x-pending.test-abc.test-xyz"
+        let queue = "x-pending.test-abc";
+        let result = prefixed_queue(queue, "test-xyz");
+        assert_eq!(result, "x-pending.test-abc.test-xyz");
+    }
+
+    // ── Engine ID extraction ────────────────────────────────────────────────
+
+    #[test]
+    fn extract_engine_id_returns_none_for_unprefixed_queue() {
         assert_eq!(extract_engine_id("x-jobs"), None);
+        assert_eq!(extract_engine_id("x-pending"), None);
         assert_eq!(extract_engine_id("default"), None);
     }
 
-    // Classification behavior
-    // Note: x-pending is a WORKER queue, x-jobs is a COORDINATOR queue
     #[test]
-    fn is_coordinator_queue_recognizes_prefixed() {
-        assert!(is_coordinator_queue("x-jobs.engine-abc"));
-        assert!(is_coordinator_queue("x-completed.engine-abc"));
-        assert!(is_coordinator_queue("x-failed.engine-abc"));
+    fn extract_engine_id_extracts_from_prefixed_queue() {
+        assert_eq!(extract_engine_id("x-jobs.test-abc"), Some("test-abc".to_string()));
+        assert_eq!(extract_engine_id("x-pending.engine-xyz"), Some("engine-xyz".to_string()));
     }
 
     #[test]
-    fn is_worker_queue_rejects_coordinator_queues() {
-        assert!(!is_worker_queue("x-jobs.engine-abc"));
-        assert!(!is_worker_queue("x-completed.engine-abc"));
+    fn extract_engine_id_rejects_x_prefix_suffix() {
+        // Suffix starting with "x-" is rejected (avoid treating queue names as engine IDs)
+        assert_eq!(extract_engine_id("x-pending.x-abc"), None);
+        assert_eq!(extract_engine_id("x-jobs.x-foo"), None);
+    }
+
+    // ── Queue classification ─────────────────────────────────────────────────
+
+    #[test]
+    fn is_coordinator_queue_recognizes_prefixed_coordinator_queues() {
+        assert!(is_coordinator_queue("x-jobs.engine-abc"));
+        assert!(is_coordinator_queue("x-completed.engine-abc"));
+        assert!(is_coordinator_queue("x-failed.engine-abc"));
+        assert!(is_coordinator_queue("x-started.engine-abc"));
+        assert!(is_coordinator_queue("x-heartbeat.engine-abc"));
+        assert!(is_coordinator_queue("x-progress.engine-abc"));
+        assert!(is_coordinator_queue("x-task_log_part.engine-abc"));
+        assert!(is_coordinator_queue("x-redeliveries.engine-abc"));
+    }
+
+    #[test]
+    fn is_worker_queue_returns_false_for_all_coordinator_queues() {
+        // CONSOLIDATED: 8 coordinator queues in one parameterized test
+        let coordinator_queues = [
+            queue::QUEUE_COMPLETED,
+            queue::QUEUE_FAILED,
+            queue::QUEUE_STARTED,
+            queue::QUEUE_HEARTBEAT,
+            queue::QUEUE_JOBS,
+            queue::QUEUE_PROGRESS,
+            queue::QUEUE_TASK_LOG_PART,
+            queue::QUEUE_REDELIVERIES,
+        ];
+        for queue in coordinator_queues {
+            assert!(!is_worker_queue(queue), "{} should NOT be a worker queue", queue);
+        }
+    }
+
+    #[test]
+    fn is_worker_queue_accepts_worker_queues() {
         assert!(is_worker_queue("default"));
-        // x-pending is a worker queue (no prefix in original)
-        assert!(is_worker_queue("x-pending"));
+        assert!(is_worker_queue("my-queue"));
     }
 }
 ```
+
+**Key improvements from Munger inversion:**
+- **Round-trip property tests** verify bidirectional contract
+- **Parameterized tests** consolidate 8 redundant single-assertion tests into 1
+- **Removed tautological tests** (is_task_queue delegating to is_worker_queue)
+- **Documented known limitations** (double-suffix behavior)
 
 ### 4.2 Integration Tests (Real RabbitMQ)
 
@@ -399,7 +486,43 @@ async fn engine_with_empty_id_uses_unprefixed_queues() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn same_engine_id_engines_share_queues() -> anyhow::Result<()> {
+    // Two engines with SAME engine_id should share queues (collision test)
+    let container = RabbitMq::default().start().await?;
+    let url = format!("amqp://guest:guest@localhost:{}", 
+        container.get_host_port_ipv4(5672).await?);
+
+    let broker_a = RabbitMQBroker::new(&url, RabbitMQOptions::default(), "shared-id").await?;
+    let broker_b = RabbitMQBroker::new(&url, RabbitMQOptions::default(), "shared-id").await?;
+
+    // Engine B subscribes
+    let (tx, mut rx) = mpsc::channel(1);
+    broker_b.subscribe_for_tasks("x-pending.shared-id".to_string(), Arc::new(move |_| {
+        let tx = tx.clone();
+        Box::pin(async move {
+            tx.send(()).await?;
+            Ok(())
+        })
+    })).await?;
+
+    // Engine A publishes to SAME queue
+    let task = Task::default();
+    broker_a.publish_task("x-pending.shared-id".to_string(), &task).await?;
+
+    // Engine B SHOULD receive because they share the same engine_id
+    tokio::time::timeout(Duration::from_secs(2), rx.recv())
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Same engine_id should share queues"))?;
+
+    broker_a.shutdown().await?;
+    broker_b.shutdown().await?;
+    Ok(())
+}
 ```
+
+**Munger inversion improvement:** Added `same_engine_id_engines_share_queues` to test the collision scenario where two engines accidentally get the same engine_id. This is a NEGATIVE TEST that documents expected behavior (shared queues).
 
 ### 4.3 E2E Concurrent Isolation Test
 

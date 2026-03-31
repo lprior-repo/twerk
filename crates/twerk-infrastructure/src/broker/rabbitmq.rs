@@ -33,6 +33,39 @@ const MSG_TYPE_NODE: &str = "*twerk.Node";
 const MSG_TYPE_TASK_LOG_PART: &str = "*twerk.TaskLogPart";
 const MSG_TYPE_EVENT: &str = "*twerk.Event";
 
+// ── Functional helpers for JSON extraction and type conversion ─────────────────
+
+/// Extracts an i64 from JSON, returning 0 for null/missing values.
+/// Idiomatic alternative to unwrap_or.
+#[inline]
+fn extract_i64(val: &Value) -> i64 {
+    val.as_i64().map_or(0, |v| v)
+}
+
+/// Safely converts i64 to i32, clamping to i32::MAX/MIN on overflow.
+/// For monitoring/metrics where we never want to fail on large counts.
+#[inline]
+fn clamp_i32(val: i64) -> i32 {
+    i32::try_from(val).map_or_else(
+        |_| {
+            if val > 0 {
+                debug!(value = val, "i64 overflow on i32 conversion, clamping to MAX");
+                i32::MAX
+            } else {
+                debug!(value = val, "i64 underflow on i32 conversion, clamping to MIN");
+                i32::MIN
+            }
+        },
+        |v| v,
+    )
+}
+
+/// Extracts i32 from JSON, returning 0 for null/missing values.
+#[inline]
+fn extract_i32(val: &Value) -> i32 {
+    clamp_i32(extract_i64(val))
+}
+
 /// RabbitMQ-backed broker implementation.
 pub struct RabbitMQBroker {
     url: String,
@@ -483,29 +516,10 @@ impl Broker for RabbitMQBroker {
                         let name = q["name"]
                             .as_str()
                             .map_or(String::new(), ToString::to_string);
-                        // Use unwrap_or(0) for null/missing values - reasonable default for monitoring
-                        // i64→i32 overflow is practically impossible for message counts
-                        let size = match q["messages"].as_i64().unwrap_or(0) {
-                            v if v < 0 => {
-                                debug!(queue = %name, field = "messages", value = v, "negative message count, using 0");
-                                0
-                            }
-                            v => i32::try_from(v).unwrap_or(0),
-                        };
-                        let subscribers = match q["consumers"].as_i64().unwrap_or(0) {
-                            v if v < 0 => {
-                                debug!(queue = %name, field = "consumers", value = v, "negative subscriber count, using 0");
-                                0
-                            }
-                            v => i32::try_from(v).unwrap_or(0),
-                        };
-                        let unacked = match q["messages_unacknowledged"].as_i64().unwrap_or(0) {
-                            v if v < 0 => {
-                                debug!(queue = %name, field = "messages_unacknowledged", value = v, "negative unacked count, using 0");
-                                0
-                            }
-                            v => i32::try_from(v).unwrap_or(0),
-                        };
+                        // Use helper functions for idiomatic JSON extraction and type conversion
+                        let size = extract_i32(&q["messages"]);
+                        let subscribers = extract_i32(&q["consumers"]);
+                        let unacked = extract_i32(&q["messages_unacknowledged"]);
                         QueueInfo {
                             name,
                             size,
@@ -536,29 +550,10 @@ impl Broker for RabbitMQBroker {
                 let name = q["name"]
                     .as_str()
                     .map_or(String::new(), ToString::to_string);
-                // Use unwrap_or(0) for null/missing values - reasonable default for monitoring
-                // i64→i32 overflow is practically impossible for message counts
-                let size = match q["messages"].as_i64().unwrap_or(0) {
-                    v if v < 0 => {
-                        debug!(queue = %qname, field = "messages", value = v, "negative message count, using 0");
-                        0
-                    }
-                    v => i32::try_from(v).unwrap_or(0),
-                };
-                let subscribers = match q["consumers"].as_i64().unwrap_or(0) {
-                    v if v < 0 => {
-                        debug!(queue = %qname, field = "consumers", value = v, "negative subscriber count, using 0");
-                        0
-                    }
-                    v => i32::try_from(v).unwrap_or(0),
-                };
-                let unacked = match q["messages_unacknowledged"].as_i64().unwrap_or(0) {
-                    v if v < 0 => {
-                        debug!(queue = %qname, field = "messages_unacknowledged", value = v, "negative unacked count, using 0");
-                        0
-                    }
-                    v => i32::try_from(v).unwrap_or(0),
-                };
+                // Use helper functions for idiomatic JSON extraction and type conversion
+                let size = extract_i32(&q["messages"]);
+                let subscribers = extract_i32(&q["consumers"]);
+                let unacked = extract_i32(&q["messages_unacknowledged"]);
                 Ok(QueueInfo {
                     name,
                     size,

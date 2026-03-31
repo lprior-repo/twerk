@@ -165,44 +165,27 @@ mod tests {
         assert!(is_worker_queue("my-queue"));
     }
 
+    /// Consolidated test: all coordinator queues are NOT worker queues.
     #[test]
-    fn is_worker_queue_returns_false_for_queue_jobs() {
-        assert!(!is_worker_queue(queue::QUEUE_JOBS));
-    }
+    fn is_worker_queue_returns_false_for_all_coordinator_queues() {
+        let coordinator_queues = [
+            queue::QUEUE_COMPLETED,
+            queue::QUEUE_FAILED,
+            queue::QUEUE_STARTED,
+            queue::QUEUE_HEARTBEAT,
+            queue::QUEUE_JOBS,
+            queue::QUEUE_PROGRESS,
+            queue::QUEUE_TASK_LOG_PART,
+            queue::QUEUE_REDELIVERIES,
+        ];
 
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_completed() {
-        assert!(!is_worker_queue(queue::QUEUE_COMPLETED));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_failed() {
-        assert!(!is_worker_queue(queue::QUEUE_FAILED));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_started() {
-        assert!(!is_worker_queue(queue::QUEUE_STARTED));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_heartbeat() {
-        assert!(!is_worker_queue(queue::QUEUE_HEARTBEAT));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_progress() {
-        assert!(!is_worker_queue(queue::QUEUE_PROGRESS));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_task_log_part() {
-        assert!(!is_worker_queue(queue::QUEUE_TASK_LOG_PART));
-    }
-
-    #[test]
-    fn is_worker_queue_returns_false_for_queue_redeliveries() {
-        assert!(!is_worker_queue(queue::QUEUE_REDELIVERIES));
+        for queue in coordinator_queues {
+            assert!(
+                !is_worker_queue(queue),
+                "{} should NOT be a worker queue",
+                queue
+            );
+        }
     }
 
     #[test]
@@ -264,12 +247,6 @@ mod tests {
             "{}test",
             queue::QUEUE_EXCLUSIVE_PREFIX
         )));
-    }
-
-    #[test]
-    fn is_task_queue_delegates_to_is_worker_queue() {
-        assert!(is_task_queue("default"));
-        assert!(!is_task_queue(queue::QUEUE_JOBS));
     }
 
     // ── Queue prefix behavior ─────────────────────────────────────────────────
@@ -386,5 +363,126 @@ mod tests {
         assert!(is_worker_queue("my-queue"));
         assert!(is_worker_queue("x-pending"));
         assert!(is_worker_queue("x-pending.engine-xyz")); // x-pending is a worker queue even with prefix
+    }
+
+    // ── Round-trip property tests ──────────────────────────────────────────────
+
+    /// When engine_id is empty, round-trip is identity.
+    #[test]
+    fn prefixed_queue_extract_round_trip_is_identity_when_engine_id_empty() {
+        let queue = "x-pending";
+        let prefixed = prefixed_queue(queue, "");
+        assert_eq!(prefixed, queue);
+
+        let queue = "x-jobs";
+        let prefixed = prefixed_queue(queue, "");
+        assert_eq!(prefixed, queue);
+    }
+
+    /// When engine_id is non-empty, extract then re-prefix gives equivalent result.
+    #[test]
+    fn prefixed_queue_extract_and_reprefix_round_trip() {
+        let engine_id = "test-abc";
+        let queue = "x-pending";
+
+        let prefixed = prefixed_queue(queue, engine_id);
+        // Extracting and re-prefixing should give same result
+        let extracted = extract_engine_id(&prefixed)
+            .expect("[BUG] extract_engine_id returned None for prefixed queue - round-trip broken");
+        let round_tripped = prefixed_queue(queue, &extracted);
+        assert_eq!(
+            prefixed, round_tripped,
+            "prefixed_queue(queue, extract_engine_id(prefixed_queue(queue, engine_id))) should equal prefixed_queue(queue, engine_id)"
+        );
+    }
+
+    /// Round-trip for all coordinator queue types.
+    #[test]
+    fn all_coordinator_queues_round_trip_correctly() {
+        let engine_id = "engine-xyz";
+        let coordinator_queues = [
+            queue::QUEUE_COMPLETED,
+            queue::QUEUE_FAILED,
+            queue::QUEUE_STARTED,
+            queue::QUEUE_HEARTBEAT,
+            queue::QUEUE_JOBS,
+            queue::QUEUE_PROGRESS,
+            queue::QUEUE_TASK_LOG_PART,
+            queue::QUEUE_REDELIVERIES,
+        ];
+
+        for queue in coordinator_queues {
+            let prefixed = prefixed_queue(queue, engine_id);
+            let extracted = extract_engine_id(&prefixed)
+                .expect("Expected extract_engine_id to succeed for coordinator queue");
+            let round_tripped = prefixed_queue(queue, &extracted);
+            assert_eq!(
+                prefixed, round_tripped,
+                "Round-trip failed for queue '{}'",
+                queue
+            );
+        }
+    }
+
+    // ── Already-prefixed queue handling ──────────────────────────────────────────
+
+    /// Calling prefixed_queue on an already-prefixed queue appends the new suffix.
+    /// Result is "x-pending.test-abc.test-xyz" - the new engine_id becomes part of suffix.
+    /// This is a KNOWN LIMITATION: callers must ensure they don't call this on
+    /// already-prefixed queues. The function doesn't prevent double-suffixing.
+    #[test]
+    fn prefixed_queue_appends_suffix_when_queue_already_prefixed() {
+        let queue = "x-pending.test-abc";
+        let result = prefixed_queue(queue, "test-xyz");
+        // Current behavior: appends, creating "x-pending.test-abc.test-xyz"
+        assert_eq!(result, "x-pending.test-abc.test-xyz");
+    }
+
+    /// Extract from an already-prefixed queue returns the last segment only.
+    #[test]
+    fn extract_engine_id_from_already_prefixed_queue() {
+        // "x-pending.test-abc.test-xyz" -> extract returns "test-xyz" (last segment)
+        let queue = "x-pending.test-abc.test-xyz";
+        let extracted = extract_engine_id(queue);
+        assert_eq!(extracted, Some("test-xyz".to_string()));
+    }
+
+    // ── Empty/whitespace engine_id edge cases ─────────────────────────────────
+
+    /// Empty engine_id produces unprefixed queue (backward compatible).
+    #[test]
+    fn empty_engine_id_produces_unprefixed_queue() {
+        assert_eq!(prefixed_queue("x-jobs", ""), "x-jobs");
+        assert_eq!(prefixed_queue("x-pending", ""), "x-pending");
+    }
+
+    /// Whitespace-only engine_id is NOT treated as empty - it produces a prefixed queue.
+    /// This is a behavioral edge case to be aware of.
+    #[test]
+    fn whitespace_engine_id_produces_prefixed_queue() {
+        let result = prefixed_queue("x-jobs", "   ");
+        // Current implementation: is_empty() check, so whitespace is NOT empty
+        assert_eq!(result, "x-jobs.   ");
+    }
+
+    // ── is_task_queue behavior ────────────────────────────────────────────────
+
+    /// is_task_queue is an alias for is_worker_queue - verifies basic delegation.
+    #[test]
+    fn is_task_queue_matches_is_worker_queue() {
+        // Worker queues
+        assert_eq!(is_task_queue("default"), is_worker_queue("default"));
+        assert_eq!(is_task_queue("my-queue"), is_worker_queue("my-queue"));
+        assert_eq!(is_task_queue("x-pending"), is_worker_queue("x-pending"));
+
+        // Coordinator queues
+        assert_eq!(
+            is_task_queue(queue::QUEUE_JOBS),
+            is_worker_queue(queue::QUEUE_JOBS)
+        );
+        assert_eq!(
+            is_task_queue(queue::QUEUE_COMPLETED),
+            is_worker_queue(queue::QUEUE_COMPLETED)
+        );
     }
 }

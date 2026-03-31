@@ -132,3 +132,45 @@ async fn broker_publishes_to_prefixed_queues_when_engine_id_set() -> anyhow::Res
     broker.shutdown().await?;
     Ok(())
 }
+
+/// Two engines with SAME engine_id should share queues.
+#[tokio::test]
+async fn same_engine_id_engines_share_queues() -> anyhow::Result<()> {
+    let (_container, url) = setup_rabbitmq().await?;
+
+    // Two brokers with SAME engine_id should share queues
+    let broker_a =
+        RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
+    let broker_b =
+        RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
+
+    // Engine B subscribes to its queue
+    let (tx, mut rx) = mpsc::channel(1);
+    broker_b
+        .subscribe_for_tasks(
+            "x-pending.shared-id".to_string(),
+            Arc::new(move |_| {
+                let tx = tx.clone();
+                Box::pin(async move {
+                    tx.send(()).await.map_err(|e| anyhow::anyhow!(e))?;
+                    Ok(())
+                })
+            }),
+        )
+        .await?;
+
+    // Engine A publishes
+    let task = Task::default();
+    broker_a
+        .publish_task("x-pending.shared-id".to_string(), &task)
+        .await?;
+
+    // Engine B SHOULD receive because they share the same engine_id
+    tokio::time::timeout(Duration::from_secs(2), rx.recv())
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Engines with same ID should share queues"))?;
+
+    broker_a.shutdown().await?;
+    broker_b.shutdown().await?;
+    Ok(())
+}

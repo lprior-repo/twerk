@@ -73,6 +73,10 @@ impl DefaultWorker {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Worker trait implementation — start delegates to focused helper functions
+// ---------------------------------------------------------------------------
+
 impl Worker for DefaultWorker {
     fn start(&self) -> BoxedFuture<()> {
         let (id, name, broker, runtime, queues, terminate_tx, active_tasks) = (
@@ -86,66 +90,19 @@ impl Worker for DefaultWorker {
         );
         Box::pin(async move {
             info!("Worker {} ({}) starting", name, id);
-            let hb_broker = broker.clone();
-            let (hb_id, hb_name) = (id.clone(), name.clone());
-            let mut hb_terminate_rx = terminate_tx.subscribe();
-            let runtime_hb = runtime.clone();
-            tokio::spawn(async move {
-                let mut sys = System::new_all();
-                loop {
-                    send_heartbeat(&hb_broker, &hb_id, &hb_name, &mut sys, runtime_hb.clone())
-                        .await;
-                    tokio::select! { _ = hb_terminate_rx.recv() => break, _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {} }
-                }
-            });
-            for (qname, concurrency) in queues {
-                for _ in 0..concurrency {
-                    let (q_broker, q_runtime, q_name, mut q_terminate_rx, q_active_tasks) = (
-                        broker.clone(),
-                        runtime.clone(),
-                        qname.clone(),
-                        terminate_tx.subscribe(),
-                        active_tasks.clone(),
-                    );
-                    tokio::spawn(async move {
-                        let qb = q_broker.clone();
-                        let handler: twerk_infrastructure::broker::TaskHandler =
-                            Arc::new(move |task: Arc<Task>| {
-                                let (b, r, a) =
-                                    (qb.clone(), q_runtime.clone(), q_active_tasks.clone());
-                                Box::pin(async move { execute_task(task, r, b, a).await })
-                            });
-                        let _ = q_broker.subscribe_for_tasks(q_name, handler).await;
-                        let _ = q_terminate_rx.recv().await;
-                    });
-                }
-            }
-            let cancel_q = format!("cancel.{}", id);
-            let (c_runtime, c_active_tasks, mut c_terminate_rx) = (
+            spawn_heartbeat_loop(
+                broker.clone(),
+                id.clone(),
+                name.clone(),
                 runtime.clone(),
-                active_tasks.clone(),
-                terminate_tx.subscribe(),
+                terminate_tx.clone(),
             );
-            tokio::spawn(async move {
-                let handler: twerk_infrastructure::broker::TaskHandler =
-                    Arc::new(move |task: Arc<Task>| {
-                        let (r, a) = (c_runtime.clone(), c_active_tasks.clone());
-                        Box::pin(async move {
-                            if let Some(tid) = &task.id {
-                                if let Some((_, t)) = a.remove(tid) {
-                                    debug!("Cancelling task {}", tid);
-                                    let _ = r.stop(&t).await;
-                                }
-                            }
-                            Ok(())
-                        })
-                    });
-                let _ = broker.subscribe_for_tasks(cancel_q, handler).await;
-                let _ = c_terminate_rx.recv().await;
-            });
+            spawn_queue_subscribers(&broker, &runtime, &queues, &terminate_tx, &active_tasks);
+            spawn_cancel_listener(broker, id, runtime, active_tasks, terminate_tx);
             Ok(())
         })
     }
+
     fn stop(&self) -> BoxedFuture<()> {
         let (terminate_tx, active_tasks) = (self.terminate_tx.clone(), self.active_tasks.clone());
         Box::pin(async move {
@@ -161,6 +118,108 @@ impl Worker for DefaultWorker {
         })
     }
 }
+
+// ---------------------------------------------------------------------------
+// Helper 1: Heartbeat — periodic status publishing
+// ---------------------------------------------------------------------------
+
+fn spawn_heartbeat_loop(
+    broker: BrokerProxy,
+    id: String,
+    name: String,
+    runtime: Arc<dyn RuntimeTrait + Send + Sync>,
+    terminate_tx: broadcast::Sender<()>,
+) {
+    let mut terminate_rx = terminate_tx.subscribe();
+    tokio::spawn(async move {
+        let mut sys = System::new_all();
+        loop {
+            send_heartbeat(&broker, &id, &name, &mut sys, runtime.clone()).await;
+            tokio::select! {
+                _ = terminate_rx.recv() => break,
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {}
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Helper 2: Queue subscribers — spawn one task per concurrency slot
+// ---------------------------------------------------------------------------
+
+fn spawn_queue_subscribers(
+    broker: &BrokerProxy,
+    runtime: &Arc<dyn RuntimeTrait + Send + Sync>,
+    queues: &HashMap<String, i32>,
+    terminate_tx: &broadcast::Sender<()>,
+    active_tasks: &Arc<DashMap<TaskId, Arc<Task>>>,
+) {
+    for (qname, concurrency) in queues {
+        for _ in 0..*concurrency {
+            spawn_queue_worker(
+                broker.clone(),
+                runtime.clone(),
+                qname.clone(),
+                terminate_tx.subscribe(),
+                active_tasks.clone(),
+            );
+        }
+    }
+}
+
+fn spawn_queue_worker(
+    q_broker: BrokerProxy,
+    q_runtime: Arc<dyn RuntimeTrait + Send + Sync>,
+    q_name: String,
+    mut q_terminate_rx: broadcast::Receiver<()>,
+    q_active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
+) {
+    tokio::spawn(async move {
+        let qb = q_broker.clone();
+        let handler: twerk_infrastructure::broker::TaskHandler =
+            Arc::new(move |task: Arc<Task>| {
+                let (b, r, a) = (qb.clone(), q_runtime.clone(), q_active_tasks.clone());
+                Box::pin(async move { execute_task(task, r, b, a).await })
+            });
+        let _ = q_broker.subscribe_for_tasks(q_name, handler).await;
+        let _ = q_terminate_rx.recv().await;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Helper 3: Cancel listener — reacts to task cancellation requests
+// ---------------------------------------------------------------------------
+
+fn spawn_cancel_listener(
+    broker: BrokerProxy,
+    id: String,
+    runtime: Arc<dyn RuntimeTrait + Send + Sync>,
+    active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
+    terminate_tx: broadcast::Sender<()>,
+) {
+    let (cancel_q, mut terminate_rx) = (format!("cancel.{}", id), terminate_tx.subscribe());
+    tokio::spawn(async move {
+        let handler: twerk_infrastructure::broker::TaskHandler =
+            Arc::new(move |task: Arc<Task>| {
+                let (r, a) = (runtime.clone(), active_tasks.clone());
+                Box::pin(async move {
+                    if let Some(tid) = &task.id {
+                        if let Some((_, t)) = a.remove(tid) {
+                            debug!("Cancelling task {}", tid);
+                            let _ = r.stop(&t).await;
+                        }
+                    }
+                    Ok(())
+                })
+            });
+        let _ = broker.subscribe_for_tasks(cancel_q, handler).await;
+        let _ = terminate_rx.recv().await;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat & task execution internals
+// ---------------------------------------------------------------------------
 
 async fn send_heartbeat(
     broker: &BrokerProxy,
@@ -239,6 +298,10 @@ async fn execute_task(
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Helper 4: Hostenv middleware registration
+// ---------------------------------------------------------------------------
+
 pub fn create_hostenv_middleware(vars: &[String]) -> Option<crate::engine::TaskMiddlewareFunc> {
     if vars.is_empty() {
         return None;
@@ -286,6 +349,16 @@ pub fn create_hostenv_middleware(vars: &[String]) -> Option<crate::engine::TaskM
     ))
 }
 
+fn register_hostenv_middleware(engine: &mut crate::engine::Engine, hostenv_vars: &[String]) {
+    if let Some(middleware) = create_hostenv_middleware(hostenv_vars) {
+        engine.register_task_middleware(middleware);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper 5: Worker config resolution from environment
+// ---------------------------------------------------------------------------
+
 pub fn read_limits() -> Limits {
     Limits {
         cpus: std::env::var("TWERK_WORKER_LIMITS_CPUS")
@@ -297,30 +370,11 @@ pub fn read_limits() -> Limits {
     }
 }
 
-pub async fn create_worker(
-    engine: &mut crate::engine::Engine,
-    broker: BrokerProxy,
-    runtime: Option<Box<dyn RuntimeTrait + Send + Sync>>,
-) -> Result<Box<dyn Worker + Send + Sync>> {
-    use crate::engine::worker::runtime_adapter::{create_runtime_from_config, read_runtime_config};
-    let config = read_runtime_config();
-    let runtime_broker: Arc<dyn Broker + Send + Sync> = Arc::new(broker.clone());
-    let rt: Arc<dyn RuntimeTrait + Send + Sync> = match runtime {
-        Some(r) => Arc::from(r),
-        None => Arc::from(create_runtime_from_config(&config, runtime_broker).await?),
-    };
-    rt.health_check().await?;
-    if let Some(h) = create_hostenv_middleware(&config.hostenv_vars) {
-        engine.register_task_middleware(h);
-    }
+fn resolve_worker_config() -> (String, String, HashMap<String, i32>) {
     let id = std::env::var("TWERK_WORKER_ID").unwrap_or_else(|_| twerk_core::uuid::new_uuid());
     let name = std::env::var("TWERK_WORKER_NAME").unwrap_or_else(|_| "Worker".to_string());
     let queues = std::env::var("TWERK_WORKER_QUEUES").ok().map_or_else(
-        || {
-            let mut m = HashMap::new();
-            m.insert("default".to_string(), 1);
-            m
-        },
+        || HashMap::from([("default".to_string(), 1)]),
         |s| {
             s.split(',')
                 .filter_map(|q| {
@@ -337,6 +391,28 @@ pub async fn create_worker(
                 .collect()
         },
     );
+    (id, name, queues)
+}
+
+// ---------------------------------------------------------------------------
+// Worker factory — assembles the DefaultWorker from resolved config
+// ---------------------------------------------------------------------------
+
+pub async fn create_worker(
+    engine: &mut crate::engine::Engine,
+    broker: BrokerProxy,
+    runtime: Option<Box<dyn RuntimeTrait + Send + Sync>>,
+) -> Result<Box<dyn Worker + Send + Sync>> {
+    use crate::engine::worker::runtime_adapter::{create_runtime_from_config, read_runtime_config};
+    let config = read_runtime_config();
+    let runtime_broker: Arc<dyn Broker + Send + Sync> = Arc::new(broker.clone());
+    let rt: Arc<dyn RuntimeTrait + Send + Sync> = match runtime {
+        Some(r) => Arc::from(r),
+        None => Arc::from(create_runtime_from_config(&config, runtime_broker).await?),
+    };
+    rt.health_check().await?;
+    register_hostenv_middleware(engine, &config.hostenv_vars);
+    let (id, name, queues) = resolve_worker_config();
     Ok(Box::new(DefaultWorker::new(
         id,
         name,

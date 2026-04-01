@@ -210,7 +210,9 @@ async fn execute_task(
     let b1 = broker.clone();
     let t1 = t.clone();
     tokio::spawn(async move {
-        let _ = b1.publish_task_progress(&t1).await;
+        if let Err(e) = b1.publish_task_progress(&t1).await {
+            tracing::debug!(error = %e, "failed to publish task progress");
+        }
     });
 
     match runtime.run(&t).await {
@@ -230,7 +232,9 @@ async fn execute_task(
     let b2 = broker.clone();
     let t2 = t.clone();
     tokio::spawn(async move {
-        let _ = b2.publish_task_progress(&t2).await;
+        if let Err(e) = b2.publish_task_progress(&t2).await {
+            tracing::debug!(error = %e, "failed to publish task progress");
+        }
     });
     Ok(())
 }

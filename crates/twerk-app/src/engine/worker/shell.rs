@@ -259,7 +259,9 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Track the child handle for potential future use
             let mut child = cmd.spawn()?;
 
-            let pid = child.id().unwrap_or(0);
+            let pid = child
+                .id()
+                .ok_or_else(|| anyhow::anyhow!("child process spawned but PID unavailable"))?;
             let handle = ProcessHandle { pid };
 
             // Store handle for stop() to use

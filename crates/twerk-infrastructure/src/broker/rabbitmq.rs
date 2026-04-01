@@ -343,6 +343,10 @@ impl Broker for RabbitMQBroker {
                 .map(|(data, priority)| b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority))
                 .collect();
 
+            // NOTE: Batch publish is non-atomic. RabbitMQ has no transactional batch publish
+            // in the AMQP model. If some messages fail to publish, already-published messages
+            // remain in the queue. The coordinator's compensating rollback pattern handles this
+            // by marking orphaned tasks as FAILED when the publish call returns an error.
             futures_util::future::try_join_all(futures).await?;
             Ok(())
         })

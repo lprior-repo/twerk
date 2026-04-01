@@ -4,7 +4,7 @@ use super::super::BoxedFuture;
 use super::InMemoryBroker;
 use serde_json::Value;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, warn};
 use twerk_common::wildcard::wildcard_match;
 use twerk_core::job::Job;
 use twerk_core::node::Node;
@@ -32,7 +32,9 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
     for handler in handlers {
         let task_clone = Arc::clone(&task);
         tokio::spawn(async move {
-            let _ = handler(task_clone).await;
+            if let Err(e) = handler(task_clone).await {
+                warn!(error = %e, "task handler failed");
+            }
         });
     }
 
@@ -67,7 +69,9 @@ pub(crate) fn tasks(
             let task_clone = Arc::clone(task_arc);
             let handler_clone = Arc::clone(handler);
             tokio::spawn(async move {
-                let _ = handler_clone(task_clone).await;
+                if let Err(e) = handler_clone(task_clone).await {
+                    warn!(error = %e, "batch task handler failed");
+                }
             });
         }
     }
@@ -85,7 +89,9 @@ pub(crate) fn task_progress(broker: &InMemoryBroker, task: &Task) -> BoxedFuture
             let task_clone = task.clone();
             let handler_clone = handler.clone();
             tokio::spawn(async move {
-                let _ = handler_clone(task_clone).await;
+                if let Err(e) = handler_clone(task_clone).await {
+                    warn!(error = %e, "progress handler failed");
+                }
             });
         }
         Ok(())
@@ -110,7 +116,9 @@ pub(crate) fn heartbeat(broker: &InMemoryBroker, node: Node) -> BoxedFuture<()> 
             let node_clone = node.clone();
             let handler_clone = handler.clone();
             tokio::spawn(async move {
-                let _ = handler_clone(node_clone).await;
+                if let Err(e) = handler_clone(node_clone).await {
+                    warn!(error = %e, "heartbeat handler failed");
+                }
             });
         }
         Ok(())
@@ -132,7 +140,9 @@ pub(crate) fn job(broker: &InMemoryBroker, job: &Job) -> BoxedFuture<()> {
             let job_clone = job.clone();
             let handler_clone = handler.clone();
             tokio::spawn(async move {
-                let _ = handler_clone(job_clone).await;
+                if let Err(e) = handler_clone(job_clone).await {
+                    warn!(error = %e, "job handler failed");
+                }
             });
         }
         Ok(())
@@ -152,7 +162,9 @@ pub(crate) fn event(broker: &InMemoryBroker, topic: String, event: Value) -> Box
                     let ev_clone = event_clone.clone();
                     let h_clone = handler.clone();
                     tokio::spawn(async move {
-                        let _ = h_clone(ev_clone).await;
+                        if let Err(e) = h_clone(ev_clone).await {
+                            warn!(error = %e, "event handler failed");
+                        }
                     });
                 }
             }
@@ -178,7 +190,9 @@ pub(crate) fn task_log_part(broker: &InMemoryBroker, part: &TaskLogPart) -> Boxe
             let part_clone = part.clone();
             let handler_clone = handler.clone();
             tokio::spawn(async move {
-                let _ = handler_clone(part_clone).await;
+                if let Err(e) = handler_clone(part_clone).await {
+                    warn!(error = %e, "task log part handler failed");
+                }
             });
         }
         Ok(())

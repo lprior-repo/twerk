@@ -27,8 +27,8 @@ pub struct Engine {
         Arc<RwLock<Option<Box<dyn super::coordinator::Coordinator + Send + Sync>>>>,
     /// Broadcast sender for termination request - we store the sender to create subscriptions
     pub(crate) terminate_tx: broadcast::Sender<()>,
-    /// Subscribers wait for termination on this channel
-    pub(crate) terminate_rx: Arc<broadcast::Sender<()>>,
+    /// Broadcast sender used by signal handler tasks to subscribe for termination
+    pub(crate) terminate_broadcaster: Arc<broadcast::Sender<()>>,
     /// Notify for termination completion - properly wakes late waiters
     pub(crate) terminated_notify: Arc<Notify>,
     pub(crate) locker: Arc<RwLock<Option<Box<dyn super::locker::Locker + Send + Sync>>>>,
@@ -69,7 +69,7 @@ impl Engine {
             worker: Arc::new(RwLock::new(None)),
             coordinator: Arc::new(RwLock::new(None)),
             terminate_tx: terminate_tx.clone(),
-            terminate_rx: Arc::new(terminate_tx),
+            terminate_broadcaster: Arc::new(terminate_tx),
             terminated_notify: Arc::new(Notify::new()),
             locker: Arc::new(RwLock::new(None)),
             middleware: config.middleware,

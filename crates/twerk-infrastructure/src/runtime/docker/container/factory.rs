@@ -350,9 +350,11 @@ pub async fn create_task_container(
 
     let container_id = create_ctx.id;
 
-    // Extract task_id - we know it exists because we checked earlier
-    #[allow(clippy::expect_used)]
-    let task_id = task.id.as_ref().expect("Task ID must be set");
+    // SAFETY: task.id was validated at the top of this function (line 231).
+    // Using ok_or_else instead of expect to avoid production panics.
+    let task_id = task.id.as_ref().ok_or_else(|| {
+        DockerError::ContainerCreate("task ID is required but was empty".to_string())
+    })?;
 
     let tc = Tcontainer::new(
         container_id.clone(),

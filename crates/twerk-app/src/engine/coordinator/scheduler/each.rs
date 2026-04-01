@@ -4,6 +4,7 @@ use super::Scheduler;
 use anyhow::Result;
 use std::collections::HashMap;
 use twerk_core::eval::{evaluate_expr, evaluate_task};
+use twerk_core::task::Task;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
@@ -11,7 +12,7 @@ impl Scheduler {
     /// Schedules tasks from an each-loop task definition.
     /// # Errors
     /// Returns error if list evaluation or task creation fails.
-    pub async fn schedule_each_task(&self, task: twerk_core::task::Task) -> Result<()> {
+    pub async fn schedule_each_task(&self, task: Task) -> Result<()> {
         let task_id = task
             .id
             .as_deref()
@@ -22,7 +23,7 @@ impl Scheduler {
             .ok_or_else(|| anyhow::anyhow!("job ID required for each scheduling"))?;
         let now = time::OffsetDateTime::now_utc();
 
-        let job = self.ds.get_job_by_id(&job_id).await?;
+        let job = self.ds.get_job_by_id(job_id).await?;
         let job_ctx_map = job
             .context
             .as_ref()
@@ -43,14 +44,17 @@ impl Scheduler {
 
         self.ds
             .update_task(
-                &task_id,
-                Box::new(move |mut u| {
-                    u.state = twerk_core::task::TASK_STATE_RUNNING.to_string();
-                    u.started_at = Some(now);
-                    if let Some(ref mut e) = u.each {
-                        e.size = size;
-                    }
-                    Ok(u)
+                task_id,
+                Box::new(move |u| {
+                    let updated_each = u
+                        .each
+                        .map(|e| Box::new(twerk_core::task::EachTask { size, ..*e }));
+                    Ok(Task {
+                        state: twerk_core::task::TASK_STATE_RUNNING.to_string(),
+                        started_at: Some(now),
+                        each: updated_each,
+                        ..u
+                    })
                 }),
             )
             .await?;
@@ -59,7 +63,7 @@ impl Scheduler {
             .task
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("missing each task template"))?;
-        self.spawn_each_tasks(template, list, &job_ctx_map, &task_id, &job_id, now)
+        self.spawn_each_tasks(template, list, &job_ctx_map, task_id, job_id, now)
             .await
     }
 
@@ -88,7 +92,7 @@ impl Scheduler {
 
     async fn spawn_each_tasks(
         &self,
-        template: &twerk_core::task::Task,
+        template: &Task,
         list: &[serde_json::Value],
         job_ctx: &HashMap<String, serde_json::Value>,
         task_id: &str,
@@ -101,33 +105,62 @@ impl Scheduler {
             .iter()
             .enumerate()
             .map(|(ix, item)| {
-                let mut cx = job_ctx.clone();
-                cx.insert(
-                    var_name.to_string(),
-                    serde_json::json!({
-                        "index": ix.to_string(),
-                        "value": item
-                    }),
-                );
+                let cx = {
+                    let mut m = job_ctx.clone();
+                    m.insert(
+                        var_name.to_string(),
+                        serde_json::json!({
+                            "index": ix.to_string(),
+                            "value": item
+                        }),
+                    );
+                    m
+                };
 
-                let mut et = (*template).clone();
-                et = evaluate_task(&et, &cx)
+                let evaluated = evaluate_task(template, &cx)
                     .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
 
-                et.id = Some(new_short_uuid().into());
-                et.job_id = Some(job_id.to_string().into());
-                et.parent_id = Some(task_id.to_string().into());
-                et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
-                et.created_at = Some(now);
-                Ok(et)
+                Ok(Task {
+                    id: Some(new_short_uuid().into()),
+                    job_id: Some(job_id.to_string().into()),
+                    parent_id: Some(task_id.to_string().into()),
+                    state: twerk_core::task::TASK_STATE_PENDING.to_string(),
+                    created_at: Some(now),
+                    ..evaluated
+                })
             })
             .collect::<Result<Vec<_>>>()?;
 
         if !subtasks.is_empty() {
             self.ds.create_tasks(&subtasks).await?;
-            self.broker
+            if let Err(e) = self
+                .broker
                 .publish_tasks(QUEUE_PENDING.to_string(), &subtasks)
-                .await?;
+                .await
+            {
+                // Compensating rollback: tasks persisted but broker publish failed.
+                // Mark all orphaned tasks as FAILED concurrently to prevent zombie state.
+                let error_msg = format!("broker publish failed: {e}");
+                let compensating: Vec<_> = subtasks
+                    .iter()
+                    .filter_map(|s| s.id.as_deref())
+                    .map(|id| {
+                        let msg = error_msg.clone();
+                        self.ds.update_task(
+                            id,
+                            Box::new(move |t| {
+                                Ok(Task {
+                                    state: twerk_core::task::TASK_STATE_FAILED.to_string(),
+                                    error: Some(msg),
+                                    ..t
+                                })
+                            }),
+                        )
+                    })
+                    .collect();
+                let _ = futures_util::future::join_all(compensating).await;
+                return Err(e);
+            }
         }
 
         Ok(())

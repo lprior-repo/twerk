@@ -5,7 +5,44 @@ use super::engine_helpers::ensure_config_loaded;
 use super::signals::await_signal_or_channel;
 use super::state::{Mode, State};
 use anyhow::Result;
+use std::future::Future;
+use std::sync::Arc;
+use tokio::sync::broadcast;
 use tracing::{debug, error};
+
+/// Spawns a signal handler task that listens for SIGINT, SIGTERM, or a broadcast
+/// termination signal, then runs the provided cleanup future.
+fn spawn_signal_handler<F>(
+    broadcaster: Arc<broadcast::Sender<()>>,
+    cleanup: F,
+) -> tokio::task::JoinHandle<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    tokio::spawn(async move {
+        let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .map_or_else(
+                |e| {
+                    error!("Failed to register SIGINT: {e}");
+                    None
+                },
+                Some,
+            );
+        let sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .map_or_else(
+                |e| {
+                    error!("Failed to register SIGTERM: {e}");
+                    None
+                },
+                Some,
+            );
+
+        await_signal_or_channel(sigint, sigterm, broadcaster.subscribe()).await;
+
+        debug!("shutting down");
+        cleanup.await;
+    })
+}
 
 impl super::Engine {
     /// Starts the engine in the configured mode
@@ -42,14 +79,14 @@ impl super::Engine {
         self.state = State::Terminating;
         debug!("Terminating engine");
 
-        // Signal termination via terminate_rx (which the signal handlers listen on)
+        // Signal termination via terminate_broadcaster (which the signal handlers listen on)
         if let Err(e) = self.terminate_tx.send(()) {
             debug!("Termination broadcast failed (no listeners): {}", e);
         }
 
         // Stop worker if present
         {
-            let worker = self.worker.write().await;
+            let worker = self.worker.read().await;
             if let Some(w) = worker.as_ref() {
                 if let Err(e) = w.stop().await {
                     error!("error stopping worker: {}", e);
@@ -59,7 +96,7 @@ impl super::Engine {
 
         // Stop coordinator if present
         {
-            let coordinator = self.coordinator.write().await;
+            let coordinator = self.coordinator.read().await;
             if let Some(c) = coordinator.as_ref() {
                 if let Err(e) = c.stop().await {
                     error!("error stopping coordinator: {}", e);
@@ -101,36 +138,10 @@ impl super::Engine {
         coord.start().await?;
         *self.coordinator.write().await = Some(coord);
 
-        // Clone references for the signal handler task
         let coordinator = self.coordinator.clone();
-        let terminate_tx = self.terminate_rx.clone();
+        let broadcaster = self.terminate_broadcaster.clone();
 
-        // Spawn signal handler task - listens for termination and coordinates shutdown
-        tokio::spawn(async move {
-            let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGINT: {e}");
-                        None
-                    },
-                    Some,
-                );
-            let sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGTERM: {e}");
-                        None
-                    },
-                    Some,
-                );
-
-            // Subscribe to termination via the broadcast sender
-            let terminate_rx = terminate_tx.subscribe();
-            await_signal_or_channel(sigint, sigterm, terminate_rx).await;
-
-            debug!("shutting down");
-
-            // Stop coordinator if present
+        spawn_signal_handler(broadcaster, async move {
             let coord = coordinator.read().await;
             if let Some(c) = coord.as_ref() {
                 if let Err(e) = c.stop().await {
@@ -156,36 +167,10 @@ impl super::Engine {
         worker.start().await?;
         *self.worker.write().await = Some(worker);
 
-        // Clone references for the signal handler task
         let worker_ref = self.worker.clone();
-        let terminate_tx = self.terminate_rx.clone();
+        let broadcaster = self.terminate_broadcaster.clone();
 
-        // Spawn signal handler task - listens for termination and coordinates shutdown
-        tokio::spawn(async move {
-            let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGINT: {e}");
-                        None
-                    },
-                    Some,
-                );
-            let sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGTERM: {e}");
-                        None
-                    },
-                    Some,
-                );
-
-            // Subscribe to termination via the broadcast sender
-            let terminate_rx = terminate_tx.subscribe();
-            await_signal_or_channel(sigint, sigterm, terminate_rx).await;
-
-            debug!("shutting down");
-
-            // Stop worker if present
+        spawn_signal_handler(broadcaster, async move {
             let w = worker_ref.read().await;
             if let Some(ref worker) = *w {
                 if let Err(e) = worker.stop().await {
@@ -223,37 +208,11 @@ impl super::Engine {
         coord.start().await?;
         *self.coordinator.write().await = Some(coord);
 
-        // Clone references for the signal handler task
         let worker_ref = self.worker.clone();
         let coordinator = self.coordinator.clone();
-        let terminate_tx = self.terminate_rx.clone();
+        let broadcaster = self.terminate_broadcaster.clone();
 
-        // Spawn signal handler task - listens for termination and coordinates shutdown
-        tokio::spawn(async move {
-            let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGINT: {e}");
-                        None
-                    },
-                    Some,
-                );
-            let sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .map_or_else(
-                    |e| {
-                        error!("Failed to register SIGTERM: {e}");
-                        None
-                    },
-                    Some,
-                );
-
-            // Subscribe to termination via the broadcast sender
-            let terminate_rx = terminate_tx.subscribe();
-            await_signal_or_channel(sigint, sigterm, terminate_rx).await;
-
-            debug!("shutting down");
-
-            // Stop worker if present
+        spawn_signal_handler(broadcaster, async move {
             let w = worker_ref.read().await;
             if let Some(ref worker) = *w {
                 if let Err(e) = worker.stop().await {
@@ -261,7 +220,6 @@ impl super::Engine {
                 }
             }
 
-            // Stop coordinator if present
             let c = coordinator.read().await;
             if let Some(ref coord) = *c {
                 if let Err(e) = coord.stop().await {

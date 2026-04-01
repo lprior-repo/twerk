@@ -199,7 +199,9 @@ async fn execute_task(
     active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
 ) -> Result<()> {
     let mut t = (*task).clone();
-    let tid = t.id.clone().unwrap_or_default();
+    let tid =
+        t.id.clone()
+            .ok_or_else(|| anyhow::anyhow!("task ID required for execution"))?;
     active_tasks.insert(tid.clone(), task.clone());
     t.state = TASK_STATE_RUNNING.to_string();
     t.started_at = Some(time::OffsetDateTime::now_utc());

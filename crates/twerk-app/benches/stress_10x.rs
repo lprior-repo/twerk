@@ -42,30 +42,32 @@ fn bench_massive_scale(c: &mut Criterion) {
     // Test with 100, 1000, 10000 parallel subtasks
     for size in [100, 1000, 10000] {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &size| {
-            b.iter(|| rt.block_on(async {
-                std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
-                std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
-                let mut config = Config::default();
-                config.mode = Mode::Standalone;
-                
-                let mut engine = Engine::new(config);
-                engine.register_runtime(Box::new(MockRuntime));
-                
-                engine.start().await.unwrap();
+            b.iter(|| {
+                rt.block_on(async {
+                    std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
+                    std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
+                    let mut config = Config::default();
+                    config.mode = Mode::Standalone;
 
-                let job = create_massive_parallel_job("massive-job", size);
-                
-                // Submit the job
-                engine.submit_job(job, vec![]).await.unwrap();
-                
-                // We don't await full completion in the microbenchmark iter because 10,000 tasks
-                // will take significant wall-clock time even with a MockRuntime.
-                // We are benchmarking the Coordinator's ability to ACCEPT and SCHEDULE 
-                // the massive 10x influx without blocking or crashing.
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                
-                engine.terminate().await.unwrap();
-            }));
+                    let mut engine = Engine::new(config);
+                    engine.register_runtime(Box::new(MockRuntime));
+
+                    engine.start().await.unwrap();
+
+                    let job = create_massive_parallel_job("massive-job", size);
+
+                    // Submit the job
+                    engine.submit_job(job, vec![]).await.unwrap();
+
+                    // We don't await full completion in the microbenchmark iter because 10,000 tasks
+                    // will take significant wall-clock time even with a MockRuntime.
+                    // We are benchmarking the Coordinator's ability to ACCEPT and SCHEDULE
+                    // the massive 10x influx without blocking or crashing.
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+                    engine.terminate().await.unwrap();
+                })
+            });
         });
     }
 

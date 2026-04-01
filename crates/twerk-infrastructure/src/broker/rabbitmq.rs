@@ -319,6 +319,35 @@ impl Broker for RabbitMQBroker {
         })
     }
 
+    fn publish_tasks(&self, qname: String, tasks: &[Task]) -> BoxedFuture<()> {
+        let tasks = tasks.to_vec();
+        let b = self.clone();
+        let engine_id = self.engine_id.clone();
+
+        Box::pin(async move {
+            let queue = prefixed_queue(&qname, &engine_id);
+            // Serialize all tasks first (fail fast on serialization errors)
+            let serialized: Vec<(Vec<u8>, u8)> = tasks
+                .iter()
+                .map(|task| {
+                    let data = serde_json::to_vec(task)?;
+                    let priority = u8::try_from(task.priority).map_or(0, |v| v);
+                    Ok((data, priority))
+                })
+                .collect::<Result<Vec<_>, serde_json::Error>>()
+                .map_err(|e| anyhow::anyhow!("serialization failed: {e}"))?;
+
+            // Publish all concurrently via try_join_all for batch-like throughput
+            let futures: Vec<_> = serialized
+                .into_iter()
+                .map(|(data, priority)| b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority))
+                .collect();
+
+            futures_util::future::try_join_all(futures).await?;
+            Ok(())
+        })
+    }
+
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
         let b = self.clone();
         let engine_id = self.engine_id.clone();

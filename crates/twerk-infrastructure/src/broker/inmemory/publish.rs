@@ -40,11 +40,12 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
 }
 
 /// Publish multiple tasks to a queue.
-pub(crate) fn tasks(broker: &InMemoryBroker, qname: &str, tasks: &[Task]) -> super::super::BoxedFuture<()> {
-    let mut task_arcs = Vec::with_capacity(tasks.len());
-    for t in tasks {
-        task_arcs.push(Arc::new(t.clone()));
-    }
+pub(crate) fn tasks(
+    broker: &InMemoryBroker,
+    qname: &str,
+    tasks: &[Task],
+) -> super::super::BoxedFuture<()> {
+    let task_arcs: Vec<Arc<Task>> = tasks.iter().map(|t| Arc::new(t.clone())).collect();
 
     // Store the tasks in one go
     broker
@@ -60,10 +61,10 @@ pub(crate) fn tasks(broker: &InMemoryBroker, qname: &str, tasks: &[Task]) -> sup
         .map(|entry| entry.value().clone())
         .unwrap_or_default();
 
-    // Invoke all registered handlers for this queue
-    for task_arc in task_arcs {
+    // Invoke all registered handlers for each task
+    for task_arc in &task_arcs {
         for handler in &handlers {
-            let task_clone = Arc::clone(&task_arc);
+            let task_clone = Arc::clone(task_arc);
             let handler_clone = Arc::clone(handler);
             tokio::spawn(async move {
                 let _ = handler_clone(task_clone).await;

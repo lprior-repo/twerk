@@ -20,6 +20,10 @@ impl Datastore for PostgresDatastore {
         self.create_task_impl(task).await
     }
 
+    async fn create_tasks(&self, tasks: &[Task]) -> DatastoreResult<()> {
+        self.create_tasks_impl(tasks).await
+    }
+
     async fn update_task(
         &self,
         id: &str,

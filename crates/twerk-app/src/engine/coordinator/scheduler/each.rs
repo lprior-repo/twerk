@@ -12,8 +12,14 @@ impl Scheduler {
     /// # Errors
     /// Returns error if list evaluation or task creation fails.
     pub async fn schedule_each_task(&self, task: twerk_core::task::Task) -> Result<()> {
-        let task_id = task.id.clone().unwrap_or_default();
-        let job_id = task.job_id.clone().unwrap_or_default();
+        let task_id = task
+            .id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("task ID required for each scheduling"))?;
+        let job_id = task
+            .job_id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("job ID required for each scheduling"))?;
         let now = time::OffsetDateTime::now_utc();
 
         let job = self.ds.get_job_by_id(&job_id).await?;
@@ -91,29 +97,31 @@ impl Scheduler {
     ) -> Result<()> {
         let var_name = "item";
 
-        let mut subtasks = Vec::with_capacity(list.len());
-        for (ix, item) in list.iter().enumerate() {
-            let mut cx = job_ctx.clone();
-            cx.insert(
-                var_name.to_string(),
-                serde_json::json!({
-                    "index": ix.to_string(),
-                    "value": item
-                }),
-            );
+        let subtasks: Vec<_> = list
+            .iter()
+            .enumerate()
+            .map(|(ix, item)| {
+                let mut cx = job_ctx.clone();
+                cx.insert(
+                    var_name.to_string(),
+                    serde_json::json!({
+                        "index": ix.to_string(),
+                        "value": item
+                    }),
+                );
 
-            let mut et = (*template).clone();
-            et = evaluate_task(&et, &cx)
-                .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+                let mut et = (*template).clone();
+                et = evaluate_task(&et, &cx)
+                    .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
 
-            et.id = Some(new_short_uuid().into());
-            et.job_id = Some(job_id.to_string().into());
-            et.parent_id = Some(task_id.to_string().into());
-            et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
-            et.created_at = Some(now);
-
-            subtasks.push(et);
-        }
+                et.id = Some(new_short_uuid().into());
+                et.job_id = Some(job_id.to_string().into());
+                et.parent_id = Some(task_id.to_string().into());
+                et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+                et.created_at = Some(now);
+                Ok(et)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         if !subtasks.is_empty() {
             self.ds.create_tasks(&subtasks).await?;

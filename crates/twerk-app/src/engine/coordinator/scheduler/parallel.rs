@@ -11,8 +11,14 @@ impl Scheduler {
     /// # Errors
     /// Returns error if job retrieval or task creation fails.
     pub async fn schedule_parallel_task(&self, task: twerk_core::task::Task) -> Result<()> {
-        let task_id = task.id.clone().unwrap_or_default();
-        let job_id = task.job_id.clone().unwrap_or_default();
+        let task_id = task
+            .id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("task ID required for parallel scheduling"))?;
+        let job_id = task
+            .job_id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("job ID required for parallel scheduling"))?;
         let now = time::OffsetDateTime::now_utc();
 
         let job = self.ds.get_job_by_id(&job_id).await?;
@@ -42,20 +48,21 @@ impl Scheduler {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("missing parallel tasks"))?;
 
-        let mut subtasks = Vec::with_capacity(tasks.len());
-        for t in tasks {
-            let mut pt = t.clone();
-            pt = evaluate_task(&pt, &job_ctx)
-                .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
+        let subtasks: Vec<_> = tasks
+            .iter()
+            .map(|t| {
+                let mut pt = t.clone();
+                pt = evaluate_task(&pt, &job_ctx)
+                    .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
 
-            pt.id = Some(new_short_uuid().into());
-            pt.job_id = Some(job_id.clone());
-            pt.parent_id = Some(task_id.to_string().into());
-            pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
-            pt.created_at = Some(now);
-
-            subtasks.push(pt);
-        }
+                pt.id = Some(new_short_uuid().into());
+                pt.job_id = Some(job_id.to_string().into());
+                pt.parent_id = Some(task_id.to_string().into());
+                pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
+                pt.created_at = Some(now);
+                Ok(pt)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         if !subtasks.is_empty() {
             self.ds.create_tasks(&subtasks).await?;

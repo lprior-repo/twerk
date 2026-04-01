@@ -7,6 +7,20 @@ use crate::datastore::postgres::records::{TaskRecord, TaskRecordExt};
 use crate::datastore::postgres::{DatastoreError, DatastoreResult, Executor, PostgresDatastore};
 
 impl PostgresDatastore {
+    pub(super) async fn create_tasks_impl(&self, tasks: &[Task]) -> DatastoreResult<()> {
+        // Clone into owned Vec to satisfy the 'static bound on with_tx_impl's closure
+        let tasks: Vec<Task> = tasks.to_vec();
+        self.with_tx_impl(Box::new(move |ds| {
+            Box::pin(async move {
+                for task in &tasks {
+                    ds.create_task(task).await?;
+                }
+                Ok(())
+            })
+        }))
+        .await
+    }
+
     pub(super) async fn create_task_impl(&self, task: &Task) -> DatastoreResult<()> {
         let id = task.id.as_ref().ok_or(DatastoreError::InvalidInput(
             "task ID is required".to_string(),

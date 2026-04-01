@@ -6,15 +6,21 @@ use twerk_infrastructure::runtime::{BoxedFuture, Mounter};
 // Mount configuration
 // =============================================================================
 
+/// Mount policy for bind mounts.
+#[derive(Clone, Debug, Default)]
+pub enum MountPolicy {
+    /// Mounts are denied
+    #[default]
+    Denied,
+    /// Mounts are allowed for specific paths
+    Allowed(Vec<String>),
+}
+
 /// Configuration for bind mount operations.
-///
-/// Go parity: `type BindConfig struct { Allowed bool; Sources []string }`
 #[derive(Debug, Clone, Default)]
 pub struct BindConfig {
-    /// Whether bind mounts are allowed
-    pub allowed: bool,
-    /// Allowed source directories (empty = all)
-    pub sources: Vec<String>,
+    /// Mount policy controlling whether bind mounts are allowed.
+    pub policy: MountPolicy,
 }
 
 // =============================================================================
@@ -44,26 +50,30 @@ impl BindMounter {
     /// Go parity: `func (m *BindMounter) isSourceAllowed(src string) bool`
     #[cfg(test)]
     fn is_source_allowed(&self, src: &str) -> bool {
-        if self.cfg.sources.is_empty() {
-            return true;
+        match &self.cfg.policy {
+            MountPolicy::Denied => false,
+            MountPolicy::Allowed(sources) => {
+                if sources.is_empty() {
+                    return true;
+                }
+                sources.iter().any(|allow| allow.eq_ignore_ascii_case(src))
+            }
         }
-        self.cfg
-            .sources
-            .iter()
-            .any(|allow| allow.eq_ignore_ascii_case(src))
     }
 }
 
 impl Mounter for BindMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
-        let allowed = self.cfg.allowed;
-        let sources = self.cfg.sources.clone();
+        let policy = self.cfg.policy.clone();
         let source = mnt.source.clone().unwrap_or_default();
 
         Box::pin(async move {
-            if !allowed {
-                return Err(anyhow::anyhow!("bind mounts are not allowed"));
-            }
+            let sources = match policy {
+                MountPolicy::Denied => {
+                    return Err(anyhow::anyhow!("bind mounts are not allowed"));
+                }
+                MountPolicy::Allowed(s) => s,
+            };
 
             // Source validation
             if !sources.is_empty() && !sources.iter().any(|s| s.eq_ignore_ascii_case(&source)) {
@@ -156,15 +166,13 @@ mod tests {
     #[test]
     fn test_bind_config_default() {
         let cfg = BindConfig::default();
-        assert!(!cfg.allowed);
-        assert!(cfg.sources.is_empty());
+        assert!(matches!(cfg.policy, MountPolicy::Denied));
     }
 
     #[test]
     fn test_bind_mounter_is_source_allowed_empty_sources() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: Vec::new(),
+            policy: MountPolicy::Allowed(Vec::new()),
         });
         assert!(mounter.is_source_allowed("/any/path"));
     }

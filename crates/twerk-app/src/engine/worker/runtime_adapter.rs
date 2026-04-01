@@ -1,5 +1,7 @@
 use crate::engine::worker::docker::DockerRuntimeAdapter;
-use crate::engine::worker::mounter::{BindConfig, BindMounter, TmpfsMounter, VolumeMounter};
+use crate::engine::worker::mounter::{
+    BindConfig, BindMounter, MountPolicy, TmpfsMounter, VolumeMounter,
+};
 use crate::engine::worker::podman::PodmanRuntimeAdapter;
 use crate::engine::worker::shell::ShellRuntimeAdapter;
 use anyhow::{anyhow, Result};
@@ -40,11 +42,15 @@ pub async fn create_runtime_from_config(
     match config.runtime_type.as_str() {
         runtime_type::DOCKER => {
             let mut m = MultiMounter::default();
+            let bind_policy = if config.bind_allowed {
+                MountPolicy::Allowed(config.bind_sources.clone())
+            } else {
+                MountPolicy::Denied
+            };
             m.register_mounter(
                 "bind",
                 Box::new(BindMounter::new(BindConfig {
-                    allowed: config.bind_allowed,
-                    sources: config.bind_sources.clone(),
+                    policy: bind_policy,
                 })),
             )
             .map_err(|e| anyhow!("{e}"))?;

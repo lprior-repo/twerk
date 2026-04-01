@@ -1,0 +1,1328 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Twerk</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-91f13594.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-1d7cec25.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Twerk</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p><strong>Twerk</strong> is a distributed task execution system written in Rust — a port of <a href="https://github.com/runabol/tork">Tork</a> from Go. It lets you define jobs consisting of multiple tasks, each running inside its own container.</p>
+<h2 id="why-twerk"><a class="header" href="#why-twerk">Why Twerk?</a></h2>
+<ul>
+<li><strong>Horizontally scalable</strong> — Add workers to handle more tasks</li>
+<li><strong>Task isolation</strong> — Tasks run in containers with resource limits</li>
+<li><strong>Multi-runtime</strong> — Docker, Podman, or Shell execution</li>
+<li><strong>Retry with backoff</strong> — Configurable retry on failure</li>
+<li><strong>Scheduled jobs</strong> — Cron-based scheduling with pause/resume</li>
+<li><strong>Secrets management</strong> — Auto-redaction of sensitive values</li>
+<li><strong>REST API</strong> — Full API for job, task, queue, node, and user management</li>
+<li><strong>Health checks</strong> — Built-in liveness and readiness probes</li>
+</ul>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
+<pre><code>Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
+                ↓
+            Datastore (PostgreSQL)
+</code></pre>
+<ul>
+<li><strong>Coordinator</strong> — Receives jobs, schedules tasks, manages state</li>
+<li><strong>Worker</strong> — Executes tasks via the configured runtime</li>
+<li><strong>Broker</strong> — Routes tasks between Coordinator and Workers (RabbitMQ or In-Memory)</li>
+<li><strong>Datastore</strong> — Persists all job, task, and node state (PostgreSQL)</li>
+</ul>
+<h2 id="modes"><a class="header" href="#modes">Modes</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Mode</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>standalone</code></td><td>All-in-one: Coordinator + Worker in a single process</td></tr>
+<tr><td><code>coordinator</code></td><td>API server that schedules work (requires workers)</td></tr>
+<tr><td><code>worker</code></td><td>Executes tasks by pulling from broker</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="#installation">Installation</a> — Get Twerk running</li>
+<li><a href="#quick-start">Quick Start</a> — Run your first job</li>
+<li><a href="#cli-reference">CLI Reference</a> — All available commands</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ol>
+<li><strong>Rust 1.75+</strong> — For building from source</li>
+<li><strong>Docker</strong> — For container-based task execution</li>
+<li><strong>PostgreSQL</strong> — For persistence (or use In-Memory for testing)</li>
+<li><strong>RabbitMQ</strong> — For distributed mode (or use In-Memory for testing)</li>
+</ol>
+<h2 id="download-binary"><a class="header" href="#download-binary">Download Binary</a></h2>
+<pre><code class="language-bash"># Check releases for your platform
+curl -L https://github.com/lprior-repo/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
+./twerk --help
+</code></pre>
+<h2 id="build-from-source"><a class="header" href="#build-from-source">Build from Source</a></h2>
+<pre><code class="language-bash">git clone https://github.com/lprior-repo/twerk.git
+cd twerk
+cargo build --release
+./target/release/twerk --help
+</code></pre>
+<h2 id="set-up-postgresql"><a class="header" href="#set-up-postgresql">Set up PostgreSQL</a></h2>
+<pre><code class="language-shell">docker run -d \
+  --name twerk-postgres \
+  -p 5432:5432 \
+  -e POSTGRES_PASSWORD=twerk \
+  -e POSTGRES_USER=twerk \
+  -e POSTGRES_DB=twerk \
+  postgres:15.3
+</code></pre>
+<p>Run migration:</p>
+<pre><code class="language-bash">TWERK_DATASTORE_TYPE=postgres \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
+./twerk migration
+</code></pre>
+<h2 id="set-up-rabbitmq-distributed-mode"><a class="header" href="#set-up-rabbitmq-distributed-mode">Set up RabbitMQ (Distributed Mode)</a></h2>
+<pre><code class="language-shell">docker run -d \
+  --name twerk-rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+</code></pre>
+<p>Access management UI at <code>http://localhost:15672</code> (guest/guest).</p>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<p>Twerk is configured via <code>config.toml</code> or environment variables:</p>
+<pre><code class="language-bash"># Environment variable format
+TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
+
+# Examples
+TWERK_LOGGING_LEVEL=debug
+TWERK_BROKER_TYPE=rabbitmq
+TWERK_DATASTORE_TYPE=postgres
+TWERK_RUNTIME_TYPE=docker
+</code></pre>
+<p>See <a href="#configuration-1">Configuration</a> for full reference.</p>
+<h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
+<ul>
+<li><a href="#quick-start">Quick Start</a> — Run your first job</li>
+<li><a href="#cli-reference">CLI Reference</a> — All commands</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<p>Get Twerk running with your first job in under 5 minutes.</p>
+<h2 id="start-twerk"><a class="header" href="#start-twerk">Start Twerk</a></h2>
+<p>In standalone mode (all-in-one):</p>
+<pre><code class="language-bash">./twerk run standalone
+</code></pre>
+<p>Twerk will start on <code>http://localhost:8000</code>.</p>
+<h2 id="create-a-job"><a class="header" href="#create-a-job">Create a Job</a></h2>
+<p>Create <code>hello.yaml</code>:</p>
+<pre><code class="language-yaml">name: hello job
+tasks:
+  - name: say hello
+    image: ubuntu:mantic
+    run: |
+      echo -n hello world
+  - name: say goodbye
+    image: alpine:latest
+    run: |
+      echo -n bye world
+</code></pre>
+<h2 id="submit-the-job"><a class="header" href="#submit-the-job">Submit the Job</a></h2>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/jobs \
+  -H "Content-type: text/yaml" \
+  --data-binary @hello.yaml
+</code></pre>
+<pre><code class="language-json">{
+  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
+  "state": "SCHEDULED",
+  ...
+}
+</code></pre>
+<h2 id="check-status"><a class="header" href="#check-status">Check Status</a></h2>
+<pre><code class="language-bash">curl http://localhost:8000/jobs/ed0dba93d262492b8cf26e6c1c4f1c98
+</code></pre>
+<pre><code class="language-json">{
+  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
+  "state": "COMPLETED",
+  "tasks": [
+    {"name": "say hello", "state": "COMPLETED"},
+    {"name": "say goodbye", "state": "COMPLETED"}
+  ],
+  ...
+}
+</code></pre>
+<h2 id="what-happened"><a class="header" href="#what-happened">What Happened?</a></h2>
+<ol>
+<li>Twerk received your job and scheduled both tasks</li>
+<li>Task 1 ran in an Ubuntu container</li>
+<li>Task 2 ran in an Alpine container</li>
+<li>Twerk marked the job as <code>COMPLETED</code></li>
+</ol>
+<h2 id="distributed-mode"><a class="header" href="#distributed-mode">Distributed Mode</a></h2>
+<p>Run coordinator and workers separately:</p>
+<pre><code class="language-bash"># Terminal 1: Coordinator
+TWERK_DATASTORE_TYPE=postgres \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+./twerk run coordinator
+
+# Terminal 2: Worker
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+TWERK_RUNTIME_TYPE=docker \
+./twerk run worker
+</code></pre>
+<p>Submit jobs to the coordinator at <code>http://localhost:8000</code>.</p>
+<h2 id="health-check"><a class="header" href="#health-check">Health Check</a></h2>
+<pre><code class="language-bash">./twerk health
+# or
+curl http://localhost:8000/health
+</code></pre>
+<h2 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h2>
+<ul>
+<li><a href="#jobs">Jobs</a> — Learn about job definitions</li>
+<li><a href="#tasks">Tasks</a> — Configure task behavior</li>
+<li><a href="#cli-reference">CLI Reference</a> — All available commands</li>
+<li><a href="#rest-api">REST API</a> — API reference</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="architecture-1"><a class="header" href="#architecture-1">Architecture</a></h1>
+<h2 id="components"><a class="header" href="#components">Components</a></h2>
+<h3 id="coordinator"><a class="header" href="#coordinator">Coordinator</a></h3>
+<p>Tracks jobs, dispatches work to workers, handles retries and failures. Stateless and leaderless; does not run tasks.</p>
+<h3 id="worker"><a class="header" href="#worker">Worker</a></h3>
+<p>Runs tasks via a runtime (Docker, Podman, or Shell).</p>
+<h3 id="broker"><a class="header" href="#broker">Broker</a></h3>
+<p>Routes messages between Coordinator and Workers:</p>
+<ul>
+<li><strong>RabbitMQ</strong> — Production-grade message broker</li>
+<li><strong>In-Memory</strong> — For testing and single-node deployments</li>
+</ul>
+<h3 id="datastore"><a class="header" href="#datastore">Datastore</a></h3>
+<p>Persists job and task state:</p>
+<ul>
+<li><strong>PostgreSQL</strong> — Production database</li>
+<li><strong>In-Memory</strong> — For testing</li>
+</ul>
+<h3 id="runtime"><a class="header" href="#runtime">Runtime</a></h3>
+<p>Execution environment for tasks:</p>
+<ul>
+<li><strong>Docker</strong> — Default, best isolation</li>
+<li><strong>Podman</strong> — Daemonless Docker alternative</li>
+<li><strong>Shell</strong> — Runs on host</li>
+</ul>
+<h2 id="request-flow"><a class="header" href="#request-flow">Request Flow</a></h2>
+<pre><code>Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
+                ↓
+            Datastore
+</code></pre>
+<ol>
+<li>Client submits job via REST API</li>
+<li>Coordinator stores job in Datastore</li>
+<li>Coordinator publishes tasks to Broker</li>
+<li>Worker receives tasks from Broker</li>
+<li>Worker executes tasks in containers</li>
+<li>Worker reports results back via Broker</li>
+<li>Coordinator updates job state in Datastore</li>
+</ol>
+<h2 id="modes-1"><a class="header" href="#modes-1">Modes</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Mode</th><th>Coordinator</th><th>Worker</th></tr>
+</thead>
+<tbody>
+<tr><td><code>standalone</code></td><td>✓</td><td>✓</td></tr>
+<tr><td><code>coordinator</code></td><td>✓</td><td>✗</td></tr>
+<tr><td><code>worker</code></td><td>✗</td><td>✓</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
+<h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
+<h3 id="twerk-run"><a class="header" href="#twerk-run"><code>twerk run</code></a></h3>
+<p>Start Twerk in a specific mode.</p>
+<pre><code class="language-bash">twerk run &lt;MODE&gt; [OPTIONS]
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Mode</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>standalone</code></td><td>All-in-one: Coordinator + Worker</td></tr>
+<tr><td><code>coordinator</code></td><td>API server, requires separate workers</td></tr>
+<tr><td><code>worker</code></td><td>Task executor, requires coordinator</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Description</th><th>Default</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--config &lt;PATH&gt;</code></td><td>Path to config.toml</td><td>See configuration docs</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="twerk-migration"><a class="header" href="#twerk-migration"><code>twerk migration</code></a></h3>
+<p>Run database migrations.</p>
+<pre><code class="language-bash">twerk migration [OPTIONS]
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>-y, --yes</code></td><td>Skip confirmation prompt</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="twerk-health"><a class="header" href="#twerk-health"><code>twerk health</code></a></h3>
+<p>Check coordinator health.</p>
+<pre><code class="language-bash">twerk health [OPTIONS]
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Description</th><th>Default</th></tr>
+</thead>
+<tbody>
+<tr><td><code>-e, --endpoint &lt;URL&gt;</code></td><td>Coordinator endpoint</td><td><code>http://localhost:8000</code></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<p>All configuration can be set via environment variables:</p>
+<pre><code>TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
+</code></pre>
+<p>Examples:</p>
+<ul>
+<li><code>TWERK_LOGGING_LEVEL=debug</code></li>
+<li><code>TWERK_BROKER_TYPE=rabbitmq</code></li>
+<li><code>TWERK_DATASTORE_TYPE=postgres</code></li>
+<li><code>TWERK_RUNTIME_TYPE=docker</code></li>
+</ul>
+<p>See <a href="#configuration-1">Configuration</a> for full reference.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="jobs"><a class="header" href="#jobs">Jobs</a></h1>
+<p>A <strong>job</strong> is a collection of tasks executed in order.</p>
+<h2 id="minimal-example"><a class="header" href="#minimal-example">Minimal Example</a></h2>
+<pre><code class="language-yaml">name: my job
+tasks:
+  - name: hello
+    image: alpine:latest
+    run: echo hello
+</code></pre>
+<h2 id="complete-job-reference"><a class="header" href="#complete-job-reference">Complete Job Reference</a></h2>
+<pre><code class="language-yaml"># ─── Identification ───────────────────────────────────────────────────────────
+name: my job                           # Job name
+description: Optional description       # Job description
+tags: [tag1, tag2]                    # Metadata tags
+
+# ─── Input &amp; Secrets ─────────────────────────────────────────────────────────
+inputs:                               # Non-sensitive inputs
+  key: value
+secrets:                              # Sensitive values (auto-redacted)
+  api_key: secret123
+
+# ─── Task Defaults ────────────────────────────────────────────────────────────
+defaults:                             # Applied to all tasks
+  retry:
+    limit: 3                         # Max retry attempts
+  limits:
+    cpus: "1"                       # CPU limit
+    memory: "512m"                  # Memory limit
+  timeout: 10m                      # Task timeout
+  queue: default                      # Queue name
+  priority: 5                        # 0-9, higher = more priority
+
+# ─── Tasks ───────────────────────────────────────────────────────────────────
+tasks:
+  - name: first task
+    image: alpine:latest
+    run: echo hello
+
+# ─── Scheduling ───────────────────────────────────────────────────────────────
+schedule:
+  cron: "0 2 * * *"                 # Cron expression
+
+# ─── Notifications ───────────────────────────────────────────────────────────
+webhooks:
+  - url: https://example.com/hook
+    event: job.StateChange           # or task.StateChange
+    if: "{{ job.state == 'COMPLETED' }}"  # Conditional
+
+# ─── Access Control ───────────────────────────────────────────────────────────
+permissions:
+  - role: admin                      # Or: user: username
+  - user: someuser
+
+# ─── Cleanup ──────────────────────────────────────────────────────────────────
+autoDelete:
+  after: 24h                         # Delete after completion
+</code></pre>
+<h2 id="job-states"><a class="header" href="#job-states">Job States</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>State</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>PENDING</code></td><td>Created, not yet scheduled</td></tr>
+<tr><td><code>SCHEDULED</code></td><td>Tasks queued</td></tr>
+<tr><td><code>RUNNING</code></td><td>Executing</td></tr>
+<tr><td><code>COMPLETED</code></td><td>All tasks finished</td></tr>
+<tr><td><code>FAILED</code></td><td>Task failed</td></tr>
+<tr><td><code>CANCELLED</code></td><td>Manually cancelled</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="cron-syntax"><a class="header" href="#cron-syntax">Cron Syntax</a></h2>
+<pre><code>┌───────────── minute (0-59)
+│ ┌───────────── hour (0-23)
+│ │ ┌───────────── day of month (1-31)
+│ │ │ ┌───────────── month (1-12)
+│ │ │ │ ┌───────────── day of week (0-6)
+│ │ │ │ │
+* * * * *
+</code></pre>
+<p>Examples:</p>
+<ul>
+<li><code>0 * * * *</code> — Every hour</li>
+<li><code>0 2 * * *</code> — Daily at 2 AM</li>
+<li><code>0/5 * * * *</code> — Every 5 minutes</li>
+<li><code>0 0 * * 0</code> — Weekly on Sunday</li>
+</ul>
+<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
+<ul>
+<li><a href="#tasks">Tasks</a> — Task configuration</li>
+<li><a href="#rest-api">REST API</a> — Submit via API</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tasks"><a class="header" href="#tasks">Tasks</a></h1>
+<p>Tasks are the unit of execution in Twerk.</p>
+<h2 id="minimal-task"><a class="header" href="#minimal-task">Minimal Task</a></h2>
+<pre><code class="language-yaml">- name: my task
+  image: alpine:latest
+  run: echo hello
+</code></pre>
+<h2 id="what-fields-support-expressions"><a class="header" href="#what-fields-support-expressions">What Fields Support Expressions?</a></h2>
+<p>Expressions using <code>{{ }}</code> syntax are supported in these fields:</p>
+<ul>
+<li><code>name</code> — Task name</li>
+<li><code>image</code> — Container image</li>
+<li><code>var</code> — Output variable name</li>
+<li><code>queue</code> — Target queue</li>
+<li><code>if</code> — Conditional execution</li>
+<li><code>env</code> values — Environment variables</li>
+<li><code>files</code> keys/values — Files to create</li>
+</ul>
+<p><strong>Note:</strong> The <code>run</code> field is NOT evaluated — it’s passed as raw shell script.</p>
+<h2 id="complete-task-reference"><a class="header" href="#complete-task-reference">Complete Task Reference</a></h2>
+<pre><code class="language-yaml"># ─── Identification ───────────────────────────────────────────────────────────
+name: my task                        # Supports {{ }} expressions
+description: Optional description    # Plain text only
+
+# ─── Container ───────────────────────────────────────────────────────────────
+image: ubuntu:mantic                 # Supports {{ }} expressions
+cmd: ["/bin/sh", "-c"]             # Override entrypoint
+entrypoint: ["/bin/sh", "-c"]       # Same as cmd
+run: |
+  echo hello                        # RAW shell script - NO expression evaluation
+
+# ─── Environment ──────────────────────────────────────────────────────────────
+env:                                 # Values support {{ }} expressions
+  KEY: value
+  TEMPLATE: '{{ inputs.key }}'      # ✓ Works
+
+files:                               # Keys and values support {{ }}
+  config.json: '{"key": "{{ inputs.value }}"}'  # ✓ Works
+
+# ─── Output ─────────────────────────────────────────────────────────────────
+var: output_key                      # Supports {{ }} - store task output
+                                     # Access via {{ tasks.output_key }}
+
+# ─── Conditions ──────────────────────────────────────────────────────────────
+if: "{{ job.state == 'SCHEDULED' }}"  # ✓ Works in if field
+
+# ─── Routing ────────────────────────────────────────────────────────────────
+queue: default                       # Supports {{ }} expressions
+priority: 5
+
+# ─── Execution Control ───────────────────────────────────────────────────────
+timeout: 5m
+retry:
+  limit: 3
+
+# ─── Resources ────────────────────────────────────────────────────────────────
+limits:
+  cpus: "0.5"
+  memory: "256m"
+
+gpus: all
+workdir: /app
+
+# ─── Mounts ──────────────────────────────────────────────────────────────────
+mounts:
+  - type: volume
+    target: /data
+
+# ─── Pre/Post Tasks ─────────────────────────────────────────────────────────
+pre:
+  - name: setup
+    image: alpine:latest
+    run: echo setup
+
+post:
+  - name: cleanup
+    image: alpine:latest
+    run: echo cleanup
+
+# ─── Parallel ────────────────────────────────────────────────────────────────
+parallel:
+  tasks:
+    - name: a
+      image: alpine:latest
+      run: echo A
+    - name: b
+      image: alpine:latest
+      run: echo B
+
+# ─── Each (Loop) ────────────────────────────────────────────────────────────
+each:
+  list: '{{ fromJSON(inputs.items) }}'  # Expression for list
+  concurrency: 2
+  task:
+    image: alpine:latest
+    env:
+      VALUE: '{{ item.value }}'        # ✓ Works in each tasks
+      INDEX: '{{ item.index }}'
+    run: echo $VALUE
+</code></pre>
+<h2 id="supported-expression-syntax"><a class="header" href="#supported-expression-syntax">Supported Expression Syntax</a></h2>
+<h3 id="inputsecret-references"><a class="header" href="#inputsecret-references">Input/Secret References</a></h3>
+<pre><code class="language-yaml">env:
+  VALUE: '{{ inputs.my_input }}'      # Job input
+  SECRET: '{{ secrets.my_secret }}'   # Job secret (auto-redacted)
+</code></pre>
+<h3 id="each-loop-variables"><a class="header" href="#each-loop-variables">Each Loop Variables</a></h3>
+<pre><code class="language-yaml">each:
+  task:
+    env:
+      VALUE: '{{ item.value }}'        # Current item value
+      INDEX: '{{ item.index }}'       # Current index (0-based)
+</code></pre>
+<h3 id="built-in-functions"><a class="header" href="#built-in-functions">Built-in Functions</a></h3>
+<pre><code class="language-yaml">env:
+  JSON: '{{ fromJSON(inputs.json_string) }}'
+  SEQ: '{{ sequence(1, 5) }}'         # [1, 2, 3, 4]
+  LEN: '{{ len(tasks.results) }}'
+  SPLIT: '{{ split("a,b,c", ",") }}'  # ["a", "b", "c"]
+</code></pre>
+<h3 id="conditional-with-if"><a class="header" href="#conditional-with-if">Conditional with <code>if</code></a></h3>
+<pre><code class="language-yaml">if: "{{ job.state == 'SCHEDULED' }}"  # Job must be scheduled
+if: "{{ job.state != 'FAILED' }}"      # Job not failed
+</code></pre>
+<h2 id="task-states"><a class="header" href="#task-states">Task States</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>State</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>CREATED</code></td><td>Task created</td></tr>
+<tr><td><code>PENDING</code></td><td>Queued for execution</td></tr>
+<tr><td><code>SCHEDULED</code></td><td>Assigned to worker</td></tr>
+<tr><td><code>RUNNING</code></td><td>Executing</td></tr>
+<tr><td><code>COMPLETED</code></td><td>Finished successfully</td></tr>
+<tr><td><code>FAILED</code></td><td>Failed</td></tr>
+<tr><td><code>CANCELLED</code></td><td>Cancelled</td></tr>
+<tr><td><code>STOPPED</code></td><td>Stopped</td></tr>
+<tr><td><code>SKIPPED</code></td><td>Skipped (conditional)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
+<ul>
+<li><a href="#runtimes">Runtimes</a> — Docker, Podman, Shell</li>
+<li><a href="#configuration-1">Configuration</a> — Full configuration reference</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="runtimes"><a class="header" href="#runtimes">Runtimes</a></h1>
+<p>Twerk supports multiple execution environments for tasks.</p>
+<h2 id="docker-default"><a class="header" href="#docker-default">Docker (Default)</a></h2>
+<p>Tasks run in isolated Docker containers using the <code>bollard</code> crate.</p>
+<pre><code class="language-toml">[runtime]
+type = "docker"
+</code></pre>
+<p>Or via environment:</p>
+<pre><code class="language-bash">TWERK_RUNTIME_TYPE=docker
+</code></pre>
+<p><strong>Docker-specific options:</strong></p>
+<pre><code class="language-toml">[runtime.docker]
+config = ""              # Path to Docker config
+privileged = false        # Privileged container mode
+image.ttl = "24h"        # Image cache TTL
+</code></pre>
+<h2 id="podman"><a class="header" href="#podman">Podman</a></h2>
+<p>Daemonless Docker alternative:</p>
+<pre><code class="language-toml">[runtime]
+type = "podman"
+</code></pre>
+<pre><code class="language-bash">TWERK_RUNTIME_TYPE=podman
+</code></pre>
+<p><strong>Podman-specific options:</strong></p>
+<pre><code class="language-toml">[runtime.podman]
+privileged = false
+host.network = false     # Use host network
+</code></pre>
+<h2 id="shell"><a class="header" href="#shell">Shell</a></h2>
+<p>Run directly on the host (for development/testing):</p>
+<pre><code class="language-toml">[runtime]
+type = "shell"
+</code></pre>
+<pre><code class="language-bash">TWERK_RUNTIME_TYPE=shell
+</code></pre>
+<p><strong>Warning:</strong> Shell runtime executes arbitrary code on the host. Use only in trusted environments.</p>
+<p><strong>Shell-specific options:</strong></p>
+<pre><code class="language-toml">[runtime.shell]
+cmd = ["bash", "-c"]     # Shell command
+uid = "1000"             # Run as specific user
+gid = "1000"            # Run with specific group
+</code></pre>
+<h2 id="environment-variables-in-tasks"><a class="header" href="#environment-variables-in-tasks">Environment Variables in Tasks</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>TWERK_OUTPUT</code></td><td>Write task output here</td></tr>
+<tr><td><code>TWERK_TASK_ID</code></td><td>Current task ID</td></tr>
+<tr><td><code>TWERK_JOB_ID</code></td><td>Current job ID</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="next-steps-5"><a class="header" href="#next-steps-5">Next Steps</a></h2>
+<ul>
+<li><a href="#configuration-1">Configuration</a> — Full configuration reference</li>
+<li><a href="#rest-api">REST API</a> — API reference</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
+<p>Twerk is configured via <code>config.toml</code> or environment variables.</p>
+<h2 id="config-file-locations"><a class="header" href="#config-file-locations">Config File Locations</a></h2>
+<ol>
+<li><code>./config.toml</code> (current directory)</li>
+<li><code>~/twerk/config.toml</code></li>
+<li><code>/etc/twerk/config.toml</code></li>
+</ol>
+<p>Or specify with:</p>
+<pre><code class="language-bash">TWERK_CONFIG=/path/to/config.toml ./twerk run standalone
+</code></pre>
+<h2 id="environment-variables-1"><a class="header" href="#environment-variables-1">Environment Variables</a></h2>
+<p>Override any setting:</p>
+<pre><code class="language-bash">TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
+</code></pre>
+<p>Example: <code>TWERK_LOGGING_LEVEL=debug</code></p>
+<h2 id="full-configuration"><a class="header" href="#full-configuration">Full Configuration</a></h2>
+<pre><code class="language-toml">[cli]
+banner.mode = "console"  # off | console | log
+
+[client]
+endpoint = "http://localhost:8000"
+
+[logging]
+level = "debug"          # debug | info | warn | error
+format = "pretty"        # pretty | json
+
+[broker]
+type = "inmemory"       # inmemory | rabbitmq
+
+[broker.rabbitmq]
+url = "amqp://guest:guest@localhost:5672/"
+consumer.timeout = "30m"
+management.url = ""
+durable.queues = false
+queue.type = "classic"   # classic | quorum
+
+[datastore]
+type = "postgres"         # postgres | inmemory
+
+[datastore.retention]
+logs.duration = "168h"   # 7 days
+jobs.duration = "8760h"  # 1 year
+
+[datastore.encryption]
+key = ""                 # Encryption key for secrets at rest
+
+[datastore.postgres]
+dsn = "host=localhost user=twerk password=twerk dbname=twerk"
+max_open_conns = 10
+max_idle_conns = 5
+conn_max_lifetime = "1h"
+conn_max_idle_time = "30m"
+
+[coordinator]
+address = "localhost:8000"
+name = "Coordinator"
+
+[coordinator.api]
+endpoints.health = true
+endpoints.jobs = true
+endpoints.tasks = true
+endpoints.nodes = true
+endpoints.queues = true
+endpoints.metrics = true
+endpoints.users = true
+
+[coordinator.queues]
+completed = 1
+error = 1
+pending = 1
+started = 1
+heartbeat = 1
+jobs = 1
+
+[middleware.web.cors]
+enabled = false
+origins = "*"
+methods = "*"
+credentials = false
+headers = "*"
+
+[middleware.web.basicauth]
+enabled = false
+
+[middleware.web.keyauth]
+enabled = false
+key = ""
+
+[middleware.web]
+bodylimit = "500K"
+
+[middleware.web.ratelimit]
+enabled = false
+rps = 20
+
+[middleware.web.logger]
+enabled = true
+level = "DEBUG"
+skip = ["GET /health"]
+
+[middleware.job.redact]
+enabled = false
+
+[middleware.task.hostenv]
+vars = []
+
+[worker]
+address = "localhost:8001"
+name = "Worker"
+
+[worker.queues]
+default = 1
+
+[worker.limits]
+cpus = ""
+memory = ""
+timeout = ""
+
+[mounts.bind]
+allowed = false
+sources = []
+
+[mounts.temp]
+dir = "/tmp"
+
+[runtime]
+type = "docker"         # docker | podman | shell
+
+[runtime.shell]
+cmd = ["bash", "-c"]
+uid = ""
+gid = ""
+
+[runtime.docker]
+config = ""
+privileged = false
+image.ttl = "24h"
+
+[runtime.podman]
+privileged = false
+host.network = false
+</code></pre>
+<h2 id="environment-variable-reference"><a class="header" href="#environment-variable-reference">Environment Variable Reference</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Config</th><th>Environment Variable</th></tr>
+</thead>
+<tbody>
+<tr><td><code>logging.level</code></td><td><code>TWERK_LOGGING_LEVEL</code></td></tr>
+<tr><td><code>logging.format</code></td><td><code>TWERK_LOGGING_FORMAT</code></td></tr>
+<tr><td><code>broker.type</code></td><td><code>TWERK_BROKER_TYPE</code></td></tr>
+<tr><td><code>broker.rabbitmq.url</code></td><td><code>TWERK_BROKER_RABBITMQ_URL</code></td></tr>
+<tr><td><code>datastore.type</code></td><td><code>TWERK_DATASTORE_TYPE</code></td></tr>
+<tr><td><code>datastore.postgres.dsn</code></td><td><code>TWERK_DATASTORE_POSTGRES_DSN</code></td></tr>
+<tr><td><code>runtime.type</code></td><td><code>TWERK_RUNTIME_TYPE</code></td></tr>
+<tr><td><code>coordinator.address</code></td><td><code>TWERK_COORDINATOR_ADDRESS</code></td></tr>
+<tr><td><code>worker.address</code></td><td><code>TWERK_WORKER_ADDRESS</code></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="next-steps-6"><a class="header" href="#next-steps-6">Next Steps</a></h2>
+<ul>
+<li><a href="#rest-api">REST API</a> — API reference</li>
+<li><a href="#quick-start">Quick Start</a> — Get started</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="rest-api"><a class="header" href="#rest-api">REST API</a></h1>
+<p>Base URL: <code>http://localhost:8000</code></p>
+<h2 id="health"><a class="header" href="#health">Health</a></h2>
+<h3 id="health-check-1"><a class="header" href="#health-check-1">Health Check</a></h3>
+<pre><code class="language-bash">GET /health
+</code></pre>
+<pre><code class="language-json">{ "status": "UP" }
+</code></pre>
+<h2 id="jobs-1"><a class="header" href="#jobs-1">Jobs</a></h2>
+<h3 id="submit-job"><a class="header" href="#submit-job">Submit Job</a></h3>
+<pre><code class="language-bash">POST /jobs
+Content-Type: text/yaml
+</code></pre>
+<pre><code class="language-yaml">name: my job
+tasks:
+  - name: hello
+    image: alpine:latest
+    run: echo hello
+</code></pre>
+<h3 id="list-jobs"><a class="header" href="#list-jobs">List Jobs</a></h3>
+<pre><code class="language-bash">GET /jobs?page=1&amp;size=10&amp;q=searchterm
+</code></pre>
+<pre><code class="language-json">{
+  "items": [
+    {
+      "id": "abc123",
+      "name": "my job",
+      "state": "COMPLETED",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "totalPages": 5
+}
+</code></pre>
+<h3 id="get-job"><a class="header" href="#get-job">Get Job</a></h3>
+<pre><code class="language-bash">GET /jobs/{id}
+</code></pre>
+<h3 id="get-job-log"><a class="header" href="#get-job-log">Get Job Log</a></h3>
+<pre><code class="language-bash">GET /jobs/{id}/log
+</code></pre>
+<h3 id="cancel-job"><a class="header" href="#cancel-job">Cancel Job</a></h3>
+<pre><code class="language-bash">PUT /jobs/{id}/cancel
+</code></pre>
+<h3 id="restart-job"><a class="header" href="#restart-job">Restart Job</a></h3>
+<pre><code class="language-bash">PUT /jobs/{id}/restart
+</code></pre>
+<h2 id="tasks-1"><a class="header" href="#tasks-1">Tasks</a></h2>
+<h3 id="get-task"><a class="header" href="#get-task">Get Task</a></h3>
+<pre><code class="language-bash">GET /tasks/{id}
+</code></pre>
+<h3 id="get-task-log"><a class="header" href="#get-task-log">Get Task Log</a></h3>
+<pre><code class="language-bash">GET /tasks/{id}/log
+</code></pre>
+<h2 id="scheduled-jobs"><a class="header" href="#scheduled-jobs">Scheduled Jobs</a></h2>
+<h3 id="submit-scheduled-job"><a class="header" href="#submit-scheduled-job">Submit Scheduled Job</a></h3>
+<pre><code class="language-bash">POST /scheduled-jobs
+Content-Type: text/yaml
+</code></pre>
+<pre><code class="language-yaml">name: daily job
+schedule:
+  cron: "0 2 * * *"
+tasks:
+  - name: backup
+    image: alpine:latest
+    run: echo backing up
+</code></pre>
+<h3 id="list-scheduled-jobs"><a class="header" href="#list-scheduled-jobs">List Scheduled Jobs</a></h3>
+<pre><code class="language-bash">GET /scheduled-jobs
+</code></pre>
+<h3 id="get-scheduled-job"><a class="header" href="#get-scheduled-job">Get Scheduled Job</a></h3>
+<pre><code class="language-bash">GET /scheduled-jobs/{id}
+</code></pre>
+<h3 id="pause-scheduled-job"><a class="header" href="#pause-scheduled-job">Pause Scheduled Job</a></h3>
+<pre><code class="language-bash">PUT /scheduled-jobs/{id}/pause
+</code></pre>
+<h3 id="resume-scheduled-job"><a class="header" href="#resume-scheduled-job">Resume Scheduled Job</a></h3>
+<pre><code class="language-bash">PUT /scheduled-jobs/{id}/resume
+</code></pre>
+<h3 id="delete-scheduled-job"><a class="header" href="#delete-scheduled-job">Delete Scheduled Job</a></h3>
+<pre><code class="language-bash">DELETE /scheduled-jobs/{id}
+</code></pre>
+<h2 id="queues"><a class="header" href="#queues">Queues</a></h2>
+<h3 id="list-queues"><a class="header" href="#list-queues">List Queues</a></h3>
+<pre><code class="language-bash">GET /queues
+</code></pre>
+<pre><code class="language-json">[
+  {
+    "name": "default",
+    "size": 5,
+    "subscribers": 2,
+    "unacked": 1
+  }
+]
+</code></pre>
+<h3 id="get-queue"><a class="header" href="#get-queue">Get Queue</a></h3>
+<pre><code class="language-bash">GET /queues/{name}
+</code></pre>
+<h3 id="delete-queue"><a class="header" href="#delete-queue">Delete Queue</a></h3>
+<pre><code class="language-bash">DELETE /queues/{name}
+</code></pre>
+<h2 id="nodes"><a class="header" href="#nodes">Nodes</a></h2>
+<h3 id="list-nodes"><a class="header" href="#list-nodes">List Nodes</a></h3>
+<pre><code class="language-bash">GET /nodes
+</code></pre>
+<pre><code class="language-json">[
+  {
+    "id": "node-123",
+    "name": "Coordinator",
+    "status": "UP",
+    "startedAt": "2024-01-01T00:00:00Z",
+    "lastHeartbeatAt": "2024-01-01T12:00:00Z"
+  }
+]
+</code></pre>
+<h2 id="metrics"><a class="header" href="#metrics">Metrics</a></h2>
+<h3 id="get-metrics"><a class="header" href="#get-metrics">Get Metrics</a></h3>
+<pre><code class="language-bash">GET /metrics
+</code></pre>
+<h2 id="users"><a class="header" href="#users">Users</a></h2>
+<h3 id="create-user"><a class="header" href="#create-user">Create User</a></h3>
+<pre><code class="language-bash">POST /users
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "secret"
+}
+</code></pre>
+<h2 id="cli-integration"><a class="header" href="#cli-integration">CLI Integration</a></h2>
+<pre><code class="language-bash"># Submit job
+curl -X POST http://localhost:8000/jobs \
+  -H "Content-Type: text/yaml" \
+  --data-binary @job.yaml
+
+# Check status
+curl http://localhost:8000/jobs/$JOB_ID | jq .
+
+# Cancel
+curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+</code></pre>
+<h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
+<ul>
+<li><a href="#web-ui">Web UI</a> — Visual interface</li>
+<li><a href="#examples">Examples</a> — Complete workflows</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="web-ui"><a class="header" href="#web-ui">Web UI</a></h1>
+<p><strong>Note:</strong> Twerk does not currently ship its own web UI. The upstream project <a href="https://github.com/runabol/tork-web">Tork Web</a> is for the Go version and is not yet compatible with Twerk.</p>
+<p>Building a Twerk-native web UI is a planned feature.</p>
+<h2 id="workaround"><a class="header" href="#workaround">Workaround</a></h2>
+<p>You can use the REST API directly via:</p>
+<ul>
+<li><code>curl</code> commands</li>
+<li>Postman/Insomnia collections</li>
+<li>Custom tooling</li>
+</ul>
+<h2 id="next-steps-8"><a class="header" href="#next-steps-8">Next Steps</a></h2>
+<ul>
+<li><a href="#rest-api">REST API</a> — API reference</li>
+<li><a href="#jobs">Jobs</a> — YAML job definitions</li>
+<li><a href="#tasks">Tasks</a> — Task configuration</li>
+<li><a href="#examples">Examples</a> — Complete workflows</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="examples"><a class="header" href="#examples">Examples</a></h1>
+<p>Real-world workflow examples.</p>
+<h2 id="simple-job"><a class="header" href="#simple-job">Simple Job</a></h2>
+<pre><code class="language-yaml">name: hello world
+tasks:
+  - name: say hello
+    image: ubuntu:mantic
+    run: echo hello world
+</code></pre>
+<h2 id="using-inputs"><a class="header" href="#using-inputs">Using Inputs</a></h2>
+<p>Inputs can be used in <code>env</code> values and other fields (but NOT in <code>run</code>):</p>
+<pre><code class="language-yaml">name: input example
+inputs:
+  message: hello world
+  count: 5
+tasks:
+  - name: use inputs
+    image: alpine:latest
+    env:
+      MESSAGE: '{{ inputs.message }}'
+      COUNT: '{{ inputs.count }}'
+    run: |
+      for i in $(seq 1 $COUNT); do
+        echo "$MESSAGE"
+      done
+</code></pre>
+<h2 id="each-task-loop"><a class="header" href="#each-task-loop">Each Task (Loop)</a></h2>
+<p>Use <code>each</code> to run a task for each item in a list:</p>
+<pre><code class="language-yaml">name: process items
+inputs:
+  items: '[1, 2, 3, 4, 5]'
+tasks:
+  - name: process each
+    each:
+      list: '{{ fromJSON(inputs.items) }}'
+      concurrency: 2
+      task:
+        image: alpine:latest
+        env:
+          ITEM: '{{ item.value }}'
+          INDEX: '{{ item.index }}'
+        run: echo "Item $ITEM at index $INDEX"
+</code></pre>
+<h2 id="parallel-tasks"><a class="header" href="#parallel-tasks">Parallel Tasks</a></h2>
+<p>Run multiple tasks concurrently:</p>
+<pre><code class="language-yaml">name: parallel work
+tasks:
+  - name: parallel parent
+    parallel:
+      tasks:
+        - name: task a
+          image: alpine:latest
+          run: echo "A done"
+        - name: task b
+          image: alpine:latest
+          run: sleep 2 &amp;&amp; echo "B done"
+        - name: task c
+          image: alpine:latest
+          run: echo "C done"
+</code></pre>
+<h2 id="conditional-execution"><a class="header" href="#conditional-execution">Conditional Execution</a></h2>
+<p>Use <code>if</code> to conditionally run tasks:</p>
+<pre><code class="language-yaml">name: conditional workflow
+inputs:
+  environment: production
+tasks:
+  - name: deploy
+    if: "{{ job.state == 'SCHEDULED' }}"
+    image: alpine:latest
+    run: echo "Deploying..."
+</code></pre>
+<h2 id="retry-on-failure"><a class="header" href="#retry-on-failure">Retry on Failure</a></h2>
+<pre><code class="language-yaml">name: with retry
+tasks:
+  - name: may fail
+    retry:
+      limit: 3
+    image: alpine:latest
+    run: ./might-fail.sh
+</code></pre>
+<h2 id="resource-limits"><a class="header" href="#resource-limits">Resource Limits</a></h2>
+<pre><code class="language-yaml">name: limited task
+tasks:
+  - name: constrained
+    limits:
+      cpus: "0.5"
+      memory: "256m"
+    image: alpine:latest
+    run: echo hello
+</code></pre>
+<h2 id="mounts"><a class="header" href="#mounts">Mounts</a></h2>
+<p>Share data between pre/post tasks and main task:</p>
+<pre><code class="language-yaml">name: with mounts
+tasks:
+  - name: process
+    image: jrottenberg/ffmpeg:3.4-alpine
+    run: ffmpeg -i /tmp/input.mov /tmp/output.mp4
+    mounts:
+      - type: volume
+        target: /tmp
+    pre:
+      - name: download
+        image: alpine:latest
+        run: wget http://example.com/video.mov -O /tmp/input.mov
+</code></pre>
+<h2 id="scheduled-job"><a class="header" href="#scheduled-job">Scheduled Job</a></h2>
+<pre><code class="language-yaml">name: daily backup
+schedule:
+  cron: "0 2 * * *"
+tasks:
+  - name: backup
+    image: postgres:15
+    run: pg_dump -a mydb &gt; /backups/dump.sql
+</code></pre>
+<h2 id="environment-variable-reference-1"><a class="header" href="#environment-variable-reference-1">Environment Variable Reference</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>TWERK_OUTPUT</code></td><td>Write task output here</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="supported-expressions"><a class="header" href="#supported-expressions">Supported Expressions</a></h2>
+<p><strong>Works in <code>env</code> values, <code>image</code>, <code>queue</code>, <code>name</code>, <code>var</code>, <code>if</code>:</strong></p>
+<ul>
+<li><code>{{ inputs.key }}</code> — Job inputs</li>
+<li><code>{{ secrets.key }}</code> — Job secrets</li>
+<li><code>{{ item.value }}</code> — Each loop item value</li>
+<li><code>{{ item.index }}</code> — Each loop item index</li>
+</ul>
+<p><strong>Built-in functions:</strong></p>
+<ul>
+<li><code>fromJSON(string)</code> — Parse JSON string</li>
+<li><code>toJSON(value)</code> — Convert to JSON</li>
+<li><code>sequence(start, stop)</code> — Generate integer range</li>
+<li><code>split(string, delimiter)</code> — Split string</li>
+<li><code>len(array)</code> — Array length</li>
+<li><code>contains(array, item)</code> — Check membership</li>
+</ul>
+<p><strong>Works in <code>if</code> condition:</strong></p>
+<ul>
+<li><code>job.state</code> — Current job state</li>
+<li><code>job.id</code> — Job ID</li>
+<li><code>job.name</code> — Job name</li>
+<li><code>task.state</code> — Current task state</li>
+<li><code>task.id</code> — Task ID</li>
+</ul>
+<p><strong>Note:</strong> The <code>run</code> field is NOT evaluated — it’s passed as raw shell script to the container.</p>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="#jobs">Jobs</a> — Job reference</li>
+<li><a href="#tasks">Tasks</a> — Task reference</li>
+<li><a href="#rest-api">REST API</a> — API reference</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

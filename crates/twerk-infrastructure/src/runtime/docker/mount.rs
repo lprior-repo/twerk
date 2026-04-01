@@ -1,6 +1,6 @@
 //! Mounter implementations for Docker runtime.
 
-use crate::runtime::docker::bind::{BindConfig, BindMounter};
+use crate::runtime::docker::bind::{BindConfig, BindMounter, MountPolicy};
 use crate::runtime::docker::tmpfs::TmpfsMounter;
 use crate::runtime::docker::volume::VolumeMounter;
 use std::pin::Pin;
@@ -94,8 +94,7 @@ impl CompositeMounter {
         Self {
             volume: Arc::new(VolumeMounter::with_client(client)),
             bind: Arc::new(BindMounter::new(BindConfig {
-                allowed: true,
-                sources: Vec::new(),
+                policy: MountPolicy::Allowed(Vec::new()),
             })),
             tmpfs: Arc::new(TmpfsMounter::new()),
         }

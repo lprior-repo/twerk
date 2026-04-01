@@ -13,13 +13,21 @@ use std::sync::{Arc, RwLock};
 use thiserror::Error;
 use twerk_core::mount::Mount;
 
+/// Mount policy for bind mounts.
+#[derive(Clone, Debug, Default)]
+pub enum MountPolicy {
+    /// Mounts are denied
+    #[default]
+    Denied,
+    /// Mounts are allowed for specific paths
+    Allowed(Vec<String>),
+}
+
 /// Configuration for bind mounter.
 #[derive(Debug, Clone, Default)]
 pub struct BindConfig {
-    /// Whether bind mounts are allowed.
-    pub allowed: bool,
-    /// List of allowed source paths.
-    pub sources: Vec<String>,
+    /// Mount policy controlling whether bind mounts are allowed.
+    pub policy: MountPolicy,
 }
 
 /// Errors from bind mount operations.
@@ -70,10 +78,11 @@ impl BindMounter {
     ///
     /// Returns `BindMounterError` if the mount cannot be created.
     pub fn mount(&self, mnt: &Mount) -> Result<(), BindMounterError> {
-        // Check if bind mounts are allowed
-        if !self.cfg.allowed {
-            return Err(BindMounterError::NotAllowed);
-        }
+        // Check if bind mounts are allowed and get allowed sources
+        let sources = match &self.cfg.policy {
+            MountPolicy::Denied => return Err(BindMounterError::NotAllowed),
+            MountPolicy::Allowed(s) => s.clone(),
+        };
 
         // Get source path
         let source = mnt
@@ -82,7 +91,7 @@ impl BindMounter {
             .ok_or_else(|| BindMounterError::SourceNotAllowed("no source specified".to_string()))?;
 
         // Check if source is allowed
-        if !self.is_source_allowed(source) {
+        if !Self::is_source_allowed(source, &sources) {
             return Err(BindMounterError::SourceNotAllowed(source.clone()));
         }
 
@@ -131,13 +140,12 @@ impl BindMounter {
     }
 
     /// Checks if a source path is allowed.
-    fn is_source_allowed(&self, src: &str) -> bool {
-        if self.cfg.sources.is_empty() {
+    fn is_source_allowed(src: &str, sources: &[String]) -> bool {
+        if sources.is_empty() {
             return true; // All sources allowed if list is empty
         }
 
-        self.cfg
-            .sources
+        sources
             .iter()
             .any(|allowed| allowed.eq_ignore_ascii_case(src))
     }
@@ -151,8 +159,7 @@ mod tests {
     #[test]
     fn test_bind_mount_not_allowed() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: false,
-            sources: vec![],
+            policy: MountPolicy::Denied,
         });
 
         let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -164,8 +171,7 @@ mod tests {
     #[test]
     fn test_bind_mount_source_not_allowed() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec!["/tmp".to_string()],
+            policy: MountPolicy::Allowed(vec!["/tmp".to_string()]),
         });
 
         let mnt = Mount::new(mount_type::BIND, "/other").with_source("/other");
@@ -177,8 +183,7 @@ mod tests {
     #[test]
     fn test_bind_mount_allowed_source() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec!["/tmp".to_string()],
+            policy: MountPolicy::Allowed(vec!["/tmp".to_string()]),
         });
 
         let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -193,8 +198,7 @@ mod tests {
         let src = tmp.path().join("sub").to_string_lossy().to_string();
 
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec![],
+            policy: MountPolicy::Allowed(vec![]),
         });
 
         let mnt = Mount::new(mount_type::BIND, &src).with_source(&src);
@@ -206,8 +210,7 @@ mod tests {
     #[test]
     fn test_bind_mount_case_insensitive() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec!["/TMP".to_string()],
+            policy: MountPolicy::Allowed(vec!["/TMP".to_string()]),
         });
 
         let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -219,8 +222,7 @@ mod tests {
     #[test]
     fn test_bind_mount_no_source() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec![],
+            policy: MountPolicy::Allowed(vec![]),
         });
 
         let mnt = Mount::new(mount_type::BIND, "/target");
@@ -236,8 +238,7 @@ mod tests {
         let src = tmp.path().to_string_lossy().to_string();
 
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec![],
+            policy: MountPolicy::Allowed(vec![]),
         });
 
         let mnt = Mount::new(mount_type::BIND, &src).with_source(&src);
@@ -249,8 +250,7 @@ mod tests {
     #[test]
     fn test_unmount_is_noop() {
         let mounter = BindMounter::new(BindConfig {
-            allowed: true,
-            sources: vec![],
+            policy: MountPolicy::Allowed(vec![]),
         });
 
         let mnt = Mount::new(mount_type::BIND, "/target").with_source("/target");

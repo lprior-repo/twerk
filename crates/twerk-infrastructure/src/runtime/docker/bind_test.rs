@@ -1,14 +1,13 @@
 //! Tests for docker::bind module.
 
-use crate::runtime::docker::bind::{BindConfig, BindMounter};
-use twerk_core::mount_type;
+use crate::runtime::docker::bind::{BindConfig, BindMounter, MountPolicy};
 use twerk_core::mount::Mount;
+use twerk_core::mount_type;
 
 #[test]
 fn test_bind_mount_not_allowed() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: false,
-        sources: vec![],
+        policy: MountPolicy::Denied,
     });
 
     let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -20,8 +19,7 @@ fn test_bind_mount_not_allowed() {
 #[test]
 fn test_bind_mount_source_not_allowed() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec!["/tmp".to_string()],
+        policy: MountPolicy::Allowed(vec!["/tmp".to_string()]),
     });
 
     let mnt = Mount::new(mount_type::BIND, "/other").with_source("/other");
@@ -33,8 +31,7 @@ fn test_bind_mount_source_not_allowed() {
 #[test]
 fn test_bind_mount_allowed_source() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec!["/tmp".to_string()],
+        policy: MountPolicy::Allowed(vec!["/tmp".to_string()]),
     });
 
     let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -49,8 +46,7 @@ fn test_bind_mount_empty_sources_allows_any() {
     let src = tmp.path().join("sub").to_string_lossy().to_string();
 
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec![],
+        policy: MountPolicy::Allowed(vec![]),
     });
 
     let mnt = Mount::new(mount_type::BIND, &src).with_source(&src);
@@ -62,8 +58,7 @@ fn test_bind_mount_empty_sources_allows_any() {
 #[test]
 fn test_bind_mount_case_insensitive() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec!["/TMP".to_string()],
+        policy: MountPolicy::Allowed(vec!["/TMP".to_string()]),
     });
 
     let mnt = Mount::new(mount_type::BIND, "/tmp").with_source("/tmp");
@@ -75,8 +70,7 @@ fn test_bind_mount_case_insensitive() {
 #[test]
 fn test_bind_mount_no_source() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec![],
+        policy: MountPolicy::Allowed(vec![]),
     });
 
     let mnt = Mount::new(mount_type::BIND, "/target");
@@ -92,8 +86,7 @@ fn test_bind_mount_idempotent() {
     let src = tmp.path().to_string_lossy().to_string();
 
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec![],
+        policy: MountPolicy::Allowed(vec![]),
     });
 
     let mnt = Mount::new(mount_type::BIND, &src).with_source(&src);
@@ -105,8 +98,7 @@ fn test_bind_mount_idempotent() {
 #[test]
 fn test_unmount_is_noop() {
     let mounter = BindMounter::new(BindConfig {
-        allowed: true,
-        sources: vec![],
+        policy: MountPolicy::Allowed(vec![]),
     });
 
     let mnt = Mount::new(mount_type::BIND, "/target").with_source("/target");

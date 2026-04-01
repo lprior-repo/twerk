@@ -43,7 +43,7 @@ pub use auth::{
     decode_base64_auth, get_registry_credentials, AuthConfig, AuthError, Config, KubernetesConfig,
     ProxyConfig,
 };
-pub use bind::{BindConfig, BindMounter, BindMounterError};
+pub use bind::{BindConfig, BindMounter, BindMounterError, MountPolicy};
 pub use config::{DockerConfig, DockerConfigBuilder};
 pub use container::{create_task_container, Container, Tcontainer};
 pub use error::DockerError;

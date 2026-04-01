@@ -10,139 +10,138 @@ Tasks are the unit of execution in Twerk.
   run: echo hello
 ```
 
+## What Fields Support Expressions?
+
+Expressions using `{{ }}` syntax are supported in these fields:
+- `name` — Task name
+- `image` — Container image
+- `var` — Output variable name
+- `queue` — Target queue
+- `if` — Conditional execution
+- `env` values — Environment variables
+- `files` keys/values — Files to create
+
+**Note:** The `run` field is NOT evaluated — it's passed as raw shell script.
+
 ## Complete Task Reference
 
 ```yaml
 # ─── Identification ───────────────────────────────────────────────────────────
-name: my task                        # Task name
-description: Optional description    # Task description
-tags: [tag1, tag2]                  # Metadata tags
+name: my task                        # Supports {{ }} expressions
+description: Optional description    # Plain text only
 
 # ─── Container ───────────────────────────────────────────────────────────────
-image: ubuntu:mantic                 # Container image
-cmd: ["/bin/sh", "-c"]              # Override entrypoint
+image: ubuntu:mantic                 # Supports {{ }} expressions
+cmd: ["/bin/sh", "-c"]             # Override entrypoint
 entrypoint: ["/bin/sh", "-c"]       # Same as cmd
 run: |
-  echo hello
-  echo world
+  echo hello                        # RAW shell script - NO expression evaluation
 
-# ─── Registry ────────────────────────────────────────────────────────────────
-registry:                            # Private registry credentials
-  username: user
-  password: secret
-
-# ─── Environment ─────────────────────────────────────────────────────────────
-env:                                 # Environment variables
+# ─── Environment ──────────────────────────────────────────────────────────────
+env:                                 # Values support {{ }} expressions
   KEY: value
-  TEMPLATE: '{{ inputs.key }}'        # Expression support
+  TEMPLATE: '{{ inputs.key }}'      # ✓ Works
 
-files:                               # Files to create in working dir
-  script.py: |
-    print("hello")
+files:                               # Keys and values support {{ }}
+  config.json: '{"key": "{{ inputs.value }}"}'  # ✓ Works
 
-# ─── Output ──────────────────────────────────────────────────────────────────
-var: output_key                      # Store output under this key
-                                     # Use {{ tasks.output_key }} to reference
+# ─── Output ─────────────────────────────────────────────────────────────────
+var: output_key                      # Supports {{ }} - store task output
+                                     # Access via {{ tasks.output_key }}
 
 # ─── Conditions ──────────────────────────────────────────────────────────────
-if: "{{ inputs.run == 'true' }}"     # Conditional execution
+if: "{{ job.state == 'SCHEDULED' }}"  # ✓ Works in if field
 
-# ─── Routing ─────────────────────────────────────────────────────────────────
-queue: default                       # Target queue
-priority: 5                          # 0-9, higher = more priority
+# ─── Routing ────────────────────────────────────────────────────────────────
+queue: default                       # Supports {{ }} expressions
+priority: 5
 
 # ─── Execution Control ───────────────────────────────────────────────────────
-timeout: 5m                          # Max execution time
+timeout: 5m
 retry:
-  limit: 3                           # Max retries
-  attempts: 0                        # Current attempt count (internal)
+  limit: 3
 
 # ─── Resources ────────────────────────────────────────────────────────────────
 limits:
-  cpus: "0.5"                        # CPU limit
-  memory: "256m"                     # Memory limit
+  cpus: "0.5"
+  memory: "256m"
 
-gpus: all                           # GPU access (Docker only)
+gpus: all
+workdir: /app
 
-workdir: /app                        # Working directory
-
-# ─── Networking ──────────────────────────────────────────────────────────────
-networks:                            # Container networks
-  - my-network
-
-# ─── Storage ─────────────────────────────────────────────────────────────────
+# ─── Mounts ──────────────────────────────────────────────────────────────────
 mounts:
-  - type: volume                      # or: bind, tmpfs
-    target: /data                    # Mount point
-    source: /host/path                # For bind mounts
+  - type: volume
+    target: /data
 
 # ─── Pre/Post Tasks ─────────────────────────────────────────────────────────
-pre:                                 # Run before main task
+pre:
   - name: setup
     image: alpine:latest
     run: echo setup
 
-post:                                # Run after main task
+post:
   - name: cleanup
     image: alpine:latest
     run: echo cleanup
 
-# ─── Parallel Execution ──────────────────────────────────────────────────────
+# ─── Parallel ────────────────────────────────────────────────────────────────
 parallel:
   tasks:
-    - name: task a
+    - name: a
       image: alpine:latest
       run: echo A
-    - name: task b
+    - name: b
       image: alpine:latest
       run: echo B
-  completions: 2                      # Wait for N tasks to complete
 
-# ─── Each (Loop) ─────────────────────────────────────────────────────────────
+# ─── Each (Loop) ────────────────────────────────────────────────────────────
 each:
-  var: item_output                    # Output variable name
-  list: '{{ sequence(1, 5) }}'        # Items to iterate
-  concurrency: 2                      # Max parallel executions
-  size: 5                             # Total items (internal)
-  index: 0                            # Current index (internal)
-  completions: 0                      # Completed count (internal)
-  task:                               # Task template
-    name: process item
+  list: '{{ fromJSON(inputs.items) }}'  # Expression for list
+  concurrency: 2
+  task:
     image: alpine:latest
     env:
-      VALUE: '{{ item.value }}'
+      VALUE: '{{ item.value }}'        # ✓ Works in each tasks
+      INDEX: '{{ item.index }}'
     run: echo $VALUE
+```
 
-# ─── Sub-Job ─────────────────────────────────────────────────────────────────
-subjob:
-  name: my sub job                    # Sub-job name
-  description: Optional               # Sub-job description
-  tasks:                             # Sub-job tasks
-    - name: sub task
-      image: alpine:latest
-      run: echo sub
-  inputs:                            # Sub-job inputs
-    key: value
-  secrets:                           # Sub-job secrets
-    key: value
-  autoDelete:                        # Sub-job auto-delete
-    after: 1h
-  detached: false                    # Wait for completion if false
-  webhooks:                          # Sub-job webhooks
-    - url: https://example.com/hook
-      event: job.StateChange
+## Supported Expression Syntax
 
-# ─── Health Check ─────────────────────────────────────────────────────────────
-probe:
-  path: /health                      # Health check path
-  port: 8080                         # Health check port
-  timeout: 5s                        # Health check timeout
+### Input/Secret References
 
-# ─── Sidecars ────────────────────────────────────────────────────────────────
-sidecars:                            # Sidecar containers
-  - name: proxy
-    image: envoyproxy/envoy:latest
-    run: echo proxy
+```yaml
+env:
+  VALUE: '{{ inputs.my_input }}'      # Job input
+  SECRET: '{{ secrets.my_secret }}'   # Job secret (auto-redacted)
+```
+
+### Each Loop Variables
+
+```yaml
+each:
+  task:
+    env:
+      VALUE: '{{ item.value }}'        # Current item value
+      INDEX: '{{ item.index }}'       # Current index (0-based)
+```
+
+### Built-in Functions
+
+```yaml
+env:
+  JSON: '{{ fromJSON(inputs.json_string) }}'
+  SEQ: '{{ sequence(1, 5) }}'         # [1, 2, 3, 4]
+  LEN: '{{ len(tasks.results) }}'
+  SPLIT: '{{ split("a,b,c", ",") }}'  # ["a", "b", "c"]
+```
+
+### Conditional with `if`
+
+```yaml
+if: "{{ job.state == 'SCHEDULED' }}"  # Job must be scheduled
+if: "{{ job.state != 'FAILED' }}"      # Job not failed
 ```
 
 ## Task States
@@ -159,19 +158,7 @@ sidecars:                            # Sidecar containers
 | `STOPPED` | Stopped |
 | `SKIPPED` | Skipped (conditional) |
 
-## Built-in Functions
-
-Available in expressions:
-
-- `len(array)` — Array length
-- `first(array)` — First element
-- `last(array)` — Last element
-- `contains(array, item)` — Check membership
-- `sequence(start, end)` — Generate number range
-- `fromJSON(string)` — Parse JSON string
-- `toJSON(value)` — Convert to JSON string
-
 ## Next Steps
 
 - [Runtimes](runtimes.md) — Docker, Podman, Shell
-- [Configuration](configuration.md) — Runtime configuration
+- [Configuration](configuration.md) — Full configuration reference

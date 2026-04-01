@@ -2,173 +2,66 @@
 
 Real-world workflow examples.
 
-## CI/CD Pipeline
+## Simple Job
 
 ```yaml
-name: ci-pipeline
-inputs:
-  repo_url: https://github.com/example/app
-  image_tag: latest
-defaults:
-  retry:
-    limit: 2
-  timeout: 30m
+name: hello world
 tasks:
-  - name: checkout
-    var: repo_path
-    image: alpine/git:latest
-    run: |
-      git clone {{ inputs.repo_url }} /app
-      echo "/app" > $TWERK_OUTPUT
-
-  - name: test
-    image: node:20
-    env:
-      REPO: '{{ tasks.checkout }}'
-    run: |
-      cd $REPO
-      npm ci
-      npm test
-
-  - name: build image
-    image: docker:latest
-    env:
-      TAG: '{{ inputs.image_tag }}'
-    run: |
-      docker build -t myapp:$TAG $REPO
-      docker push myapp:$TAG
-
-  - name: deploy
-    if: "{{ job.state == 'COMPLETED' }}"
-    image: alpine:latest
-    run: |
-      echo "Deployed myapp:{{ inputs.image_tag }}"
+  - name: say hello
+    image: ubuntu:mantic
+    run: echo hello world
 ```
 
-## Video Processing
+## Using Inputs
+
+Inputs can be used in `env` values and other fields (but NOT in `run`):
 
 ```yaml
-name: process video
+name: input example
 inputs:
-  video_url: https://example.com/video.mov
-  resolutions: [480, 720, 1080]
+  message: hello world
+  count: 5
 tasks:
-  - name: download video
-    var: video_path
+  - name: use inputs
     image: alpine:latest
+    env:
+      MESSAGE: '{{ inputs.message }}'
+      COUNT: '{{ inputs.count }}'
     run: |
-      wget "{{ inputs.video_url }}" -O /tmp/input.mov
-      echo "/tmp/input.mov" > $TWERK_OUTPUT
+      for i in $(seq 1 $COUNT); do
+        echo "$MESSAGE"
+      done
+```
 
-  - name: transcode
+## Each Task (Loop)
+
+Use `each` to run a task for each item in a list:
+
+```yaml
+name: process items
+inputs:
+  items: '[1, 2, 3, 4, 5]'
+tasks:
+  - name: process each
     each:
-      list: '{{ inputs.resolutions }}'
-      concurrency: 3
-      var: "output_{{ item.value }}"
+      list: '{{ fromJSON(inputs.items) }}'
+      concurrency: 2
       task:
-        image: jrottenberg/ffmpeg:3.4-alpine
+        image: alpine:latest
         env:
-          RES: '{{ item.value }}'
-          INPUT: '{{ tasks.download_video }}'
-        run: |
-          ffmpeg -i $INPUT -vf "scale=-2:$RES" /tmp/output_$RES.mp4
-          echo "/tmp/output_$RES.mp4" > $TWERK_OUTPUT
-
-  - name: upload
-    image: amazon/aws-cli:latest
-    env:
-      BUCKET: my-videos
-    run: |
-      aws s3 cp {{ tasks.transcode.outputs.output_480 }} s3://$BUCKET/video_480.mp4
-      aws s3 cp {{ tasks.transcode.outputs.output_720 }} s3://$BUCKET/video_720.mp4
-      aws s3 cp {{ tasks.transcode.outputs.output_1080 }} s3://$BUCKET/video_1080.mp4
+          ITEM: '{{ item.value }}'
+          INDEX: '{{ item.index }}'
+        run: echo "Item $ITEM at index $INDEX"
 ```
 
-## Data ETL Pipeline
+## Parallel Tasks
+
+Run multiple tasks concurrently:
 
 ```yaml
-name: etl-pipeline
-inputs:
-  db_host: prod-db.example.com
-  db_name: analytics
-secrets:
-  db_user: readonly_user
-  db_password: secret
+name: parallel work
 tasks:
-  - name: extract
-    var: dump_file
-    image: postgres:15
-    run: |
-      PGPASSWORD={{ secrets.db_password }} \
-      pg_dump -h {{ inputs.db_host }} -U {{ secrets.db_user }} \
-        -d {{ inputs.db_name }} > /tmp/dump.sql
-      gzip -c /tmp/dump.sql > /tmp/dump.gz
-      echo "/tmp/dump.gz" > $TWERK_OUTPUT
-
-  - name: transform
-    var: metrics
-    image: python:3.11
-    files:
-      transform.py: |
-        import gzip, json
-        with gzip.open('/tmp/dump.gz', 'rt') as f:
-            data = f.read()
-        result = {"records": len(data.split())}
-        print(json.dumps(result))
-    run: python transform.py > $TWERK_OUTPUT
-
-  - name: load
-    image: alpine:latest
-    env:
-      METRICS: '{{ tasks.transform }}'
-    run: |
-      echo "Loading $METRICS to warehouse"
-```
-
-## Scheduled Backup
-
-```yaml
-name: nightly-backup
-schedule:
-  cron: "0 2 * * *"
-tasks:
-  - name: backup postgres
-    var: backup_file
-    image: postgres:15
-    run: |
-      PGPASSWORD=$PGPASSWORD pg_dump -h $DB_HOST -U $DB_USER $DB_NAME \
-        | gzip > /backups/db_$(date +%Y%m%d).sql.gz
-      echo "/backups/db_$(date +%Y%m%d).sql.gz" > $TWERK_OUTPUT
-
-  - name: upload to s3
-    image: amazon/aws-cli:latest
-    env:
-      BACKUP: '{{ tasks.backup_postgres }}'
-    run: |
-      aws s3 cp $BACKUP s3://my-backups/
-
-  - name: notify
-    image: alpine:latest
-    webhooks:
-      - url: https://hooks.example.com/backup
-        event: task.StateChange
-        if: "{{ task.state == 'COMPLETED' }}"
-    run: |
-      echo "Backup completed"
-```
-
-## Parallel Execution
-
-```yaml
-name: parallel computation
-tasks:
-  - name: setup
-    var: items
-    image: alpine:latest
-    run: |
-      echo '[1,2,3,4,5]' > $TWERK_OUTPUT
-
-  - name: process in parallel
+  - name: parallel parent
     parallel:
       tasks:
         - name: task a
@@ -180,56 +73,109 @@ tasks:
         - name: task c
           image: alpine:latest
           run: echo "C done"
-
-  - name: collect
-    image: alpine:latest
-    run: echo "All parallel tasks complete"
-```
-
-## GPU Workload
-
-```yaml
-name: ml inference
-tasks:
-  - name: download model
-    var: model_path
-    image: alpine:latest
-    run: |
-      wget https://example.com/model.pt -O /tmp/model.pt
-      echo "/tmp/model.pt" > $TWERK_OUTPUT
-
-  - name: inference
-    image: pytorch:latest
-    gpus: all
-    env:
-      MODEL: '{{ tasks.download_model }}'
-    run: |
-      python inference.py --model $MODEL
 ```
 
 ## Conditional Execution
+
+Use `if` to conditionally run tasks:
 
 ```yaml
 name: conditional workflow
 inputs:
   environment: production
 tasks:
-  - name: validate
-    var: validation_result
+  - name: deploy
+    if: "{{ job.state == 'SCHEDULED' }}"
     image: alpine:latest
-    run: |
-      echo "validation complete" > $TWERK_OUTPUT
-
-  - name: deploy to prod
-    if: "{{ inputs.environment == 'production' }}"
-    image: alpine:latest
-    run: echo "Deploying to production!"
-
-  - name: deploy to staging
-    if: "{{ inputs.environment == 'staging' }}"
-    image: alpine:latest
-    run: echo "Deploying to staging!"
+    run: echo "Deploying..."
 ```
+
+## Retry on Failure
+
+```yaml
+name: with retry
+tasks:
+  - name: may fail
+    retry:
+      limit: 3
+    image: alpine:latest
+    run: ./might-fail.sh
+```
+
+## Resource Limits
+
+```yaml
+name: limited task
+tasks:
+  - name: constrained
+    limits:
+      cpus: "0.5"
+      memory: "256m"
+    image: alpine:latest
+    run: echo hello
+```
+
+## Mounts
+
+Share data between pre/post tasks and main task:
+
+```yaml
+name: with mounts
+tasks:
+  - name: process
+    image: jrottenberg/ffmpeg:3.4-alpine
+    run: ffmpeg -i /tmp/input.mov /tmp/output.mp4
+    mounts:
+      - type: volume
+        target: /tmp
+    pre:
+      - name: download
+        image: alpine:latest
+        run: wget http://example.com/video.mov -O /tmp/input.mov
+```
+
+## Scheduled Job
+
+```yaml
+name: daily backup
+schedule:
+  cron: "0 2 * * *"
+tasks:
+  - name: backup
+    image: postgres:15
+    run: pg_dump -a mydb > /backups/dump.sql
+```
+
+## Environment Variable Reference
+
+| Variable | Description |
+|----------|-------------|
+| `TWERK_OUTPUT` | Write task output here |
+
+## Supported Expressions
+
+**Works in `env` values, `image`, `queue`, `name`, `var`, `if`:**
+- `{{ inputs.key }}` — Job inputs
+- `{{ secrets.key }}` — Job secrets  
+- `{{ item.value }}` — Each loop item value
+- `{{ item.index }}` — Each loop item index
+
+**Built-in functions:**
+- `fromJSON(string)` — Parse JSON string
+- `toJSON(value)` — Convert to JSON
+- `sequence(start, stop)` — Generate integer range
+- `split(string, delimiter)` — Split string
+- `len(array)` — Array length
+- `contains(array, item)` — Check membership
+
+**Works in `if` condition:**
+- `job.state` — Current job state
+- `job.id` — Job ID
+- `job.name` — Job name
+- `task.state` — Current task state
+- `task.id` — Task ID
+
+**Note:** The `run` field is NOT evaluated — it's passed as raw shell script to the container.
 
 ## See Also
 

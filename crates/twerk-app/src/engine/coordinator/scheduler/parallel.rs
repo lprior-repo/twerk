@@ -42,6 +42,7 @@ impl Scheduler {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("missing parallel tasks"))?;
 
+        let mut subtasks = Vec::with_capacity(tasks.len());
         for t in tasks {
             let mut pt = t.clone();
             pt = evaluate_task(&pt, &job_ctx)
@@ -53,9 +54,13 @@ impl Scheduler {
             pt.state = twerk_core::task::TASK_STATE_PENDING.to_string();
             pt.created_at = Some(now);
 
-            self.ds.create_task(&pt).await?;
+            subtasks.push(pt);
+        }
+
+        if !subtasks.is_empty() {
+            self.ds.create_tasks(&subtasks).await?;
             self.broker
-                .publish_task(QUEUE_PENDING.to_string(), &pt)
+                .publish_tasks(QUEUE_PENDING.to_string(), &subtasks)
                 .await?;
         }
 

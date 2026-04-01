@@ -36,6 +36,42 @@ tasks:
     options:
       runInCI: true
 
+  build-release:
+    command: 'cargo build --release --workspace'
+    toolchains:
+      - rust
+    options:
+      runInCI: false
+
+  docs:
+    command: 'cd website && mdbook build'
+    options:
+      runInCI: false
+    description: 'Build mdBook documentation'
+
+  docs-serve:
+    command: 'cd website && mdbook serve --open'
+    options:
+      runInCI: false
+    description: 'Serve docs locally for development'
+
+  docs-check:
+    command: 'cd website && mdbook build --dry-run'
+    options:
+      runInCI: true
+    description: 'Validate docs without building'
+
+  install:
+    script: 'cargo build --release --workspace && for bin in twerk; do [ -f target/release/$bin ] && cp -f target/release/$bin ~/.local/bin/$bin; done && chmod +x ~/.local/bin/twerk 2>/dev/null || true'
+    options:
+      cache: false
+    description: 'Install twerk binary to ~/.local/bin'
+
+  clean:
+    command: 'cargo clean'
+    options:
+      cache: false
+
   # ─── DOCKER-REQUIRED E2E TESTS ───────────────────────────────────────────────
   #
   # ⚠️  DOCKER REQUIRED FOR DISTRIBUTED E2E TESTS ⚠️
@@ -102,3 +138,15 @@ tasks:
     command: 'moon run :ci-source'
     options:
       runInCI: true
+
+  ci-full:
+    script: 'moon run :ci-source && moon run :docs-check && moon run :ci-standalone-e2e'
+    options:
+      runInCI: true
+    description: 'Full CI including docs validation and standalone E2E'
+
+  quality:
+    script: 'moon run :fmt && moon run :lint-src && moon run :test'
+    options:
+      runInCI: false
+    description: 'Quality gates: fmt, clippy, tests'

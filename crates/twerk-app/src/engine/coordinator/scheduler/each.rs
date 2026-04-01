@@ -91,6 +91,7 @@ impl Scheduler {
     ) -> Result<()> {
         let var_name = "item";
 
+        let mut subtasks = Vec::with_capacity(list.len());
         for (ix, item) in list.iter().enumerate() {
             let mut cx = job_ctx.clone();
             cx.insert(
@@ -111,9 +112,13 @@ impl Scheduler {
             et.state = twerk_core::task::TASK_STATE_PENDING.to_string();
             et.created_at = Some(now);
 
-            self.ds.create_task(&et).await?;
+            subtasks.push(et);
+        }
+
+        if !subtasks.is_empty() {
+            self.ds.create_tasks(&subtasks).await?;
             self.broker
-                .publish_task(QUEUE_PENDING.to_string(), &et)
+                .publish_tasks(QUEUE_PENDING.to_string(), &subtasks)
                 .await?;
         }
 

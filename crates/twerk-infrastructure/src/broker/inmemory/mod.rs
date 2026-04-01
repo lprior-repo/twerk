@@ -75,6 +75,10 @@ impl Broker for InMemoryBroker {
         publish::task(self, &qname, task)
     }
 
+    fn publish_tasks(&self, qname: String, tasks: &[twerk_core::task::Task]) -> BoxedFuture<()> {
+        publish::tasks(self, &qname, tasks)
+    }
+
     fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()> {
         subscription::for_tasks(self, qname, handler)
     }

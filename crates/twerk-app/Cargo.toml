@@ -51,3 +51,7 @@ harness = false
 [[bench]]
 name = "large_scale"
 harness = false
+
+[[bench]]
+name = "stress_10x"
+harness = false

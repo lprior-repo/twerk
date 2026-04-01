@@ -61,6 +61,17 @@ impl Datastore for InMemoryDatastore {
         Ok(())
     }
 
+    async fn create_tasks(&self, tasks: &[Task]) -> Result<()> {
+        for task in tasks {
+            let id = task
+                .id
+                .clone()
+                .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+            self.tasks.insert(id, task.clone());
+        }
+        Ok(())
+    }
+
     async fn update_task(
         &self,
         id: &str,

@@ -96,6 +96,12 @@ pub struct Page<T> {
 pub trait Datastore: Send + Sync {
     // Task operations
     async fn create_task(&self, task: &Task) -> Result<()>;
+    async fn create_tasks(&self, tasks: &[Task]) -> Result<()> {
+        for t in tasks {
+            self.create_task(t).await?;
+        }
+        Ok(())
+    }
     async fn update_task(
         &self,
         id: &str,

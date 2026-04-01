@@ -46,18 +46,21 @@ fn extract_i64(val: &Value) -> i64 {
 /// For monitoring/metrics where we never want to fail on large counts.
 #[inline]
 fn clamp_i32(val: i64) -> i32 {
-    i32::try_from(val).map_or_else(
-        |_| {
-            if val > 0 {
-                debug!(value = val, "i64 overflow on i32 conversion, clamping to MAX");
-                i32::MAX
-            } else {
-                debug!(value = val, "i64 underflow on i32 conversion, clamping to MIN");
-                i32::MIN
-            }
-        },
-        |v| v,
-    )
+    i32::try_from(val).unwrap_or_else(|_| {
+        if val > 0 {
+            debug!(
+                value = val,
+                "i64 overflow on i32 conversion, clamping to MAX"
+            );
+            i32::MAX
+        } else {
+            debug!(
+                value = val,
+                "i64 underflow on i32 conversion, clamping to MIN"
+            );
+            i32::MIN
+        }
+    })
 }
 
 /// Extracts i32 from JSON, returning 0 for null/missing values.

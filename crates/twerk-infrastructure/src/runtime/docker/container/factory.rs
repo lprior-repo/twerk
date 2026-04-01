@@ -402,18 +402,17 @@ pub async fn create_task_container(
 
 /// Cleans up a container and its volume on error.
 async fn cleanup_container(client: &Docker, container_id: &str, volume_name: &str) {
-    let _ = client
-        .remove_container(
+    // Run both cleanup operations in parallel for faster teardown
+    let _ = tokio::join!(
+        client.remove_container(
             container_id,
             Some(RemoveContainerOptions {
                 force: true,
                 ..Default::default()
             }),
-        )
-        .await;
-    let _ = client
-        .remove_volume(volume_name, Some(RemoveVolumeOptions { force: true }))
-        .await;
+        ),
+        client.remove_volume(volume_name, Some(RemoveVolumeOptions { force: true }))
+    );
 }
 
 /// Initializes the work directory for a container.

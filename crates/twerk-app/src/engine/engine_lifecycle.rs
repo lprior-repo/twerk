@@ -5,7 +5,6 @@ use super::engine_helpers::ensure_config_loaded;
 use super::signals::await_signal_or_channel;
 use super::state::{Mode, State};
 use anyhow::Result;
-use tokio::sync::broadcast;
 use tracing::{debug, error};
 
 impl super::Engine {
@@ -43,7 +42,7 @@ impl super::Engine {
         self.state = State::Terminating;
         debug!("Terminating engine");
 
-        // Signal termination
+        // Signal termination via terminate_rx (which the signal handlers listen on)
         if let Err(e) = self.terminate_tx.send(()) {
             debug!("Termination broadcast failed (no listeners): {}", e);
         }
@@ -68,21 +67,18 @@ impl super::Engine {
             }
         }
 
+        // Signal termination completion via Notify - properly wakes all waiters
+        self.terminated_notify.notify_waiters();
         self.state = State::Terminated;
         Ok(())
     }
 
-    /// Wait for shutdown to complete
+    /// Wait for shutdown to complete.
+    /// Uses Notify which properly wakes late waiters - no more missed signals.
     pub async fn await_shutdown(&self) {
-        // Get the terminated receiver if available
-        let terminated_rx = {
-            let terminated_tx = self.terminated_tx.read().await;
-            terminated_tx.as_ref().map(|tx| tx.subscribe())
-        };
-
-        if let Some(mut rx) = terminated_rx {
-            let _ = rx.recv().await;
-        }
+        // notified() waits for notify() to be called.
+        // If notify() was already called, this returns immediately.
+        self.terminated_notify.notified().await;
     }
 
     async fn run_coordinator(&mut self) -> Result<()> {
@@ -105,15 +101,11 @@ impl super::Engine {
         coord.start().await?;
         *self.coordinator.write().await = Some(coord);
 
-        // Set up termination channels
-        let (terminated_tx, _terminated_rx) = broadcast::channel::<()>(1);
-        *self.terminated_tx.write().await = Some(terminated_tx);
-
         // Clone references for the signal handler task
         let coordinator = self.coordinator.clone();
-        let terminated_tx_clone = self.terminated_tx.clone();
+        let terminate_tx = self.terminate_rx.clone();
 
-        // Spawn signal handler task
+        // Spawn signal handler task - listens for termination and coordinates shutdown
         tokio::spawn(async move {
             let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
                 .map_or_else(
@@ -131,14 +123,9 @@ impl super::Engine {
                     },
                     Some,
                 );
-            let terminate_rx = {
-                let terminated_tx = terminated_tx_clone.read().await;
-                match terminated_tx.as_ref() {
-                    Some(tx) => tx.subscribe(),
-                    None => return,
-                }
-            };
 
+            // Subscribe to termination via the broadcast sender
+            let terminate_rx = terminate_tx.subscribe();
             await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
             debug!("shutting down");
@@ -148,14 +135,6 @@ impl super::Engine {
             if let Some(c) = coord.as_ref() {
                 if let Err(e) = c.stop().await {
                     error!("error stopping coordinator: {}", e);
-                }
-            }
-
-            // Signal terminated
-            let tx = terminated_tx_clone.write().await;
-            if let Some(ref t) = *tx {
-                if let Err(e) = t.send(()) {
-                    error!("failed to broadcast termination: {e}");
                 }
             }
         });
@@ -177,15 +156,11 @@ impl super::Engine {
         worker.start().await?;
         *self.worker.write().await = Some(worker);
 
-        // Set up termination channels
-        let (terminated_tx, _terminated_rx) = broadcast::channel::<()>(1);
-        *self.terminated_tx.write().await = Some(terminated_tx);
-
         // Clone references for the signal handler task
         let worker_ref = self.worker.clone();
-        let terminated_tx_clone = self.terminated_tx.clone();
+        let terminate_tx = self.terminate_rx.clone();
 
-        // Spawn signal handler task
+        // Spawn signal handler task - listens for termination and coordinates shutdown
         tokio::spawn(async move {
             let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
                 .map_or_else(
@@ -203,14 +178,9 @@ impl super::Engine {
                     },
                     Some,
                 );
-            let terminate_rx = {
-                let terminated_tx = terminated_tx_clone.read().await;
-                match terminated_tx.as_ref() {
-                    Some(tx) => tx.subscribe(),
-                    None => return,
-                }
-            };
 
+            // Subscribe to termination via the broadcast sender
+            let terminate_rx = terminate_tx.subscribe();
             await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
             debug!("shutting down");
@@ -220,14 +190,6 @@ impl super::Engine {
             if let Some(ref worker) = *w {
                 if let Err(e) = worker.stop().await {
                     error!("error stopping worker: {}", e);
-                }
-            }
-
-            // Signal terminated
-            let tx = terminated_tx_clone.write().await;
-            if let Some(ref t) = *tx {
-                if let Err(e) = t.send(()) {
-                    error!("failed to broadcast termination: {e}");
                 }
             }
         });
@@ -261,16 +223,12 @@ impl super::Engine {
         coord.start().await?;
         *self.coordinator.write().await = Some(coord);
 
-        // Set up termination channels
-        let (terminated_tx, _terminated_rx) = broadcast::channel::<()>(1);
-        *self.terminated_tx.write().await = Some(terminated_tx);
-
         // Clone references for the signal handler task
         let worker_ref = self.worker.clone();
         let coordinator = self.coordinator.clone();
-        let terminated_tx_clone = self.terminated_tx.clone();
+        let terminate_tx = self.terminate_rx.clone();
 
-        // Spawn signal handler task
+        // Spawn signal handler task - listens for termination and coordinates shutdown
         tokio::spawn(async move {
             let sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
                 .map_or_else(
@@ -288,14 +246,9 @@ impl super::Engine {
                     },
                     Some,
                 );
-            let terminate_rx = {
-                let terminated_tx = terminated_tx_clone.read().await;
-                match terminated_tx.as_ref() {
-                    Some(tx) => tx.subscribe(),
-                    None => return,
-                }
-            };
 
+            // Subscribe to termination via the broadcast sender
+            let terminate_rx = terminate_tx.subscribe();
             await_signal_or_channel(sigint, sigterm, terminate_rx).await;
 
             debug!("shutting down");
@@ -313,14 +266,6 @@ impl super::Engine {
             if let Some(ref coord) = *c {
                 if let Err(e) = coord.stop().await {
                     error!("error stopping coordinator: {}", e);
-                }
-            }
-
-            // Signal terminated
-            let tx = terminated_tx_clone.write().await;
-            if let Some(ref t) = *tx {
-                if let Err(e) = t.send(()) {
-                    error!("failed to broadcast termination: {e}");
                 }
             }
         });

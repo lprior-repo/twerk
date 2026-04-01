@@ -139,10 +139,8 @@ async fn same_engine_id_engines_share_queues() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;
 
     // Two brokers with SAME engine_id should share queues
-    let broker_a =
-        RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
-    let broker_b =
-        RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
+    let broker_a = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
+    let broker_b = RabbitMQBroker::new(&url, RabbitMQOptions::default(), Some("shared-id")).await?;
 
     // Engine B subscribes to its queue
     let (tx, mut rx) = mpsc::channel(1);

@@ -7,6 +7,7 @@ use super::types::{Config, Middleware};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use twerk_infrastructure::broker::{Broker, Broker as BrokerTrait};
 use twerk_infrastructure::datastore::{Datastore, Datastore as DatastoreTrait};
@@ -24,9 +25,12 @@ pub struct Engine {
     pub(crate) worker: Arc<RwLock<Option<Box<dyn super::worker::Worker + Send + Sync>>>>,
     pub(crate) coordinator:
         Arc<RwLock<Option<Box<dyn super::coordinator::Coordinator + Send + Sync>>>>,
+    /// Broadcast sender for termination request - we store the sender to create subscriptions
     pub(crate) terminate_tx: broadcast::Sender<()>,
-    pub(crate) terminate_rx: Arc<RwLock<broadcast::Receiver<()>>>,
-    pub(crate) terminated_tx: Arc<RwLock<Option<broadcast::Sender<()>>>>,
+    /// Subscribers wait for termination on this channel
+    pub(crate) terminate_rx: Arc<broadcast::Sender<()>>,
+    /// Notify for termination completion - properly wakes late waiters
+    pub(crate) terminated_notify: Arc<Notify>,
     pub(crate) locker: Arc<RwLock<Option<Box<dyn super::locker::Locker + Send + Sync>>>>,
     pub(crate) middleware: Middleware,
     pub(crate) endpoints: HashMap<String, super::types::EndpointHandler>,
@@ -49,7 +53,7 @@ impl std::fmt::Debug for Engine {
 impl Engine {
     /// Creates a new engine with the given configuration
     pub fn new(config: Config) -> Self {
-        let (terminate_tx, terminate_rx) = broadcast::channel(1);
+        let (terminate_tx, _terminate_rx) = broadcast::channel(1);
         // Generate UUID if engine_id is None or empty
         let engine_id = config
             .engine_id
@@ -64,9 +68,9 @@ impl Engine {
             runtime: None,
             worker: Arc::new(RwLock::new(None)),
             coordinator: Arc::new(RwLock::new(None)),
-            terminate_tx,
-            terminate_rx: Arc::new(RwLock::new(terminate_rx)),
-            terminated_tx: Arc::new(RwLock::new(None)),
+            terminate_tx: terminate_tx.clone(),
+            terminate_rx: Arc::new(terminate_tx),
+            terminated_notify: Arc::new(Notify::new()),
             locker: Arc::new(RwLock::new(None)),
             middleware: config.middleware,
             endpoints: config.endpoints,

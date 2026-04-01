@@ -203,7 +203,14 @@ async fn execute_task(
     active_tasks.insert(tid.clone(), task.clone());
     t.state = TASK_STATE_RUNNING.to_string();
     t.started_at = Some(time::OffsetDateTime::now_utc());
-    let _ = broker.publish_task_progress(&t).await;
+    
+    // Fire and forget progress update
+    let b1 = broker.clone();
+    let t1 = t.clone();
+    tokio::spawn(async move {
+        let _ = b1.publish_task_progress(&t1).await;
+    });
+    
     match runtime.run(&t).await {
         Ok(()) => {
             t.state = TASK_STATE_COMPLETED.to_string();
@@ -216,7 +223,13 @@ async fn execute_task(
         }
     }
     active_tasks.remove(&tid);
-    let _ = broker.publish_task_progress(&t).await;
+    
+    // Fire and forget progress update
+    let b2 = broker.clone();
+    let t2 = t.clone();
+    tokio::spawn(async move {
+        let _ = b2.publish_task_progress(&t2).await;
+    });
     Ok(())
 }
 

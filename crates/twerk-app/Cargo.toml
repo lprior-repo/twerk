@@ -42,3 +42,12 @@ tokio-cron-scheduler = { workspace = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "engine"
+harness = false
+
+[[bench]]
+name = "large_scale"
+harness = false

@@ -233,6 +233,10 @@ impl DistributedEnv {
         let _ = self.worker.terminate().await;
         let _ = self.coordinator.terminate().await;
         clear_distributed_env();
+        // Note: Container cleanup (for Docker/Podman runtimes) is handled by the worker's
+        // terminate logic which stops active tasks and awaits their completion (up to 10s timeout).
+        // Infrastructure containers (Postgres, RabbitMQ) are cleaned up automatically when
+        // their ContainerAsync guards are dropped on scope exit.
     }
 }
 

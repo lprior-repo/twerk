@@ -13,7 +13,7 @@ use twerk_infrastructure::runtime::{
 
 // Module-level function to avoid lifetime issues with associated functions
 // Module-level function to avoid lifetime issues with associated functions
-fn terminate_process(
+async fn terminate_process(
     pid: u32,
     graceful_timeout: u64,
     _force_timeout: u64,
@@ -66,13 +66,14 @@ fn terminate_process(
         }
 
         // Wait a bit before checking again
-        std::thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
     // Wait for process to fully exit and get exit code
-    match std::process::Command::new("wait")
+    match tokio::process::Command::new("wait")
         .arg(pid.to_string())
         .output()
+        .await
     {
         Ok(out) => {
             if let Some(code) = out.status.code() {
@@ -89,9 +90,9 @@ fn terminate_process(
 }
 
 // Module-level function to avoid lifetime issues with associated functions
-fn cleanup_temp_dir(temp_dirs: &DashMap<String, String>, task_id: &str) -> ShutdownResult<()> {
+async fn cleanup_temp_dir(temp_dirs: &DashMap<String, String>, task_id: &str) -> ShutdownResult<()> {
     if let Some((_, path)) = temp_dirs.remove(task_id) {
-        match std::fs::remove_dir_all(&path) {
+        match tokio::fs::remove_dir_all(&path).await {
             Ok(()) => Ok(()),
             Err(e) => Err(ShutdownError::CleanupFailed(format!(
                 "failed to remove temp dir {}: {}",
@@ -349,14 +350,14 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
             // Terminate the process
             let exit_code =
-                terminate_process(handle.pid, config.graceful_timeout, config.force_timeout)?;
+                terminate_process(handle.pid, config.graceful_timeout, config.force_timeout).await?;
 
             // Remove from active processes map
             active_processes.remove(task_id_str.as_str());
 
             // Cleanup temp files (postcondition)
             if config.enable_cleanup {
-                let _ = cleanup_temp_dir(&temp_dirs, task_id_str.as_str());
+                let _ = cleanup_temp_dir(&temp_dirs, task_id_str.as_str()).await;
             }
 
             Ok(Ok(exit_code))

@@ -73,7 +73,7 @@ impl Mounter for BindMounter {
             // Create source directory if it doesn't exist
             let src_path = std::path::Path::new(&source);
             if !src_path.exists() {
-                std::fs::create_dir_all(src_path).map_err(|e| {
+                tokio::fs::create_dir_all(src_path).await.map_err(|e| {
                     anyhow::anyhow!("error creating mount directory: {source}: {e}")
                 })?;
                 debug!("Created bind mount: {source}");

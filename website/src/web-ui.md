@@ -1,45 +1,19 @@
 # Web UI
 
-Twerk Web provides a visual interface for managing jobs.
+**Note:** Twerk does not currently ship its own web UI. The upstream project [Tork Web](https://github.com/runabol/tork-web) is for the Go version and is not yet compatible with Twerk.
 
-## Running Tork Web
+Building a Twerk-native web UI is a planned feature.
 
-```bash
-docker run -it --rm \
-  --name twerk-web \
-  -p 3000:3000 \
-  -e BACKEND_URL=http://localhost:8000 \
-  runabol/tork-web
-```
+## Workaround
 
-Access at `http://localhost:3000`
-
-## Features
-
-- **Job List** — View all jobs with state, timing, and search
-- **Job Details** — Inspect task execution, logs, and outputs
-- **Submit Jobs** — Upload YAML job definitions
-- **Cancel/Restart** — Control running jobs
-- **Scheduled Jobs** — Manage cron jobs
-- **Nodes** — Monitor coordinators and workers
-- **Queues** — View queue sizes and subscribers
-- **Users** — Manage access
-
-## Screenshots
-
-### Jobs List
-View all jobs with filtering by state and full-text search.
-
-### Job Detail
-See task execution order, timing, logs, and output.
-
-### Submit Job
-Upload YAML or write job definition directly.
-
-### Nodes
-Monitor active coordinators and workers with heartbeats.
+You can use the REST API directly via:
+- `curl` commands
+- Postman/Insomnia collections
+- Custom tooling
 
 ## Next Steps
 
-- [REST API](rest-api.md) — API-first management
+- [REST API](rest-api.md) — API reference
+- [Jobs](jobs.md) — YAML job definitions
+- [Tasks](tasks.md) — Task configuration
 - [Examples](examples.md) — Complete workflows

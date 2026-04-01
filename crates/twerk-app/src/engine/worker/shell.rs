@@ -90,7 +90,10 @@ async fn terminate_process(
 }
 
 // Module-level function to avoid lifetime issues with associated functions
-async fn cleanup_temp_dir(temp_dirs: &DashMap<String, String>, task_id: &str) -> ShutdownResult<()> {
+async fn cleanup_temp_dir(
+    temp_dirs: &DashMap<String, String>,
+    task_id: &str,
+) -> ShutdownResult<()> {
     if let Some((_, path)) = temp_dirs.remove(task_id) {
         match tokio::fs::remove_dir_all(&path).await {
             Ok(()) => Ok(()),
@@ -350,7 +353,8 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
             // Terminate the process
             let exit_code =
-                terminate_process(handle.pid, config.graceful_timeout, config.force_timeout).await?;
+                terminate_process(handle.pid, config.graceful_timeout, config.force_timeout)
+                    .await?;
 
             // Remove from active processes map
             active_processes.remove(task_id_str.as_str());

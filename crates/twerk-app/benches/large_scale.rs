@@ -1,16 +1,16 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use twerk_core::task::Task;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
-use twerk_core::task::Task;
 
 fn bench_get_active_tasks(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let mut group = c.benchmark_group("get_active_tasks");
-    
+
     for size in [100, 1000, 10000] {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &size| {
             let ds = InMemoryDatastore::new();
-            
+
             // Populate datastore
             rt.block_on(async {
                 for i in 0..size {

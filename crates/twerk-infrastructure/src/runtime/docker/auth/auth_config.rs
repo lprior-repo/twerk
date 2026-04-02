@@ -208,6 +208,8 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     use crate::runtime::docker::auth::decode_base64_auth;
     use base64::Engine;

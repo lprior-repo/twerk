@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::uninlined_format_args)]
+
 use anyhow::Result;
 use std::sync::Arc;
 use twerk_app::engine::coordinator::handlers;

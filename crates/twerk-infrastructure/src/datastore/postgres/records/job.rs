@@ -169,6 +169,8 @@ impl JobRecordExt for JobRecord {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;

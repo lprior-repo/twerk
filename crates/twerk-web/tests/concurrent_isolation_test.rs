@@ -3,7 +3,13 @@
 //! These tests verify that engines with different engine_ids can run concurrently
 //! on the same RabbitMQ without cross-talk (the original bug).
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 use std::time::Duration;

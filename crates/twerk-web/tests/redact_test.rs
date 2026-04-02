@@ -1,3 +1,11 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::semicolon_if_nothing_returned,
+    clippy::manual_string_new
+)]
+
 use std::collections::HashMap;
 use twerk_core::job::{Job, JobContext, JobSummary};
 use twerk_core::mount::Mount;
@@ -361,7 +369,7 @@ fn redact_no_op_when_secrets_map_is_empty() {
 fn redact_handles_empty_secret_values_without_panic() {
     let mut job = Job {
         inputs: Some([("key".to_string(), "value".to_string())].into()),
-        secrets: Some([("empty_secret".to_string(), "".to_string())].into()),
+        secrets: Some([("empty_secret".to_string(), String::new())].into()),
         ..Default::default()
     };
     redact_job(&mut job);

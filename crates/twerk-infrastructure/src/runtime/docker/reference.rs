@@ -205,6 +205,9 @@ fn parse_name(name: &str) -> Result<(String, String), ReferenceError> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::uninlined_format_args)]
     use super::*;
 
     #[test]

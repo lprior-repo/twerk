@@ -49,6 +49,7 @@ impl User {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use rstest::rstest;
@@ -354,7 +355,7 @@ mod tests {
             username: Some("alice".to_string()),
             ..User::default()
         };
-        let debug = format!("{:?}", user);
+        let debug = format!("{user:?}");
         assert!(debug.contains("u1"));
         assert!(debug.contains("alice"));
     }
@@ -362,7 +363,7 @@ mod tests {
     #[test]
     fn debug_format_on_default_shows_none_fields() {
         let user = User::default();
-        let debug = format!("{:?}", user);
+        let debug = format!("{user:?}");
         assert!(debug.contains("None"));
     }
 
@@ -389,7 +390,7 @@ mod tests {
     #[test]
     fn id_display_matches_inner() {
         let id = UserId::new("display-test");
-        assert_eq!(format!("{}", id), "display-test");
+        assert_eq!(format!("{id}"), "display-test");
     }
 
     // ── constants ───────────────────────────────────────────────

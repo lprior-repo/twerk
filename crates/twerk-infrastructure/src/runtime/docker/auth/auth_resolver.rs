@@ -98,6 +98,8 @@ pub fn get_registry_credentials(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     use std::collections::HashMap;
     use std::io::Write;

@@ -145,6 +145,7 @@ pub fn decrypt_string(ciphertext: &str, password: &str) -> Result<String, Encryp
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -153,8 +154,8 @@ mod tests {
         let password = "test_password_123";
         let plaintext = "Hello, World!";
 
-        let ciphertext = encrypt_string(plaintext, password).expect("encrypt should succeed");
-        let decrypted = decrypt_string(&ciphertext, password).expect("decrypt should succeed");
+        let ciphertext = encrypt_string(plaintext, password).unwrap();
+        let decrypted = decrypt_string(&ciphertext, password).unwrap();
 
         assert_eq!(plaintext, decrypted);
     }
@@ -165,8 +166,8 @@ mod tests {
         let password2 = "password2";
         let plaintext = "Secret message";
 
-        let ct1 = encrypt_string(plaintext, password1).expect("encrypt should succeed");
-        let ct2 = encrypt_string(plaintext, password2).expect("encrypt should succeed");
+        let ct1 = encrypt_string(plaintext, password1).unwrap();
+        let ct2 = encrypt_string(plaintext, password2).unwrap();
 
         assert_ne!(ct1, ct2);
     }
@@ -177,7 +178,7 @@ mod tests {
         let wrong_password = "wrong_password";
         let plaintext = "Secret data";
 
-        let ciphertext = encrypt_string(plaintext, password).expect("encrypt should succeed");
+        let ciphertext = encrypt_string(plaintext, password).unwrap();
         let result = decrypt_string(&ciphertext, wrong_password);
 
         assert!(result.is_err());

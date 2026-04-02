@@ -1,5 +1,11 @@
 //! Tests for the in-memory broker.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::panic)]
+#![allow(clippy::float_cmp)]
+
 use super::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;

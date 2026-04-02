@@ -10,6 +10,7 @@ pub fn str_to_task_state(s: &str) -> TaskState {
 
 /// Creates a fixed-point timestamp for deterministic tests.
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 pub fn fixed_now() -> time::OffsetDateTime {
     time::OffsetDateTime::new_utc(
         time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
@@ -21,6 +22,9 @@ pub fn fixed_now() -> time::OffsetDateTime {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::panic)]
     use super::*;
 
     #[test]

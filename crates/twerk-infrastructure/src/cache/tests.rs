@@ -1,5 +1,11 @@
 //! Tests for the cache module.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::panic)]
+#![allow(clippy::items_after_statements)]
+
 use super::*;
 
 #[tokio::test]

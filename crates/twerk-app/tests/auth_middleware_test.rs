@@ -1,3 +1,8 @@
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::too_many_lines)]
+
 use std::sync::Arc;
 use twerk_app::engine::coordinator::auth::{
     basic_auth_layer, key_auth_layer, BasicAuthConfig, KeyAuthConfig,
@@ -212,7 +217,7 @@ async fn key_auth_layer_creates_proper_layer() {
 
 #[tokio::test]
 async fn key_auth_config_with_empty_key_allowed() {
-    let config = KeyAuthConfig::new("".to_string());
+    let config = KeyAuthConfig::new(String::new());
     let _layer = key_auth_layer(config);
 }
 

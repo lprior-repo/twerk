@@ -1,4 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Bencher, BenchmarkId, Criterion};
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::match_same_arms)]
+
+use criterion::{criterion_group, criterion_main, Bencher, BenchmarkId, Criterion};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::job::{Job, JOB_STATE_PENDING};
 use twerk_core::task::Task;
@@ -6,9 +11,10 @@ use twerk_core::task::Task;
 fn create_test_engine() -> Engine {
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
-    let mut config = Config::default();
-    config.mode = Mode::Standalone;
-    let mut engine = Engine::new(config);
+    let mut engine = Engine::new(Config {
+        mode: Mode::Standalone,
+        ..Default::default()
+    });
     engine.register_runtime(Box::new(MockRuntime));
     engine
 }
@@ -38,7 +44,7 @@ fn create_parallel_job(id: &str, num_tasks: usize) -> Job {
                 tasks: Some(
                     (0..num_tasks)
                         .map(|i| Task {
-                            name: Some(format!("p{}", i)),
+                            name: Some(format!("p{i}")),
                             image: Some("alpine".to_string()),
                             run: Some("echo hello".to_string()),
                             ..Default::default()
@@ -57,7 +63,7 @@ fn create_parallel_job(id: &str, num_tasks: usize) -> Job {
 fn engine_new(c: &mut Criterion) {
     c.bench_function("engine_new", |b: &mut Bencher| {
         b.iter(|| {
-            black_box(create_test_engine());
+            create_test_engine();
         });
     });
 }
@@ -70,14 +76,15 @@ fn engine_config(c: &mut Criterion) {
             b.iter(|| {
                 std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
                 std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
-                let mut config = Config::default();
-                config.mode = match mode {
-                    "Standalone" => Mode::Standalone,
-                    "Worker" => Mode::Worker,
-                    "Coordinator" => Mode::Coordinator,
-                    _ => Mode::Standalone,
+                let config = Config {
+                    mode: match mode {
+                        "Worker" => Mode::Worker,
+                        "Coordinator" => Mode::Coordinator,
+                        _ => Mode::Standalone,
+                    },
+                    ..Default::default()
                 };
-                black_box(Engine::new(config));
+                let _ = Engine::new(config);
             });
         });
     }
@@ -94,12 +101,11 @@ fn job_creation(c: &mut Criterion) {
             &size,
             |b: &mut Bencher, &size| {
                 b.iter(|| {
-                    let job = if size == 1 {
+                    if size == 1 {
                         create_simple_job("job-1")
                     } else {
                         create_parallel_job("job-parallel", size)
-                    };
-                    black_box(job);
+                    }
                 });
             },
         );

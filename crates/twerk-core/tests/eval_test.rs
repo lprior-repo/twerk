@@ -1,5 +1,7 @@
 //! Tests for the eval module
 
+#![allow(clippy::unwrap_used)]
+
 use std::collections::HashMap;
 use twerk_core::eval::{
     evaluate_condition, evaluate_expr, evaluate_task_condition, evaluate_template, sanitize_expr,
@@ -437,7 +439,7 @@ fn test_evaluate_expr_string_comparison() {
 #[test]
 fn test_template_with_json_functions() {
     let context = empty_context();
-    let result = evaluate_template(r#"Value: {{ toJSON(42) }}"#, &context);
+    let result = evaluate_template("Value: {{ toJSON(42) }}", &context);
     assert_eq!(result.unwrap(), "Value: 42");
 }
 
@@ -466,7 +468,7 @@ fn test_template_empty_expression() {
 fn test_template_with_variable() {
     let mut context = empty_context();
     context.insert("name".to_string(), serde_json::json!("Alice"));
-    let result = evaluate_template(r#"Hello, {{ name }}!"#, &context);
+    let result = evaluate_template(r"Hello, {{ name }}!", &context);
     assert_eq!(result.unwrap(), "Hello, Alice!");
 }
 
@@ -474,14 +476,14 @@ fn test_template_with_variable() {
 fn test_template_with_number_variable() {
     let mut context = empty_context();
     context.insert("count".to_string(), serde_json::json!(42));
-    let result = evaluate_template(r#"Count: {{ count }}"#, &context);
+    let result = evaluate_template(r"Count: {{ count }}", &context);
     assert_eq!(result.unwrap(), "Count: 42");
 }
 
 #[test]
 fn test_template_trailing_text() {
     let context = empty_context();
-    let result = evaluate_template(r#"Start {{ 1 + 1 }} end"#, &context);
+    let result = evaluate_template(r"Start {{ 1 + 1 }} end", &context);
     assert_eq!(result.unwrap(), "Start 2 end");
 }
 

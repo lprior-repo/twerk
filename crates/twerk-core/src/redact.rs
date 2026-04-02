@@ -319,6 +319,7 @@ pub fn redact_job(job: &mut crate::job::Job) {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -359,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_redacter_wildcard_empty_key() {
-        let redacter = Redacter::new(vec!["".to_string()]);
+        let redacter = Redacter::new(vec![String::new()]);
 
         let result = redacter.wildcard("SECRET");
         assert_eq!(result, "SECRET"); // Empty key matches nothing meaningful

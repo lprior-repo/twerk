@@ -1,4 +1,11 @@
-#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::needless_for_each,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 use std::time::Duration;

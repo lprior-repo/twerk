@@ -115,6 +115,8 @@ pub type MutexGuardAlias<'a, V> = MutexGuard<'a, V>;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     use std::time::Duration;
 

@@ -1,6 +1,8 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
+#![allow(clippy::struct_excessive_bools)]
+
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::sync::{Arc, RwLock};

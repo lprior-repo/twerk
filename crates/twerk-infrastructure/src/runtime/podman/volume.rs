@@ -61,6 +61,8 @@ impl super::types::Mounter for VolumeMounter {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     use crate::runtime::podman::types::{MountType, Mounter};
 

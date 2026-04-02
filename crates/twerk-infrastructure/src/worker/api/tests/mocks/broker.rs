@@ -1,5 +1,7 @@
 //! Mock broker implementation for testing.
 
+#![allow(clippy::used_underscore_binding)]
+
 use async_trait::async_trait;
 
 use twerk_core::node::Node;

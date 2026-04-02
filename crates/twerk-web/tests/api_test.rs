@@ -1,3 +1,14 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::semicolon_if_nothing_returned,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    clippy::unused_async,
+    clippy::needless_raw_string_hashes
+)]
+
 use axum::http::{header, StatusCode};
 use axum::response::Response;
 use http_body_util::BodyExt;
@@ -19,10 +30,10 @@ async fn health_status_is_up_when_engine_is_ready() {
             axum::http::Request::builder()
                 .uri("/health")
                 .body(axum::body::Body::empty())
-                .unwrap(),
+                .expect("request builder should not fail"),
         )
         .await
-        .unwrap();
+        .expect("app should not panic");
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
@@ -43,10 +54,10 @@ async fn health_status_returns_503_when_broker_health_check_fails() {
             axum::http::Request::builder()
                 .uri("/health")
                 .body(axum::body::Body::empty())
-                .unwrap(),
+                .expect("request builder should not fail"),
         )
         .await
-        .unwrap();
+        .expect("app should not panic");
 
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let body = body_to_json(response).await;
@@ -180,12 +191,12 @@ async fn job_created_successfully_when_valid_json_posted() {
                 .uri("/jobs")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(axum::body::Body::from(
-                    serde_json::to_vec(&job_input).unwrap(),
+                    serde_json::to_vec(&job_input).expect("json serialization should not fail"),
                 ))
-                .unwrap(),
+                .expect("request builder should not fail"),
         )
         .await
-        .unwrap();
+        .expect("app should not panic");
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
@@ -198,13 +209,13 @@ async fn job_created_successfully_when_valid_yaml_posted() {
     let state = setup_state().await;
     let app = create_router(state);
 
-    let yaml_input = r#"
+    let yaml_input = "
 name: test-job-yaml
 tasks:
   - name: task-1
     image: alpine
     run: echo hello
-"#;
+";
 
     let response = app
         .oneshot(
@@ -213,10 +224,10 @@ tasks:
                 .uri("/jobs")
                 .header(header::CONTENT_TYPE, "application/x-yaml")
                 .body(axum::body::Body::from(yaml_input))
-                .unwrap(),
+                .expect("request builder should not fail"),
         )
         .await
-        .unwrap();
+        .expect("app should not panic");
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;

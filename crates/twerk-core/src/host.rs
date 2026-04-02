@@ -18,6 +18,7 @@ pub fn get_cpu_percent() -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -26,8 +27,7 @@ mod tests {
         let percent = get_cpu_percent();
         assert!(
             (0.0..=100.0).contains(&percent),
-            "expected 0-100, got {}",
-            percent
+            "expected 0-100, got {percent}"
         );
     }
 

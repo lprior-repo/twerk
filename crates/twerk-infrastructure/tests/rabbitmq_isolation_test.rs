@@ -1,6 +1,6 @@
-//! RabbitMQ broker isolation tests for engine queue prefixing.
+//! `RabbitMQ` broker isolation tests for engine queue prefixing.
 //!
-//! These tests verify that engines with different engine_ids have isolated queues
+//! These tests verify that engines with different `engine_id`s have isolated queues
 //! and do not cross-talk when publishing/consuming messages.
 
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use twerk_infrastructure::broker::{Broker, RabbitMQOptions};
 async fn setup_rabbitmq() -> anyhow::Result<(testcontainers::ContainerAsync<RabbitMq>, String)> {
     let container = RabbitMq::default().start().await?;
     let host_port = container.get_host_port_ipv4(5672).await?;
-    let url = format!("amqp://guest:guest@localhost:{}", host_port);
+    let url = format!("amqp://guest:guest@localhost:{host_port}");
     Ok((container, url))
 }
 
@@ -133,7 +133,7 @@ async fn broker_publishes_to_prefixed_queues_when_engine_id_set() -> anyhow::Res
     Ok(())
 }
 
-/// Two engines with SAME engine_id should share queues.
+/// Two engines with SAME `engine_id` should share queues.
 #[tokio::test]
 async fn same_engine_id_engines_share_queues() -> anyhow::Result<()> {
     let (_container, url) = setup_rabbitmq().await?;

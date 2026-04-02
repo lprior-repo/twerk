@@ -1,3 +1,7 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::used_underscore_binding)]
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use twerk_app::engine::middleware::MiddlewareComposer;

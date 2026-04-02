@@ -1,5 +1,7 @@
 //! Integration tests for the cache module.
 
+#![allow(clippy::unwrap_used)]
+
 use std::sync::Arc;
 use std::time::Duration;
 use twerk_infrastructure::cache::Cache;
@@ -197,7 +199,7 @@ async fn cache_concurrent_get_insert_remove_are_safe() {
         let cache_clone = Arc::clone(&cache);
         handles.push(tokio::spawn(async move {
             for i in 0..10 {
-                cache_clone.insert(format!("key_{}", i), "value", None);
+                cache_clone.insert(format!("key_{i}"), "value", None);
             }
         }));
     }
@@ -206,7 +208,7 @@ async fn cache_concurrent_get_insert_remove_are_safe() {
         let cache_clone = Arc::clone(&cache);
         handles.push(tokio::spawn(async move {
             for i in 0..10 {
-                let _ = cache_clone.remove(&format!("key_{}", i));
+                let _ = cache_clone.remove(&format!("key_{i}"));
             }
         }));
     }

@@ -1,6 +1,11 @@
 #![allow(clippy::needless_update)]
 #![allow(clippy::to_string_in_format_args)]
 #![allow(clippy::useless_conversion)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::non_std_lazy_statics)]
 
 use futures_util::FutureExt;
 use once_cell::sync::Lazy;
@@ -44,13 +49,13 @@ async fn setup_postgres() -> PostgresDatastore {
 
     // Use a unique schema for each test to avoid interference
     let schema_name = format!("twerk{}", Uuid::new_v4().to_string().replace('-', ""));
-    let dsn_with_schema = format!("{}?options=-csearch_path={}", dsn, schema_name);
+    let dsn_with_schema = format!("{dsn}?options=-csearch_path={schema_name}");
 
     let ds = PostgresDatastore::new(&dsn_with_schema, Options::default())
         .await
         .expect("failed to create datastore");
 
-    sqlx::query(&format!("CREATE SCHEMA \"{}\"", schema_name))
+    sqlx::query(&format!("CREATE SCHEMA \"{schema_name}\""))
         .execute(ds.pool())
         .await
         .expect("failed to create schema");
@@ -375,8 +380,8 @@ async fn test_postgres_all() {
     // 8. Pagination
     for i in 0..15 {
         let j = Job {
-            id: Some(format!("job_pag_{}", i).into()),
-            name: Some(format!("Job {}", i)),
+            id: Some(format!("job_pag_{i}").into()),
+            name: Some(format!("Job {i}")),
             created_by: Some(guest.clone()),
             tags: Some(vec![]),
             created_at: Some(now),
@@ -454,7 +459,7 @@ async fn test_postgres_all() {
         tasks: Some(vec![]),
         inputs: Some(HashMap::new()),
         tags: Some(vec![]),
-        output: Some("".to_string()),
+        output: Some(String::new()),
         ..Default::default()
     };
     ds.create_scheduled_job(&sj)

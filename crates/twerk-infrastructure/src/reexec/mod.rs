@@ -198,6 +198,8 @@ pub fn command(args: &[String]) -> Command {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     #[cfg(unix)]
     use std::os::unix::process::CommandExt;

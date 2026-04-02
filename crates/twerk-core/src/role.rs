@@ -24,6 +24,7 @@ impl Role {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use rstest::rstest;
@@ -143,7 +144,7 @@ mod tests {
             slug: Some("s1".to_string()),
             ..Role::default()
         };
-        let debug = format!("{:?}", role);
+        let debug = format!("{role:?}");
         assert!(debug.contains("r1"));
         assert!(debug.contains("s1"));
     }
@@ -151,7 +152,7 @@ mod tests {
     #[test]
     fn debug_format_on_default_shows_none_fields() {
         let role = Role::default();
-        let debug = format!("{:?}", role);
+        let debug = format!("{role:?}");
         assert!(debug.contains("None"));
     }
 
@@ -206,7 +207,7 @@ mod tests {
     #[test]
     fn id_display_matches_inner() {
         let id = RoleId::new("display-test");
-        assert_eq!(format!("{}", id), "display-test");
+        assert_eq!(format!("{id}"), "display-test");
     }
 
     // ── constants ───────────────────────────────────────────────

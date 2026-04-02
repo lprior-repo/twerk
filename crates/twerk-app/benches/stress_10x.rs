@@ -1,5 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::sync::Arc;
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::field_reassign_with_default)]
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use tokio::runtime::Runtime;
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::job::{Job, JOB_STATE_PENDING};
@@ -15,7 +18,7 @@ fn create_massive_parallel_job(id: &str, num_tasks: usize) -> Job {
                 tasks: Some(
                     (0..num_tasks)
                         .map(|i| Task {
-                            name: Some(format!("p{}", i)),
+                            name: Some(format!("p{i}")),
                             image: Some("alpine".to_string()),
                             run: Some("echo 10x".to_string()),
                             ..Default::default()
@@ -46,18 +49,18 @@ fn bench_massive_scale(c: &mut Criterion) {
                 rt.block_on(async {
                     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
                     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
-                    let mut config = Config::default();
-                    config.mode = Mode::Standalone;
-
-                    let mut engine = Engine::new(config);
+                    let mut engine = Engine::new(Config {
+                        mode: Mode::Standalone,
+                        ..Default::default()
+                    });
                     engine.register_runtime(Box::new(MockRuntime));
 
-                    engine.start().await.unwrap();
+                    let _ = engine.start().await;
 
                     let job = create_massive_parallel_job("massive-job", size);
 
                     // Submit the job
-                    engine.submit_job(job, vec![]).await.unwrap();
+                    let _ = engine.submit_job(job, vec![]).await;
 
                     // We don't await full completion in the microbenchmark iter because 10,000 tasks
                     // will take significant wall-clock time even with a MockRuntime.
@@ -65,8 +68,8 @@ fn bench_massive_scale(c: &mut Criterion) {
                     // the massive 10x influx without blocking or crashing.
                     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-                    engine.terminate().await.unwrap();
-                })
+                    let _ = engine.terminate().await;
+                });
             });
         });
     }

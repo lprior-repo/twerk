@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use anyhow::Result;
 use std::sync::Arc;
 use twerk_app::engine::coordinator::create_coordinator;
@@ -40,7 +42,7 @@ async fn engine_set_mode_only_allowed_when_idle() {
 #[tokio::test]
 async fn engine_debug_shows_state_and_mode() {
     let engine = engine_with_mode(Mode::Standalone);
-    let debug_str = format!("{:?}", engine);
+    let debug_str = format!("{engine:?}");
     assert!(debug_str.contains("Idle"));
     assert!(debug_str.contains("Standalone"));
 }
@@ -294,10 +296,10 @@ async fn engine_register_middleware_allowed_when_idle() {
     engine.register_web_middleware(Arc::new(|_req, _next| {
         Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
     }));
-    engine.register_task_middleware(Arc::new(|_handler| _handler));
-    engine.register_job_middleware(Arc::new(|_handler| _handler));
-    engine.register_node_middleware(Arc::new(|_handler| _handler));
-    engine.register_log_middleware(Arc::new(|_handler| _handler));
+    engine.register_task_middleware(Arc::new(|handler| handler));
+    engine.register_job_middleware(Arc::new(|handler| handler));
+    engine.register_node_middleware(Arc::new(|handler| handler));
+    engine.register_log_middleware(Arc::new(|handler| handler));
 }
 
 #[tokio::test]
@@ -311,10 +313,10 @@ async fn engine_register_middleware_ignored_when_running() -> Result<()> {
     engine.register_web_middleware(Arc::new(|_req, _next| {
         Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
     }));
-    engine.register_task_middleware(Arc::new(|_handler| _handler));
-    engine.register_job_middleware(Arc::new(|_handler| _handler));
-    engine.register_node_middleware(Arc::new(|_handler| _handler));
-    engine.register_log_middleware(Arc::new(|_handler| _handler));
+    engine.register_task_middleware(Arc::new(|handler| handler));
+    engine.register_job_middleware(Arc::new(|handler| handler));
+    engine.register_node_middleware(Arc::new(|handler| handler));
+    engine.register_log_middleware(Arc::new(|handler| handler));
 
     engine.terminate().await?;
     Ok(())
@@ -493,7 +495,7 @@ async fn http_log_config_default_creates_successfully() {
 #[tokio::test]
 async fn http_log_config_debug_shows_level() {
     let config = HttpLogConfig::default();
-    let debug_str = format!("{:?}", config);
+    let debug_str = format!("{config:?}");
     assert!(debug_str.contains("DEBUG"));
 }
 

@@ -1,9 +1,13 @@
 //! E2E Load Test - Measures real coordinator + database throughput
 //!
-//! This test runs the full stack with PostgreSQL and RabbitMQ to find actual bottlenecks.
+//! This test runs the full stack with `PostgreSQL` and `RabbitMQ` to find actual bottlenecks.
 //!
 //! Usage:
-//!   cargo test --test e2e_load_test -- --nocapture
+//!   cargo test --test `e2e_load_test` -- --nocapture
+
+#![allow(clippy::expect_used)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_precision_loss)]
 
 use std::time::{Duration, Instant};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
@@ -22,7 +26,7 @@ fn create_parallel_job(job_id: &str, num_tasks: usize) -> Job {
                 tasks: Some(
                     (0..num_tasks)
                         .map(|i| Task {
-                            name: Some(format!("p{}", i)),
+                            name: Some(format!("p{i}")),
                             image: Some("alpine".to_string()),
                             run: Some("echo hello".to_string()),
                             ..Default::default()
@@ -38,7 +42,7 @@ fn create_parallel_job(job_id: &str, num_tasks: usize) -> Job {
     }
 }
 
-/// E2E Load Test - Measures coordinator throughput with real PostgreSQL
+/// E2E Load Test - Measures coordinator throughput with real `PostgreSQL`
 #[tokio::test]
 async fn e2e_load_test_100_tasks() -> anyhow::Result<()> {
     e2e_load_test(100).await
@@ -58,16 +62,16 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
         "amqp://guest:guest@localhost:5672/%2f",
     );
 
-    let mut config = Config::default();
-    config.mode = Mode::Standalone;
-
-    let mut engine = Engine::new(config);
+    let mut engine = Engine::new(Config {
+        mode: Mode::Standalone,
+        ..Default::default()
+    });
     engine.register_runtime(Box::new(MockRuntime));
 
     let start = Instant::now();
     engine.start().await?;
 
-    let job_id = format!("load-test-{}", task_count);
+    let job_id = format!("load-test-{task_count}");
     let job = create_parallel_job(&job_id, task_count);
 
     let schedule_start = Instant::now();
@@ -83,10 +87,10 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     let throughput = task_count as f64 / total_time.as_secs_f64();
 
     println!("\n=== E2E Load Test Results ===");
-    println!("Task count:     {}", task_count);
-    println!("Schedule time:   {:?}", schedule_time);
-    println!("Total time:     {:?}", total_time);
-    println!("Throughput:     {:.0} tasks/sec", throughput);
+    println!("Task count:     {task_count}");
+    println!("Schedule time:   {schedule_time:?}");
+    println!("Total time:     {total_time:?}");
+    println!("Throughput:     {throughput:.0} tasks/sec");
     println!("===========================\n");
 
     Ok(())
@@ -111,8 +115,8 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
         let start = Instant::now();
         for i in 0..size {
             let task = Task {
-                id: Some(format!("db-test-{}-{}", size, i).into()),
-                job_id: Some(format!("db-test-job-{}", size).into()),
+                id: Some(format!("db-test-{size}-{i}").into()),
+                job_id: Some(format!("db-test-job-{size}").into()),
                 name: Some("db-test".to_string()),
                 state: "CREATED".to_string(),
                 ..Default::default()
@@ -120,12 +124,9 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
             ds.create_task(&task).await?;
         }
         let elapsed = start.elapsed();
-        let rate = size as f64 / elapsed.as_secs_f64();
+        let rate = f64::from(size) / elapsed.as_secs_f64();
 
-        println!(
-            "Size: {} | Time: {:?} | Rate: {:.0} tasks/sec",
-            size, elapsed, rate
-        );
+        println!("Size: {size} | Time: {elapsed:?} | Rate: {rate:.0} tasks/sec");
     }
 
     println!("================================\n");
@@ -149,10 +150,10 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
 
     for size in sizes {
         // Create test tasks with unique job ID
-        let job_id = format!("query-test-job-{}", size);
+        let job_id = format!("query-test-job-{size}");
         for i in 0..size {
             let task = Task {
-                id: Some(format!("query-test-{}-{}-{}", size, size, i).into()),
+                id: Some(format!("query-test-{size}-{size}-{i}").into()),
                 job_id: Some(job_id.clone().into()),
                 name: Some("query-test".to_string()),
                 state: "CREATED".to_string(),
@@ -167,9 +168,7 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
         let elapsed = start.elapsed();
 
         println!(
-            "Total tasks: {} | Query time: {:?} | Active found: {}",
-            size,
-            elapsed,
+            "Total tasks: {size} | Query time: {elapsed:?} | Active found: {}",
             active.len()
         );
     }
@@ -194,7 +193,7 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
 
     for concurrency in concurrency_levels {
         let total_tasks = concurrency * tasks_per_thread;
-        let job_id = format!("concurrent-job-{}", concurrency);
+        let job_id = format!("concurrent-job-{concurrency}");
 
         let start = Instant::now();
 
@@ -210,7 +209,7 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
                         .expect("failed to connect");
                     for i in 0..tasks_per_thread {
                         let task = Task {
-                            id: Some(format!("concurrent-{}-{}-{}", concurrency, t, i).into()),
+                            id: Some(format!("concurrent-{concurrency}-{t}-{i}").into()),
                             job_id: Some(job_id.clone().into()),
                             name: Some("concurrent-test".to_string()),
                             state: "CREATED".to_string(),
@@ -227,11 +226,10 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
         }
 
         let elapsed = start.elapsed();
-        let rate = total_tasks as f64 / elapsed.as_secs_f64();
+        let rate = f64::from(total_tasks) / elapsed.as_secs_f64();
 
         println!(
-            "Concurrency: {} | Total: {} | Time: {:?} | Rate: {:.0} tasks/sec",
-            concurrency, total_tasks, elapsed, rate
+            "Concurrency: {concurrency} | Total: {total_tasks} | Time: {elapsed:?} | Rate: {rate:.0} tasks/sec"
         );
     }
 

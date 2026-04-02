@@ -1,3 +1,8 @@
+//! Tests for the webhook module
+
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::panic)]
+
 use mockito::Server;
 use std::collections::HashMap;
 use twerk_core::webhook::{
@@ -6,7 +11,8 @@ use twerk_core::webhook::{
 };
 
 fn webhook_url(server: &Server, path: &str) -> String {
-    format!("{}{}", server.url(), path)
+    let base = server.url();
+    format!("{base}{path}")
 }
 
 #[test]
@@ -366,6 +372,12 @@ fn webhook_call_sends_json_content_type() {
 
 #[test]
 fn webhook_call_serializes_body_to_json() {
+    #[derive(serde::Serialize)]
+    struct TestBody {
+        key: String,
+        number: i32,
+    }
+
     let mut server = Server::new();
     let mock = server
         .mock("POST", "/webhook")
@@ -377,12 +389,6 @@ fn webhook_call_serializes_body_to_json() {
         url: Some(webhook_url(&server, "/webhook")),
         ..Default::default()
     };
-
-    #[derive(serde::Serialize)]
-    struct TestBody {
-        key: String,
-        number: i32,
-    }
 
     let result = webhook::call(
         &webhook,
@@ -506,7 +512,7 @@ fn webhook_call_multiple_retries_then_success() {
 #[test]
 fn webhook_error_display_format_non_retryable() {
     let error = WebhookError::NonRetryableError("http://example.com".to_string(), 404);
-    let display = format!("{}", error);
+    let display = format!("{error}");
     assert!(display.contains("404"));
     assert!(display.contains("example.com"));
 }
@@ -514,14 +520,14 @@ fn webhook_error_display_format_non_retryable() {
 #[test]
 fn webhook_error_display_format_max_attempts() {
     let error = WebhookError::MaxAttemptsExceeded("http://example.com".to_string(), 5);
-    let display = format!("{}", error);
+    let display = format!("{error}");
     assert!(display.contains("example.com"));
-    assert!(display.contains("5"));
+    assert!(display.contains('5'));
 }
 
 #[test]
 fn webhook_error_display_format_serialization() {
     let error = WebhookError::SerializationError;
-    let display = format!("{}", error);
+    let display = format!("{error}");
     assert!(display.contains("serializing body"));
 }

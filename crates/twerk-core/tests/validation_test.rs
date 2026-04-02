@@ -1,5 +1,9 @@
 //! Tests for the validation module
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::manual_string_new)]
+#![allow(clippy::field_reassign_with_default)]
+
 use twerk_core::job::JobDefaults;
 use twerk_core::mount::Mount;
 use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskRetry};

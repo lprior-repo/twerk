@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +15,7 @@ use twerk_infrastructure::broker::{queue, Broker, RabbitMQOptions};
 async fn setup_rabbitmq() -> anyhow::Result<(testcontainers::ContainerAsync<RabbitMq>, String)> {
     let container = RabbitMq::default().start().await?;
     let host_port = container.get_host_port_ipv4(5672).await?;
-    let url = format!("amqp://guest:guest@localhost:{}", host_port);
+    let url = format!("amqp://guest:guest@localhost:{host_port}");
     Ok((container, url))
 }
 

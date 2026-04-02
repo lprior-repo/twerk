@@ -1,4 +1,6 @@
 #![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::expect_used)]
+
 use anyhow::Result;
 use std::time::Duration;
 use tokio::time::timeout;

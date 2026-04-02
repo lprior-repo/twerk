@@ -1,5 +1,11 @@
 //! TTL-based image caching tests.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::unchecked_time_subtraction)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::float_cmp)]
+
 #[allow(unused_imports)]
 use dashmap::DashMap;
 #[allow(unused_imports)]

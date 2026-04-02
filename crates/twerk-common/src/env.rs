@@ -19,7 +19,7 @@ mod tests {
         // In unit tests, we typically mock env vars
         let result = var_with_twerk_prefix("test.key");
         // Returns None if env var not set, which is valid
-        assert!(result.is_none() || !result.unwrap().is_empty());
+        assert!(result.is_none() || result.is_some_and(|v| !v.is_empty()));
     }
 
     #[test]

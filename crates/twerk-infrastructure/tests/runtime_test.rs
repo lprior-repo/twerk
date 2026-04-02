@@ -1,9 +1,11 @@
 #![allow(clippy::needless_update)]
 #![allow(clippy::unnecessary_mut_passed)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 //! Integration tests for Twerk Runtimes (Docker, Podman).
 //!
 //! Ported from Go/Rust internal tests.
-//! Run with: cargo test -p twerk-infrastructure --test runtime_test -- --ignored
+//! Run with: cargo test -p twerk-infrastructure --test `runtime_test` -- --ignored
 
 use std::sync::{Arc, Mutex};
 use twerk_core::task::{Probe, Task, TaskLimits};
@@ -26,8 +28,9 @@ impl PodmanBroker for FakeBroker {
         Box::new(self.clone())
     }
     fn ship_log(&self, task_id: &str, line: &str) {
+        #[allow(clippy::unwrap_used)]
         let mut logs = self.logs.lock().unwrap();
-        logs.push(format!("{}: {}", task_id, line));
+        logs.push(format!("{task_id}: {line}"));
     }
     fn publish_task_progress(&self, _task_id: &str, _progress: f64) {}
 }
@@ -35,7 +38,7 @@ impl PodmanBroker for FakeBroker {
 fn make_task(id: &str) -> Task {
     Task {
         id: Some(id.into()),
-        name: Some(format!("test-task-{}", id)),
+        name: Some(format!("test-task-{id}")),
         image: Some("busybox:stable".to_string()),
         cmd: Some(vec!["echo".to_string(), "hello".to_string()]),
         ..Default::default()
@@ -59,7 +62,7 @@ echo "done" > /twerk/stdout
 "#;
     Task {
         id: Some(id.into()),
-        name: Some(format!("test-progress-{}", id)),
+        name: Some(format!("test-progress-{id}")),
         image: Some("busybox:stable".to_string()),
         cmd: Some(vec!["sh".to_string(), "-c".to_string(), script.to_string()]),
         ..Default::default()
@@ -69,7 +72,7 @@ echo "done" > /twerk/stdout
 fn make_podman_task(id: &str) -> Task {
     Task {
         id: Some(id.to_string().into()),
-        name: Some(format!("test-task-{}", id)),
+        name: Some(format!("test-task-{id}")),
         image: Some("busybox:stable".to_string()),
         ..Default::default()
     }

@@ -139,6 +139,10 @@ pub async fn start_async(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::uninlined_format_args)]
+    #![allow(clippy::panic)]
     use super::*;
     use axum::{routing::get, Router};
 

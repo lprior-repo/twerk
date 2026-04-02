@@ -146,6 +146,8 @@ impl VolumeMounter {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
     use twerk_core::mount::mount_type;
 
@@ -160,7 +162,7 @@ mod tests {
 
         let result = mounter.mount(&mnt).await;
         assert!(result.is_ok());
-        let mounted = result.expect("should have mounted volume");
-        assert!(mounted.source.is_some());
+        let mounted_vol = result.expect("should have mounted volume");
+        assert!(mounted_vol.source.is_some());
     }
 }

@@ -172,7 +172,7 @@ mod tests {
             keys.push(k);
         });
 
-        vals.sort();
+        vals.sort_unstable();
         keys.sort();
         assert_eq!(vec![100, 200], vals);
         assert_eq!(vec!["k1".to_string(), "k2".to_string()], keys);

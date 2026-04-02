@@ -114,21 +114,23 @@ bd automatically syncs via Dolt:
 bd stores its Dolt database in `.beads/dolt/` (not in `twerk-database/`). If `bd dolt push` fails, check and fix the remote:
 
 ```bash
-# Check current remote
-dolt -C /home/lewis/src/twerk/.beads/dolt remote -v
+# Check current remote (run from .beads/dolt directory)
+cd .beads/dolt
+dolt remote -v
 
 # If wrong, remove and add correct remote (local file path)
-dolt -C /home/lewis/src/twerk/.beads/dolt remote remove origin
-dolt -C /home/lewis/src/twerk/.beads/dolt remote add origin file:///home/lewis/src/twerk/twerk-database
+dolt remote remove origin
+dolt remote add origin file:///home/lewis/src/twerk/twerk-database
 
-# Then push
-bd dolt push
+# Then push - prefer using dolt CLI directly if bd fails
+dolt push origin main
+# OR: bd dolt push
 ```
 
 Standard push workflow:
 ```bash
 git pull --rebase
-bd dolt push
+cd .beads/dolt && dolt push origin main
 git push
 ```
 

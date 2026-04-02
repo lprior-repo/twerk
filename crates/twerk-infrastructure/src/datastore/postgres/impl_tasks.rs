@@ -9,6 +9,23 @@ use twerk_core::task::Task;
 use crate::datastore::postgres::records::{TaskRecord, TaskRecordExt};
 use crate::datastore::postgres::{DatastoreError, DatastoreResult, Executor, PostgresDatastore};
 
+const SQL_UPDATE_TASK: &str = r"
+UPDATE tasks SET
+    state = $1, scheduled_at = $2, started_at = $3, completed_at = $4,
+    failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9,
+    parallel = $10, each_ = $11, subjob = $12, progress = $13,
+    priority = $14
+WHERE id = $15
+";
+
+const SQL_GET_TASK_FOR_UPDATE: &str = "SELECT * FROM tasks WHERE id = $1 FOR UPDATE";
+
+const SQL_GET_ACTIVE_TASKS: &str = r"
+SELECT * FROM tasks
+WHERE job_id = $1 AND state = ANY($2)
+ORDER BY position, created_at ASC
+";
+
 // ── Pure calculations: JSON field serialization ──────────────────────────────
 
 /// Serializes a single optional JSON field to bytes.
@@ -95,7 +112,20 @@ async fn execute_task_insert(
     job_id: &JobId,
     f: &SerializedTaskFields,
 ) -> DatastoreResult<()> {
-    let sql = r"INSERT INTO tasks (id, job_id, position, name, state, created_at, scheduled_at, started_at, completed_at, failed_at, cmd, entrypoint, run_script, image, registry, env, files_, queue, error_, pre_tasks, post_tasks, sidecars, mounts, node_id, retry, limits, timeout, result, var, parallel, parent_id, each_, description, subjob, networks, gpus, if_, tags, priority, workdir, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41)";
+    let sql = r"
+INSERT INTO tasks (
+    id, job_id, position, name, state, created_at, scheduled_at,
+    started_at, completed_at, failed_at, cmd, entrypoint, run_script,
+    image, registry, env, files_, queue, error_, pre_tasks, post_tasks,
+    sidecars, mounts, node_id, retry, limits, timeout, result, var,
+    parallel, parent_id, each_, description, subjob, networks, gpus,
+    if_, tags, priority, workdir, progress
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+    $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+    $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
+)";
     let query = sqlx::query(sql)
         .bind(&**id)
         .bind(&**job_id)
@@ -224,36 +254,70 @@ impl PostgresDatastore {
                     .begin()
                     .await
                     .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
-                let record: TaskRecord = sqlx::query_as::<Postgres, TaskRecord>(
-                    "SELECT * FROM tasks WHERE id = $1 FOR UPDATE",
-                )
-                .bind(id)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
-                .ok_or(DatastoreError::TaskNotFound)?;
+                let record: TaskRecord =
+                    sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_TASK_FOR_UPDATE)
+                        .bind(id)
+                        .fetch_optional(&mut *tx)
+                        .await
+                        .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
+                        .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
                 let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
-                sqlx::query(r"UPDATE tasks SET state = $1, scheduled_at = $2, started_at = $3, completed_at = $4, failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9, parallel = $10, each_ = $11, subjob = $12, progress = $13, priority = $14 WHERE id = $15").bind(task.state.as_str()).bind(task.scheduled_at).bind(task.started_at).bind(task.completed_at).bind(task.failed_at).bind(&task.error).bind(task.node_id.as_ref().map(|n_id| n_id.as_str())).bind(&retry).bind(&task.result).bind(&parallel).bind(&each).bind(&subjob).bind(task.progress).bind(task.priority).bind(id).execute(&mut *tx).await.map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
+                sqlx::query(SQL_UPDATE_TASK)
+                    .bind(task.state.as_str())
+                    .bind(task.scheduled_at)
+                    .bind(task.started_at)
+                    .bind(task.completed_at)
+                    .bind(task.failed_at)
+                    .bind(&task.error)
+                    .bind(task.node_id.as_ref().map(|n_id| n_id.as_str()))
+                    .bind(&retry)
+                    .bind(&task.result)
+                    .bind(&parallel)
+                    .bind(&each)
+                    .bind(&subjob)
+                    .bind(task.progress)
+                    .bind(task.priority)
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
                 tx.commit()
                     .await
                     .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
             }
             Executor::Tx(tx) => {
                 let mut tx = tx.lock().await;
-                let record: TaskRecord = sqlx::query_as::<Postgres, TaskRecord>(
-                    "SELECT * FROM tasks WHERE id = $1 FOR UPDATE",
-                )
-                .bind(id)
-                .fetch_optional(&mut **tx)
-                .await
-                .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
-                .ok_or(DatastoreError::TaskNotFound)?;
+                let record: TaskRecord =
+                    sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_TASK_FOR_UPDATE)
+                        .bind(id)
+                        .fetch_optional(&mut **tx)
+                        .await
+                        .map_err(|e| DatastoreError::Database(format!("get task failed: {e}")))?
+                        .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
                 let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
-                sqlx::query(r"UPDATE tasks SET state = $1, scheduled_at = $2, started_at = $3, completed_at = $4, failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9, parallel = $10, each_ = $11, subjob = $12, progress = $13, priority = $14 WHERE id = $15").bind(task.state.as_str()).bind(task.scheduled_at).bind(task.started_at).bind(task.completed_at).bind(task.failed_at).bind(&task.error).bind(task.node_id.as_ref().map(|n_id| n_id.as_str())).bind(&retry).bind(&task.result).bind(&parallel).bind(&each).bind(&subjob).bind(task.progress).bind(task.priority).bind(id).execute(&mut **tx).await.map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
+                sqlx::query(SQL_UPDATE_TASK)
+                    .bind(task.state.as_str())
+                    .bind(task.scheduled_at)
+                    .bind(task.started_at)
+                    .bind(task.completed_at)
+                    .bind(task.failed_at)
+                    .bind(&task.error)
+                    .bind(task.node_id.as_ref().map(|n_id| n_id.as_str()))
+                    .bind(&retry)
+                    .bind(&task.result)
+                    .bind(&parallel)
+                    .bind(&each)
+                    .bind(&subjob)
+                    .bind(task.progress)
+                    .bind(task.priority)
+                    .bind(id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(|e| DatastoreError::Database(format!("update task failed: {e}")))?;
             }
         }
         Ok(())
@@ -262,9 +326,23 @@ impl PostgresDatastore {
     pub(super) async fn get_active_tasks_impl(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
         let active_states = ["CREATED", "PENDING", "SCHEDULED", "RUNNING"];
         let records: Vec<TaskRecord> = match &self.executor {
-            Executor::Pool(p) => sqlx::query_as::<Postgres, TaskRecord>(r"SELECT * FROM tasks WHERE job_id = $1 AND state = ANY($2) ORDER BY position, created_at ASC").bind(job_id).bind(active_states).fetch_all(p).await,
-            Executor::Tx(tx) => { let mut tx = tx.lock().await; sqlx::query_as::<Postgres, TaskRecord>(r"SELECT * FROM tasks WHERE job_id = $1 AND state = ANY($2) ORDER BY position, created_at ASC").bind(job_id).bind(active_states).fetch_all(&mut **tx).await }
-        }.map_err(|e| DatastoreError::Database(format!("get active tasks failed: {e}")))?;
+            Executor::Pool(p) => {
+                sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_ACTIVE_TASKS)
+                    .bind(job_id)
+                    .bind(active_states)
+                    .fetch_all(p)
+                    .await
+            }
+            Executor::Tx(tx) => {
+                let mut tx = tx.lock().await;
+                sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_ACTIVE_TASKS)
+                    .bind(job_id)
+                    .bind(active_states)
+                    .fetch_all(&mut **tx)
+                    .await
+            }
+        }
+        .map_err(|e| DatastoreError::Database(format!("get active tasks failed: {e}")))?;
         records.into_iter().map(|r| r.to_task()).collect()
     }
 

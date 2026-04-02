@@ -66,7 +66,7 @@ fn measure_ast_depth_and_nodes(yaml: &Yaml) -> (usize, usize) {
 }
 
 #[cfg(test)]
-#[allow(clippy::panic, clippy::approx_constant, dead_code)]
+#[allow(clippy::panic, clippy::approx_constant, clippy::unwrap_used, dead_code)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
@@ -537,7 +537,7 @@ mod tests {
             }
             let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
             if depth > MAX_YAML_DEPTH {
-                prop_assert!(result.is_err());
+                prop_assert!(matches!(result, Err(ApiError::BadRequest(ref msg)) if msg.contains("exceeds") || msg.contains("depth")));
             }
         }
     }
@@ -587,6 +587,22 @@ mod tests {
         }
         let result: Result<Strict, ApiError> = from_slice(b"name: hello\nunknown: value");
         assert_eq!(result.map(|s| s.name), Ok("hello".to_string()));
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_when_node_count_exceeds_limit() {
+        let mut yaml = String::from("root:\n");
+        for i in 0..=MAX_YAML_NODES {
+            yaml.push_str(&format!("  k{i}: v{i}\n"));
+        }
+        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
+        let Err(ApiError::BadRequest(msg)) = result else {
+            panic!("expected BadRequest for node count overflow, got {result:?}");
+        };
+        assert!(
+            msg.contains("complexity"),
+            "expected complexity limit message, got: {msg}"
+        );
     }
 
     #[test]

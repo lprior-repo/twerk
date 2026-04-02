@@ -530,3 +530,155 @@ impl PostgresDatastore {
         })
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::fmt;
+
+    // Minimal error stub whose Display we control, letting us feed specific
+    // substrings through sqlx::Error::Configuration into classify_perm_error
+    // (which only inspects .to_string().contains(...)).
+    #[derive(Debug)]
+    struct FakeError(&'static str);
+
+    impl fmt::Display for FakeError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
+
+    impl std::error::Error for FakeError {}
+
+    fn make_config_error(msg: &'static str) -> sqlx::Error {
+        sqlx::Error::Configuration(Box::new(FakeError(msg)))
+    }
+
+    // ── classify_perm_error ────────────────────────────────────────────────────
+
+    #[test]
+    fn classify_perm_error_detects_user_fkey() {
+        let err = make_config_error("violates foreign key constraint \"jobs_perms_user_id_fkey\"");
+        let result = classify_perm_error(err);
+        assert!(matches!(result, DatastoreError::UserNotFound));
+    }
+
+    #[test]
+    fn classify_perm_error_detects_role_fkey() {
+        let err = make_config_error("violates foreign key constraint \"jobs_perms_role_id_fkey\"");
+        let result = classify_perm_error(err);
+        assert!(matches!(result, DatastoreError::RoleNotFound));
+    }
+
+    #[test]
+    fn classify_perm_error_returns_database_for_other() {
+        let err = make_config_error("some other database error");
+        let result = classify_perm_error(err);
+        assert!(matches!(result, DatastoreError::Database(_)));
+    }
+
+    // ── deserialize_tasks ──────────────────────────────────────────────────────
+
+    #[test]
+    fn deserialize_tasks_handles_empty_array() {
+        let result = deserialize_tasks(b"[]");
+        let tasks = result.expect("empty array should deserialize");
+        assert!(tasks.is_empty());
+    }
+
+    #[test]
+    fn deserialize_tasks_handles_single_task() {
+        let json = r#"[{"name":"test","image":"alpine","position":0,"priority":0,"progress":0.0,"redelivered":0}]"#;
+        let result = deserialize_tasks(json.as_bytes());
+        let tasks = result.expect("single task should deserialize");
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].name, Some("test".to_string()));
+    }
+
+    #[test]
+    fn deserialize_tasks_returns_error_for_invalid_json() {
+        let result = deserialize_tasks(b"not json");
+        assert!(matches!(result, Err(DatastoreError::Serialization(_))));
+    }
+
+    // ── parse_query_impl ───────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_query_impl_extracts_tag_prefix() {
+        let (search, tags) = parse_query_impl("tag:urgent hello");
+        assert_eq!(search, "hello");
+        assert_eq!(tags, vec!["urgent".to_string()]);
+    }
+
+    #[test]
+    fn parse_query_impl_extracts_tags_comma_separated() {
+        let (search, tags) = parse_query_impl("tags:a,b world");
+        assert_eq!(search, "world");
+        assert_eq!(tags, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn parse_query_impl_returns_empty_for_no_tags() {
+        let (search, tags) = parse_query_impl("hello world");
+        assert_eq!(search, "hello world");
+        assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn parse_query_impl_handles_empty_query() {
+        let (search, tags) = parse_query_impl("");
+        assert!(search.is_empty());
+        assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn parse_query_impl_combines_multiple_tags() {
+        let (search, tags) = parse_query_impl("tag:a tag:b search term");
+        assert_eq!(search, "search term");
+        assert_eq!(tags, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn parse_query_impl_handles_empty_tag_value() {
+        let (search, tags) = parse_query_impl("tag: search");
+        assert_eq!(search, "search");
+        assert_eq!(tags, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn parse_query_impl_handles_mixed_tag_and_tags() {
+        let (search, tags) = parse_query_impl("tag:x tags:y,z term");
+        assert_eq!(search, "term");
+        assert_eq!(
+            tags,
+            vec!["x".to_string(), "y".to_string(), "z".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_query_impl_deduplicates_not_applied() {
+        let (search, tags) = parse_query_impl("tag:a tag:a word");
+        assert_eq!(search, "word");
+        assert_eq!(tags, vec!["a".to_string(), "a".to_string()]);
+    }
+
+    // ── serialize_json_field ───────────────────────────────────────────────────
+
+    #[test]
+    fn serialize_json_field_returns_none_for_none() {
+        let result: DatastoreResult<Option<Vec<u8>>> =
+            serialize_json_field(&None::<String>, "test");
+        let opt = result.expect("None field should serialize");
+        assert!(opt.is_none());
+    }
+
+    #[test]
+    fn serialize_json_field_returns_bytes_for_some() {
+        let result = serialize_json_field(&Some("hello".to_string()), "test");
+        let bytes = result.expect("Some field should serialize");
+        let parsed: String =
+            serde_json::from_slice(&bytes.expect("should have bytes")).expect("valid json");
+        assert_eq!(parsed, "hello");
+    }
+}

@@ -51,7 +51,9 @@ pub async fn execute_task(
     t.started_at = Some(OffsetDateTime::now_utc());
 
     // Publish task started
-    let _ = broker.publish_task_progress(&t).await;
+    if let Err(e) = broker.publish_task_progress(&t).await {
+        tracing::debug!(task_id = ?t.id, error = %e, "failed to publish task progress");
+    }
 
     // Run the task with cancellation support
     let result = run_task_with_cancel(&t, runtime.clone(), &mut cancel_rx).await;
@@ -75,7 +77,9 @@ pub async fn execute_task(
     }
 
     // Publish final state
-    let _ = broker.publish_task_progress(&t).await;
+    if let Err(e) = broker.publish_task_progress(&t).await {
+        tracing::debug!(task_id = ?t.id, error = %e, "failed to publish task progress");
+    }
 
     Ok(())
 }

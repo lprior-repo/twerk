@@ -137,5 +137,8 @@ fn config_strings(k: &str) -> Vec<String> {
 
 fn config_u64(k: &str) -> u64 {
     let v = config_string(k);
-    v.parse().unwrap_or(0)
+    v.parse().unwrap_or_else(|_| {
+        tracing::warn!(config_key = %k, "invalid u64 value in config, using 0");
+        0
+    })
 }

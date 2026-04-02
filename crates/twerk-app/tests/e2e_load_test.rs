@@ -53,8 +53,11 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     // Use postgres for real database pressure
     std::env::set_var("TWERK_DATASTORE_TYPE", "postgres");
     std::env::set_var("TWERK_BROKER_TYPE", "rabbitmq");
-    std::env::set_var("BROKER_RABBITMQ_URL", "amqp://guest:guest@localhost:5672/%2f");
-    
+    std::env::set_var(
+        "BROKER_RABBITMQ_URL",
+        "amqp://guest:guest@localhost:5672/%2f",
+    );
+
     let mut config = Config::default();
     config.mode = Mode::Standalone;
 
@@ -63,7 +66,7 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
 
     let start = Instant::now();
     engine.start().await?;
-    
+
     let job_id = format!("load-test-{}", task_count);
     let job = create_parallel_job(&job_id, task_count);
 
@@ -78,7 +81,7 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     let total_time = start.elapsed();
 
     let throughput = task_count as f64 / total_time.as_secs_f64();
-    
+
     println!("\n=== E2E Load Test Results ===");
     println!("Task count:     {}", task_count);
     println!("Schedule time:   {:?}", schedule_time);
@@ -93,17 +96,17 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
 /// Measures how fast PostgreSQL can handle sequential inserts
 #[tokio::test]
 async fn db_write_throughput_test() -> anyhow::Result<()> {
-    use twerk_infrastructure::datastore::{Datastore, Options};
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
-    
+    use twerk_infrastructure::datastore::{Datastore, Options};
+
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
     let options = Options::default();
     let ds = PostgresDatastore::new(dsn, options).await?;
 
     let test_sizes = [100, 500, 1000, 5000];
-    
+
     println!("\n=== Database Write Throughput ===");
-    
+
     for size in test_sizes {
         let start = Instant::now();
         for i in 0..size {
@@ -118,10 +121,13 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
         }
         let elapsed = start.elapsed();
         let rate = size as f64 / elapsed.as_secs_f64();
-        
-        println!("Size: {} | Time: {:?} | Rate: {:.0} tasks/sec", size, elapsed, rate);
+
+        println!(
+            "Size: {} | Time: {:?} | Rate: {:.0} tasks/sec",
+            size, elapsed, rate
+        );
     }
-    
+
     println!("================================\n");
     Ok(())
 }
@@ -130,17 +136,17 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
 /// Measures get_active_tasks performance as data grows
 #[tokio::test]
 async fn db_query_under_load_test() -> anyhow::Result<()> {
-    use twerk_infrastructure::datastore::{Datastore, Options};
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
-    
+    use twerk_infrastructure::datastore::{Datastore, Options};
+
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
     let options = Options::default();
     let ds = PostgresDatastore::new(dsn, options).await?;
 
     let sizes = [100, 1000, 5000, 10000];
-    
+
     println!("\n=== Database Query Under Load ===");
-    
+
     for size in sizes {
         // Create test tasks with unique job ID
         let job_id = format!("query-test-job-{}", size);
@@ -154,16 +160,20 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
             };
             ds.create_task(&task).await?;
         }
-        
+
         // Measure query time
         let start = Instant::now();
         let active = ds.get_active_tasks(&job_id).await?;
         let elapsed = start.elapsed();
-        
-        println!("Total tasks: {} | Query time: {:?} | Active found: {}", 
-            size, elapsed, active.len());
+
+        println!(
+            "Total tasks: {} | Query time: {:?} | Active found: {}",
+            size,
+            elapsed,
+            active.len()
+        );
     }
-    
+
     println!("================================\n");
     Ok(())
 }
@@ -172,53 +182,59 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
 /// Measures database performance under concurrent load
 #[tokio::test]
 async fn db_concurrent_write_test() -> anyhow::Result<()> {
-    use twerk_infrastructure::datastore::{Datastore, Options};
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
-    
+    use twerk_infrastructure::datastore::{Datastore, Options};
+
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
 
     let concurrency_levels = [1, 5, 10, 25];
     let tasks_per_thread = 100;
-    
+
     println!("\n=== Concurrent Database Writes ===");
-    
+
     for concurrency in concurrency_levels {
         let total_tasks = concurrency * tasks_per_thread;
         let job_id = format!("concurrent-job-{}", concurrency);
-        
+
         let start = Instant::now();
-        
+
         // Spawn concurrent writers - each gets its own connection
-        let handles: Vec<_> = (0..concurrency).map(|t| {
-            let dsn = dsn.to_string();
-            let job_id = job_id.clone();
-            async move {
-                let opts = Options::default();
-                let ds = PostgresDatastore::new(&dsn, opts).await.expect("failed to connect");
-                for i in 0..tasks_per_thread {
-                    let task = Task {
-                        id: Some(format!("concurrent-{}-{}-{}", concurrency, t, i).into()),
-                        job_id: Some(job_id.clone().into()),
-                        name: Some("concurrent-test".to_string()),
-                        state: "CREATED".to_string(),
-                        ..Default::default()
-                    };
-                    ds.create_task(&task).await.expect("failed to create task");
+        let handles: Vec<_> = (0..concurrency)
+            .map(|t| {
+                let dsn = dsn.to_string();
+                let job_id = job_id.clone();
+                async move {
+                    let opts = Options::default();
+                    let ds = PostgresDatastore::new(&dsn, opts)
+                        .await
+                        .expect("failed to connect");
+                    for i in 0..tasks_per_thread {
+                        let task = Task {
+                            id: Some(format!("concurrent-{}-{}-{}", concurrency, t, i).into()),
+                            job_id: Some(job_id.clone().into()),
+                            name: Some("concurrent-test".to_string()),
+                            state: "CREATED".to_string(),
+                            ..Default::default()
+                        };
+                        ds.create_task(&task).await.expect("failed to create task");
+                    }
                 }
-            }
-        }).collect();
-        
+            })
+            .collect();
+
         for h in handles {
             h.await;
         }
-        
+
         let elapsed = start.elapsed();
         let rate = total_tasks as f64 / elapsed.as_secs_f64();
-        
-        println!("Concurrency: {} | Total: {} | Time: {:?} | Rate: {:.0} tasks/sec",
-            concurrency, total_tasks, elapsed, rate);
+
+        println!(
+            "Concurrency: {} | Total: {} | Time: {:?} | Rate: {:.0} tasks/sec",
+            concurrency, total_tasks, elapsed, rate
+        );
     }
-    
+
     println!("===============================\n");
     Ok(())
 }

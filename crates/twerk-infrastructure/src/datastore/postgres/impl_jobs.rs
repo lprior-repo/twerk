@@ -1,6 +1,7 @@
 //! Job operations for `PostgresDatastore`.
 
 use sqlx::Postgres;
+use time::OffsetDateTime;
 use twerk_core::job::{new_job_summary, Job, JobSummary};
 use twerk_core::task::Task;
 use twerk_core::uuid::new_uuid;
@@ -65,9 +66,12 @@ impl PostgresDatastore {
             .bind(&**id)
             .bind(&job.name)
             .bind(&job.description)
-            .bind(job.tags.clone().unwrap_or_default())
+            .bind(job.tags.as_ref().map_or_else(Vec::new, Clone::clone))
             .bind(&job.state)
-            .bind(job.created_at)
+            .bind(match job.created_at {
+                Some(t) => t,
+                None => OffsetDateTime::now_utc(),
+            })
             .bind(&*created_by)
             .bind(&tasks)
             .bind(job.position)

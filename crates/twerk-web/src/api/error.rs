@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ApiError {
     #[error("{0}")]
     BadRequest(String),

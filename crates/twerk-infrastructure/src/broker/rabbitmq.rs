@@ -155,7 +155,7 @@ impl RabbitMQBroker {
 
         let ch = conn1.create_channel().await?;
         ch.exchange_declare(
-            "amq.topic",
+            "amq.topic".into(),
             lapin::ExchangeKind::Topic,
             lapin::options::ExchangeDeclareOptions {
                 durable: true,
@@ -168,7 +168,7 @@ impl RabbitMQBroker {
         let durable = opts.durable_queues || opts.queue_type == "quorum";
         let redelivery_queue = prefixed_queue(queue::QUEUE_REDELIVERIES, engine_id);
         ch.queue_declare(
-            &redelivery_queue,
+            redelivery_queue.as_str().into(),
             lapin::options::QueueDeclareOptions {
                 durable,
                 ..lapin::options::QueueDeclareOptions::default()
@@ -244,7 +244,7 @@ impl RabbitMQBroker {
         }
         let durable = self.durable_queues || self.queue_type == "quorum";
         ch.queue_declare(
-            qname,
+            qname.into(),
             QueueDeclareOptions {
                 durable,
                 ..QueueDeclareOptions::default()
@@ -274,8 +274,8 @@ impl RabbitMQBroker {
             .with_type(msg_type.into())
             .with_priority(priority);
         ch.basic_publish(
-            exchange,
-            routing_key,
+            exchange.into(),
+            routing_key.into(),
             BasicPublishOptions::default(),
             &data,
             props,
@@ -305,9 +305,9 @@ impl RabbitMQBroker {
         self.declare_queue(&ch, qname).await?;
         if !exchange.is_empty() {
             ch.queue_bind(
-                qname,
-                exchange,
-                routing_key,
+                qname.into(),
+                exchange.into(),
+                routing_key.into(),
                 lapin::options::QueueBindOptions::default(),
                 FieldTable::default(),
             )
@@ -316,8 +316,8 @@ impl RabbitMQBroker {
         ch.basic_qos(1, BasicQosOptions::default()).await?;
         let mut consumer = ch
             .basic_consume(
-                qname,
-                "",
+                qname.into(),
+                "".into(),
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
@@ -603,7 +603,7 @@ impl Broker for RabbitMQBroker {
         Box::pin(async move {
             let conn = b.get_connection().await?;
             let ch = conn.create_channel().await?;
-            ch.queue_delete(&qname, QueueDeleteOptions::default())
+            ch.queue_delete(qname.as_str().into(), QueueDeleteOptions::default())
                 .await?;
             Ok(())
         })

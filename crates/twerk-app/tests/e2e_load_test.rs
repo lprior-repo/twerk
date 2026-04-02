@@ -9,7 +9,7 @@
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::cast_precision_loss)]
 
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::job::Job;
 use twerk_core::task::Task;
@@ -111,12 +111,16 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
 
     println!("\n=== Database Write Throughput ===");
 
+    let run_id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+
     for size in test_sizes {
         let start = Instant::now();
         for i in 0..size {
             let task = Task {
-                id: Some(format!("db-test-{size}-{i}").into()),
-                job_id: Some(format!("db-test-job-{size}").into()),
+                id: Some(format!("db-test-{run_id}-{size}-{i}").into()),
+                job_id: Some(format!("db-test-job-{run_id}-{size}").into()),
                 name: Some("db-test".to_string()),
                 state: "CREATED".to_string(),
                 ..Default::default()
@@ -148,12 +152,16 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
 
     println!("\n=== Database Query Under Load ===");
 
+    let run_id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+
     for size in sizes {
         // Create test tasks with unique job ID
-        let job_id = format!("query-test-job-{size}");
+        let job_id = format!("query-test-job-{run_id}-{size}");
         for i in 0..size {
             let task = Task {
-                id: Some(format!("query-test-{size}-{size}-{i}").into()),
+                id: Some(format!("query-test-{run_id}-{size}-{size}-{i}").into()),
                 job_id: Some(job_id.clone().into()),
                 name: Some("query-test".to_string()),
                 state: "CREATED".to_string(),
@@ -191,9 +199,13 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
 
     println!("\n=== Concurrent Database Writes ===");
 
+    let run_id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+
     for concurrency in concurrency_levels {
         let total_tasks = concurrency * tasks_per_thread;
-        let job_id = format!("concurrent-job-{concurrency}");
+        let job_id = format!("concurrent-job-{run_id}-{concurrency}");
 
         let start = Instant::now();
 
@@ -209,7 +221,7 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
                         .expect("failed to connect");
                     for i in 0..tasks_per_thread {
                         let task = Task {
-                            id: Some(format!("concurrent-{concurrency}-{t}-{i}").into()),
+                            id: Some(format!("task-{run_id}-{concurrency}-{t}-{i}").into()),
                             job_id: Some(job_id.clone().into()),
                             name: Some("concurrent-test".to_string()),
                             state: "CREATED".to_string(),

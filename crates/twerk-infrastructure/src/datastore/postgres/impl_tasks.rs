@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use sqlx::Postgres;
+use time::OffsetDateTime;
 use twerk_core::id::{JobId, TaskId};
 use twerk_core::task::Task;
 
@@ -101,7 +102,10 @@ async fn execute_task_insert(
         .bind(task.position)
         .bind(&task.name)
         .bind(task.state.as_str())
-        .bind(task.created_at)
+        .bind(match task.created_at {
+            Some(t) => t,
+            None => OffsetDateTime::now_utc(),
+        })
         .bind(task.scheduled_at)
         .bind(task.started_at)
         .bind(task.completed_at)

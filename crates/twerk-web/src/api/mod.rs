@@ -26,6 +26,7 @@ use twerk_infrastructure::datastore::Datastore;
 pub mod error;
 pub mod handlers;
 pub mod redact;
+pub mod yaml;
 
 #[derive(Clone)]
 pub struct Config {

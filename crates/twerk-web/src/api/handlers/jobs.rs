@@ -35,14 +35,14 @@ pub async fn create_job_handler(
     let content_type = headers
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
+        .map_or("", |v| v);
 
     let mut job: Job = match content_type {
         "application/json" => {
             serde_json::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
         }
         "text/yaml" | "application/x-yaml" => {
-            serde_yml::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
+            super::super::yaml::from_slice(&body)?
         }
         _ => return Err(ApiError::bad_request("unsupported content type")),
     };

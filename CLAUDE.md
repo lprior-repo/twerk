@@ -4,9 +4,15 @@ This is a Rust port of a Go distributed task execution system. Key things for AI
 
 ## Beads (Issue Tracking)
 
-This project uses **bd** with a local Dolt database at `./twerk-database`.
+This project uses **bd** with Dolt database at `.beads/dolt/` and a local Dolt database at `./twerk-database`.
 
-**Dolt remote is already configured** - just run `bd dolt push` to sync.
+**IMPORTANT**: If `bd dolt push` fails, the remote may be misconfigured. Fix it with:
+
+```bash
+dolt -C /home/lewis/src/twerk/.beads/dolt remote remove origin
+dolt -C /home/lewis/src/twerk/.beads/dolt remote add origin file:///home/lewis/src/twerk/twerk-database
+bd dolt push
+```
 
 ## Closing Go-Portage Beads
 

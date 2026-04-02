@@ -109,6 +109,48 @@ bd automatically syncs via Dolt:
 - Use `bd dolt push`/`bd dolt pull` for remote sync
 - No manual export/import needed!
 
+### Dolt Remote Configuration
+
+This project uses a local Dolt database. Configure remote before pushing:
+
+```bash
+# In the twerk-database directory
+cd twerk-database
+dolt remote add origin file:///home/lewis/src/twerk/twerk-database
+dolt push origin main
+```
+
+Then push from project root:
+```bash
+git pull --rebase
+bd dolt push
+git push
+```
+
+### Closing Go-Portage Beads
+
+When closing beads related to porting from Go (e.g., "Implement X from Go's internal/..."):
+
+1. **Verify implementation exists** - Check if the Rust code was actually implemented:
+   ```bash
+   # Look for the implementation file
+   ls -la crates/*/src/<implementation>.rs
+   
+   # Or search for the feature
+   grep -r "function_name" crates/ --include="*.rs"
+   ```
+
+2. **Close with verification reason**:
+   ```bash
+   bd close <id> --reason "Implemented - found in crates/..." --json
+   ```
+
+3. **Push changes**:
+   ```bash
+   bd dolt push
+   git push
+   ```
+
 ### Important Rules
 
 - ✅ Use bd for ALL task tracking

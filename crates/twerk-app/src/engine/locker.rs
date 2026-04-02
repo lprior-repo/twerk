@@ -10,11 +10,11 @@
 //! - Reads all PostgreSQL options from environment variables
 //! - Falls back to datastore DSN when locker DSN is not set
 
-use std::env;
 use std::pin::Pin;
 use std::time::Duration;
 
-use super::engine_helpers::ensure_config_loaded;
+use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
+use twerk_common::constants::DEFAULT_POSTGRES_DSN;
 
 // Re-export Locker trait and implementations from the external locker crate
 pub use twerk_infrastructure::locker::InMemoryLocker;
@@ -35,10 +35,6 @@ pub type BoxedFuture<T> = Pin<
         dyn std::future::Future<Output = Result<T, twerk_infrastructure::locker::LockError>> + Send,
     >,
 >;
-
-/// Default DSN for PostgreSQL connections (matches Go default)
-const DEFAULT_POSTGRES_DSN: &str =
-    "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable";
 
 /// Creates a locker based on configuration.
 ///
@@ -104,25 +100,6 @@ pub async fn create_locker(
 }
 
 // ── Config helpers (pure) ──────────────────────────────────────
-
-/// Get a string from environment variables (`TWERK_` prefix, dots → underscores).
-fn env_string(key: &str) -> String {
-    let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    env::var(&env_key)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
-}
-
-/// Get a string with default from environment variables.
-fn env_string_default(key: &str, default: &str) -> String {
-    let value = env_string(key);
-    if value.is_empty() {
-        default.to_string()
-    } else {
-        value
-    }
-}
 
 /// Get an integer from environment variables with default.
 fn env_int_default(key: &str, default: i32) -> i32 {

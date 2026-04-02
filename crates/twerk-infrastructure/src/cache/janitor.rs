@@ -4,13 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use dashmap::DashMap;
-use parking_lot::Mutex;
 use tokio::time::{interval, MissedTickBehavior};
 
-use super::Item;
-
-/// Callback type for eviction notifications.
-type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
+use super::{Item, OnEvictedCallback};
 
 /// The janitor loop that periodically cleans up expired items.
 pub async fn janitor_loop<K, V>(

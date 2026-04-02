@@ -3,6 +3,14 @@
 use std::time::Duration;
 use tar::Archive as TarArchive;
 
+use crate::runtime::docker::error::DockerError;
+
+/// Constructs a Docker port key string (e.g., "8080/tcp").
+#[must_use]
+pub fn port_key(port: u64) -> String {
+    format!("{port}/tcp")
+}
+
 /// Parses a Go-style duration string (e.g., "5s", "10m", "1h").
 ///
 /// # Errors
@@ -94,6 +102,73 @@ pub fn parse_tar_contents(tar_bytes: &[u8]) -> String {
         }
     }
     String::new()
+}
+
+/// Parses GPU options string into `DeviceRequest` configuration.
+///
+/// # Errors
+///
+/// Returns `DockerError::InvalidGpuOptions` if the GPU options are malformed.
+pub fn parse_gpu_options(
+    gpu_str: &str,
+) -> Result<Vec<bollard::models::DeviceRequest>, DockerError> {
+    use bollard::models::DeviceRequest;
+
+    let mut count: Option<i64> = None;
+    let mut driver: Option<String> = None;
+    let mut capabilities: Vec<String> = Vec::new();
+    let mut device_ids: Vec<String> = Vec::new();
+
+    for part in gpu_str.split(',') {
+        let part = part.trim();
+        if let Some((key, value)) = part.split_once('=') {
+            match key.trim() {
+                "count" => {
+                    count = if value.trim() == "all" {
+                        Some(-1)
+                    } else {
+                        Some(value.trim().parse::<i64>().map_err(|_| {
+                            DockerError::InvalidGpuOptions(format!("invalid count: {value}"))
+                        })?)
+                    };
+                }
+                "driver" => {
+                    driver = Some(value.trim().to_string());
+                }
+                "capabilities" => {
+                    for cap in value.split(';') {
+                        capabilities.push(cap.trim().to_string());
+                    }
+                }
+                "device" => {
+                    for dev in value.split(';') {
+                        device_ids.push(dev.trim().to_string());
+                    }
+                }
+                other => {
+                    return Err(DockerError::InvalidGpuOptions(format!(
+                        "unknown GPU option: {other}"
+                    )));
+                }
+            }
+        }
+    }
+
+    if capabilities.is_empty() {
+        capabilities.push("gpu".to_string());
+    }
+
+    Ok(vec![DeviceRequest {
+        count,
+        driver,
+        capabilities: Some(vec![capabilities]),
+        device_ids: if device_ids.is_empty() {
+            None
+        } else {
+            Some(device_ids)
+        },
+        options: None,
+    }])
 }
 
 #[must_use]

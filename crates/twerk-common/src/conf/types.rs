@@ -97,11 +97,12 @@ impl ConfigState {
     pub fn get_bool(&self, key: &str) -> Option<bool> {
         self.values.get(key).and_then(|v| {
             v.as_bool().or_else(|| {
-                v.as_str().and_then(|s| match s.to_lowercase().as_str() {
-                    "true" => Some(true),
-                    "false" => Some(false),
-                    _ => None,
-                })
+                v.as_str()
+                    .and_then(|s| match s.to_ascii_lowercase().as_str() {
+                        "true" => Some(true),
+                        "false" => Some(false),
+                        _ => None,
+                    })
             })
         })
     }

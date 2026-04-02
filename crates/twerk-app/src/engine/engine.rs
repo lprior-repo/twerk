@@ -14,7 +14,6 @@ use twerk_infrastructure::datastore::{Datastore, Datastore as DatastoreTrait};
 use twerk_infrastructure::runtime::{MultiMounter, Runtime};
 
 /// Engine is the main orchestration engine
-#[allow(dead_code)]
 pub struct Engine {
     pub(crate) state: State,
     pub(crate) mode: Mode,

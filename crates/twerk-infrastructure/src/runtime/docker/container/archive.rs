@@ -25,6 +25,12 @@ pub struct TempArchive {
     inner: Archive,
 }
 
+impl From<Archive> for TempArchive {
+    fn from(inner: Archive) -> Self {
+        Self { inner }
+    }
+}
+
 impl TempArchive {
     /// Creates a new `TempArchive`.
     ///
@@ -64,12 +70,6 @@ impl TempArchive {
     }
 }
 
-impl From<Archive> for TempArchive {
-    fn from(inner: Archive) -> Self {
-        Self { inner }
-    }
-}
-
 /// Uploads files to a container at the specified path.
 ///
 /// # Errors
@@ -85,26 +85,26 @@ pub async fn upload_files_to_container<S: std::hash::BuildHasher>(
         return Ok(());
     }
 
-    let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+    let mut archive = Archive::new().map_err(|e| DockerError::copy_to_container(&e))?;
 
     for (name, data) in files {
         archive
             .write_file(name, 0o444, data.as_bytes())
-            .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+            .map_err(|e| DockerError::copy_to_container(&e))?;
     }
 
     archive
         .finish()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut reader = archive
         .reader()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut contents = Vec::new();
     reader
         .read_to_end(&mut contents)
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let options = UploadToContainerOptions {
         path: target_path.to_string(),
@@ -114,11 +114,11 @@ pub async fn upload_files_to_container<S: std::hash::BuildHasher>(
     client
         .upload_to_container(container_id, Some(options), body_full(contents.into()))
         .await
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     archive
         .remove()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     Ok(())
 }
@@ -134,36 +134,36 @@ pub async fn init_runtime_dir(
     run_script: Option<&str>,
     target_path: &str,
 ) -> Result<(), DockerError> {
-    let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+    let mut archive = Archive::new().map_err(|e| DockerError::copy_to_container(&e))?;
 
     archive
         .write_file("stdout", 0o222, &[])
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     archive
         .write_file("progress", 0o222, &[])
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     if let Some(script) = run_script {
         if !script.is_empty() {
             archive
                 .write_file("entrypoint", 0o555, script.as_bytes())
-                .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+                .map_err(|e| DockerError::copy_to_container(&e))?;
         }
     }
 
     archive
         .finish()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut reader = archive
         .reader()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut contents = Vec::new();
     reader
         .read_to_end(&mut contents)
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let options = UploadToContainerOptions {
         path: target_path.to_string(),
@@ -173,11 +173,11 @@ pub async fn init_runtime_dir(
     client
         .upload_to_container(container_id, Some(options), body_full(contents.into()))
         .await
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     archive
         .remove()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     Ok(())
 }

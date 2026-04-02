@@ -7,6 +7,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 
 use super::super::types::{Broker, Mounter, PullRequest};
+use twerk_common::constants::CHANNEL_BUFFER_SIZE;
 
 /// Podman runtime for executing tasks via podman CLI.
 pub struct PodmanRuntime {
@@ -57,7 +58,7 @@ impl PodmanRuntime {
     /// Creates a new `PodmanRuntime` from configuration.
     #[must_use]
     pub fn new(config: super::PodmanConfig) -> Self {
-        let (tx, rx) = mpsc::channel::<PullRequest>(100);
+        let (tx, rx) = mpsc::channel::<PullRequest>(CHANNEL_BUFFER_SIZE);
         let mounter: Arc<dyn Mounter + Send + Sync> = if let Some(m) = config.mounter {
             // SAFETY: Transmuting boxed trait object to Arc.
             // The Box is created externally and we're converting to Arc for shared ownership.

@@ -8,14 +8,12 @@ use futures_util::StreamExt;
 use tokio::sync::RwLock;
 use twerk_core::task::Registry;
 
-use bollard::query_parameters::{
-    CreateContainerOptions, CreateImageOptions, ListImagesOptions, RemoveContainerOptions,
-    RemoveImageOptions,
-};
+use bollard::query_parameters::{CreateImageOptions, RemoveImageOptions};
 
 use crate::runtime::docker::auth::{config_path, Config as AuthConfig};
 use crate::runtime::docker::config::DockerConfig;
 use crate::runtime::docker::error::DockerError;
+use crate::runtime::docker::pull::{image_exists_locally, verify_image};
 use crate::runtime::docker::reference::parse as parse_reference;
 
 use super::types::PullRequest;
@@ -31,7 +29,6 @@ pub(super) async fn pull_image(
     let request = PullRequest {
         image: image.to_string(),
         registry: registry.cloned(),
-        logger: Box::new(std::io::sink()),
         result_tx,
     };
     pull_tx
@@ -71,7 +68,7 @@ pub(super) async fn do_pull_request(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(_) => {}
-                Err(e) => return Err(DockerError::ImagePull(e.to_string())),
+                Err(e) => return Err(DockerError::image_pull(&e)),
             }
         }
     }
@@ -96,62 +93,13 @@ pub(super) async fn do_pull_request(
     Ok(())
 }
 
-/// Checks if an image exists locally.
-pub(super) async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, DockerError> {
-    let options = ListImagesOptions {
-        all: true,
-        ..Default::default()
-    };
-    let image_list = client
-        .list_images(Some(options))
-        .await
-        .map_err(|e| DockerError::ImagePull(e.to_string()))?;
-    Ok(image_list
-        .iter()
-        .any(|img| img.repo_tags.iter().any(|tag| tag == name)))
-}
-
-/// Verifies image integrity by creating a test container and removing it.
-///
-/// Go parity: `verifyImage` — creates container with `cmd: ["true"]`.
-pub(super) async fn verify_image(client: &Docker, image: &str) -> Result<(), DockerError> {
-    let config = bollard::models::ContainerCreateBody {
-        image: Some(image.to_string()),
-        cmd: Some(vec!["true".to_string()]),
-        ..Default::default()
-    };
-    let response = client
-        .create_container(
-            Some(CreateContainerOptions {
-                name: None,
-                platform: String::new(),
-            }),
-            config,
-        )
-        .await
-        .map_err(|e| DockerError::ImageVerifyFailed(format!("{image}: {e}")))?;
-
-    // Clean up test container
-    let _ = client
-        .remove_container(
-            &response.id,
-            Some(RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            }),
-        )
-        .await;
-
-    Ok(())
-}
-
 /// Gets registry credentials for an image.
 #[allow(clippy::unused_async)]
 pub(super) async fn get_registry_credentials(
     config: &DockerConfig,
     image: &str,
 ) -> Result<Option<bollard::auth::DockerCredentials>, DockerError> {
-    let reference = parse_reference(image).map_err(|e| DockerError::ImagePull(e.to_string()))?;
+    let reference = parse_reference(image).map_err(|e| DockerError::image_pull(&e))?;
 
     if reference.domain.is_empty() {
         return Ok(None);
@@ -160,17 +108,17 @@ pub(super) async fn get_registry_credentials(
     // Load auth config: config_file takes priority, then config_path, then default path
     let auth_config = match (&config.config_file, &config.config_path) {
         (Some(path), _) | (_, Some(path)) => {
-            AuthConfig::load_from_path(path).map_err(|e| DockerError::ImagePull(e.to_string()))?
+            AuthConfig::load_from_path(path).map_err(|e| DockerError::image_pull(&e))?
         }
         (None, None) => {
-            let path = config_path().map_err(|e| DockerError::ImagePull(e.to_string()))?;
-            AuthConfig::load_from_path(&path).map_err(|e| DockerError::ImagePull(e.to_string()))?
+            let path = config_path().map_err(|e| DockerError::image_pull(&e))?;
+            AuthConfig::load_from_path(&path).map_err(|e| DockerError::image_pull(&e))?
         }
     };
 
     let (username, password) = auth_config
         .get_credentials(&reference.domain)
-        .map_err(|e| DockerError::ImagePull(e.to_string()))?;
+        .map_err(|e| DockerError::image_pull(&e))?;
 
     if username.is_empty() && password.is_empty() {
         return Ok(None);

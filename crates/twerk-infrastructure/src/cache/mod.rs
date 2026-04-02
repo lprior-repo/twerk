@@ -24,7 +24,7 @@ pub use item::{Expiration, Item};
 pub type ListFilter<'a, V> = Box<dyn Fn(&V) -> bool + 'a>;
 
 /// Callback type for eviction notifications, wrapped in Mutex for interior mutability.
-type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
+pub type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
 
 /// A thread-safe cache with optional automatic expiration cleanup.
 ///

@@ -47,9 +47,10 @@ impl DockerMounter for DockerMounterAdapter {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct DockerRuntimeAdapter {
+    #[allow(dead_code)]
     privileged: bool,
+    #[allow(dead_code)]
     image_ttl_secs: u64,
     active_tasks: Arc<DashMap<TaskId, String>>,
     mounter: Arc<dyn Mounter + Send + Sync>,

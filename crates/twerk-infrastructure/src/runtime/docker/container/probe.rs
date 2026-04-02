@@ -3,14 +3,12 @@
 //! Provides HTTP health probe functionality for containers with configurable
 //! timeout, port, and path.
 
+use crate::runtime::docker::config::{DEFAULT_PROBE_PATH, DEFAULT_PROBE_TIMEOUT};
 use crate::runtime::docker::error::DockerError;
-use crate::runtime::docker::helpers::parse_go_duration;
+use crate::runtime::docker::helpers::{parse_go_duration, port_key};
 use bollard::Docker;
 use std::time::Duration;
 use tokio::time::sleep;
-
-const DEFAULT_PROBE_PATH: &str = "/";
-const DEFAULT_PROBE_TIMEOUT: &str = "1m";
 
 /// Probes a container for readiness via HTTP health check.
 ///
@@ -35,7 +33,7 @@ pub async fn probe_container(
         .await
         .map_err(|e| DockerError::ContainerInspect(format!("{container_id}: {e}")))?;
 
-    let port_key = format!("{port}/tcp");
+    let port_key = port_key(u64::from(port));
     let host_port = inspect
         .network_settings
         .as_ref()

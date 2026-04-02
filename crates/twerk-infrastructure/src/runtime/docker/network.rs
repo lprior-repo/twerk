@@ -18,6 +18,7 @@ use crate::runtime::docker::error::DockerError;
 use bollard::models::NetworkCreateRequest;
 use bollard::Docker;
 use std::time::Duration;
+use twerk_core::uuid::new_uuid;
 
 /// Creates a network for sidecar communication.
 ///
@@ -28,7 +29,7 @@ use std::time::Duration;
 ///
 /// Returns `DockerError::NetworkCreate` if the network cannot be created.
 pub async fn create_network(client: &Docker) -> Result<String, DockerError> {
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = new_uuid();
     let request = NetworkCreateRequest {
         name: id.clone(),
         driver: Some("bridge".to_string()),

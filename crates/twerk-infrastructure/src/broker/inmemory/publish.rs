@@ -5,21 +5,40 @@ use super::InMemoryBroker;
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::{debug, warn};
+use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_common::wildcard::wildcard_match;
 use twerk_core::job::Job;
 use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
+// ── Shared handler spawn helper ───────────────────────────────────────────────────
+
+/// Spawns a handler call, logging any errors with the given message.
+///
+/// This eliminates the repeated `tokio::spawn(async move { if let Err(e) = handler(...).await {...} })`
+/// pattern across all publish functions.
+fn spawn_handler<T: Send + 'static>(
+    handler: Arc<dyn Fn(T) -> BoxedFuture<()> + Send + Sync>,
+    msg: T,
+    error_msg: &'static str,
+) {
+    tokio::spawn(async move {
+        if handler(msg).await.is_err() {
+            warn!(error_msg);
+        }
+    });
+}
+
 /// Publish a task to a queue.
 pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFuture<()> {
-    let task = Arc::new(task.clone());
+    let task_arc = Arc::new(task.clone());
 
     // Store the task
     broker
         .tasks
         .entry(qname.to_string())
         .or_default()
-        .push(Arc::clone(&task));
+        .push(Arc::clone(&task_arc));
 
     // Collect handlers for this queue before spawning tasks
     let handlers: Vec<super::TaskHandler> = broker
@@ -30,12 +49,8 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
 
     // Invoke all registered handlers for this queue
     for handler in handlers {
-        let task_clone = Arc::clone(&task);
-        tokio::spawn(async move {
-            if let Err(e) = handler(task_clone).await {
-                warn!(error = %e, "task handler failed");
-            }
-        });
+        let task_clone = Arc::clone(&task_arc);
+        spawn_handler(handler, task_clone, "task handler failed");
     }
 
     Box::pin(async { Ok(()) })
@@ -67,12 +82,7 @@ pub(crate) fn tasks(
     for task_arc in &task_arcs {
         for handler in &handlers {
             let task_clone = Arc::clone(task_arc);
-            let handler_clone = Arc::clone(handler);
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone(task_clone).await {
-                    warn!(error = %e, "batch task handler failed");
-                }
-            });
+            spawn_handler(handler.clone(), task_clone, "batch task handler failed");
         }
     }
 
@@ -87,12 +97,7 @@ pub(crate) fn task_progress(broker: &InMemoryBroker, task: &Task) -> BoxedFuture
         let handlers = handlers.read().await;
         for handler in handlers.iter() {
             let task_clone = task.clone();
-            let handler_clone = handler.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone(task_clone).await {
-                    warn!(error = %e, "progress handler failed");
-                }
-            });
+            spawn_handler(handler.clone(), task_clone, "progress handler failed");
         }
         Ok(())
     })
@@ -106,6 +111,7 @@ pub(crate) fn heartbeat(broker: &InMemoryBroker, node: Node) -> BoxedFuture<()> 
     let heartbeats = broker.heartbeats.clone();
     Box::pin(async move {
         if let Some(ref node_id) = node.id {
+            // Use RwLock to safely write to heartbeats
             heartbeats
                 .write()
                 .await
@@ -114,12 +120,7 @@ pub(crate) fn heartbeat(broker: &InMemoryBroker, node: Node) -> BoxedFuture<()> 
         let handlers = handlers.read().await;
         for handler in handlers.iter() {
             let node_clone = node.clone();
-            let handler_clone = handler.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone(node_clone).await {
-                    warn!(error = %e, "heartbeat handler failed");
-                }
-            });
+            spawn_handler(handler.clone(), node_clone, "heartbeat handler failed");
         }
         Ok(())
     })
@@ -133,17 +134,12 @@ pub(crate) fn job(broker: &InMemoryBroker, job: &Job) -> BoxedFuture<()> {
         let handlers = handlers.read().await;
         debug!(
             "Publishing job {} to {} handlers",
-            job.id.as_deref().unwrap_or("unknown"),
+            job.id.as_deref().unwrap_or(DEFAULT_TASK_NAME),
             handlers.len()
         );
         for handler in handlers.iter() {
             let job_clone = job.clone();
-            let handler_clone = handler.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone(job_clone).await {
-                    warn!(error = %e, "job handler failed");
-                }
-            });
+            spawn_handler(handler.clone(), job_clone, "job handler failed");
         }
         Ok(())
     })
@@ -160,12 +156,7 @@ pub(crate) fn event(broker: &InMemoryBroker, topic: String, event: Value) -> Box
                 let topic_handlers = entry.value().clone();
                 for handler in topic_handlers {
                     let ev_clone = event_clone.clone();
-                    let h_clone = handler.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = h_clone(ev_clone).await {
-                            warn!(error = %e, "event handler failed");
-                        }
-                    });
+                    spawn_handler(handler.clone(), ev_clone, "event handler failed");
                 }
             }
         }
@@ -181,19 +172,16 @@ pub(crate) fn task_log_part(broker: &InMemoryBroker, part: &TaskLogPart) -> Boxe
     Box::pin(async move {
         if let Some(task_id) = &part.task_id {
             let task_id_str = task_id.to_string();
+            // Use RwLock to safely write to task_log_parts
             let task_log_parts_guard = task_log_parts.write().await;
             let mut entry = task_log_parts_guard.entry(task_id_str).or_default();
+            // Entry::Ref supports mutable access via DerefMut - push takes &mut self
             entry.push(part.clone());
         }
         let handlers = handlers.read().await;
         for handler in handlers.iter() {
             let part_clone = part.clone();
-            let handler_clone = handler.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone(part_clone).await {
-                    warn!(error = %e, "task log part handler failed");
-                }
-            });
+            spawn_handler(handler.clone(), part_clone, "task log part handler failed");
         }
         Ok(())
     })

@@ -39,6 +39,7 @@ pub(crate) fn for_heartbeats(
     let handlers = broker.heartbeat_handlers.clone();
     let heartbeats = broker.heartbeats.clone();
     Box::pin(async move {
+        // Use RwLock to ensure consistent iteration over heartbeats
         let nodes: Vec<Node> = heartbeats
             .read()
             .await
@@ -88,6 +89,7 @@ pub(crate) fn for_task_log_part(
     let handlers = broker.task_log_part_handlers.clone();
     let task_log_parts = broker.task_log_parts.clone();
     Box::pin(async move {
+        // Use RwLock to ensure consistent iteration over task_log_parts
         let parts: Vec<TaskLogPart> = task_log_parts
             .read()
             .await

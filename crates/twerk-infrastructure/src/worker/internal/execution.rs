@@ -7,12 +7,12 @@ use std::time::Duration;
 
 use anyhow::Result;
 use dashmap::DashMap;
-use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::sync::broadcast;
 use tokio::time::sleep;
 use tracing::{debug, warn};
 
+use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::id::TaskId;
 use twerk_core::task::{
     Task, TaskLimits, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING,
@@ -22,20 +22,6 @@ use crate::broker::Broker;
 use crate::runtime::Runtime as RuntimeTrait;
 
 use super::types::{Limits, RunningTask};
-
-/// Execution error types
-#[derive(Debug, Error)]
-#[allow(dead_code)]
-pub enum ExecutionError {
-    #[error("task timed out")]
-    Timeout,
-
-    #[error("task cancelled")]
-    Cancelled,
-
-    #[error("runtime error: {0}")]
-    Runtime(String),
-}
 
 /// Execute a task
 pub async fn execute_task(
@@ -100,7 +86,7 @@ async fn run_task_with_cancel(
     runtime: Arc<dyn RuntimeTrait>,
     cancel_rx: &mut broadcast::Receiver<()>,
 ) -> Result<()> {
-    let task_id_str = t.id.as_deref().unwrap_or("unknown");
+    let task_id_str = t.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
     let timeout = t.timeout.clone();
 
     if let Some(timeout_str) = timeout {

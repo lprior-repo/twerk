@@ -61,7 +61,7 @@ impl crate::runtime::Runtime for DockerRuntime {
             runtime
                 .run(&mut task_clone)
                 .await
-                .map_err(|e| anyhow::anyhow!(e))
+                .map_err(DockerError::to_anyhow)
         })
     }
 
@@ -82,7 +82,7 @@ impl crate::runtime::Runtime for DockerRuntime {
                 .ping()
                 .await
                 .map(|_| ())
-                .map_err(|e| anyhow::anyhow!(e))
+                .map_err(|e| DockerError::from(e).to_anyhow())
         })
     }
 }
@@ -98,9 +98,9 @@ impl DockerRuntime {
         let client = Docker::connect_with_local_defaults()
             .map_err(|e| DockerError::ClientCreate(e.to_string()))?;
 
-        let (pull_tx, mut pull_rx) = mpsc::channel::<PullRequest>(100);
+        let (pull_tx, mut pull_rx) =
+            mpsc::channel::<PullRequest>(twerk_common::constants::CHANNEL_BUFFER_SIZE);
         let (pruner_cancel_tx, mut pruner_cancel_rx) = tokio::sync::oneshot::channel::<()>();
-
         let images = Arc::new(DashMap::new());
         let tasks = Arc::new(RwLock::new(0));
 

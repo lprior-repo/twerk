@@ -1,4 +1,5 @@
 pub mod encrypt;
+pub mod env;
 pub mod eval;
 pub mod fns;
 pub mod host;

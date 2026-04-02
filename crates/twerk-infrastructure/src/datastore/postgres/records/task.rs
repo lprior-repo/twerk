@@ -147,21 +147,12 @@ impl TaskRecordExt for TaskRecord {
 
 #[cfg(test)]
 mod tests {
+    use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;
     use twerk_core::task::{ParallelTask, Registry, TaskLimits, TaskRetry};
 
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    /// Creates a fixed-point timestamp for deterministic tests.
-    fn fixed_now() -> time::OffsetDateTime {
-        time::OffsetDateTime::new_utc(
-            time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
-                time::Date::from_calendar_date(2026, time::Month::January, 1).unwrap()
-            }),
-            time::Time::from_hms(12, 0, 0).unwrap_or(time::Time::MIDNIGHT),
-        )
-    }
 
     fn base_task_record() -> TaskRecord {
         let now = fixed_now();

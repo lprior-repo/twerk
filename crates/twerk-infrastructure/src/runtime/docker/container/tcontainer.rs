@@ -13,6 +13,10 @@ use super::archive::{init_runtime_dir, upload_files_to_container};
 use super::monitoring::{read_logs_tail, read_output_file};
 use super::probe::probe_if_configured;
 use crate::broker::Broker;
+use crate::runtime::docker::config::{
+    COPY_FROM_CONTAINER_EMPTY, ERROR_PUBLISHING_TASK_PROGRESS, INVALID_PROGRESS,
+    PROGRESS_POLL_INTERVAL,
+};
 use crate::runtime::docker::error::DockerError;
 use crate::runtime::docker::mounters::Mounter;
 use twerk_core::id::TaskId;
@@ -105,12 +109,10 @@ impl Tcontainer {
         task_id: TaskId,
         broker: Option<Arc<dyn Broker>>,
     ) {
-        use std::time::Duration;
-
         let Some(broker) = broker else {
             return;
         };
-        let mut tick = tokio::time::interval(Duration::from_secs(10));
+        let mut tick = tokio::time::interval(PROGRESS_POLL_INTERVAL);
         let mut prev: Option<f64> = None;
         loop {
             tokio::select! {
@@ -124,7 +126,7 @@ impl Tcontainer {
                                 ..Default::default()
                             };
                             if let Err(e) = broker.publish_task_progress(&twerk_task).await {
-                                tracing::warn!(task_id = %task_id, error = %e, "error publishing task progress");
+                                tracing::warn!(task_id = %task_id, error = %e, ERROR_PUBLISHING_TASK_PROGRESS);
                             }
                         }
                         Err(_) => break,
@@ -197,7 +199,7 @@ impl Tcontainer {
         let bytes = stream
             .next()
             .await
-            .ok_or_else(|| DockerError::CopyFromContainer("empty".to_string()))?
+            .ok_or_else(|| DockerError::CopyFromContainer(COPY_FROM_CONTAINER_EMPTY.to_string()))?
             .map_err(|e| DockerError::CopyFromContainer(e.to_string()))?;
 
         let contents = crate::runtime::docker::helpers::parse_tar_contents(&bytes);
@@ -208,7 +210,7 @@ impl Tcontainer {
         }
 
         s.parse::<f64>()
-            .map_err(|_| DockerError::CopyFromContainer("invalid progress".to_string()))
+            .map_err(|_| DockerError::CopyFromContainer(INVALID_PROGRESS.to_string()))
     }
 
     /// Starts the container and waits for the probe to be ready.

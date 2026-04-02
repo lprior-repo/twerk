@@ -107,3 +107,29 @@ pub enum DockerError {
     #[error("Docker API error: {0}")]
     Api(#[from] bollard::errors::Error),
 }
+
+impl DockerError {
+    /// Converts this error to an `anyhow::Error`.
+    #[must_use]
+    pub fn to_anyhow(self) -> anyhow::Error {
+        anyhow::anyhow!(self)
+    }
+
+    /// Creates a `CopyToContainer` error from any error implementing `ToString`.
+    #[must_use]
+    pub fn copy_to_container<E>(e: &E) -> Self
+    where
+        E: ToString,
+    {
+        Self::CopyToContainer(e.to_string())
+    }
+
+    /// Creates an `ImagePull` error from any error implementing `ToString`.
+    #[must_use]
+    pub fn image_pull<E>(e: &E) -> Self
+    where
+        E: ToString,
+    {
+        Self::ImagePull(e.to_string())
+    }
+}

@@ -5,16 +5,11 @@
 //! Go parity: `cli/migrate.go` → reads config for datastore type, connects to postgres,
 //! and executes `schema.SCHEMA` via `pg.ExecScript(schema.SCHEMA)`.
 
+pub use twerk_common::constants::DEFAULT_POSTGRES_DSN;
 use twerk_infrastructure::datastore::postgres::{Options as PgOptions, PostgresDatastore, SCHEMA};
 
 use crate::CliError;
 use tracing::info;
-
-/// Default `PostgreSQL` connection string.
-///
-/// Matches Go: `host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable`
-pub const DEFAULT_POSTGRES_DSN: &str =
-    "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable";
 
 /// Run database migration.
 ///
@@ -38,7 +33,7 @@ pub const DEFAULT_POSTGRES_DSN: &str =
 /// Returns [`CliError::UnknownDatastore`] if the datastore type is not supported.
 /// Returns [`CliError::Migration`] if the migration fails.
 pub async fn run_migration(datastore_type: &str, postgres_dsn: &str) -> Result<(), CliError> {
-    match datastore_type.to_lowercase().as_str() {
+    match datastore_type.to_ascii_lowercase().as_str() {
         "postgres" | "postgresql" => {
             let pg = PostgresDatastore::new(
                 postgres_dsn,

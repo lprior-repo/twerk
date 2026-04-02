@@ -1,26 +1,35 @@
 //! Twerk Engine - Helper functions and types
 
+use twerk_common::conf::string as config_string;
 use twerk_common::load_config;
+use twerk_common::var_with_twerk_prefix;
 use twerk_core::task::Task;
 use twerk_infrastructure::runtime::Runtime;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 
-fn config_string(key: &str) -> Option<String> {
+fn config_string_opt(key: &str) -> Option<String> {
     let _ = load_config();
-    match twerk_infrastructure::config::string(key) {
+    match config_string(key) {
         value if value.is_empty() => None,
         value => Some(value),
     }
 }
 
-fn env_string(key: &str) -> Option<String> {
-    std::env::var(format!("TWERK_{}", key.to_uppercase().replace('.', "_")))
-        .ok()
-        .filter(|value| !value.is_empty())
+pub fn env_string(key: &str) -> String {
+    var_with_twerk_prefix(key).unwrap_or_else(|| config_string(key))
+}
+
+pub fn env_string_default(key: &str, default: &str) -> String {
+    let value = env_string(key);
+    if value.is_empty() {
+        default.to_string()
+    } else {
+        value
+    }
 }
 
 fn env_or_config_string(key: &str) -> Option<String> {
-    env_string(key).or_else(|| config_string(key))
+    var_with_twerk_prefix(key).or_else(|| config_string_opt(key))
 }
 
 pub fn ensure_config_loaded() {

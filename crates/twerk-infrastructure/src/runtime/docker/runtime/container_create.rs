@@ -8,7 +8,6 @@
 //! Go parity: `createTaskContainer`
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use bollard::models::HostConfig;
 use bollard::query_parameters::{
@@ -16,14 +15,17 @@ use bollard::query_parameters::{
 };
 use bollard::Docker;
 
-use super::super::config::DockerConfig;
+use super::super::config::{DockerConfig, CREATED_CONTAINER, CREATION_TIMED_OUT};
 use super::super::container::Container;
 use super::super::error::DockerError;
+use super::super::helpers::parse_gpu_options;
 use super::super::mounters::Mounter;
 use super::container_config::{
     ContainerCmd, ContainerEnv, ContainerMounts, ContainerNetworking, ContainerProbe,
 };
 use super::image::pull_image;
+use crate::runtime::DEFAULT_TIMEOUT;
+use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::mount::mount_type;
 use twerk_core::task::Task;
 use twerk_core::uuid::new_uuid;
@@ -80,7 +82,7 @@ pub(super) async fn create_container(
     let device_requests = task
         .gpus
         .as_ref()
-        .map(|gpu_str| super::container_config::parse_gpu_options(gpu_str))
+        .map(|gpu_str| parse_gpu_options(gpu_str.as_str()))
         .transpose()?;
 
     // Build container config
@@ -124,7 +126,7 @@ pub(super) async fn create_container(
 
     // Create container with 30s timeout (Go parity: createCtx)
     let create_response = tokio::time::timeout(
-        Duration::from_secs(30),
+        DEFAULT_TIMEOUT,
         client.create_container(
             Some(CreateContainerOptions {
                 name: None,
@@ -134,9 +136,9 @@ pub(super) async fn create_container(
         ),
     )
     .await
-    .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
+    .map_err(|_| DockerError::ContainerCreate(CREATION_TIMED_OUT.to_string()))?
     .map_err(|e| {
-        let image_str = task.image.as_deref().unwrap_or("unknown");
+        let image_str = task.image.as_deref().unwrap_or(DEFAULT_TASK_NAME);
         tracing::error!(image = image_str, error = %e, "Error creating container");
         DockerError::ContainerCreate(e.to_string())
     })?;
@@ -218,6 +220,6 @@ pub(super) async fn create_container(
         return Err(e);
     }
 
-    tracing::debug!(container_id = %container_id, "Created container");
+    tracing::debug!(container_id = %container_id, CREATED_CONTAINER);
     Ok(container)
 }

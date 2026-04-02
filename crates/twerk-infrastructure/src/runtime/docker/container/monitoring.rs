@@ -3,13 +3,16 @@
 //! Provides log streaming and progress reporting for running containers.
 
 use crate::broker::Broker;
+use crate::runtime::docker::config::{
+    COPY_FROM_CONTAINER_EMPTY, ERROR_PUBLISHING_TASK_PROGRESS, INVALID_PROGRESS,
+    PROGRESS_POLL_INTERVAL,
+};
 use crate::runtime::docker::error::DockerError;
 use crate::runtime::docker::helpers::parse_tar_contents;
 use bollard::query_parameters::{DownloadFromContainerOptions, LogsOptions};
 use bollard::Docker;
 use futures_util::StreamExt;
 use std::sync::Arc;
-use std::time::Duration;
 use twerk_core::id::TaskId;
 use twerk_core::task::TaskLogPart;
 
@@ -65,7 +68,7 @@ pub async fn report_progress(
 ) {
     let Some(broker) = broker else { return };
 
-    let mut tick = tokio::time::interval(Duration::from_secs(10));
+    let mut tick = tokio::time::interval(PROGRESS_POLL_INTERVAL);
     let mut prev: Option<f64> = None;
 
     loop {
@@ -80,7 +83,7 @@ pub async fn report_progress(
                             ..Default::default()
                         };
                         if let Err(e) = broker.publish_task_progress(&task).await {
-                            tracing::warn!(task_id = %task_id, error = %e, "error publishing task progress");
+                            tracing::warn!(task_id = %task_id, error = %e, ERROR_PUBLISHING_TASK_PROGRESS);
                         }
                     }
                     Err(_) => break,
@@ -102,7 +105,7 @@ async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerEr
     let bytes = stream
         .next()
         .await
-        .ok_or_else(|| DockerError::CopyFromContainer("empty".to_string()))?
+        .ok_or_else(|| DockerError::CopyFromContainer(COPY_FROM_CONTAINER_EMPTY.to_string()))?
         .map_err(|e| DockerError::CopyFromContainer(e.to_string()))?;
 
     let contents = parse_tar_contents(&bytes);
@@ -113,7 +116,7 @@ async fn read_progress_value(client: &Docker, cid: &str) -> Result<f64, DockerEr
     }
 
     s.parse::<f64>()
-        .map_err(|_| DockerError::CopyFromContainer("invalid progress".to_string()))
+        .map_err(|_| DockerError::CopyFromContainer(INVALID_PROGRESS.to_string()))
 }
 
 /// Reads the last N lines of container logs.

@@ -8,20 +8,44 @@ use std::time::Duration;
 /// Default workdir for task files.
 pub const DEFAULT_WORKDIR: &str = "/twerk/workdir";
 
-/// Default image TTL (3 days).
-pub const DEFAULT_IMAGE_TTL: Duration = Duration::from_secs(72 * 60 * 60);
+/// Default image TTL (3 days). Re-exported from runtime module for compatibility.
+pub use crate::runtime::DEFAULT_IMAGE_TTL;
 
 /// Default probe path.
 pub const DEFAULT_PROBE_PATH: &str = "/";
 
-/// Default probe timeout.
+/// Default probe timeout in seconds (for fallback when parsing fails).
+pub const PROBE_TIMEOUT_SECS: u64 = 60;
+
+/// Default probe timeout string for healthcheck configuration.
 pub const DEFAULT_PROBE_TIMEOUT: &str = "1m";
+
+/// Progress poll interval (10 seconds) for monitoring task progress.
+pub const PROGRESS_POLL_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Default command when none specified (uses /twerk/entrypoint script).
 pub const DEFAULT_CMD: &[&str] = &["/twerk/entrypoint"];
 
 /// Default entrypoint for `run` scripts.
 pub const RUN_ENTRYPOINT: &[&str] = &["sh", "-c"];
+
+/// Log message when task progress publishing fails.
+pub const ERROR_PUBLISHING_TASK_PROGRESS: &str = "error publishing task progress";
+
+/// Error message when container creation times out.
+pub const CREATION_TIMED_OUT: &str = "creation timed out";
+
+/// Error message when progress parsing fails.
+pub const INVALID_PROGRESS: &str = "invalid progress";
+
+/// Error message when container copy returns empty data.
+pub const COPY_FROM_CONTAINER_EMPTY: &str = "empty";
+
+/// Error message for unknown mount type "none".
+pub const UNKNOWN_MOUNT_TYPE_NONE: &str = "none";
+
+/// Log message when a container is successfully created.
+pub const CREATED_CONTAINER: &str = "Created container";
 
 /// Docker runtime configuration.
 #[derive(Clone)]

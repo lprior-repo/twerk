@@ -4,6 +4,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
+use twerk_core::env::{read_cleanup_env, read_timeout_env};
 use twerk_core::task::Task;
 use twerk_core::task::TASK_STATE_ACTIVE;
 use twerk_infrastructure::runtime::{
@@ -63,34 +64,14 @@ impl PodmanRuntimeAdapter {
             config: PodmanRuntimeConfig {
                 privileged,
                 host_network,
-                graceful_timeout: Self::read_timeout_env(
+                graceful_timeout: read_timeout_env(
                     ENV_TASK_STOP_GRACEFUL_TIMEOUT,
                     DEFAULT_GRACEFUL_TIMEOUT,
                 ),
-                force_timeout: Self::read_timeout_env(
-                    ENV_TASK_STOP_FORCE_TIMEOUT,
-                    DEFAULT_FORCE_TIMEOUT,
-                ),
-                enable_cleanup: Self::read_cleanup_env(ENV_TASK_STOP_ENABLE_CLEANUP, true),
+                force_timeout: read_timeout_env(ENV_TASK_STOP_FORCE_TIMEOUT, DEFAULT_FORCE_TIMEOUT),
+                enable_cleanup: read_cleanup_env(ENV_TASK_STOP_ENABLE_CLEANUP, true),
             },
             active_containers: Arc::new(DashMap::new()),
-        }
-    }
-
-    fn read_timeout_env(key: &str, default: u64) -> u64 {
-        match std::env::var(key).ok().and_then(|v| v.parse().ok()) {
-            Some(val) => val,
-            None => default,
-        }
-    }
-
-    fn read_cleanup_env(key: &str, default: bool) -> bool {
-        match std::env::var(key)
-            .ok()
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-        {
-            Some(val) => val,
-            None => default,
         }
     }
 

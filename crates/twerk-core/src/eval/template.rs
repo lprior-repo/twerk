@@ -4,17 +4,12 @@
 //! and individual expressions within string contexts.
 
 use evalexpr::eval_with_context;
-use regex::Regex;
 use std::collections::HashMap;
 
 use super::context::{create_context, eval_value_to_json};
+use super::get_template_regex;
 use super::transform::sanitize_expr;
 use crate::eval::EvalError;
-
-fn get_template_regex() -> Result<Regex, EvalError> {
-    Regex::new(r"\{\{\s*(.+?)\s*\}\}")
-        .map_err(|e| EvalError::CompileError("template_regex".into(), e.to_string()))
-}
 
 /// Evaluates a template string containing `{{ expression }}` placeholders.
 ///
@@ -40,7 +35,7 @@ pub fn evaluate_template(
         return Ok(String::new());
     }
 
-    let re = get_template_regex()?;
+    let re = get_template_regex();
     let matches = re.find_iter(template).collect::<Vec<_>>();
 
     if matches.is_empty() {

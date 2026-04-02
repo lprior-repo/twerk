@@ -5,6 +5,9 @@ use std::process::{Command, Stdio};
 
 use thiserror::Error;
 
+/// Prefix for docker credential helper executable names.
+const DOCKER_CREDENTIAL_PREFIX: &str = "docker-credential-";
+
 // Token username marker from docker CLI
 const TOKEN_USERNAME: &str = "<token>";
 
@@ -61,7 +64,7 @@ pub fn get_from_helper(
         return Ok((String::new(), String::new()));
     }
 
-    let helper_path = format!("docker-credential-{helper}");
+    let helper_path = format!("{DOCKER_CREDENTIAL_PREFIX}{helper}");
 
     // Check if the helper exists
     if Command::new(&helper_path)

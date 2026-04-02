@@ -59,8 +59,6 @@ impl PoolRef {
 
 /// Inner lock type for PostgreSQL advisory locking.
 struct PostgresLock {
-    #[allow(dead_code)]
-    key: String,
     client: Mutex<Option<PgClient>>,
     pool: PoolRef,
     created_at: Instant,
@@ -451,7 +449,6 @@ fn acquire_advisory_lock(
     }
 
     let lock: Pin<Box<dyn Lock>> = Box::pin(PostgresLock {
-        key,
         client: Mutex::new(Some(client)),
         pool,
         created_at,

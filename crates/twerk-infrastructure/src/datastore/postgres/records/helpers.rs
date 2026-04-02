@@ -8,6 +8,17 @@ pub fn str_to_task_state(s: &str) -> TaskState {
     TaskState::from(s.to_string())
 }
 
+/// Creates a fixed-point timestamp for deterministic tests.
+#[cfg(test)]
+pub fn fixed_now() -> time::OffsetDateTime {
+    time::OffsetDateTime::new_utc(
+        time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
+            time::Date::from_calendar_date(2026, time::Month::January, 1).unwrap()
+        }),
+        time::Time::from_hms(12, 0, 0).unwrap_or(time::Time::MIDNIGHT),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

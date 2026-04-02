@@ -15,8 +15,8 @@ pub use hooks::{
     TaskEventType, TaskHandlerFunc, TaskMiddlewareError, TaskMiddlewareFunc,
 };
 
-#[derive(Clone)]
-pub struct UsernameValue(pub String);
+// Re-export UsernameValue from twerk_core for use in request extensions
+pub use twerk_core::user::UsernameValue;
 
 pub async fn logging_middleware(
     request: Request<axum::body::Body>,

@@ -4,14 +4,7 @@
 //! - Removing template braces
 //! - Transforming `and`/`or` to `&&`/`||`
 
-use regex::Regex;
-
-use crate::eval::EvalError;
-
-fn get_template_regex() -> Result<Regex, EvalError> {
-    Regex::new(r"\{\{\s*(.+?)\s*\}\}")
-        .map_err(|e| EvalError::CompileError("template_regex".into(), e.to_string()))
-}
+use super::get_template_regex;
 
 /// Sanitizes an expression by removing template braces and transforming operators.
 ///
@@ -21,9 +14,7 @@ fn get_template_regex() -> Result<Regex, EvalError> {
 #[must_use]
 pub fn sanitize_expr(expr: &str) -> String {
     let trimmed = expr.trim();
-    let Ok(re) = get_template_regex() else {
-        return trimmed.to_string();
-    };
+    let re = get_template_regex();
     let without_braces = re
         .captures(trimmed)
         .map_or_else(|| trimmed.to_string(), |caps| caps[1].trim().to_string());

@@ -10,6 +10,7 @@
 
 use anyhow::Result;
 use std::sync::Arc;
+use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::job::Job;
 use twerk_core::task::{Task, TaskSummary};
 use twerk_core::webhook::{self, Webhook};
@@ -38,7 +39,7 @@ pub fn fire_job_webhooks(job: &Job, event: &str) {
         tokio::task::spawn_blocking(move || {
             if let Err(e) = call_job_webhook(&wh, &job) {
                 tracing::error!(
-                    url = wh.url.as_deref().unwrap_or("unknown"),
+                    url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
                     "[Webhook] job webhook failed"
                 );
@@ -83,7 +84,7 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
         tokio::task::spawn_blocking(move || {
             if let Err(e) = call_task_webhook(&wh, &summary) {
                 tracing::error!(
-                    url = wh.url.as_deref().unwrap_or("unknown"),
+                    url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
                     "[Webhook] task webhook failed"
                 );

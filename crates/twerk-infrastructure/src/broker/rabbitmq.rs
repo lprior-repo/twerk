@@ -33,16 +33,66 @@ const MSG_TYPE_NODE: &str = "*twerk.Node";
 const MSG_TYPE_TASK_LOG_PART: &str = "*twerk.TaskLogPart";
 const MSG_TYPE_EVENT: &str = "*twerk.Event";
 
+// ── Shared subscription helpers ─────────────────────────────────────────────────
+
+/// Creates a formatted `RabbitMQ` connection error message.
+#[inline]
+fn rabbitmq_conn_err(conn_idx: usize, e: &impl std::fmt::Display) -> anyhow::Error {
+    anyhow!("RabbitMQ connection {conn_idx} failed: {e}")
+}
+
+/// Type alias for the JSON message handler used in subscriptions.
+type JsonHandler = Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>;
+
+/// Creates a typed JSON subscription handler that deserializes JSON and invokes the handler.
+///
+/// This eliminates the repeated `Arc::new(move |val| { ... Box::pin(async move {...}) })`
+/// pattern across all `subscribe_for_*` methods (except `subscribe_for_events` which has no deserialization).
+fn make_json_handler<T>(handler: Arc<dyn Fn(T) -> BoxedHandlerFuture + Send + Sync>) -> JsonHandler
+where
+    T: serde::de::DeserializeOwned + Send + 'static,
+{
+    Arc::new(move |val: Value| {
+        let handler = handler.clone();
+        Box::pin(async move {
+            if let Ok(msg) = serde_json::from_value::<T>(val) {
+                handler(msg).await?;
+            }
+            Ok(())
+        })
+    })
+}
+
+/// Creates a typed JSON subscription handler for types wrapped in Arc.
+///
+/// Use this for handlers like `TaskHandler` that expect `Arc<T>` instead of T directly.
+fn make_json_handler_arc<T>(
+    handler: Arc<dyn Fn(Arc<T>) -> BoxedHandlerFuture + Send + Sync>,
+) -> JsonHandler
+where
+    T: serde::de::DeserializeOwned + Send + 'static,
+{
+    Arc::new(move |val: Value| {
+        let handler = handler.clone();
+        Box::pin(async move {
+            if let Ok(msg) = serde_json::from_value::<T>(val) {
+                handler(Arc::new(msg)).await?;
+            }
+            Ok(())
+        })
+    })
+}
+
 // ── Functional helpers for JSON extraction and type conversion ─────────────────
 
 /// Extracts an i64 from JSON, returning 0 for null/missing values.
-/// Idiomatic alternative to unwrap_or.
+/// Idiomatic alternative to `unwrap_or`.
 #[inline]
 fn extract_i64(val: &Value) -> i64 {
     val.as_i64().map_or(0, |v| v)
 }
 
-/// Safely converts i64 to i32, clamping to i32::MAX/MIN on overflow.
+/// Safely converts i64 to i32, clamping to `i32::MAX`/`i32::MIN` on overflow.
 /// For monitoring/metrics where we never want to fail on large counts.
 #[inline]
 fn clamp_i32(val: i64) -> i32 {
@@ -93,15 +143,15 @@ impl RabbitMQBroker {
         let engine_id = engine_id.unwrap_or("");
         let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
-            .map_err(|e| anyhow!("RabbitMQ connection 1 failed: {e}"))?;
+            .map_err(|e| rabbitmq_conn_err(1, &e))?;
 
         let conn2 = Connection::connect(url, ConnectionProperties::default())
             .await
-            .map_err(|e| anyhow!("RabbitMQ connection 2 failed: {e}"))?;
+            .map_err(|e| rabbitmq_conn_err(2, &e))?;
 
         let conn3 = Connection::connect(url, ConnectionProperties::default())
             .await
-            .map_err(|e| anyhow!("RabbitMQ connection 3 failed: {e}"))?;
+            .map_err(|e| rabbitmq_conn_err(3, &e))?;
 
         let ch = conn1.create_channel().await?;
         ch.exchange_declare(
@@ -357,19 +407,8 @@ impl Broker for RabbitMQBroker {
         let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let queue = prefixed_queue(&qname, &engine_id);
-            b.subscribe_raw(
-                &queue,
-                Arc::new(move |val| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Ok(task) = serde_json::from_value::<Task>(val) {
-                            handler(Arc::new(task)).await?;
-                        }
-                        Ok(())
-                    })
-                }),
-            )
-            .await
+            b.subscribe_raw(&queue, make_json_handler_arc(handler))
+                .await
         })
     }
 
@@ -389,19 +428,7 @@ impl Broker for RabbitMQBroker {
         let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let queue = prefixed_queue(queue::QUEUE_PROGRESS, &engine_id);
-            b.subscribe_raw(
-                &queue,
-                Arc::new(move |val| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Ok(task) = serde_json::from_value::<Task>(val) {
-                            handler(task).await?;
-                        }
-                        Ok(())
-                    })
-                }),
-            )
-            .await
+            b.subscribe_raw(&queue, make_json_handler(handler)).await
         })
     }
 
@@ -420,19 +447,7 @@ impl Broker for RabbitMQBroker {
         let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let queue = prefixed_queue(queue::QUEUE_HEARTBEAT, &engine_id);
-            b.subscribe_raw(
-                &queue,
-                Arc::new(move |val| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Ok(node) = serde_json::from_value::<Node>(val) {
-                            handler(node).await?;
-                        }
-                        Ok(())
-                    })
-                }),
-            )
-            .await
+            b.subscribe_raw(&queue, make_json_handler(handler)).await
         })
     }
 
@@ -452,19 +467,7 @@ impl Broker for RabbitMQBroker {
         let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let queue = prefixed_queue(queue::QUEUE_JOBS, &engine_id);
-            b.subscribe_raw(
-                &queue,
-                Arc::new(move |val| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Ok(job) = serde_json::from_value::<Job>(val) {
-                            handler(job).await?;
-                        }
-                        Ok(())
-                    })
-                }),
-            )
-            .await
+            b.subscribe_raw(&queue, make_json_handler(handler)).await
         })
     }
 
@@ -518,19 +521,7 @@ impl Broker for RabbitMQBroker {
         let engine_id = self.engine_id.clone();
         Box::pin(async move {
             let queue = prefixed_queue(queue::QUEUE_TASK_LOG_PART, &engine_id);
-            b.subscribe_raw(
-                &queue,
-                Arc::new(move |val| {
-                    let handler = handler.clone();
-                    Box::pin(async move {
-                        if let Ok(part) = serde_json::from_value::<TaskLogPart>(val) {
-                            handler(part).await?;
-                        }
-                        Ok(())
-                    })
-                }),
-            )
-            .await
+            b.subscribe_raw(&queue, make_json_handler(handler)).await
         })
     }
 

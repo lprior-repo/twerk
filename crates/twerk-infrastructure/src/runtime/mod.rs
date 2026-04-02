@@ -4,11 +4,12 @@
 //! in different environments (Docker, Podman, Shell).
 
 use anyhow::Result;
-use std::future::Future;
-use std::pin::Pin;
 use std::process::ExitCode;
+use std::time::Duration;
 
 use twerk_core::task::Task;
+
+pub use crate::broker::BoxedFuture;
 
 use thiserror::Error;
 
@@ -65,8 +66,6 @@ pub enum MountError {
     DuplicateMounter(String),
 }
 
-pub type BoxedFuture<T> = Pin<Box<dyn Future<Output = Result<T>> + Send>>;
-
 pub const RUNTIME_DOCKER: &str = "docker";
 pub const RUNTIME_PODMAN: &str = "podman";
 pub const RUNTIME_SHELL: &str = "shell";
@@ -79,6 +78,18 @@ pub const ENV_TASK_STOP_ENABLE_CLEANUP: &str = "TASK_STOP_ENABLE_CLEANUP";
 // Default timeout values (seconds)
 pub const DEFAULT_GRACEFUL_TIMEOUT: u64 = 30;
 pub const DEFAULT_FORCE_TIMEOUT: u64 = 5;
+
+/// Default timeout duration (30 seconds) for container operations.
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Default image TTL (3 days / 72 hours) for image cache pruning.
+pub const DEFAULT_IMAGE_TTL: Duration = Duration::from_secs(72 * 3600);
+
+/// Buffer size for the image pull queue channel.
+///
+/// This controls how many concurrent pull requests can be buffered
+/// while waiting to be processed by the pull worker.
+pub const PULL_QUEUE_BUFFER_SIZE: usize = 100;
 
 // ----------------------------------------------------------------------------
 // Runtime Trait

@@ -3,6 +3,7 @@
 use sqlx::Postgres;
 use twerk_core::job::{new_job_summary, Job, JobSummary};
 use twerk_core::task::Task;
+use twerk_core::uuid::new_uuid;
 
 use crate::datastore::postgres::encrypt;
 use crate::datastore::postgres::records::{JobPermRecord, JobRecord, JobRecordExt};
@@ -102,7 +103,7 @@ impl PostgresDatastore {
                     .map_err(|e| DatastoreError::Database(format!("create job failed: {e}")))?;
                 if let Some(permissions) = &job.permissions {
                     for perm in permissions {
-                        let perm_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+                        let perm_id = new_uuid();
                         sqlx::query("INSERT INTO jobs_perms (id, job_id, user_id, role_id) VALUES ($1, $2, CASE WHEN $3::varchar IS NOT NULL THEN coalesce((select id from users where username_ = $3), $3) ELSE NULL END, CASE WHEN $4::varchar IS NOT NULL THEN coalesce((select id from roles where slug = $4), $4) ELSE NULL END)").bind(&perm_id).bind(&**id).bind(perm.user.as_ref().and_then(|u| u.username.as_ref())).bind(perm.role.as_ref().and_then(|r| r.slug.as_ref())).execute(&mut *tx).await.map_err(|e| { let err_msg = e.to_string(); if err_msg.contains("_user_id_fkey") { DatastoreError::UserNotFound } else if err_msg.contains("_role_id_fkey") { DatastoreError::RoleNotFound } else { DatastoreError::Database(format!("assign role failed: {e}")) } })?;
                     }
                 }
@@ -118,7 +119,7 @@ impl PostgresDatastore {
                     .map_err(|e| DatastoreError::Database(format!("create job failed: {e}")))?;
                 if let Some(permissions) = &job.permissions {
                     for perm in permissions {
-                        let perm_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+                        let perm_id = new_uuid();
                         sqlx::query("INSERT INTO jobs_perms (id, job_id, user_id, role_id) VALUES ($1, $2, CASE WHEN $3::varchar IS NOT NULL THEN coalesce((select id from users where username_ = $3), $3) ELSE NULL END, CASE WHEN $4::varchar IS NOT NULL THEN coalesce((select id from roles where slug = $4), $4) ELSE NULL END)").bind(&perm_id).bind(&**id).bind(perm.user.as_ref().and_then(|u| u.username.as_ref())).bind(perm.role.as_ref().and_then(|r| r.slug.as_ref())).execute(&mut **tx).await.map_err(|e| { let err_msg = e.to_string(); if err_msg.contains("_user_id_fkey") { DatastoreError::UserNotFound } else if err_msg.contains("_role_id_fkey") { DatastoreError::RoleNotFound } else { DatastoreError::Database(format!("assign role failed: {e}")) } })?;
                     }
                 }

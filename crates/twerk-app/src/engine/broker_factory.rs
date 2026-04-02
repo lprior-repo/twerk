@@ -2,7 +2,6 @@
 //!
 //! Factory functions and configuration helpers for creating broker implementations.
 
-use std::env;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
@@ -10,7 +9,8 @@ use twerk_infrastructure::broker::{
     inmemory::InMemoryBroker, rabbitmq::RabbitMQBroker, Broker, RabbitMQOptions,
 };
 
-use super::engine_helpers::ensure_config_loaded;
+use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
+use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL, QUEUE_TYPE_CLASSIC};
 
 // ── Broker type enumeration ────────────────────────────────────
 
@@ -27,7 +27,7 @@ impl BrokerType {
     /// Parse broker type from string.
     #[must_use]
     pub fn parse(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+        match s.to_ascii_lowercase().as_str() {
             "rabbitmq" => Self::RabbitMQ,
             _ => Self::InMemory,
         }
@@ -35,25 +35,6 @@ impl BrokerType {
 }
 
 // ── Config helpers ─────────────────────────────────────────────
-
-/// Get a string from environment variables (`TWERK_` prefix, dots → underscores).
-fn env_string(key: &str) -> String {
-    let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    env::var(&env_key)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
-}
-
-/// Get a string with default from environment variables.
-fn env_string_default(key: &str, default: &str) -> String {
-    let value = env_string(key);
-    if value.is_empty() {
-        default.to_string()
-    } else {
-        value
-    }
-}
 
 /// Get a duration from environment (parsed as milliseconds) with default.
 fn env_duration_ms_default(key: &str, default: u64) -> Duration {
@@ -79,15 +60,6 @@ fn env_bool(key: &str, default: bool) -> bool {
 }
 
 // ── Broker factory ─────────────────────────────────────────────
-
-/// Default `RabbitMQ` URL (matches Go default).
-const DEFAULT_RABBITMQ_URL: &str = "amqp://guest:guest@localhost:5672/";
-
-/// Default consumer timeout in milliseconds.
-const DEFAULT_CONSUMER_TIMEOUT_MS: u64 = 30_000;
-
-/// Queue type constant — classic.
-const QUEUE_TYPE_CLASSIC: &str = "classic";
 
 /// Creates a broker based on the given type string.
 ///

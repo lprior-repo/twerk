@@ -117,7 +117,7 @@ fn config_string_default(k: &str, d: &str) -> String {
 
 fn config_bool(k: &str) -> bool {
     let v = config_string(k);
-    v.to_lowercase() == "true" || v == "1"
+    v.eq_ignore_ascii_case("true") || v == "1"
 }
 
 fn config_strings(k: &str) -> Vec<String> {

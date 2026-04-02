@@ -130,7 +130,7 @@ pub fn new_zerolog_writer(task_id: String, level: Level) -> ZerologWriter {
 ///
 /// Go's zerolog supports both `"warn"` and `"warning"` for the warn level.
 fn normalize_level(raw: &str) -> String {
-    match raw.to_lowercase().as_str() {
+    match raw.to_ascii_lowercase().as_str() {
         "warning" => "warn".to_string(),
         other => other.to_string(),
     }
@@ -178,7 +178,7 @@ pub fn setup_logging() -> Result<(), LoggingError> {
         .add_directive(level.into())
         .add_directive(twerk_runtime_directive);
 
-    match log_format.to_lowercase().as_str() {
+    match log_format.to_ascii_lowercase().as_str() {
         "pretty" => {
             let fmt_layer = fmt::layer()
                 .with_span_events(FmtSpan::CLOSE)

@@ -2,40 +2,11 @@
 //!
 //! Factory functions and configuration helpers for creating datastore implementations.
 
-use std::env;
-
 use anyhow::{anyhow, Result};
 use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 
-use super::super::engine_helpers::ensure_config_loaded;
-
-// ── Constants ──────────────────────────────────────────────────
-
-const DEFAULT_POSTGRES_DSN: &str =
-    "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable";
-
-// ── Config helpers ─────────────────────────────────────────────
-
-/// Retrieves an environment variable, returning an empty string if not set.
-///
-/// This is intentional for optional configuration values where missing env vars
-/// should be treated as empty strings rather than errors.
-fn env_string(key: &str) -> String {
-    let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
-    env::var(&env_key)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| twerk_infrastructure::config::string(key))
-}
-
-fn env_string_default(key: &str, default: &str) -> String {
-    let v = env_string(key);
-    if v.is_empty() {
-        default.to_string()
-    } else {
-        v
-    }
-}
+use super::super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
+use twerk_common::constants::DEFAULT_POSTGRES_DSN;
 
 // ── Factory functions ──────────────────────────────────────────
 

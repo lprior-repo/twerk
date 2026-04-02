@@ -94,10 +94,10 @@ impl Runtime for PodmanRuntime {
                 image_verify,
                 image_ttl,
             };
-            if let Err(e) = runtime.health_check_inner().await {
-                tracing::error!("podman health check failed: {}", e);
-            }
-            Ok(())
+            runtime
+                .health_check_inner()
+                .await
+                .map_err(|e| anyhow::anyhow!(e))
         })
     }
 }

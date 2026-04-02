@@ -19,6 +19,23 @@ use twerk_core::node::Node;
 use twerk_core::task::TaskLogPart;
 
 /// In-memory broker implementation for testing and single-process usage.
+///
+/// # Concurrent Access Pattern
+///
+/// This broker uses two different synchronization strategies:
+///
+/// - **`Arc<RwLock<DashMap>`** for `heartbeats` and `task_log_parts`: The
+///   `RwLock` ensures consistent iteration by holding a read lock during
+///   iteration. Without it, `DashMap`'s per-shard locking could cause missed
+///   entries when iterating over a cloned handle.
+///
+/// - **`Arc<RwLock<Vec<...>>>`** for handler registries (`job_handlers`,
+///   `progress_handlers`, `heartbeat_handlers`, `task_log_part_handlers`):
+///   Vectors require explicit synchronization because they don't have
+///   `DashMap`'s internal locking.
+///
+/// - **`DashMap`** directly for `tasks`, `handlers`, and `event_handlers`:
+///   These use `DashMap`'s internal synchronization.
 pub struct InMemoryBroker {
     /// Queue name -> list of tasks
     pub(crate) tasks: DashMap<String, Vec<Arc<twerk_core::task::Task>>>,
@@ -32,11 +49,11 @@ pub struct InMemoryBroker {
     pub(crate) event_handlers: Arc<DashMap<String, Vec<EventHandler>>>,
     /// Heartbeat handlers
     pub(crate) heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,
-    /// Stored heartbeats (`node_id` -> node)
+    /// Stored heartbeats (`node_id` -> node) — `RwLock` ensures consistent iteration
     pub(crate) heartbeats: Arc<RwLock<DashMap<String, Node>>>,
     /// Task log part handlers
     pub(crate) task_log_part_handlers: Arc<RwLock<Vec<TaskLogPartHandler>>>,
-    /// Stored task log parts (`task_id` -> Vec<TaskLogPart>)
+    /// Stored task log parts (`task_id` -> Vec<TaskLogPart>) — `RwLock` ensures consistent iteration
     pub(crate) task_log_parts: Arc<RwLock<DashMap<String, Vec<TaskLogPart>>>>,
 }
 

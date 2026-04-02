@@ -5,8 +5,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::interval;
+use twerk_core::env::{read_cleanup_env, read_timeout_env};
 use twerk_core::task::{Task, TASK_STATE_ACTIVE};
 use twerk_infrastructure::broker::Broker;
+use twerk_infrastructure::runtime::docker::config::ERROR_PUBLISHING_TASK_PROGRESS;
 use twerk_infrastructure::runtime::{
     BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult,
 };
@@ -157,30 +159,13 @@ impl ShellRuntimeAdapter {
                 cmd,
                 uid,
                 gid,
-                graceful_timeout: Self::read_timeout_env("TASK_STOP_GRACEFUL_TIMEOUT", 30),
-                force_timeout: Self::read_timeout_env("TASK_STOP_FORCE_TIMEOUT", 5),
-                enable_cleanup: Self::read_cleanup_env("TASK_STOP_ENABLE_CLEANUP", true),
+                graceful_timeout: read_timeout_env("TASK_STOP_GRACEFUL_TIMEOUT", 30),
+                force_timeout: read_timeout_env("TASK_STOP_FORCE_TIMEOUT", 5),
+                enable_cleanup: read_cleanup_env("TASK_STOP_ENABLE_CLEANUP", true),
             },
             active_processes: Arc::new(DashMap::new()),
             temp_dirs: Arc::new(DashMap::new()),
             broker,
-        }
-    }
-
-    fn read_timeout_env(key: &str, default: u64) -> u64 {
-        match std::env::var(key).ok().and_then(|v| v.parse().ok()) {
-            Some(val) => val,
-            None => default,
-        }
-    }
-
-    fn read_cleanup_env(key: &str, default: bool) -> bool {
-        match std::env::var(key)
-            .ok()
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-        {
-            Some(val) => val,
-            None => default,
         }
     }
 
@@ -293,7 +278,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
                                                     ..Default::default()
                                                 };
                                                 if let Err(e) = b.publish_task_progress(&twerk_task).await {
-                                                    tracing::warn!(task_id = %task_id_clone, error = %e, "error publishing task progress");
+                                                    tracing::warn!(task_id = %task_id_clone, error = %e, ERROR_PUBLISHING_TASK_PROGRESS);
                                                 }
                                             }
                                         }

@@ -9,7 +9,6 @@ pub mod inmemory;
 pub mod postgres;
 
 use async_trait::async_trait;
-use thiserror::Error;
 use time::Duration;
 use twerk_core::{
     job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary},
@@ -19,48 +18,11 @@ use twerk_core::{
     user::User,
 };
 
+// Re-export Error from twerk-core to avoid duplication
+pub use twerk_core::repository::Error;
+
 /// Result type for datastore operations
 pub type Result<T> = std::result::Result<T, Error>;
-
-/// Errors that can occur during datastore operations
-#[derive(Debug, Error, PartialEq)]
-pub enum Error {
-    #[error("task not found")]
-    TaskNotFound,
-
-    #[error("node not found")]
-    NodeNotFound,
-
-    #[error("job not found")]
-    JobNotFound,
-
-    #[error("scheduled job not found")]
-    ScheduledJobNotFound,
-
-    #[error("user not found")]
-    UserNotFound,
-
-    #[error("role not found")]
-    RoleNotFound,
-
-    #[error("context not found")]
-    ContextNotFound,
-
-    #[error("database error: {0}")]
-    Database(String),
-
-    #[error("serialization error: {0}")]
-    Serialization(String),
-
-    #[error("encryption error: {0}")]
-    Encryption(String),
-
-    #[error("invalid input: {0}")]
-    InvalidInput(String),
-
-    #[error("transaction error: {0}")]
-    Transaction(String),
-}
 
 /// Configuration options for Datastore
 #[derive(Clone, Default)]

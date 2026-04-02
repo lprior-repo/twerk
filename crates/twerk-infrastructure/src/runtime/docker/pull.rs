@@ -26,7 +26,7 @@ pub async fn image_exists_locally(client: &Docker, name: &str) -> Result<bool, D
     let image_list = client
         .list_images(Some(options))
         .await
-        .map_err(|e| DockerError::ImagePull(e.to_string()))?;
+        .map_err(|e| DockerError::image_pull(&e))?;
     Ok(image_list
         .iter()
         .any(|img| img.repo_tags.iter().any(|tag| tag == name)))
@@ -75,22 +75,22 @@ pub async fn get_registry_credentials(
     config: &crate::runtime::docker::config::DockerConfig,
     image: &str,
 ) -> Result<Option<DockerCredentials>, DockerError> {
-    let reference = parse_reference(image).map_err(|e| DockerError::ImagePull(e.to_string()))?;
+    let reference = parse_reference(image).map_err(|e| DockerError::image_pull(&e))?;
     if reference.domain.is_empty() {
         return Ok(None);
     }
     let auth_config = match (&config.config_file, &config.config_path) {
         (Some(path), _) | (_, Some(path)) => {
-            AuthConfig::load_from_path(path).map_err(|e| DockerError::ImagePull(e.to_string()))?
+            AuthConfig::load_from_path(path).map_err(|e| DockerError::image_pull(&e))?
         }
         (None, None) => {
-            let path = config_path().map_err(|e| DockerError::ImagePull(e.to_string()))?;
-            AuthConfig::load_from_path(&path).map_err(|e| DockerError::ImagePull(e.to_string()))?
+            let path = config_path().map_err(|e| DockerError::image_pull(&e))?;
+            AuthConfig::load_from_path(&path).map_err(|e| DockerError::image_pull(&e))?
         }
     };
     let (username, password) = auth_config
         .get_credentials(&reference.domain)
-        .map_err(|e| DockerError::ImagePull(e.to_string()))?;
+        .map_err(|e| DockerError::image_pull(&e))?;
     if username.is_empty() && password.is_empty() {
         return Ok(None);
     }
@@ -138,7 +138,7 @@ pub async fn pull_image<S: std::hash::BuildHasher>(
     while let Some(result) = stream.next().await {
         match result {
             Ok(_) => {}
-            Err(e) => return Err(DockerError::ImagePull(e.to_string())),
+            Err(e) => return Err(DockerError::image_pull(&e)),
         }
     }
     if config.image_verify {

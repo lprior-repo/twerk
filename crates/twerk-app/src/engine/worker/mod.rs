@@ -12,13 +12,13 @@ use twerk_core::task::{Task, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::Runtime as RuntimeTrait;
 
+pub use twerk_infrastructure::BoxedFuture;
+
 pub mod docker;
 pub mod mounter;
 pub mod podman;
 pub mod runtime_adapter;
 pub mod shell;
-
-pub type BoxedFuture<T> = std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>;
 
 pub trait Worker: Send + Sync {
     fn start(&self) -> BoxedFuture<()>;
@@ -359,14 +359,30 @@ fn register_hostenv_middleware(engine: &mut crate::engine::Engine, hostenv_vars:
 // Helper 5: Worker config resolution from environment
 // ---------------------------------------------------------------------------
 
+/// Reads worker limits from the centralized config system.
+///
+/// This function uses `twerk_common::conf::worker_limits()` which:
+/// 1. First checks environment variables with `TWERK_` prefix (via `var_with_twerk_prefix`)
+/// 2. Falls back to config file values
+/// 3. Falls back to hardcoded defaults if both are empty
 pub fn read_limits() -> Limits {
+    let config_limits = twerk_common::conf::worker_limits();
     Limits {
-        cpus: std::env::var("TWERK_WORKER_LIMITS_CPUS")
-            .unwrap_or_else(|_| DEFAULT_CPUS_LIMIT.to_string()),
-        memory: std::env::var("TWERK_WORKER_LIMITS_MEMORY")
-            .unwrap_or_else(|_| DEFAULT_MEMORY_LIMIT.to_string()),
-        timeout: std::env::var("TWERK_WORKER_LIMITS_TIMEOUT")
-            .unwrap_or_else(|_| DEFAULT_TIMEOUT.to_string()),
+        cpus: if config_limits.cpus.is_empty() {
+            DEFAULT_CPUS_LIMIT.to_string()
+        } else {
+            config_limits.cpus
+        },
+        memory: if config_limits.memory.is_empty() {
+            DEFAULT_MEMORY_LIMIT.to_string()
+        } else {
+            config_limits.memory
+        },
+        timeout: if config_limits.timeout.is_empty() {
+            DEFAULT_TIMEOUT.to_string()
+        } else {
+            config_limits.timeout
+        },
     }
 }
 

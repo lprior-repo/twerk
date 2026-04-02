@@ -1,5 +1,6 @@
 pub mod broker;
 pub mod cache;
+pub use broker::BoxedFuture;
 pub use twerk_common::conf as config;
 pub mod datastore;
 pub mod encryption;

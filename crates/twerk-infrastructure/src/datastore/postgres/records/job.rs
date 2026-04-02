@@ -169,22 +169,13 @@ impl JobRecordExt for JobRecord {
 
 #[cfg(test)]
 mod tests {
+    use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;
     use twerk_core::job::JobDefaults as CoreJobDefaults;
     use twerk_core::task::{AutoDelete, TaskLimits, TaskRetry};
 
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    /// Creates a fixed-point timestamp for deterministic tests.
-    fn fixed_now() -> time::OffsetDateTime {
-        time::OffsetDateTime::new_utc(
-            time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
-                time::Date::from_calendar_date(2026, time::Month::January, 1).unwrap()
-            }),
-            time::Time::from_hms(12, 0, 0).unwrap_or(time::Time::MIDNIGHT),
-        )
-    }
 
     fn base_job_record() -> JobRecord {
         let now = fixed_now();
@@ -200,9 +191,10 @@ mod tests {
             completed_at: None,
             failed_at: None,
             delete_at: None,
-            tasks: serde_json::to_vec(&Vec::<Task>::new()).unwrap_or_default(),
+            tasks: serde_json::to_vec(&Vec::<twerk_core::task::Task>::new()).unwrap_or_default(),
             position: 1,
-            inputs: serde_json::to_vec(&HashMap::<String, String>::new()).unwrap_or_default(),
+            inputs: serde_json::to_vec(&std::collections::HashMap::<String, String>::new())
+                .unwrap_or_default(),
             context: serde_json::to_vec(&JobContext::default()).unwrap_or_default(),
             parent_id: None,
             task_count: 5,

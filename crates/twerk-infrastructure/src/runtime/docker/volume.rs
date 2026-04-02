@@ -13,6 +13,7 @@ use bollard::models::VolumeCreateRequest;
 use bollard::query_parameters::{ListVolumesOptions, RemoveVolumeOptions};
 use thiserror::Error;
 use twerk_core::mount::Mount;
+use twerk_core::uuid::new_uuid;
 
 /// Errors from volume mount operations.
 #[derive(Debug, Error)]
@@ -74,7 +75,7 @@ impl VolumeMounter {
     /// Returns `VolumeMounterError` if the volume cannot be created.
     pub async fn mount(&self, mnt: &Mount) -> Result<Mount, VolumeMounterError> {
         // Generate a unique name for the volume
-        let name = uuid::Uuid::new_v4().to_string();
+        let name = new_uuid();
 
         // Get the Docker client
         let client = self.client.read().await;

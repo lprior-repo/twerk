@@ -10,7 +10,7 @@ pub fn extract_env_vars() -> HashMap<String, toml::Value> {
         if key.starts_with("TWERK_") {
             let config_key = key
                 .trim_start_matches("TWERK_")
-                .to_lowercase()
+                .to_ascii_lowercase()
                 .replace('_', ".");
             values.insert(config_key, toml::Value::String(value));
         }

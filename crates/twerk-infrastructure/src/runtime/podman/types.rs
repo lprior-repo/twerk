@@ -141,14 +141,6 @@ impl Clone for Box<dyn Broker + Send + Sync> {
     }
 }
 
-impl Broker for () {
-    fn clone_box(&self) -> Box<dyn Broker + Send + Sync> {
-        Box::new(())
-    }
-    fn ship_log(&self, _task_id: &str, _line: &str) {}
-    fn publish_task_progress(&self, _task_id: &str, _progress: f64) {}
-}
-
 /// Mounter trait for volume mounts
 pub trait Mounter: Send + Sync {
     /// Mounts a volume.
@@ -185,5 +177,7 @@ pub(crate) struct RegistryCredentials {
 pub(crate) const DEFAULT_WORKDIR: &str = "/twerk/workdir";
 pub(crate) const HOST_NETWORK_NAME: &str = "host";
 pub(crate) const PROGRESS_POLL_INTERVAL: Duration = Duration::from_secs(10);
-pub(crate) const DEFAULT_IMAGE_TTL: Duration = Duration::from_secs(72 * 3600);
 pub(crate) const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
+
+// Re-export DEFAULT_IMAGE_TTL from runtime module for consistency
+pub(crate) use crate::runtime::DEFAULT_IMAGE_TTL;

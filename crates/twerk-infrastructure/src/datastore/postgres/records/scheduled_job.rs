@@ -134,20 +134,11 @@ impl ScheduledJobRecordExt for ScheduledJobRecord {
 
 #[cfg(test)]
 mod tests {
+    use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;
 
     // ── Helpers ──────────────────────────────────────────────────────────
-
-    /// Creates a fixed-point timestamp for deterministic tests.
-    fn fixed_now() -> time::OffsetDateTime {
-        time::OffsetDateTime::new_utc(
-            time::Date::from_calendar_date(2026, time::Month::March, 22).unwrap_or_else(|_| {
-                time::Date::from_calendar_date(2026, time::Month::January, 1).unwrap()
-            }),
-            time::Time::from_hms(12, 0, 0).unwrap_or(time::Time::MIDNIGHT),
-        )
-    }
 
     fn base_scheduled_job_record() -> ScheduledJobRecord {
         let now = fixed_now();
@@ -160,8 +151,9 @@ mod tests {
             state: "ACTIVE".to_string(),
             created_at: now,
             created_by: "user-001".to_string(),
-            tasks: serde_json::to_vec(&Vec::<Task>::new()).unwrap_or_default(),
-            inputs: serde_json::to_vec(&HashMap::<String, String>::new()).unwrap_or_default(),
+            tasks: serde_json::to_vec(&Vec::<twerk_core::task::Task>::new()).unwrap_or_default(),
+            inputs: serde_json::to_vec(&std::collections::HashMap::<String, String>::new())
+                .unwrap_or_default(),
             output_: None,
             defaults: None,
             webhooks: None,

@@ -164,7 +164,7 @@ pub fn parse(s: &str) -> Result<Reference, ReferenceError> {
 
     let captures = REFERENCE_REGEX.captures(s).ok_or_else(|| {
         // Check if lowercase version would match (indicates uppercase)
-        if REFERENCE_REGEX.is_match(&s.to_lowercase()) {
+        if REFERENCE_REGEX.is_match(&s.to_ascii_lowercase()) {
             ReferenceError::ContainsUppercase
         } else {
             ReferenceError::InvalidFormat

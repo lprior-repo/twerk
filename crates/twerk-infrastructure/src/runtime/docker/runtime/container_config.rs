@@ -4,15 +4,17 @@ use std::collections::HashMap;
 
 use bollard::config::NetworkingConfig;
 use bollard::models::{
-    DeviceRequest, EndpointSettings, HealthConfig, Mount as BollardMount, MountTypeEnum,
-    PortBinding,
+    EndpointSettings, HealthConfig, Mount as BollardMount, MountTypeEnum, PortBinding,
 };
 
+use super::super::config::UNKNOWN_MOUNT_TYPE_NONE;
 use super::super::error::DockerError;
-use super::super::helpers::{parse_go_duration, parse_memory_bytes, slugify};
+use super::super::helpers::{parse_go_duration, parse_memory_bytes, port_key, slugify};
 use super::types::{
-    DEFAULT_CMD, DEFAULT_PROBE_PATH, DEFAULT_PROBE_TIMEOUT, DEFAULT_WORKDIR, RUN_ENTRYPOINT,
+    DEFAULT_CMD, DEFAULT_PROBE_PATH, DEFAULT_PROBE_TIMEOUT, DEFAULT_WORKDIR, PROBE_TIMEOUT_SECS,
+    RUN_ENTRYPOINT,
 };
+use twerk_core::env::format_kv;
 use twerk_core::mount::mount_type;
 use twerk_core::task::{Probe, Task, TaskLimits};
 
@@ -48,68 +50,6 @@ pub(super) fn parse_limits(
     Ok((nano_cpus, memory))
 }
 
-/// Parses GPU options into `DeviceRequests`.
-///
-/// Go parity: `cliopts.GpuOpts.Set(t.GPUs)` — handles count, driver,
-/// capabilities, device IDs.
-pub(super) fn parse_gpu_options(gpu_str: &str) -> Result<Vec<DeviceRequest>, DockerError> {
-    let mut count: Option<i64> = None;
-    let mut driver: Option<String> = None;
-    let mut capabilities: Vec<String> = Vec::new();
-    let mut device_ids: Vec<String> = Vec::new();
-
-    for part in gpu_str.split(',') {
-        let part = part.trim();
-        if let Some((key, value)) = part.split_once('=') {
-            match key.trim() {
-                "count" => {
-                    count = if value.trim() == "all" {
-                        Some(-1)
-                    } else {
-                        Some(value.trim().parse::<i64>().map_err(|_| {
-                            DockerError::InvalidGpuOptions(format!("invalid count: {value}"))
-                        })?)
-                    };
-                }
-                "driver" => {
-                    driver = Some(value.trim().to_string());
-                }
-                "capabilities" => {
-                    for cap in value.split(';') {
-                        capabilities.push(cap.trim().to_string());
-                    }
-                }
-                "device" => {
-                    for dev in value.split(';') {
-                        device_ids.push(dev.trim().to_string());
-                    }
-                }
-                other => {
-                    return Err(DockerError::InvalidGpuOptions(format!(
-                        "unknown GPU option: {other}"
-                    )));
-                }
-            }
-        }
-    }
-
-    if capabilities.is_empty() {
-        capabilities.push("gpu".to_string());
-    }
-
-    Ok(vec![DeviceRequest {
-        count,
-        driver,
-        capabilities: Some(vec![capabilities]),
-        device_ids: if device_ids.is_empty() {
-            None
-        } else {
-            Some(device_ids)
-        },
-        options: None,
-    }])
-}
-
 /// Container environment configuration.
 pub(super) struct ContainerEnv {
     pub env: Vec<String>,
@@ -119,7 +59,7 @@ impl ContainerEnv {
     /// Builds environment variables from task configuration.
     pub(super) fn build(task: &Task) -> Self {
         let mut env: Vec<String> = if let Some(ref env_map) = task.env {
-            env_map.iter().map(|(k, v)| format!("{k}={v}")).collect()
+            env_map.iter().map(|(k, v)| format_kv(k, v)).collect()
         } else {
             Vec::new()
         };
@@ -159,7 +99,11 @@ impl ContainerMounts {
                     }
                     Some(mount_type::TMPFS) => MountTypeEnum::TMPFS,
                     Some(other) => return Err(DockerError::UnknownMountType(other.to_string())),
-                    None => return Err(DockerError::UnknownMountType("none".to_string())),
+                    None => {
+                        return Err(DockerError::UnknownMountType(
+                            UNKNOWN_MOUNT_TYPE_NONE.to_string(),
+                        ))
+                    }
                 };
                 tracing::debug!(source = ?mnt.source, target = ?mnt.target, "Mounting");
                 mounts.push(BollardMount {
@@ -199,7 +143,7 @@ impl ContainerProbe {
 
         if let Some(probe) = probe {
             let port = probe.port;
-            let port_key = format!("{port}/tcp");
+            let port_key = port_key(port.cast_unsigned());
             exposed_ports.push(port_key.clone());
             port_bindings.insert(
                 port_key,
@@ -215,9 +159,9 @@ impl ContainerProbe {
                 .timeout
                 .as_deref()
                 .map_or(DEFAULT_PROBE_TIMEOUT, |t| t);
-            let timeout =
-                parse_go_duration(timeout_str).map_or(std::time::Duration::from_secs(60), |v| v);
-            let interval = std::time::Duration::from_secs(30);
+            let timeout = parse_go_duration(timeout_str)
+                .map_or(std::time::Duration::from_secs(PROBE_TIMEOUT_SECS), |v| v);
+            let interval = crate::runtime::DEFAULT_TIMEOUT;
 
             healthcheck = Some(HealthConfig {
                 test: Some(vec![

@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 //! Expression evaluation module — 100% parity with Go `internal/eval`.
 //!
 //! Provides template evaluation with `{{ expression }}` syntax and
@@ -20,6 +22,8 @@
 //! - [`template`] - Template string evaluation
 //! - [`transform`] - Expression sanitization and operator transforms
 
+use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 pub mod condition;
@@ -34,6 +38,13 @@ pub use condition::{evaluate_condition, evaluate_task_condition};
 pub use task::evaluate_task;
 pub use template::{evaluate_expr, evaluate_template, valid_expr};
 pub use transform::{sanitize_expr, transform_operators};
+
+static TEMPLATE_REGEX: LazyLock<Regex, fn() -> Regex> =
+    LazyLock::new(|| Regex::new(r"\{\{\s*(.+?)\s*\}\}").expect("template regex is valid"));
+
+fn get_template_regex() -> &'static Regex {
+    &TEMPLATE_REGEX
+}
 
 /// Errors that can occur during evaluation.
 #[derive(Debug, Error, PartialEq)]

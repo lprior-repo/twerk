@@ -2,7 +2,7 @@
 
 #[must_use]
 pub fn make(s: &str) -> String {
-    s.to_lowercase()
+    s.to_ascii_lowercase()
         .chars()
         .map(|c| if c == ' ' { '-' } else { c })
         .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')

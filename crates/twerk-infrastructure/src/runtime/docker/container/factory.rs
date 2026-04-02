@@ -5,9 +5,13 @@
 
 use crate::broker::Broker;
 use crate::runtime::docker::archive::Archive;
+use crate::runtime::docker::config::{
+    CREATED_CONTAINER, CREATION_TIMED_OUT, UNKNOWN_MOUNT_TYPE_NONE,
+};
 use crate::runtime::docker::error::DockerError;
-use crate::runtime::docker::helpers::{parse_memory_bytes, slugify};
+use crate::runtime::docker::helpers::{parse_gpu_options, parse_memory_bytes, slugify};
 use crate::runtime::docker::mounters::Mounter;
+use crate::runtime::DEFAULT_TIMEOUT;
 use bollard::config::{HostConfig, NetworkingConfig};
 use bollard::models::{
     ContainerCreateBody, EndpointSettings, Mount as BollardMount, MountTypeEnum, PortBinding,
@@ -19,6 +23,8 @@ use bollard::{body_full, Docker};
 use std::collections::HashMap;
 use std::io::Read;
 use std::sync::Arc;
+use twerk_common::constants::DEFAULT_TASK_NAME;
+use twerk_core::env::format_kv;
 use twerk_core::mount::mount_type;
 use twerk_core::task::Task;
 use twerk_core::uuid::new_uuid;
@@ -54,67 +60,6 @@ fn parse_memory(limits: Option<&twerk_core::task::TaskLimits>) -> Result<Option<
     Ok(memory)
 }
 
-/// Parses GPU options string into `DeviceRequest` configuration.
-fn parse_gpu_options(gpu_str: &str) -> Result<Vec<bollard::models::DeviceRequest>, DockerError> {
-    use bollard::models::DeviceRequest;
-
-    let mut count: Option<i64> = None;
-    let mut driver: Option<String> = None;
-    let mut capabilities: Vec<String> = Vec::new();
-    let mut device_ids: Vec<String> = Vec::new();
-
-    for part in gpu_str.split(',') {
-        let part = part.trim();
-        if let Some((key, value)) = part.split_once('=') {
-            match key.trim() {
-                "count" => {
-                    count = if value.trim() == "all" {
-                        Some(-1)
-                    } else {
-                        Some(value.trim().parse::<i64>().map_err(|_| {
-                            DockerError::InvalidGpuOptions(format!("invalid count: {value}"))
-                        })?)
-                    };
-                }
-                "driver" => {
-                    driver = Some(value.trim().to_string());
-                }
-                "capabilities" => {
-                    for cap in value.split(';') {
-                        capabilities.push(cap.trim().to_string());
-                    }
-                }
-                "device" => {
-                    for dev in value.split(';') {
-                        device_ids.push(dev.trim().to_string());
-                    }
-                }
-                other => {
-                    return Err(DockerError::InvalidGpuOptions(format!(
-                        "unknown GPU option: {other}"
-                    )));
-                }
-            }
-        }
-    }
-
-    if capabilities.is_empty() {
-        capabilities.push("gpu".to_string());
-    }
-
-    Ok(vec![DeviceRequest {
-        count,
-        driver,
-        capabilities: Some(vec![capabilities]),
-        device_ids: if device_ids.is_empty() {
-            None
-        } else {
-            Some(device_ids)
-        },
-        options: None,
-    }])
-}
-
 /// Builds mount configuration from task mounts.
 fn build_mounts(task: &Task) -> Result<Vec<BollardMount>, DockerError> {
     let mut mounts: Vec<BollardMount> = Vec::new();
@@ -140,7 +85,11 @@ fn build_mounts(task: &Task) -> Result<Vec<BollardMount>, DockerError> {
                 }
                 Some(mount_type::TMPFS) => MountTypeEnum::TMPFS,
                 Some(other) => return Err(DockerError::UnknownMountType(other.to_string())),
-                None => return Err(DockerError::UnknownMountType("none".to_string())),
+                None => {
+                    return Err(DockerError::UnknownMountType(
+                        UNKNOWN_MOUNT_TYPE_NONE.to_string(),
+                    ))
+                }
             };
 
             tracing::debug!(source = ?mnt.source, target = ?mnt.target, "Mounting");
@@ -159,7 +108,7 @@ fn build_mounts(task: &Task) -> Result<Vec<BollardMount>, DockerError> {
 /// Builds environment variables from task configuration.
 fn build_env(task: &Task) -> Vec<String> {
     let mut env: Vec<String> = if let Some(ref env_map) = task.env {
-        env_map.iter().map(|(k, v)| format!("{k}={v}")).collect()
+        env_map.iter().map(|(k, v)| format_kv(k, v)).collect()
     } else {
         Vec::new()
     };
@@ -192,7 +141,7 @@ fn build_networking_config(task: &Task) -> Option<NetworkingConfig> {
 
     let mut endpoints = HashMap::new();
     if let Some(ref networks) = task.networks {
-        let alias = slugify(task.name.as_deref().unwrap_or("unknown"));
+        let alias = slugify(task.name.as_deref().unwrap_or(DEFAULT_TASK_NAME));
         for nw in networks {
             endpoints.insert(
                 nw.clone(),
@@ -332,7 +281,7 @@ pub async fn create_task_container(
     };
 
     let create_ctx = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
+        DEFAULT_TIMEOUT,
         client.create_container(
             Some(CreateContainerOptions {
                 name: None,
@@ -342,7 +291,7 @@ pub async fn create_task_container(
         ),
     )
     .await
-    .map_err(|_| DockerError::ContainerCreate("creation timed out".to_string()))?
+    .map_err(|_| DockerError::ContainerCreate(CREATION_TIMED_OUT.to_string()))?
     .map_err(|e| {
         tracing::error!(image = %image, error = %e, "Error creating container");
         DockerError::ContainerCreate(e.to_string())
@@ -397,7 +346,7 @@ pub async fn create_task_container(
         }
     }
 
-    tracing::debug!(container_id = %container_id, "Created container");
+    tracing::debug!(container_id = %container_id, CREATED_CONTAINER);
 
     Ok(tc)
 }
@@ -426,25 +375,25 @@ async fn init_workdir_for_container(tc: &Tcontainer, workdir: &str) -> Result<()
         return Ok(());
     }
 
-    let mut archive = Archive::new().map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+    let mut archive = Archive::new().map_err(|e| DockerError::copy_to_container(&e))?;
 
     for (name, data) in files {
         archive
             .write_file(name, 0o444, data.as_bytes())
-            .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+            .map_err(|e| DockerError::copy_to_container(&e))?;
     }
 
     archive
         .finish()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut reader = archive
         .reader()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let mut contents = Vec::new();
     Read::read_to_end(&mut reader, &mut contents)
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     let options = UploadToContainerOptions {
         path: workdir.to_string(),
@@ -454,11 +403,11 @@ async fn init_workdir_for_container(tc: &Tcontainer, workdir: &str) -> Result<()
     tc.client
         .upload_to_container(&tc.id, Some(options), body_full(contents.into()))
         .await
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     archive
         .remove()
-        .map_err(|e| DockerError::CopyToContainer(e.to_string()))?;
+        .map_err(|e| DockerError::copy_to_container(&e))?;
 
     Ok(())
 }

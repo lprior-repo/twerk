@@ -4,9 +4,11 @@ use std::path::Path;
 
 use tokio::process::Command;
 
-use super::super::slug::make as slugify;
 use super::super::types::{CoreTask, DEFAULT_WORKDIR, HOST_NETWORK_NAME};
 use super::types::PodmanRuntime;
+use crate::runtime::docker::helpers::slugify;
+use twerk_common::constants::{DEFAULT_MOUNT_TYPE, DEFAULT_TASK_NAME};
+use twerk_core::env::format_kv;
 
 impl PodmanRuntime {
     /// Build podman create command with all options
@@ -29,7 +31,7 @@ impl PodmanRuntime {
 
         // Environment variables
         let env_vars: Vec<String> = task.env.as_ref().map_or(Vec::new(), |env| {
-            env.iter().map(|(k, v)| format!("{k}={v}")).collect()
+            env.iter().map(|(k, v)| format_kv(k, v)).collect()
         });
 
         let mut all_env = env_vars;
@@ -42,7 +44,7 @@ impl PodmanRuntime {
 
         // Networks
         if let Some(ref networks) = task.networks {
-            let task_name = task.name.as_deref().unwrap_or("unknown");
+            let task_name = task.name.as_deref().unwrap_or(DEFAULT_TASK_NAME);
             for network in networks {
                 if network == HOST_NETWORK_NAME {
                     create_cmd.arg("--network").arg(network);
@@ -57,7 +59,7 @@ impl PodmanRuntime {
         // Mounts
         if let Some(ref mounts) = task.mounts {
             for mnt in mounts {
-                let mount_type_str = mnt.mount_type.as_deref().unwrap_or("volume");
+                let mount_type_str = mnt.mount_type.as_deref().unwrap_or(DEFAULT_MOUNT_TYPE);
                 if mount_type_str == "tmpfs" {
                     let target = mnt.target.as_deref().unwrap_or("");
                     create_cmd.arg("--tmpfs").arg(target);

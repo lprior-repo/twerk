@@ -39,7 +39,13 @@ pub(crate) fn parse_body_limit(s: &str) -> Option<usize> {
     } else if let Some(stripped) = s.strip_suffix('G') {
         (stripped, 1024 * 1024 * 1024)
     } else {
-        return s.parse().ok();
+        match s.parse::<usize>() {
+            Ok(val) => return Some(val),
+            Err(e) => {
+                tracing::warn!(error = %e, input = s, "failed to parse body limit fallback");
+                return None;
+            }
+        }
     };
 
     match num_str.parse::<usize>() {
@@ -53,13 +59,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_wildcard_match_exact() {
+    fn wildcard_match_returns_true_when_exact_match() {
         assert!(wildcard_match("abc", "abc"));
         assert!(!wildcard_match("abc", "abd"));
     }
 
     #[test]
-    fn test_wildcard_match_star() {
+    fn wildcard_match_returns_true_when_star_used() {
         assert!(wildcard_match("*", "anything"));
         assert!(wildcard_match("a*c", "abc"));
         assert!(wildcard_match("a*c", "aXXc"));
@@ -67,20 +73,20 @@ mod tests {
     }
 
     #[test]
-    fn test_wildcard_match_empty() {
+    fn wildcard_match_returns_true_when_empty() {
         assert!(wildcard_match("", ""));
         assert!(!wildcard_match("", "a"));
         assert!(!wildcard_match("a", ""));
     }
 
     #[test]
-    fn test_wildcard_match_multiple_stars() {
+    fn wildcard_match_returns_true_when_multiple_stars() {
         assert!(wildcard_match("*:*", "foo:bar"));
         assert!(wildcard_match("a*b*c", "axbxc"));
     }
 
     #[test]
-    fn test_parse_body_limit() {
+    fn parse_body_limit_returns_parsed_bytes_when_valid_input() {
         assert_eq!(parse_body_limit("500K"), Some(500 * 1024));
         assert_eq!(parse_body_limit("1M"), Some(1024 * 1024));
         assert_eq!(parse_body_limit("1G"), Some(1024 * 1024 * 1024));
@@ -88,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_body_limit_edge_cases() {
+    fn parse_body_limit_returns_none_when_invalid_input() {
         assert_eq!(parse_body_limit(""), None);
         assert_eq!(parse_body_limit("invalid"), None);
         assert_eq!(parse_body_limit("K"), None); // no number

@@ -45,50 +45,36 @@ async fn terminate_process(
     }
 
     // Wait for graceful termination with timeout
-    let start = std::time::Instant::now();
     let graceful_duration = Duration::from_secs(graceful_timeout);
+    let wait_future = async {
+        tokio::process::Command::new("wait")
+            .arg(pid.to_string())
+            .output()
+            .await
+    };
 
-    loop {
-        // Check if process is still running
-        if signal::kill(pid, Signal::SIGTERM).is_err() {
-            // Process is gone
-            break;
+    match tokio::time::timeout(graceful_duration, wait_future).await {
+        Ok(Ok(out)) => {
+            if let Some(code) = out.status.code() {
+                return Ok(ExitCode::from(code as u8));
+            }
+            Ok(ExitCode::SUCCESS)
         }
-
-        // Check if we've exceeded graceful timeout
-        if start.elapsed() >= graceful_duration {
-            // Send SIGKILL (force termination)
+        Ok(Err(_)) => {
+            // Wait command failed
+            Ok(ExitCode::from(137))
+        }
+        Err(_) => {
+            // Timeout exceeded, force kill
             if let Err(e) = signal::kill(pid, Signal::SIGKILL) {
                 return Err(ShutdownError::TerminationFailed(format!(
                     "failed to send SIGKILL: {}",
                     e
                 )));
             }
-            break;
-        }
-
-        // Wait a bit before checking again
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-
-    // Wait for process to fully exit and get exit code
-    match tokio::process::Command::new("wait")
-        .arg(pid.to_string())
-        .output()
-        .await
-    {
-        Ok(out) => {
-            if let Some(code) = out.status.code() {
-                return Ok(ExitCode::from(code as u8));
-            }
-        }
-        Err(_) => {
-            // If wait fails, assume SIGKILL exit code
-            return Ok(ExitCode::from(137)); // SIGKILL = 137
+            Ok(ExitCode::from(137))
         }
     }
-
-    Ok(ExitCode::SUCCESS)
 }
 
 // Module-level function to avoid lifetime issues with associated functions
@@ -374,28 +360,28 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_task_empty_id() {
+    fn validate_task_returns_error_when_id_is_empty() {
         let task = create_test_task("", "RUNNING");
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::InvalidTaskId(_))));
     }
 
     #[test]
-    fn test_validate_task_completed_state() {
+    fn validate_task_returns_error_when_state_is_completed() {
         let task = create_test_task("task-1", "COMPLETED");
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));
     }
 
     #[test]
-    fn test_validate_task_running_state() {
+    fn validate_task_returns_ok_when_state_is_running() {
         let task = create_test_task("task-1", "RUNNING");
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_validate_task_stopped_state() {
+    fn validate_task_returns_error_when_state_is_stopped() {
         let task = create_test_task("task-1", "STOPPED");
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));

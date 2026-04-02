@@ -78,27 +78,26 @@ pub(crate) fn tasks(
         .map(|entry| entry.value().clone())
         .unwrap_or_default();
 
-    // Invoke all registered handlers for each task
-    if !handlers.is_empty() && !task_arcs.is_empty() {
-        let mut jobs = Vec::with_capacity(task_arcs.len() * handlers.len());
-        for task_arc in &task_arcs {
-            for handler in &handlers {
-                jobs.push((handler.clone(), Arc::clone(task_arc)));
+    Box::pin(async move {
+        // Invoke all registered handlers for each task
+        if !handlers.is_empty() && !task_arcs.is_empty() {
+            let mut jobs = Vec::with_capacity(task_arcs.len() * handlers.len());
+            for task_arc in &task_arcs {
+                for handler in &handlers {
+                    jobs.push((handler.clone(), Arc::clone(task_arc)));
+                }
             }
-        }
-        tokio::spawn(async move {
             use futures_util::StreamExt;
             futures_util::stream::iter(jobs)
-                .for_each_concurrent(100, |(handler, task)| async move {
-                    if handler(task).await.is_err() {
-                        warn!("batch task handler failed");
+                .for_each_concurrent(None, |(handler, task)| async move {
+                    if let Err(e) = handler(task).await {
+                        warn!(error = %e, "batch task handler failed");
                     }
                 })
                 .await;
-        });
-    }
-
-    Box::pin(async { Ok(()) })
+        }
+        Ok(())
+    })
 }
 
 /// Publish task progress.

@@ -170,9 +170,17 @@ async fn run_task(
                     );
                     if let Some(source) = sidecar_twerkdir {
                         let remove_volume = sc.remove_volume(&source, None::<RemoveVolumeOptions>);
-                        let _ = tokio::join!(remove_container, remove_volume);
+                        let (res_c, res_v) = tokio::join!(remove_container, remove_volume);
+                        if let Err(e) = res_c {
+                            tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
+                        }
+                        if let Err(e) = res_v {
+                            tracing::warn!(error = %e, volume = %source, "failed to remove sidecar volume");
+                        }
                     } else {
-                        let _ = remove_container.await;
+                        if let Err(e) = remove_container.await {
+                            tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
+                        }
                     }
                 });
             }
@@ -197,9 +205,17 @@ async fn run_task(
     );
     if let Some(source) = twerkdir_source {
         let remove_volume = client.remove_volume(&source, None::<RemoveVolumeOptions>);
-        let _ = tokio::join!(remove_container, remove_volume);
+        let (res_c, res_v) = tokio::join!(remove_container, remove_volume);
+        if let Err(e) = res_c {
+            tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
+        }
+        if let Err(e) = res_v {
+            tracing::warn!(error = %e, volume = %source, "failed to remove main volume");
+        }
     } else {
-        let _ = remove_container.await;
+        if let Err(e) = remove_container.await {
+            tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
+        }
     }
 
     result

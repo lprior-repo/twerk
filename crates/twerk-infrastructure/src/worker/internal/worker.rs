@@ -9,7 +9,6 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use dashmap::DashMap;
 use tokio::sync::broadcast;
-use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use twerk_core::id::TaskId;
@@ -41,6 +40,8 @@ pub struct Worker {
     queues: HashMap<String, i32>,
     /// Active tasks
     active_tasks: Arc<DashMap<TaskId, RunningTask>>,
+    /// Notification for task completion
+    tasks_notify: Arc<tokio::sync::Notify>,
     /// Default resource limits
     limits: Limits,
     /// Worker API
@@ -76,6 +77,7 @@ impl Worker {
             stop_tx,
             queues: config.queues,
             active_tasks: Arc::new(DashMap::new()),
+            tasks_notify: Arc::new(tokio::sync::Notify::new()),
             limits: config.limits,
             api,
         })
@@ -155,6 +157,7 @@ impl Worker {
                 let runtime = self.runtime.clone();
                 let limits = self.limits.clone();
                 let active_tasks = self.active_tasks.clone();
+                let tasks_notify = self.tasks_notify.clone();
                 let qname_clone = qname.clone();
 
                 let handler: TaskHandler = Arc::new(move |task: Arc<Task>| {
@@ -162,8 +165,9 @@ impl Worker {
                     let broker = broker.clone();
                     let limits = limits.clone();
                     let active_tasks = active_tasks.clone();
+                    let tasks_notify = tasks_notify.clone();
                     Box::pin(async move {
-                        execute_task(task, runtime, broker, limits, active_tasks).await
+                        execute_task(task, runtime, broker, limits, active_tasks, tasks_notify).await
                     })
                 });
 
@@ -203,17 +207,15 @@ impl Worker {
         // Send stop signal
         let _ = self.stop_tx.send(());
 
-        // Wait for active tasks to complete (with timeout) using iterator pattern
-        let timeout = Duration::from_secs(15);
-        let start = std::time::Instant::now();
-        let check_interval = Duration::from_millis(100);
-
-        // Use iterator pattern instead of while loop
-        let is_complete = || start.elapsed() >= timeout || self.active_tasks.is_empty();
-
-        while !is_complete() {
-            sleep(check_interval).await;
-        }
+        // Wait for active tasks to complete (with timeout)
+        let _ = tokio::time::timeout(
+            Duration::from_secs(15),
+            async {
+                while !self.active_tasks.is_empty() {
+                    self.tasks_notify.notified().await;
+                }
+            }
+        ).await;
 
         if !self.active_tasks.is_empty() {
             warn!(

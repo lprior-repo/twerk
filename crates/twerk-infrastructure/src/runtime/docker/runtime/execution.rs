@@ -161,17 +161,18 @@ async fn run_task(
                 // Defer sidecar removal
                 let sc = client.clone();
                 tokio::spawn(async move {
-                    let _ = sc
-                        .remove_container(
-                            &sidecar_id,
-                            Some(RemoveContainerOptions {
-                                force: true,
-                                ..Default::default()
-                            }),
-                        )
-                        .await;
+                    let remove_container = sc.remove_container(
+                        &sidecar_id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    );
                     if let Some(source) = sidecar_twerkdir {
-                        let _ = sc.remove_volume(&source, None::<RemoveVolumeOptions>).await;
+                        let remove_volume = sc.remove_volume(&source, None::<RemoveVolumeOptions>);
+                        let _ = tokio::join!(remove_container, remove_volume);
+                    } else {
+                        let _ = remove_container.await;
                     }
                 });
             }
@@ -187,19 +188,18 @@ async fn run_task(
     .await;
 
     // Clean up main container
-    let _ = client
-        .remove_container(
-            &container_id,
-            Some(RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            }),
-        )
-        .await;
+    let remove_container = client.remove_container(
+        &container_id,
+        Some(RemoveContainerOptions {
+            force: true,
+            ..Default::default()
+        }),
+    );
     if let Some(source) = twerkdir_source {
-        let _ = client
-            .remove_volume(&source, None::<RemoveVolumeOptions>)
-            .await;
+        let remove_volume = client.remove_volume(&source, None::<RemoveVolumeOptions>);
+        let _ = tokio::join!(remove_container, remove_volume);
+    } else {
+        let _ = remove_container.await;
     }
 
     result

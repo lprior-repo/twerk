@@ -79,11 +79,23 @@ pub(crate) fn tasks(
         .unwrap_or_default();
 
     // Invoke all registered handlers for each task
-    for task_arc in &task_arcs {
-        for handler in &handlers {
-            let task_clone = Arc::clone(task_arc);
-            spawn_handler(handler.clone(), task_clone, "batch task handler failed");
+    if !handlers.is_empty() && !task_arcs.is_empty() {
+        let mut jobs = Vec::with_capacity(task_arcs.len() * handlers.len());
+        for task_arc in &task_arcs {
+            for handler in &handlers {
+                jobs.push((handler.clone(), Arc::clone(task_arc)));
+            }
         }
+        tokio::spawn(async move {
+            use futures_util::StreamExt;
+            futures_util::stream::iter(jobs)
+                .for_each_concurrent(100, |(handler, task)| async move {
+                    if handler(task).await.is_err() {
+                        warn!("batch task handler failed");
+                    }
+                })
+                .await;
+        });
     }
 
     Box::pin(async { Ok(()) })

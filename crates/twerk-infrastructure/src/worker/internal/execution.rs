@@ -30,6 +30,7 @@ pub async fn execute_task(
     broker: Arc<dyn Broker>,
     limits: Limits,
     active_tasks: Arc<DashMap<TaskId, RunningTask>>,
+    tasks_notify: Arc<tokio::sync::Notify>,
 ) -> Result<()> {
     let tid = task.id.clone();
 
@@ -74,6 +75,7 @@ pub async fn execute_task(
     // Remove from active tasks
     if let Some(ref id) = tid {
         active_tasks.remove(id);
+        tasks_notify.notify_waiters();
     }
 
     // Publish final state

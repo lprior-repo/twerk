@@ -26,12 +26,16 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 }
 
 /// GET /nodes
+///
+/// # Errors
 pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let nodes = state.ds.get_active_nodes().await.map_err(ApiError::from)?;
     Ok(axum::Json(nodes).into_response())
 }
 
 /// GET /metrics
+///
+/// # Errors
 pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let metrics = state.ds.get_metrics().await.map_err(ApiError::from)?;
     Ok(axum::Json(metrics).into_response())
@@ -45,6 +49,8 @@ pub struct CreateUserBody {
 }
 
 /// POST /users
+///
+/// # Errors
 pub async fn create_user_handler(
     State(state): State<AppState>,
     axum::Json(body): axum::Json<CreateUserBody>,

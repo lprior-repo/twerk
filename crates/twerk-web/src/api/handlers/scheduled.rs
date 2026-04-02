@@ -9,6 +9,7 @@ use serde_json::json;
 use twerk_core::job::{
     new_scheduled_job_summary, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
 };
+use twerk_core::validation::{validate_cron, validate_job};
 
 use super::super::error::ApiError;
 use super::tasks::PaginationQuery;
@@ -31,6 +32,8 @@ pub struct CreateScheduledJobBody {
 }
 
 /// POST /scheduled-jobs
+///
+/// # Errors
 pub async fn create_scheduled_job_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -59,9 +62,8 @@ pub async fn create_scheduled_job_handler(
         .as_ref()
         .ok_or_else(|| ApiError::bad_request("tasks is required"))?;
 
-    use twerk_core::validation::{validate_cron, validate_job};
     if let Err(e) = validate_cron(&cron) {
-        return Err(ApiError::bad_request(e.to_string()));
+        return Err(ApiError::bad_request(e));
     }
     if let Err(errors) = validate_job(
         sj_input.name.as_ref(),
@@ -104,6 +106,8 @@ pub async fn create_scheduled_job_handler(
 }
 
 /// GET /scheduled-jobs
+///
+/// # Errors
 pub async fn list_scheduled_jobs_handler(
     State(state): State<AppState>,
     Query(qp): Query<PaginationQuery>,
@@ -123,6 +127,8 @@ pub async fn list_scheduled_jobs_handler(
 }
 
 /// GET /scheduled-jobs/{id}
+///
+/// # Errors
 pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -137,6 +143,8 @@ pub async fn get_scheduled_job_handler(
 }
 
 /// PUT /scheduled-jobs/{id}/pause
+///
+/// # Errors
 pub async fn pause_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -176,6 +184,8 @@ pub async fn pause_scheduled_job_handler(
 }
 
 /// PUT /scheduled-jobs/{id}/resume
+///
+/// # Errors
 pub async fn resume_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -215,6 +225,8 @@ pub async fn resume_scheduled_job_handler(
 }
 
 /// DELETE /scheduled-jobs/{id}
+///
+/// # Errors
 pub async fn delete_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,

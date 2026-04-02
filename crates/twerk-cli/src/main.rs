@@ -7,7 +7,7 @@ use twerk_cli::run;
 async fn main() {
     // Run the CLI
     if let Err(e) = run().await {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         process::exit(1);
     }
 }

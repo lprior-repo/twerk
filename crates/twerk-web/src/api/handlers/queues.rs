@@ -8,6 +8,8 @@ use super::super::error::ApiError;
 use super::AppState;
 
 /// GET /queues
+///
+/// # Errors
 pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let queues = state
         .broker
@@ -18,6 +20,8 @@ pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Respon
 }
 
 /// GET /queues/{name}
+///
+/// # Errors
 pub async fn get_queue_handler(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -32,6 +36,8 @@ pub async fn get_queue_handler(
 }
 
 /// DELETE /queues/{name}
+///
+/// # Errors
 pub async fn delete_queue_handler(
     State(state): State<AppState>,
     Path(name): Path<String>,

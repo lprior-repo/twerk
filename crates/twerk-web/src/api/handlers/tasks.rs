@@ -18,6 +18,8 @@ pub struct PaginationQuery {
 }
 
 /// GET /tasks/{id}
+///
+/// # Errors
 pub async fn get_task_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -35,6 +37,8 @@ pub async fn get_task_handler(
 }
 
 /// GET /tasks/{id}/log
+///
+/// # Errors
 pub async fn get_task_log_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,

@@ -196,8 +196,7 @@ mod tests {
         for queue in coordinator_queues {
             assert!(
                 !is_worker_queue(queue),
-                "{} should NOT be a worker queue",
-                queue
+                "{queue} should NOT be a worker queue"
             );
         }
     }
@@ -381,7 +380,7 @@ mod tests {
 
     // ── Round-trip property tests ──────────────────────────────────────────────
 
-    /// When engine_id is empty, round-trip is identity.
+    /// When `engine_id` is empty, round-trip is identity.
     #[test]
     fn prefixed_queue_extract_round_trip_is_identity_when_engine_id_empty() {
         let queue = "x-pending";
@@ -393,16 +392,18 @@ mod tests {
         assert_eq!(prefixed, queue);
     }
 
-    /// When engine_id is non-empty, extract then re-prefix gives equivalent result.
+    /// When `engine_id` is non-empty, extract then re-prefix gives equivalent result.
     #[test]
+    #[allow(clippy::panic)]
     fn prefixed_queue_extract_and_reprefix_round_trip() {
         let engine_id = "test-abc";
         let queue = "x-pending";
 
         let prefixed = prefixed_queue(queue, engine_id);
         // Extracting and re-prefixing should give same result
-        let extracted = extract_engine_id(&prefixed)
-            .expect("[BUG] extract_engine_id returned None for prefixed queue - round-trip broken");
+        let Some(extracted) = extract_engine_id(&prefixed) else {
+            panic!("[BUG] extract_engine_id returned None for prefixed queue - round-trip broken");
+        };
         let round_tripped = prefixed_queue(queue, &extracted);
         assert_eq!(
             prefixed, round_tripped,
@@ -412,6 +413,7 @@ mod tests {
 
     /// Round-trip for all coordinator queue types.
     #[test]
+    #[allow(clippy::expect_used)]
     fn all_coordinator_queues_round_trip_correctly() {
         let engine_id = "engine-xyz";
         let coordinator_queues = [
@@ -432,16 +434,15 @@ mod tests {
             let round_tripped = prefixed_queue(queue, &extracted);
             assert_eq!(
                 prefixed, round_tripped,
-                "Round-trip failed for queue '{}'",
-                queue
+                "Round-trip failed for queue '{queue}'"
             );
         }
     }
 
     // ── Already-prefixed queue handling ──────────────────────────────────────────
 
-    /// Calling prefixed_queue on an already-prefixed queue appends the new suffix.
-    /// Result is "x-pending.test-abc.test-xyz" - the new engine_id becomes part of suffix.
+    /// Calling `prefixed_queue` on an already-prefixed queue appends the new suffix.
+    /// Result is "x-pending.test-abc.test-xyz" - the new `engine_id` becomes part of suffix.
     /// This is a KNOWN LIMITATION: callers must ensure they don't call this on
     /// already-prefixed queues. The function doesn't prevent double-suffixing.
     #[test]
@@ -463,14 +464,14 @@ mod tests {
 
     // ── Empty/whitespace engine_id edge cases ─────────────────────────────────
 
-    /// Empty engine_id produces unprefixed queue (backward compatible).
+    /// Empty `engine_id` produces unprefixed queue (backward compatible).
     #[test]
     fn empty_engine_id_produces_unprefixed_queue() {
         assert_eq!(prefixed_queue("x-jobs", ""), "x-jobs");
         assert_eq!(prefixed_queue("x-pending", ""), "x-pending");
     }
 
-    /// Whitespace-only engine_id is NOT treated as empty - it produces a prefixed queue.
+    /// Whitespace-only `engine_id` is NOT treated as empty - it produces a prefixed queue.
     /// This is a behavioral edge case to be aware of.
     #[test]
     fn whitespace_engine_id_produces_prefixed_queue() {
@@ -481,7 +482,7 @@ mod tests {
 
     // ── is_task_queue behavior ────────────────────────────────────────────────
 
-    /// is_task_queue is an alias for is_worker_queue - verifies basic delegation.
+    /// `is_task_queue` is an alias for `is_worker_queue` - verifies basic delegation.
     #[test]
     fn is_task_queue_matches_is_worker_queue() {
         // Worker queues

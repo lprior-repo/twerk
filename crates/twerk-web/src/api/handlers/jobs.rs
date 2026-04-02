@@ -24,6 +24,8 @@ pub struct CreateJobQuery {
 }
 
 /// POST /jobs
+///
+/// # Errors
 pub async fn create_job_handler(
     State(state): State<AppState>,
     Query(cq): Query<CreateJobQuery>,
@@ -142,6 +144,8 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 }
 
 /// GET /jobs/{id}
+///
+/// # Errors
 pub async fn get_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -155,6 +159,8 @@ pub async fn get_job_handler(
 }
 
 /// GET /jobs
+///
+/// # Errors
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
     Query(qp): Query<PaginationQuery>,
@@ -179,6 +185,8 @@ pub async fn list_jobs_handler(
 }
 
 /// PUT /jobs/{id}/cancel
+///
+/// # Errors
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -200,6 +208,8 @@ pub async fn cancel_job_handler(
 }
 
 /// PUT /jobs/{id}/restart
+///
+/// # Errors
 pub async fn restart_job_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -221,6 +231,8 @@ pub async fn restart_job_handler(
 }
 
 /// GET /jobs/{id}/log
+///
+/// # Errors
 pub async fn get_job_log_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,

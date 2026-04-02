@@ -69,11 +69,17 @@ pub fn redact_job_summary(summary: &mut JobSummary) {
     }
 }
 
-pub fn redact_task(task: &mut Task, secrets: &HashMap<String, String>) {
+pub fn redact_task<S: std::hash::BuildHasher>(
+    task: &mut Task,
+    secrets: &HashMap<String, String, S>,
+) {
     redact_task_internal(task, secrets);
 }
 
-fn redact_task_internal(task: &mut Task, secrets: &HashMap<String, String>) {
+fn redact_task_internal<S: std::hash::BuildHasher>(
+    task: &mut Task,
+    secrets: &HashMap<String, String, S>,
+) {
     // Redact env
     if let Some(ref mut env) = task.env {
         *env = redact_vars(env, secrets);
@@ -147,9 +153,9 @@ fn is_secret_key(key: &str) -> bool {
         || k.contains("API_KEY")
 }
 
-fn redact_vars(
+fn redact_vars<S: std::hash::BuildHasher>(
     m: &HashMap<String, String>,
-    secrets: &HashMap<String, String>,
+    secrets: &HashMap<String, String, S>,
 ) -> HashMap<String, String> {
     let mut redacted = HashMap::new();
     for (k, v) in m {
@@ -170,7 +176,10 @@ fn redact_vars(
     redacted
 }
 
-pub fn redact_task_log_parts(parts: &mut [TaskLogPart], secrets: &HashMap<String, String>) {
+pub fn redact_task_log_parts<S: std::hash::BuildHasher>(
+    parts: &mut [TaskLogPart],
+    secrets: &HashMap<String, String, S>,
+) {
     if secrets.is_empty() {
         return;
     }

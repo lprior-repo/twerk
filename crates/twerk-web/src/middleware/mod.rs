@@ -30,6 +30,7 @@ pub async fn logging_middleware(
     response
 }
 
+/// # Errors
 pub async fn auth_middleware(
     request: Request<axum::body::Body>,
     next: Next,

@@ -5434,6 +5434,7 @@ dependencies = [
  "lapin",
  "nix",
  "once_cell",
+ "rayon",
  "serde",
  "serde_json",
  "sysinfo",

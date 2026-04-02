@@ -2,6 +2,7 @@
 
 use super::Scheduler;
 use anyhow::Result;
+use rayon::prelude::{ParallelBridge, ParallelIterator};
 use twerk_core::eval::evaluate_task;
 use twerk_core::task::Task;
 use twerk_core::uuid::new_short_uuid;
@@ -53,6 +54,7 @@ impl Scheduler {
 
         let subtasks: Vec<_> = tasks
             .iter()
+            .par_bridge()
             .map(|t| {
                 let evaluated = evaluate_task(t, &job_ctx)
                     .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;

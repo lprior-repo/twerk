@@ -62,13 +62,17 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn create_tasks(&self, tasks: &[Task]) -> Result<()> {
-        for task in tasks {
-            let id = task
-                .id
-                .clone()
-                .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
-            self.tasks.insert(id, task.clone());
-        }
+        tasks
+            .iter()
+            .map(|task| {
+                let id = task
+                    .id
+                    .clone()
+                    .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+                self.tasks.insert(id, task.clone());
+                Ok(())
+            })
+            .collect::<Result<Vec<()>>>()?;
         Ok(())
     }
 
@@ -77,12 +81,12 @@ impl Datastore for InMemoryDatastore {
         id: &str,
         modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,
     ) -> Result<()> {
-        let mut task = self
+        let task = self
             .tasks
             .get(id)
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::TaskNotFound)?;
-        task = modify(task)?;
+        let task = modify(task)?;
         self.tasks.insert(TaskId::new(id), task);
         Ok(())
     }
@@ -136,8 +140,7 @@ impl Datastore for InMemoryDatastore {
         let parts = self
             .task_log_parts
             .get(task_id)
-            .map(|r| r.value().clone())
-            .unwrap_or_default();
+            .map_or_else(Vec::new, |r| r.value().clone());
         Ok(Self::paginate(parts, page, size))
     }
 
@@ -220,12 +223,11 @@ impl Datastore for InMemoryDatastore {
             .filter(|e| e.value().job_id.as_deref() == Some(job_id))
             .filter_map(|e| e.value().id.clone())
             .collect();
-        let mut all_parts = Vec::new();
-        for tid in task_ids {
-            if let Some(parts) = self.task_log_parts.get(&tid) {
-                all_parts.extend(parts.value().clone());
-            }
-        }
+        let all_parts = task_ids
+            .iter()
+            .filter_map(|tid| self.task_log_parts.get(tid))
+            .flat_map(|parts| parts.value().clone())
+            .collect();
         Ok(Self::paginate(all_parts, page, size))
     }
 
@@ -346,8 +348,7 @@ impl Datastore for InMemoryDatastore {
         let role_ids = self
             .user_roles
             .get(user_id)
-            .map(|r| r.value().clone())
-            .unwrap_or_default();
+            .map_or_else(Vec::new, |r| r.value().clone());
         Ok(role_ids
             .iter()
             .filter_map(|rid| self.roles.get(rid).map(|r| r.value().clone()))
@@ -363,6 +364,8 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn unassign_role(&self, user_id: &str, role_id: &str) -> Result<()> {
+        // SAFETY: DashMap::get_mut requires RefMut which necessitates internal mutation.
+        // This is an inherent limitation of the dashmap API at the Actions boundary.
         if let Some(mut roles) = self.user_roles.get_mut(user_id) {
             roles.retain(|r| r != role_id);
         }

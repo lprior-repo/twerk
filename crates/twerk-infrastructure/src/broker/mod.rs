@@ -128,14 +128,16 @@ pub struct RabbitMQOptions {
 pub trait Broker: Send + Sync {
     fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()>;
     fn publish_tasks(&self, qname: String, tasks: &[Task]) -> BoxedFuture<()> {
-        let mut futures = Vec::with_capacity(tasks.len());
-        for t in tasks {
-            futures.push(self.publish_task(qname.clone(), t));
-        }
+        let qname = Arc::new(qname);
+        let futures: Vec<_> = tasks
+            .iter()
+            .map(|t| {
+                let q = Arc::clone(&qname);
+                self.publish_task((*q).clone(), t)
+            })
+            .collect();
         Box::pin(async move {
-            for f in futures {
-                f.await?;
-            }
+            futures_util::future::try_join_all(futures).await?;
             Ok(())
         })
     }

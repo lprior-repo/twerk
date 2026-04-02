@@ -2,6 +2,7 @@
 
 use super::Scheduler;
 use anyhow::Result;
+use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::collections::HashMap;
 use twerk_core::eval::{evaluate_expr, evaluate_task};
 use twerk_core::task::Task;
@@ -104,6 +105,7 @@ impl Scheduler {
         let subtasks: Vec<_> = list
             .iter()
             .enumerate()
+            .par_bridge()
             .map(|(ix, item)| {
                 let cx = {
                     let mut m = job_ctx.clone();

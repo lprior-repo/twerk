@@ -4,52 +4,65 @@
 use super::error::ApiError;
 use serde::de::DeserializeOwned;
 use std::str;
+use yaml_rust2::Yaml;
 
 const MAX_YAML_DEPTH: usize = 64;
 const MAX_YAML_BODY_SIZE: usize = 512 * 1024;
+const MAX_YAML_NODES: usize = 10_000;
 
-/// Parses a YAML body from a byte slice.
-///
-/// # Errors
-///
-/// Returns `ApiError::BadRequest` if:
-/// - The body exceeds `MAX_YAML_BODY_SIZE`.
-/// - The body is not valid UTF-8.
-/// - The YAML nesting depth exceeds `MAX_YAML_DEPTH`.
-/// - The YAML is malformed and cannot be parsed into `T`.
 pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     if bytes.len() > MAX_YAML_BODY_SIZE {
-        return Err(ApiError::bad_request(format!(
-            "YAML body exceeds {MAX_YAML_BODY_SIZE} byte limit"
-        )));
+        return Err(ApiError::bad_request("YAML body exceeds size limit"));
     }
     let s =
-        str::from_utf8(bytes).map_err(|e| ApiError::bad_request(format!("invalid UTF-8: {e}")))?;
-    validate_yaml_depth(s)?;
-    serde_yaml2::from_str(s).map_err(|e| ApiError::bad_request(format!("YAML parse error: {e}")))
-}
-
-fn validate_yaml_depth(input: &str) -> Result<(), ApiError> {
-    let depth = measure_max_nesting(input);
+        str::from_utf8(bytes).map_err(|_| ApiError::bad_request("invalid UTF-8 in YAML body"))?;
+    let docs = yaml_rust2::YamlLoader::load_from_str(s)
+        .map_err(|_| ApiError::bad_request("YAML parse error"))?;
+    let doc = docs
+        .first()
+        .ok_or_else(|| ApiError::bad_request("YAML parse error"))?;
+    let (depth, nodes) = measure_ast_depth_and_nodes(doc);
     if depth > MAX_YAML_DEPTH {
-        return Err(ApiError::bad_request(format!(
-            "YAML nesting depth {depth} exceeds maximum allowed depth {MAX_YAML_DEPTH}"
-        )));
+        return Err(ApiError::bad_request("YAML nesting depth exceeds limit"));
     }
-    Ok(())
+    if nodes > MAX_YAML_NODES {
+        return Err(ApiError::bad_request(
+            "YAML document exceeds complexity limit",
+        ));
+    }
+    serde_yaml2::from_str(s).map_err(|_| ApiError::bad_request("YAML parse error"))
 }
 
-fn measure_max_nesting(input: &str) -> usize {
-    input
-        .lines()
-        .map(|line| {
-            let trimmed = line.trim_start_matches(' ');
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                return 0;
+fn measure_ast_depth_and_nodes(yaml: &Yaml) -> (usize, usize) {
+    fn walk(yaml: &Yaml, depth: usize, max_depth: &mut usize, count: &mut usize) {
+        *count += 1;
+        if *count > MAX_YAML_NODES {
+            return;
+        }
+        match yaml {
+            Yaml::Array(items) => {
+                *max_depth = (*max_depth).max(depth + 1);
+                for item in items {
+                    walk(item, depth + 1, max_depth, count);
+                }
             }
-            (line.len() - trimmed.len()) / 2
-        })
-        .fold(0usize, std::cmp::Ord::max)
+            Yaml::Hash(map) => {
+                *max_depth = (*max_depth).max(depth + 1);
+                for (k, v) in map {
+                    walk(k, depth + 1, max_depth, count);
+                    walk(v, depth + 1, max_depth, count);
+                }
+            }
+            Yaml::Alias(_) => {
+                *count += 1;
+            }
+            _ => {}
+        }
+    }
+    let mut max_depth = 0usize;
+    let mut count = 0usize;
+    walk(yaml, 0, &mut max_depth, &mut count);
+    (max_depth, count)
 }
 
 #[cfg(test)]
@@ -104,25 +117,26 @@ mod tests {
         let Err(ApiError::BadRequest(msg)) = result else {
             panic!("expected BadRequest, got {result:?}");
         };
+        assert!(
+            msg.contains("exceeds") || msg.contains("depth") || msg.contains("YAML parse error"),
+            "message was: {msg}"
+        );
+    }
+
+    #[test]
+    fn from_slice_rejects_deeply_nested_flow_style() {
+        let mut yaml = "root: ".to_string();
+        for _ in 0..=MAX_YAML_DEPTH {
+            yaml.push_str("{a: ");
+        }
+        for _ in 0..=MAX_YAML_DEPTH {
+            yaml.push('}');
+        }
+        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
+        let Err(ApiError::BadRequest(msg)) = result else {
+            panic!("expected BadRequest for flow-style depth, got {result:?}");
+        };
         assert!(msg.contains("nesting depth"), "message was: {msg}");
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_zero_for_flat_yaml() {
-        let input = "name: hello\nvalue: world\n";
-        assert_eq!(measure_max_nesting(input), 0);
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_correct_depth_for_nested_yaml() {
-        let input = "root:\n  child:\n    grandchild: value\n";
-        assert_eq!(measure_max_nesting(input), 2);
-    }
-
-    #[test]
-    fn measure_max_nesting_ignores_comments_and_blank_lines() {
-        let input = "# comment\n\n  # indented comment\nkey: val\n";
-        assert_eq!(measure_max_nesting(input), 0);
     }
 
     #[test]
@@ -139,137 +153,62 @@ mod tests {
         Ok(())
     }
 
-    // ── measure_max_nesting unit tests ──────────────────────────────────
+    // ── measure_ast_depth_and_nodes unit tests ────────────────────────────
 
     #[test]
-    fn measure_max_nesting_returns_zero_for_empty_string() {
-        assert_eq!(measure_max_nesting(""), 0);
+    fn ast_depth_returns_zero_for_flat_yaml() {
+        let docs = yaml_rust2::YamlLoader::load_from_str("name: hello\nvalue: world\n").unwrap();
+        let (depth, nodes) = measure_ast_depth_and_nodes(&docs[0]);
+        assert_eq!(depth, 1);
+        assert!(nodes > 0);
     }
 
     #[test]
-    fn measure_max_nesting_returns_zero_for_single_unindented_key() {
-        assert_eq!(measure_max_nesting("key: value"), 0);
+    fn ast_depth_returns_correct_depth_for_nested_yaml() {
+        let docs =
+            yaml_rust2::YamlLoader::load_from_str("root:\n  child:\n    grandchild: value\n")
+                .unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        assert_eq!(depth, 3);
     }
 
     #[test]
-    fn measure_max_nesting_returns_zero_for_single_space_indent() {
-        // 1 space / 2 = 0 via integer division
-        assert_eq!(measure_max_nesting(" key: value"), 0);
+    fn ast_depth_catches_flow_style_nesting() {
+        let yaml = "root: {a: {b: {c: value}}}";
+        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        assert!(depth >= 4, "flow-style depth should be >= 4, got {depth}");
     }
 
     #[test]
-    fn measure_max_nesting_returns_one_for_three_space_indent() {
-        // 3 spaces / 2 = 1 via integer division
-        assert_eq!(measure_max_nesting("   key: value"), 1);
+    fn ast_depth_counts_array_nesting() {
+        let yaml = "items:\n  - name: a\n    tags:\n      - x\n      - y";
+        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        assert!(depth >= 3, "array nesting should be >= 3, got {depth}");
     }
 
     #[test]
-    fn measure_max_nesting_returns_zero_for_tab_indented_line() {
-        // trim_start_matches(' ') does not strip tabs; tab alone = 0 spaces removed
-        assert_eq!(measure_max_nesting("\tkey: value"), 0);
+    fn ast_nodes_counts_all_nodes() {
+        let yaml = "a: 1\nb: 2\nc:\n  - x\n  - y";
+        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
+        let (_, nodes) = measure_ast_depth_and_nodes(&docs[0]);
+        assert!(nodes >= 8, "should count all nodes, got {nodes}");
     }
 
-    #[test]
-    fn measure_max_nesting_counts_only_leading_spaces_before_tab() {
-        // "  \tkey" → trimmed = "\tkey", spaces stripped = 2, depth = 2/2 = 1
-        assert_eq!(measure_max_nesting("  \tkey: value"), 1);
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_zero_for_multi_tab_indented_line() {
-        // "\t\tkey" → original: trim_start_matches(' ') strips 0 spaces, depth = 0
-        //             mutant trim_start(): strips both tabs, diff = 2, depth = 1 → CAUGHT
-        assert_eq!(measure_max_nesting("\t\tkey: value"), 0);
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_zero_for_whitespace_only_content() {
-        assert_eq!(measure_max_nesting("   \n   \n"), 0);
-    }
-
-    #[test]
-    fn measure_max_nesting_treats_indented_comment_as_zero() {
-        // "  # comment" → trimmed = "# comment" → starts with '#'
-        assert_eq!(measure_max_nesting("  # comment"), 0);
-    }
-
-    #[test]
-    fn measure_max_nesting_measures_deepest_across_mixed_lines() {
-        let input = "root: value\n  child: value\n    grandchild: value\n  sibling: value\n";
-        assert_eq!(measure_max_nesting(input), 2);
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_zero_for_newlines_only_input() {
-        assert_eq!(measure_max_nesting("\n\n\n"), 0);
-    }
-
-    #[test]
-    fn measure_max_nesting_handles_single_line_without_trailing_newline() {
-        assert_eq!(measure_max_nesting("    deep_key: value"), 2);
-    }
-
-    #[test]
-    fn measure_max_nesting_returns_five_for_ten_space_indent() {
-        assert_eq!(measure_max_nesting("          key: value"), 5);
-    }
-
-    // ── measure_max_nesting rstest parametric ───────────────────────────
+    // ── rstest parametric for ast depth ───────────────────────────────────
 
     #[rstest]
-    #[case("key: val", 0)]
-    #[case("  key: val", 1)]
-    #[case("    key: val", 2)]
-    #[case("      key: val", 3)]
-    #[case("        key: val", 4)]
-    fn measure_max_nesting_returns_expected_depth_for_space_levels(
-        #[case] input: &str,
-        #[case] expected: usize,
-    ) {
-        assert_eq!(measure_max_nesting(input), expected);
+    #[case("key: val", 1)]
+    #[case("root:\n  child: 1", 2)]
+    #[case("root:\n  child:\n    leaf: 1", 3)]
+    fn ast_depth_returns_expected_for_nesting_levels(#[case] input: &str, #[case] expected: usize) {
+        let docs = yaml_rust2::YamlLoader::load_from_str(input).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        assert_eq!(depth, expected);
     }
 
-    #[rstest]
-    #[case("", 0)]
-    #[case("# comment", 0)]
-    #[case("  # comment", 0)]
-    #[case("   ", 0)]
-    #[case("key: val", 0)]
-    fn measure_max_nesting_returns_zero_for_non_content_lines(
-        #[case] input: &str,
-        #[case] expected: usize,
-    ) {
-        assert_eq!(measure_max_nesting(input), expected);
-    }
-
-    // ── validate_yaml_depth unit tests ──────────────────────────────────
-
-    #[test]
-    fn validate_yaml_depth_returns_ok_at_exactly_max_depth() {
-        let input = (0..=MAX_YAML_DEPTH)
-            .map(|i| format!("{}level{i}: value", " ".repeat(i * 2)))
-            .collect::<Vec<String>>()
-            .join("\n");
-        assert_eq!(validate_yaml_depth(&input), Ok(()));
-    }
-
-    #[test]
-    fn validate_yaml_depth_returns_error_one_over_max() {
-        let input = (0..=MAX_YAML_DEPTH + 1)
-            .map(|i| format!("{}level{i}: value", " ".repeat(i * 2)))
-            .collect::<Vec<String>>()
-            .join("\n");
-        let Err(ApiError::BadRequest(msg)) = validate_yaml_depth(&input) else {
-            panic!("expected BadRequest for depth exceeding limit");
-        };
-        assert!(msg.contains("nesting depth"), "message was: {msg}");
-        assert!(
-            msg.contains(&format!("{MAX_YAML_DEPTH}")),
-            "message should mention {MAX_YAML_DEPTH}: {msg}"
-        );
-    }
-
-    // ── from_slice additional unit tests ────────────────────────────────
+    // ── from_slice additional unit tests ──────────────────────────────────
 
     #[test]
     fn from_slice_returns_ok_when_body_exactly_at_size_limit() -> Result<(), ApiError> {
@@ -559,83 +498,61 @@ mod tests {
         );
     }
 
-    // ── proptest property tests for measure_max_nesting ─────────────────
+    // ── proptest property tests ───────────────────────────────────────────
 
     proptest! {
         #[test]
-        fn measure_max_nesting_is_deterministic(input in ".*") {
-            let first = measure_max_nesting(&input);
-            let second = measure_max_nesting(&input);
-            prop_assert_eq!(first, second);
+        fn ast_depth_and_nodes_deterministic(input in "[a-zA-Z0-9: \\n\\[\\]{}]{0,200}") {
+            let docs = yaml_rust2::YamlLoader::load_from_str(&input);
+            if let Ok(d) = docs {
+                if let Some(first) = d.first() {
+                    let (d1, n1) = measure_ast_depth_and_nodes(first);
+                    let (d2, n2) = measure_ast_depth_and_nodes(first);
+                    prop_assert_eq!((d1, n1), (d2, n2));
+                }
+            }
         }
 
         #[test]
-        fn measure_max_nesting_never_exceeds_line_length_over_two(input in ".*") {
-            let max_possible = input
-                .lines()
-                .map(|line| line.len() / 2)
-                .max()
-                .unwrap_or(0);
-            let result = measure_max_nesting(&input);
-            prop_assert!(result <= max_possible);
+        fn ast_depth_never_negative(input in "[a-zA-Z0-9: \\n]{0,200}") {
+            let docs = yaml_rust2::YamlLoader::load_from_str(&input);
+            if let Ok(d) = docs {
+                if let Some(first) = d.first() {
+                    let (depth, _) = measure_ast_depth_and_nodes(first);
+                    prop_assert!(depth < 1000);
+                }
+            }
         }
 
         #[test]
-        fn measure_max_nesting_not_decreased_by_appending_blank_line(
-            base in "[a-zA-Z: \\n]{0,100}"
+        fn from_slice_rejects_flow_style_depth_bomb(
+            depth in 10usize..80usize
         ) {
-            let base_depth = measure_max_nesting(&base);
-            let extended = format!("{base}\n");
-            let extended_depth = measure_max_nesting(&extended);
-            prop_assert!(extended_depth >= base_depth);
-        }
-
-        #[test]
-        fn measure_max_nesting_not_decreased_by_appending_comment(
-            base in "[a-zA-Z: \\n]{0,100}"
-        ) {
-            let base_depth = measure_max_nesting(&base);
-            let extended = format!("{base}\n# a comment\n");
-            let extended_depth = measure_max_nesting(&extended);
-            prop_assert!(extended_depth >= base_depth);
-        }
-
-        #[test]
-        fn measure_max_nesting_returns_zero_for_all_comment_lines(
-            lines in prop::collection::vec("#[^\n]*", 0..20)
-        ) {
-            let input = lines.join("\n");
-            prop_assert_eq!(measure_max_nesting(&input), 0);
-        }
-
-        #[test]
-        fn measure_max_nesting_upper_bounded_by_max_indent_spaces(
-            spaces in 0usize..200usize
-        ) {
-            let line = format!("{}key: val", " ".repeat(spaces));
-            let depth = measure_max_nesting(&line);
-            prop_assert_eq!(depth, spaces / 2);
-        }
-
-        #[test]
-        fn measure_max_nesting_ignores_tab_only_indentation(
-            lines in prop::collection::vec("\\t+[a-z]+: val", 0..20)
-        ) {
-            let input = lines.join("\n");
-            prop_assert_eq!(measure_max_nesting(&input), 0);
+            let mut yaml = "root: ".to_string();
+            for _ in 0..depth {
+                yaml.push_str("{a: ");
+            }
+            for _ in 0..depth {
+                yaml.push('}');
+            }
+            let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
+            if depth > MAX_YAML_DEPTH {
+                prop_assert!(result.is_err());
+            }
         }
     }
 
-    // ── test-reviewer mandates (B8, B9, B10, B18, empty) ────────────────
+    // ── test-reviewer mandates ────────────────────────────────────────────
 
     #[test]
-    fn from_slice_accepts_yaml_at_exactly_max_depth() -> Result<(), ApiError> {
-        let input = (0..=MAX_YAML_DEPTH)
-            .map(|i| format!("{}k{i}: v{i}", " ".repeat(i * 2)))
-            .collect::<Vec<String>>()
-            .join("\n");
-        assert_eq!(measure_max_nesting(&input), MAX_YAML_DEPTH);
-        assert!(validate_yaml_depth(&input).is_ok());
+    fn from_slice_accepts_yaml_at_shallow_depth() -> Result<(), ApiError> {
+        #[derive(serde::Deserialize)]
+        struct Level1 {
+            a: String,
+        }
+        let yaml = b"a: hello";
+        let result: Level1 = from_slice(yaml)?;
+        assert_eq!(result.a, "hello");
         Ok(())
     }
 

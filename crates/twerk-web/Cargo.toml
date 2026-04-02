@@ -27,6 +27,7 @@ base64.workspace = true
 time.workspace = true
 bytes.workspace = true
 serde_yaml2.workspace = true
+yaml-rust2.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

@@ -162,6 +162,12 @@ impl EngineEnv {
     }
 }
 
+impl Drop for SharedInfra {
+    fn drop(&mut self) {
+        // testcontainers async drop will clean up
+    }
+}
+
 // ── Environment Cleanup ───────────────────────────────────────────────────────
 
 fn clear_env() {

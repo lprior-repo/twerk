@@ -177,10 +177,8 @@ async fn run_task(
                         if let Err(e) = res_v {
                             tracing::warn!(error = %e, volume = %source, "failed to remove sidecar volume");
                         }
-                    } else {
-                        if let Err(e) = remove_container.await {
-                            tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
-                        }
+                    } else if let Err(e) = remove_container.await {
+                        tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
                     }
                 });
             }
@@ -212,10 +210,8 @@ async fn run_task(
         if let Err(e) = res_v {
             tracing::warn!(error = %e, volume = %source, "failed to remove main volume");
         }
-    } else {
-        if let Err(e) = remove_container.await {
-            tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
-        }
+    } else if let Err(e) = remove_container.await {
+        tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
     }
 
     result

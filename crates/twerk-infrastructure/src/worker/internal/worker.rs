@@ -167,7 +167,8 @@ impl Worker {
                     let active_tasks = active_tasks.clone();
                     let tasks_notify = tasks_notify.clone();
                     Box::pin(async move {
-                        execute_task(task, runtime, broker, limits, active_tasks, tasks_notify).await
+                        execute_task(task, runtime, broker, limits, active_tasks, tasks_notify)
+                            .await
                     })
                 });
 
@@ -208,17 +209,15 @@ impl Worker {
         let _ = self.stop_tx.send(());
 
         // Wait for active tasks to complete (with timeout)
-        match tokio::time::timeout(
-            Duration::from_secs(15),
-            async {
-                while !self.active_tasks.is_empty() {
-                    self.tasks_notify.notified().await;
-                }
+        if let Ok(()) = tokio::time::timeout(Duration::from_secs(15), async {
+            while !self.active_tasks.is_empty() {
+                self.tasks_notify.notified().await;
             }
-        ).await {
-            Ok(()) => debug!("All active tasks completed gracefully"),
-            Err(_) => warn!("Worker stopping with {} tasks still active", self.active_tasks.len()),
-        }
+        })
+        .await { debug!("All active tasks completed gracefully") } else { warn!(
+            "Worker stopping with {} tasks still active",
+            self.active_tasks.len()
+        ); }
 
         // Shutdown broker
         self.broker
@@ -232,36 +231,34 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use twerk_core::task::Task;
     
+
     #[tokio::test]
     async fn worker_stop_notifies_when_active_tasks_cleared() {
         let active_tasks = Arc::new(DashMap::new());
         let tasks_notify = Arc::new(tokio::sync::Notify::new());
-        
+
         let (cancel_tx, _) = broadcast::channel(1);
         active_tasks.insert(TaskId::new("task-1"), RunningTask { cancel_tx });
-        
+
         let active_tasks_clone = active_tasks.clone();
         let tasks_notify_clone = tasks_notify.clone();
-        
+
         // Spawn a background task to simulate a task finishing after 50ms
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             active_tasks_clone.remove(&TaskId::new("task-1"));
             tasks_notify_clone.notify_waiters();
         });
-        
+
         // Wait for active tasks to complete (with timeout)
-        let result = tokio::time::timeout(
-            Duration::from_secs(1),
-            async {
-                while !active_tasks.is_empty() {
-                    tasks_notify.notified().await;
-                }
+        let result = tokio::time::timeout(Duration::from_secs(1), async {
+            while !active_tasks.is_empty() {
+                tasks_notify.notified().await;
             }
-        ).await;
-        
+        })
+        .await;
+
         assert!(result.is_ok(), "timeout should not be reached");
         assert!(active_tasks.is_empty(), "active tasks should be empty");
     }

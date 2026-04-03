@@ -85,8 +85,8 @@ mod tests {
 
     async fn extract_response_body(response: Response) -> String {
         let body = response.into_body();
-        let bytes = to_bytes(body, usize::MAX).await.expect("body");
-        String::from_utf8(bytes.to_vec()).expect("utf8")
+        let bytes = to_bytes(body, usize::MAX).await.unwrap_or_default();
+        String::from_utf8(bytes.to_vec()).unwrap_or_default()
     }
 
     #[tokio::test]

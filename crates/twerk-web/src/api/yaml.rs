@@ -10,6 +10,9 @@ const MAX_YAML_DEPTH: usize = 64;
 const MAX_YAML_BODY_SIZE: usize = 512 * 1024;
 const MAX_YAML_NODES: usize = 10_000;
 
+///
+/// # Errors
+/// Returns an `ApiError` if the YAML document cannot be parsed or violates size/complexity limits.
 pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     if bytes.len() > MAX_YAML_BODY_SIZE {
         return Err(ApiError::bad_request("YAML body exceeds size limit"));
@@ -212,15 +215,16 @@ mod tests {
 
     #[test]
     fn from_slice_returns_ok_when_body_exactly_at_size_limit() -> Result<(), ApiError> {
+        #[derive(serde::Deserialize)]
+        struct KV {
+            k: String,
+        }
+
         let prefix = "k: ";
         let value_len = MAX_YAML_BODY_SIZE - prefix.len();
         let yaml = format!("{prefix}{}", "a".repeat(value_len));
         assert_eq!(yaml.len(), MAX_YAML_BODY_SIZE);
 
-        #[derive(serde::Deserialize)]
-        struct KV {
-            k: String,
-        }
         let kv: KV = from_slice(yaml.as_bytes())?;
         assert_eq!(kv.k.len(), value_len);
         Ok(())
@@ -472,7 +476,7 @@ mod tests {
         let job: Job = from_slice(yaml)?;
         assert_eq!(job.name, Some("multi-task".to_string()));
         let tasks = job.tasks.as_ref();
-        assert_eq!(tasks.map(|t| t.len()), Some(2));
+        assert_eq!(tasks.map(std::vec::Vec::len), Some(2));
         assert_eq!(
             tasks.and_then(|t| t.first().and_then(|task| task.name.clone())),
             Some("step1".to_string())
@@ -591,9 +595,10 @@ mod tests {
 
     #[test]
     fn from_slice_returns_bad_request_when_node_count_exceeds_limit() {
+        use std::fmt::Write;
         let mut yaml = String::from("root:\n");
         for i in 0..=MAX_YAML_NODES {
-            yaml.push_str(&format!("  k{i}: v{i}\n"));
+            let _ = writeln!(yaml, "  k{i}: v{i}");
         }
         let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
         let Err(ApiError::BadRequest(msg)) = result else {

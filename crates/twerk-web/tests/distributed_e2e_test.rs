@@ -185,12 +185,16 @@ struct DistributedEnv {
     coordinator: Engine,
     worker: Engine,
     client: reqwest::Client,
-    _postgres: testcontainers::ContainerAsync<Postgres>,
-    _rabbitmq: testcontainers::ContainerAsync<RabbitMq>,
+    postgres: testcontainers::ContainerAsync<Postgres>,
+    rabbitmq: testcontainers::ContainerAsync<RabbitMq>,
 }
+
+// Use a Mutex to serialize DistributedEnv creation to prevent env var races
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 impl DistributedEnv {
     async fn new() -> anyhow::Result<Self> {
+        let guard = ENV_LOCK.lock().await;
         let (postgres, postgres_dsn) = setup_postgres().await?;
         let (rabbitmq, rabbitmq_url) = setup_rabbitmq().await?;
 
@@ -224,14 +228,17 @@ impl DistributedEnv {
             .timeout(Duration::from_secs(30))
             .build()?;
 
+        // Drop lock before returning so tests can run in parallel
+        drop(guard);
+
         Ok(Self {
             base_url,
             api_handle,
             coordinator,
             worker,
             client,
-            _postgres: postgres,
-            _rabbitmq: rabbitmq,
+            postgres,
+            rabbitmq,
         })
     }
 
@@ -240,10 +247,11 @@ impl DistributedEnv {
         let _ = self.worker.terminate().await;
         let _ = self.coordinator.terminate().await;
         clear_distributed_env();
-        // Note: Container cleanup (for Docker/Podman runtimes) is handled by the worker's
-        // terminate logic which stops active tasks and awaits their completion (up to 10s timeout).
-        // Infrastructure containers (Postgres, RabbitMQ) are cleaned up automatically when
-        // their ContainerAsync guards are dropped on scope exit.
+
+        let _ = self.postgres.stop().await;
+        let _ = self.postgres.rm().await;
+        let _ = self.rabbitmq.stop().await;
+        let _ = self.rabbitmq.rm().await;
     }
 }
 

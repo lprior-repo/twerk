@@ -1,7 +1,10 @@
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use super::*;
+    use crate::redact::{
+        is_secret_key, redact_job, redact_task, redact_task_log_parts, redact_vars, Redacter,
+        DEFAULT_KEYS, REDACTED_STR,
+    };
     use std::collections::HashMap;
 
     #[test]

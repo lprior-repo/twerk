@@ -1,14 +1,12 @@
 #[cfg(test)]
 #[allow(clippy::panic, clippy::approx_constant, clippy::unwrap_used, dead_code)]
 mod tests {
-    use super::{
-        measure_ast_depth_and_nodes, ApiError, MAX_YAML_BODY_SIZE, MAX_YAML_DEPTH, MAX_YAML_NODES,
+    use crate::api::yaml::{
+        from_slice, measure_ast_depth_and_nodes, ApiError, MAX_YAML_BODY_SIZE, MAX_YAML_DEPTH,
+        MAX_YAML_NODES,
     };
     use proptest::prelude::*;
     use rstest::rstest;
-
-    // Re-export from_slice for tests
-    use super::from_slice;
 
     #[test]
     fn from_slice_returns_valid_job_when_yaml_is_well_formed() {

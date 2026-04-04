@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::Router;
 use tokio::net::TcpListener;
 use twerk_app::engine::{Config, Engine, Mode};
 use twerk_common::load_config;
@@ -113,7 +112,7 @@ async fn start_api_server(
         Arc::new(engine.datastore_proxy()),
         api_config,
     );
-    let app: Router = create_router(state);
+    let app = create_router(state);
     let listener = TcpListener::bind(&address).await?;
 
     info!("Coordinator API listening on http://{address}");

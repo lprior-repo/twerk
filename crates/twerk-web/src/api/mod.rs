@@ -9,6 +9,9 @@
 //! 5. Rate limit (config-gated)
 //! 6. Logger (default enabled)
 
+#![deny(clippy::unwrap_used)]
+#![warn(clippy::pedantic)]
+
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashMap;

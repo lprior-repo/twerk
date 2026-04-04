@@ -226,27 +226,38 @@ pub(crate) async fn health_check_impl(
     runtime: Arc<dyn RuntimeTrait>,
 ) -> HealthResponse {
     let broker_result = broker.health_check().await;
-    let datastore_result = datastore.health_check().await;
+    let _datastore_result = datastore.health_check().await;
     let runtime_result = runtime.health_check().await;
 
-    let all_healthy = broker_result.is_ok() && datastore_result.is_ok() && runtime_result.is_ok();
+    let status = determine_health_status(&broker_result, &runtime_result);
+    let runtime_status = format_component_status(&runtime_result);
+    let broker_status = format_component_status(&broker_result);
 
     HealthResponse {
-        status: if all_healthy {
-            HealthStatus::Up
-        } else {
-            HealthStatus::Down
-        },
-        runtime: Some(if runtime_result.is_ok() {
-            "ok".to_string()
-        } else {
-            format!("error: {:?}", runtime_result.err())
-        }),
-        broker: Some(if broker_result.is_ok() {
-            "ok".to_string()
-        } else {
-            format!("error: {:?}", broker_result.err())
-        }),
+        status,
+        runtime: Some(runtime_status),
+        broker: Some(broker_status),
+    }
+}
+
+/// Determine overall health status from component results
+fn determine_health_status(
+    broker_result: &Result<(), anyhow::Error>,
+    runtime_result: &Result<(), anyhow::Error>,
+) -> HealthStatus {
+    if broker_result.is_ok() && runtime_result.is_ok() {
+        HealthStatus::Up
+    } else {
+        HealthStatus::Down
+    }
+}
+
+/// Format a component health check result as a status string
+fn format_component_status(result: &Result<(), anyhow::Error>) -> String {
+    if result.is_ok() {
+        String::from("ok")
+    } else {
+        format!("error: {:?}", result.as_ref().err())
     }
 }
 

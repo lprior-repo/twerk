@@ -214,10 +214,15 @@ impl Worker {
                 self.tasks_notify.notified().await;
             }
         })
-        .await { debug!("All active tasks completed gracefully") } else { warn!(
-            "Worker stopping with {} tasks still active",
-            self.active_tasks.len()
-        ); }
+        .await
+        {
+            debug!("All active tasks completed gracefully");
+        } else {
+            warn!(
+                "Worker stopping with {} tasks still active",
+                self.active_tasks.len()
+            );
+        }
 
         // Shutdown broker
         self.broker
@@ -231,7 +236,6 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[tokio::test]
     async fn worker_stop_notifies_when_active_tasks_cleared() {

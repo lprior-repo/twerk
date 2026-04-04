@@ -63,7 +63,7 @@ pub(crate) fn tasks(
     tasks: &[Task],
 ) -> super::super::BoxedFuture<()> {
     use futures_util::StreamExt;
-    
+
     let task_arcs: Vec<Arc<Task>> = tasks.iter().map(|t| Arc::new(t.clone())).collect();
 
     // Store the tasks in one go

@@ -1,4 +1,4 @@
-//! Helper functions for RabbitMQ broker.
+//! Helper functions for `RabbitMQ` broker.
 
 use serde_json::Value;
 use std::sync::Arc;
@@ -184,8 +184,7 @@ mod tests {
             Box::pin(async { Ok(()) })
         }));
         let rt = tokio::runtime::Runtime::new().expect("runtime");
-        rt.block_on(handler(json!({"val": 99})))
-            .expect("handler");
+        rt.block_on(handler(json!({"val": 99}))).expect("handler");
         assert!(invoked.load(std::sync::atomic::Ordering::SeqCst));
     }
 

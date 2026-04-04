@@ -9,6 +9,8 @@ use serde_json::json;
 use twerk_core::job::{
     new_scheduled_job_summary, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
 };
+use twerk_core::repository;
+use twerk_core::user::User;
 use twerk_core::validation::{validate_cron, validate_job};
 
 use super::super::error::ApiError;
@@ -31,6 +33,155 @@ pub struct CreateScheduledJobBody {
     pub auto_delete: Option<twerk_core::task::AutoDelete>,
 }
 
+// ============================================================================================
+// Pure extraction and validation functions
+// ============================================================================================
+
+/// Extract content type from headers (pure).
+fn extract_content_type(headers: &HeaderMap) -> &str {
+    headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map_or("", |v| v)
+}
+
+/// Parse create body based on content type (partial - I/O in yaml parsing but contained).
+fn parse_create_body(content_type: &str, body: &[u8]) -> Result<CreateScheduledJobBody, ApiError> {
+    match content_type {
+        "application/json" => {
+            serde_json::from_slice(body).map_err(|e| ApiError::bad_request(e.to_string()))
+        }
+        "text/yaml" | "application/x-yaml" => super::super::yaml::from_slice(body),
+        _ => Err(ApiError::bad_request("unsupported content type")),
+    }
+}
+
+/// Validate create input and extract required fields (pure).
+fn validate_create_input(
+    body: &CreateScheduledJobBody,
+) -> Result<(String, Vec<twerk_core::task::Task>), ApiError> {
+    let cron = body
+        .cron
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("cron is required"))?
+        .clone();
+    let tasks = body
+        .tasks
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("tasks is required"))?
+        .clone();
+
+    validate_cron(&cron).map_err(ApiError::bad_request)?;
+
+    let job_err = validate_job(
+        body.name.as_ref(),
+        body.tasks.as_ref(),
+        body.defaults.as_ref(),
+        body.output.as_ref(),
+    );
+    if let Err(errors) = job_err {
+        return Err(ApiError::bad_request(errors.join("; ")));
+    }
+
+    Ok((cron, tasks))
+}
+
+/// Build `ScheduledJob` from validated input (pure).
+fn build_scheduled_job(
+    body: CreateScheduledJobBody,
+    cron: String,
+    tasks: Vec<twerk_core::task::Task>,
+    created_by: Option<User>,
+) -> ScheduledJob {
+    ScheduledJob {
+        id: Some(twerk_core::id::ScheduledJobId::new(
+            twerk_core::uuid::new_short_uuid(),
+        )),
+        name: body.name,
+        description: body.description,
+        cron: Some(cron),
+        state: SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        inputs: body.inputs,
+        tasks: Some(tasks),
+        created_by,
+        defaults: body.defaults,
+        auto_delete: body.auto_delete,
+        webhooks: body.webhooks,
+        permissions: body.permissions,
+        created_at: Some(time::OffsetDateTime::now_utc()),
+        tags: body.tags,
+        secrets: body.secrets,
+        output: body.output,
+    }
+}
+
+/// Validate scheduled job can be paused (pure).
+fn validate_pause(sj: &ScheduledJob) -> Result<(), ApiError> {
+    if sj.state != SCHEDULED_JOB_STATE_ACTIVE {
+        return Err(ApiError::bad_request("scheduled job is not active"));
+    }
+    Ok(())
+}
+
+/// Validate scheduled job can be resumed (pure).
+fn validate_resume(sj: &ScheduledJob) -> Result<(), ApiError> {
+    if sj.state != SCHEDULED_JOB_STATE_PAUSED {
+        return Err(ApiError::bad_request("scheduled job is not paused"));
+    }
+    Ok(())
+}
+
+/// Build pause state transition closure (pure factory).
+fn pause_state_transition(
+) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
+    Box::new(|mut sj| {
+        sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+        Ok(sj)
+    })
+}
+
+/// Build resume state transition closure (pure factory).
+fn resume_state_transition(
+) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
+    Box::new(|mut sj| {
+        sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
+        Ok(sj)
+    })
+}
+
+/// Build status OK response (pure).
+fn status_ok_response() -> Response {
+    (StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response()
+}
+
+/// Build event publish value for scheduled job (pure).
+fn build_scheduled_job_event_value() -> Result<serde_json::Value, ApiError> {
+    serde_json::to_value(()).map_err(|e| ApiError::internal(e.to_string()))
+}
+
+/// Check if scheduled job was active (pure).
+fn was_active(sj: &ScheduledJob) -> bool {
+    sj.state == SCHEDULED_JOB_STATE_ACTIVE
+}
+
+/// Build paused scheduled job for event (pure).
+fn build_paused_for_event(sj: &ScheduledJob) -> ScheduledJob {
+    let mut paused = sj.clone();
+    paused.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+    paused
+}
+
+/// Build event value from scheduled job (pure).
+fn build_scheduled_job_event_value_from_sj(
+    sj: &ScheduledJob,
+) -> Result<serde_json::Value, ApiError> {
+    serde_json::to_value(sj).map_err(|e| ApiError::internal(e.to_string()))
+}
+
+// ============================================================================================
+// Handlers (thin orchestration)
+// ============================================================================================
+
 /// POST /scheduled-jobs
 ///
 /// # Errors
@@ -39,59 +190,11 @@ pub async fn create_scheduled_job_handler(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, ApiError> {
-    let content_type = headers
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map_or("", |v| v);
-
-    let sj_input: CreateScheduledJobBody = match content_type {
-        "application/json" => {
-            serde_json::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
-        }
-        "text/yaml" | "application/x-yaml" => super::super::yaml::from_slice(&body)?,
-        _ => return Err(ApiError::bad_request("unsupported content type")),
-    };
-
-    let cron = sj_input
-        .cron
-        .ok_or_else(|| ApiError::bad_request("cron is required"))?;
-    let tasks = sj_input
-        .tasks
-        .as_ref()
-        .ok_or_else(|| ApiError::bad_request("tasks is required"))?;
-
-    if let Err(e) = validate_cron(&cron) {
-        return Err(ApiError::bad_request(e));
-    }
-    if let Err(errors) = validate_job(
-        sj_input.name.as_ref(),
-        sj_input.tasks.as_ref(),
-        sj_input.defaults.as_ref(),
-        sj_input.output.as_ref(),
-    ) {
-        return Err(ApiError::bad_request(errors.join("; ")));
-    }
-
-    let sj = ScheduledJob {
-        id: Some(twerk_core::id::ScheduledJobId::new(
-            twerk_core::uuid::new_short_uuid(),
-        )),
-        name: sj_input.name,
-        description: sj_input.description,
-        cron: Some(cron.clone()),
-        state: SCHEDULED_JOB_STATE_ACTIVE.to_string(),
-        inputs: sj_input.inputs,
-        tasks: Some(tasks.clone()),
-        created_by: default_user(&state).await,
-        defaults: sj_input.defaults,
-        auto_delete: sj_input.auto_delete,
-        webhooks: sj_input.webhooks,
-        permissions: sj_input.permissions,
-        created_at: Some(time::OffsetDateTime::now_utc()),
-        tags: sj_input.tags,
-        secrets: sj_input.secrets,
-        output: sj_input.output,
-    };
+    let content_type = extract_content_type(&headers);
+    let sj_input = parse_create_body(content_type, &body)?;
+    let (cron, tasks) = validate_create_input(&sj_input)?;
+    let user = default_user(&state).await;
+    let sj = build_scheduled_job(sj_input, cron, tasks, user);
 
     state
         .ds
@@ -153,19 +256,11 @@ pub async fn pause_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
-    if sj.state != SCHEDULED_JOB_STATE_ACTIVE {
-        return Err(ApiError::bad_request("scheduled job is not active"));
-    }
+    validate_pause(&sj)?;
 
     state
         .ds
-        .update_scheduled_job(
-            &id,
-            Box::new(|mut sj| {
-                sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
-                Ok(sj)
-            }),
-        )
+        .update_scheduled_job(&id, pause_state_transition())
         .await
         .map_err(ApiError::from)?;
 
@@ -173,12 +268,12 @@ pub async fn pause_scheduled_job_handler(
         .broker
         .publish_event(
             "scheduled.job".to_string(),
-            serde_json::to_value(()).map_err(|e| ApiError::internal(e.to_string()))?,
+            build_scheduled_job_event_value()?,
         )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    Ok((StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response())
+    Ok(status_ok_response())
 }
 
 /// PUT /scheduled-jobs/{id}/resume
@@ -194,19 +289,11 @@ pub async fn resume_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
-    if sj.state != SCHEDULED_JOB_STATE_PAUSED {
-        return Err(ApiError::bad_request("scheduled job is not paused"));
-    }
+    validate_resume(&sj)?;
 
     state
         .ds
-        .update_scheduled_job(
-            &id,
-            Box::new(|mut sj| {
-                sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
-                Ok(sj)
-            }),
-        )
+        .update_scheduled_job(&id, resume_state_transition())
         .await
         .map_err(ApiError::from)?;
 
@@ -214,12 +301,12 @@ pub async fn resume_scheduled_job_handler(
         .broker
         .publish_event(
             "scheduled.job".to_string(),
-            serde_json::to_value(()).map_err(|e| ApiError::internal(e.to_string()))?,
+            build_scheduled_job_event_value()?,
         )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    Ok((StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response())
+    Ok(status_ok_response())
 }
 
 /// DELETE /scheduled-jobs/{id}
@@ -235,24 +322,25 @@ pub async fn delete_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
+    let is_active = was_active(&sj);
+
     state
         .ds
         .delete_scheduled_job(&id)
         .await
         .map_err(ApiError::from)?;
 
-    if sj.state == SCHEDULED_JOB_STATE_ACTIVE {
-        let mut paused_sj = sj.clone();
-        paused_sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+    if is_active {
+        let paused_sj = build_paused_for_event(&sj);
         state
             .broker
             .publish_event(
                 "scheduled.job".to_string(),
-                serde_json::to_value(&paused_sj).map_err(|e| ApiError::internal(e.to_string()))?,
+                build_scheduled_job_event_value_from_sj(&paused_sj)?,
             )
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
     }
 
-    Ok((StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response())
+    Ok(status_ok_response())
 }

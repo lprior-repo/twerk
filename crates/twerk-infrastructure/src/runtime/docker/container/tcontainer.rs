@@ -273,6 +273,25 @@ impl Tcontainer {
     /// - `DockerError::NonZeroExit` if container exits with non-zero status
     /// - `DockerError::CopyFromContainer` if reading output fails
     pub async fn wait(&self) -> Result<String, DockerError> {
+        let status_code = self.wait_for_container_stopped().await?;
+
+        if status_code != 0 {
+            return Err(DockerError::NonZeroExit(
+                status_code,
+                self.read_logs_tail(10)
+                    .await
+                    .unwrap_or_else(|_| String::new()),
+            ));
+        }
+
+        let stdout = self.read_output().await?;
+        tracing::debug!(status_code, task_id = ?self.task.id, "task completed");
+
+        Ok(stdout)
+    }
+
+    /// Waits for the container to reach the "not-running" state and returns the exit code.
+    async fn wait_for_container_stopped(&self) -> Result<i64, DockerError> {
         use bollard::query_parameters::WaitContainerOptions;
         use futures_util::StreamExt;
 
@@ -288,21 +307,7 @@ impl Tcontainer {
             .ok_or_else(|| DockerError::ContainerWait("no wait result".to_string()))?
             .map_err(|e| DockerError::ContainerWait(e.to_string()))?;
 
-        let status_code: i64 = result.status_code;
-
-        if status_code != 0 {
-            return Err(DockerError::NonZeroExit(
-                status_code,
-                self.read_logs_tail(10)
-                    .await
-                    .unwrap_or_else(|_| String::new()),
-            ));
-        }
-
-        let stdout = self.read_output().await?;
-        tracing::debug!(status_code, task_id = ?self.task.id, "task completed");
-
-        Ok(stdout)
+        Ok(result.status_code)
     }
 
     /// Reads the last N lines of container logs.

@@ -14,7 +14,7 @@ pub(crate) const MAX_YAML_NODES: usize = 10_000;
 
 /// Parses a YAML document from bytes with size and complexity limits.
 ///
-/// /// # Errors
+/// # Errors
 /// Returns an `ApiError` if the YAML document cannot be parsed or violates size/complexity limits.
 pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     if bytes.len() > MAX_YAML_BODY_SIZE {

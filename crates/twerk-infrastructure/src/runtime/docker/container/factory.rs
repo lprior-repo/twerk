@@ -31,8 +31,40 @@ use twerk_core::uuid::new_uuid;
 
 use super::tcontainer::Tcontainer;
 
-const TWORK_OUTPUT: &str = "TWERK_OUTPUT=/twerk/stdout";
-const TWORK_PROGRESS: &str = "TWERK_PROGRESS=/twerk/progress";
+const TWERK_OUTPUT: &str = "TWERK_OUTPUT=/twerk/stdout";
+const TWERK_PROGRESS: &str = "TWERK_PROGRESS=/twerk/progress";
+
+/// Container resource limits (CPU, memory, GPU device requests).
+type ContainerResources = (
+    Option<i64>,
+    Option<i64>,
+    Option<Vec<bollard::models::DeviceRequest>>,
+);
+
+/// Parameters for building container configuration.
+struct ContainerConfigParams {
+    task: Task,
+    env: Vec<String>,
+    mounts: Vec<BollardMount>,
+    networking_config: Option<NetworkingConfig>,
+    port_bindings: Option<HashMap<String, Option<Vec<PortBinding>>>>,
+    nano_cpus: Option<i64>,
+    memory: Option<i64>,
+    device_requests: Option<Vec<bollard::models::DeviceRequest>>,
+}
+
+/// Context for container instantiation.
+struct ContainerContext {
+    container_id: String,
+    client: Docker,
+    mounter: Arc<dyn Mounter>,
+    broker: Arc<dyn Broker>,
+    task: Task,
+    logger: Box<dyn std::io::Write + Send + Sync>,
+    torkdir: twerk_core::mount::Mount,
+    torkdir_volume_name: String,
+    task_id: twerk_core::id::TaskId,
+}
 
 /// Parses CPU limits from task configuration.
 fn parse_cpus(limits: Option<&twerk_core::task::TaskLimits>) -> Result<Option<i64>, DockerError> {
@@ -112,8 +144,8 @@ fn build_env(task: &Task) -> Vec<String> {
     } else {
         Vec::new()
     };
-    env.push(TWORK_OUTPUT.to_string());
-    env.push(TWORK_PROGRESS.to_string());
+    env.push(TWERK_OUTPUT.to_string());
+    env.push(TWERK_PROGRESS.to_string());
     env
 }
 
@@ -158,34 +190,9 @@ fn build_networking_config(task: &Task) -> Option<NetworkingConfig> {
     })
 }
 
-/// Creates a task container for the given task.
-///
-/// # Errors
-///
-/// Returns `DockerError` if the container cannot be created.
-///
-/// # Panics
-///
-/// Panics if the task ID is not set (but this is checked first and returns an error).
-///
-/// Go parity: `createTaskContainer` in tcontainer.go
-#[allow(clippy::too_many_lines)]
-pub async fn create_task_container(
-    client: &Docker,
-    mounter: Arc<dyn Mounter>,
-    broker: Arc<dyn Broker>,
-    task: &Task,
-    logger: Box<dyn std::io::Write + Send + Sync>,
-) -> Result<Tcontainer, DockerError> {
-    if task.id.as_ref().is_none_or(|id| id.is_empty()) {
-        return Err(DockerError::TaskIdRequired);
-    }
-
-    let image = task
-        .image
-        .as_ref()
-        .ok_or_else(|| DockerError::ImageRequired)?;
-
+/// Pulls the task image from the registry.
+async fn pull_task_image(client: &Docker, task: &Task) -> Result<(), DockerError> {
+    let image = task.image.as_ref().ok_or(DockerError::ImageRequired)?;
     crate::runtime::docker::pull::pull_image::<std::collections::hash_map::RandomState>(
         client,
         &crate::runtime::docker::config::DockerConfig::default(),
@@ -194,11 +201,13 @@ pub async fn create_task_container(
         task.registry.as_ref(),
     )
     .await
-    .map_err(|e| DockerError::ImagePull(format!("{image}: {e}")))?;
+    .map_err(|e| DockerError::ImagePull(format!("{image}: {e}")))
+}
 
-    let env = build_env(task);
-    let mut mounts = build_mounts(task)?;
-
+/// Creates the torkdir volume and returns (`volume_name`, `torkdir_mount`).
+async fn create_torkdir_volume(
+    client: &Docker,
+) -> Result<(String, twerk_core::mount::Mount), DockerError> {
     let torkdir_id = new_uuid();
     let torkdir_volume_name = torkdir_id.clone();
 
@@ -219,22 +228,23 @@ pub async fn create_task_container(
         opts: None,
     };
 
-    mounts.push(BollardMount {
-        typ: Some(MountTypeEnum::VOLUME),
-        source: Some(torkdir_volume_name.clone()),
-        target: Some("/twerk".to_string()),
-        ..Default::default()
-    });
+    Ok((torkdir_volume_name, torkdir))
+}
 
+/// Parses container resource limits (CPU, memory, GPU).
+fn parse_container_resources(task: &Task) -> Result<ContainerResources, DockerError> {
     let nano_cpus = parse_cpus(task.limits.as_ref())?;
     let memory = parse_memory(task.limits.as_ref())?;
-
     let device_requests = task
         .gpus
         .as_ref()
         .map(|gpu_str| parse_gpu_options(gpu_str))
         .transpose()?;
+    Ok((nano_cpus, memory, device_requests))
+}
 
+/// Builds the command and entrypoint for the container.
+fn build_command_and_entrypoint(task: &Task) -> (Vec<String>, Vec<String>) {
     let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(Vec::is_empty) {
         vec!["/twerk/entrypoint".to_string()]
     } else {
@@ -248,9 +258,42 @@ pub async fn create_task_container(
             task.entrypoint.clone().unwrap_or_default()
         };
 
-    let port_bindings = build_port_bindings(task);
+    (cmd, entrypoint)
+}
 
-    let host_config = HostConfig {
+/// Builds container configuration parameters.
+fn build_container_config_params(
+    task: &Task,
+    env: Vec<String>,
+    mounts: Vec<BollardMount>,
+    nano_cpus: Option<i64>,
+    memory: Option<i64>,
+    device_requests: Option<Vec<bollard::models::DeviceRequest>>,
+) -> ContainerConfigParams {
+    let port_bindings = build_port_bindings(task);
+    let networking_config = build_networking_config(task);
+
+    ContainerConfigParams {
+        task: task.clone(),
+        env,
+        mounts,
+        networking_config,
+        port_bindings,
+        nano_cpus,
+        memory,
+        device_requests,
+    }
+}
+
+/// Builds the host configuration for the container.
+fn build_host_config(
+    mounts: Vec<BollardMount>,
+    nano_cpus: Option<i64>,
+    memory: Option<i64>,
+    device_requests: Option<Vec<bollard::models::DeviceRequest>>,
+    port_bindings: Option<HashMap<String, Option<Vec<PortBinding>>>>,
+) -> HostConfig {
+    HostConfig {
         mounts: Some(mounts),
         nano_cpus,
         memory,
@@ -258,28 +301,49 @@ pub async fn create_task_container(
         device_requests,
         port_bindings,
         ..Default::default()
-    };
+    }
+}
 
-    let networking_config = build_networking_config(task);
+/// Builds the exposed ports from probe configuration.
+fn build_exposed_ports(task: &Task) -> Option<Vec<String>> {
+    task.probe
+        .as_ref()
+        .map(|probe| vec![format!("{}/tcp", probe.port)])
+}
 
-    let container_config = ContainerCreateBody {
-        image: task.image.clone(),
-        env: Some(env),
+/// Builds the container configuration body.
+fn build_container_config(params: ContainerConfigParams) -> ContainerCreateBody {
+    let (cmd, entrypoint) = build_command_and_entrypoint(&params.task);
+    let host_config = build_host_config(
+        params.mounts,
+        params.nano_cpus,
+        params.memory,
+        params.device_requests,
+        params.port_bindings,
+    );
+
+    ContainerCreateBody {
+        image: params.task.image.clone(),
+        env: Some(params.env),
         cmd: Some(cmd),
         entrypoint: if entrypoint.is_empty() {
             None
         } else {
             Some(entrypoint)
         },
-        exposed_ports: task
-            .probe
-            .as_ref()
-            .map(|probe| vec![format!("{}/tcp", probe.port)].into_iter().collect()),
+        exposed_ports: build_exposed_ports(&params.task),
         host_config: Some(host_config),
-        networking_config,
+        networking_config: params.networking_config,
         ..Default::default()
-    };
+    }
+}
 
+/// Creates the Docker container and returns the container ID.
+async fn create_container(
+    client: &Docker,
+    container_config: ContainerCreateBody,
+    image: &str,
+) -> Result<String, DockerError> {
     let create_ctx = tokio::time::timeout(
         DEFAULT_TIMEOUT,
         client.create_container(
@@ -297,63 +361,160 @@ pub async fn create_task_container(
         DockerError::ContainerCreate(e.to_string())
     })?;
 
-    let container_id = create_ctx.id;
+    Ok(create_ctx.id)
+}
 
-    // SAFETY: task.id was validated at the top of this function (line 231).
-    // Using ok_or_else instead of expect to avoid production panics.
-    let task_id = task.id.as_ref().ok_or_else(|| {
-        DockerError::ContainerCreate("task ID is required but was empty".to_string())
-    })?;
+/// Creates the Tcontainer instance.
+fn instantiate_container(ctx: ContainerContext) -> Tcontainer {
+    let probe = ctx.task.probe.clone();
+    Tcontainer::new(
+        ctx.container_id,
+        ctx.client,
+        ctx.mounter,
+        Some(ctx.broker),
+        ctx.task,
+        ctx.logger,
+        ctx.torkdir,
+        Some(ctx.torkdir_volume_name),
+        ctx.task_id,
+        probe,
+    )
+}
 
-    let tc = Tcontainer::new(
-        container_id.clone(),
-        client.clone(),
-        mounter.clone(),
-        Some(broker),
-        task.clone(),
-        logger,
-        torkdir.clone(),
-        Some(torkdir_volume_name.clone()),
-        task_id.clone(),
-        task.probe.clone(),
-    );
+/// Adds torkdir volume mount to the mounts list.
+fn add_torkdir_to_mounts(
+    mounts: Vec<BollardMount>,
+    torkdir_volume_name: &str,
+) -> Vec<BollardMount> {
+    let mut mounts = mounts;
+    mounts.push(BollardMount {
+        typ: Some(MountTypeEnum::VOLUME),
+        source: Some(torkdir_volume_name.to_string()),
+        target: Some("/twerk".to_string()),
+        ..Default::default()
+    });
+    mounts
+}
 
+/// Initializes the twerk directory in the container.
+async fn initialize_twerkdir(
+    client: &Docker,
+    tc: &Tcontainer,
+    container_id: &str,
+    torkdir_volume_name: &str,
+    task: &Task,
+) -> Result<(), DockerError> {
     if let Err(e) = tc.init_twerkdir(task.run.as_deref()).await {
-        cleanup_container(client, &container_id, &torkdir_volume_name).await;
-        return Err(DockerError::CopyToContainer(format!(
+        cleanup_container(client, container_id, torkdir_volume_name).await;
+        Err(DockerError::CopyToContainer(format!(
             "error initializing torkdir: {e}"
-        )));
+        )))
+    } else {
+        Ok(())
     }
+}
 
+/// Determines the effective workdir based on task configuration.
+fn determine_effective_workdir(task: &Task) -> Option<String> {
     let workdir_has_files = !task
         .files
         .as_ref()
         .is_none_or(std::collections::HashMap::is_empty);
-    let effective_workdir: Option<String> = if task.workdir.is_some() {
+
+    if task.workdir.is_some() {
         task.workdir.clone()
     } else if workdir_has_files {
         Some("/workspace".to_string())
     } else {
         None
-    };
+    }
+}
+
+/// Initializes the work directory in the container if needed.
+async fn initialize_workdir(
+    client: &Docker,
+    tc: &Tcontainer,
+    container_id: &str,
+    torkdir_volume_name: &str,
+    task: &Task,
+) -> Result<(), DockerError> {
+    let effective_workdir = determine_effective_workdir(task);
 
     if let Some(ref workdir) = effective_workdir {
-        if let Err(e) = init_workdir_for_container(&tc, workdir).await {
-            cleanup_container(client, &container_id, &torkdir_volume_name).await;
+        if let Err(e) = init_workdir_for_container(tc, workdir).await {
+            cleanup_container(client, container_id, torkdir_volume_name).await;
             return Err(DockerError::CopyToContainer(format!(
                 "error initializing workdir: {e}"
             )));
         }
     }
 
-    tracing::debug!(container_id = %container_id, CREATED_CONTAINER);
+    Ok(())
+}
 
+/// Creates a task container for the given task.
+///
+/// # Errors
+///
+/// Returns `DockerError` if the container cannot be created.
+///
+/// # Panics
+///
+/// Panics if the task ID is not set (but this is checked first and returns an error).
+///
+/// Go parity: `createTaskContainer` in tcontainer.go
+pub async fn create_task_container(
+    client: &Docker,
+    mounter: Arc<dyn Mounter>,
+    broker: Arc<dyn Broker>,
+    task: &Task,
+    logger: Box<dyn std::io::Write + Send + Sync>,
+) -> Result<Tcontainer, DockerError> {
+    if task.id.as_ref().is_none_or(|id| id.is_empty()) {
+        return Err(DockerError::TaskIdRequired);
+    }
+
+    pull_task_image(client, task).await?;
+
+    let env = build_env(task);
+    let mounts = build_mounts(task)?;
+    let (nano_cpus, memory, device_requests) = parse_container_resources(task)?;
+
+    let (torkdir_volume_name, torkdir) = create_torkdir_volume(client).await?;
+    let mounts = add_torkdir_to_mounts(mounts, &torkdir_volume_name);
+
+    let container_params =
+        build_container_config_params(task, env, mounts, nano_cpus, memory, device_requests);
+    let container_config = build_container_config(container_params);
+
+    let image = task.image.as_deref().unwrap_or_default();
+    let container_id = create_container(client, container_config, image).await?;
+
+    let task_id = task.id.as_ref().ok_or_else(|| {
+        DockerError::ContainerCreate("task ID is required but was empty".to_string())
+    })?;
+
+    let tc = instantiate_container(ContainerContext {
+        container_id: container_id.clone(),
+        client: client.clone(),
+        mounter: mounter.clone(),
+        broker,
+        task: task.clone(),
+        logger,
+        torkdir,
+        torkdir_volume_name: torkdir_volume_name.clone(),
+        task_id: task_id.clone(),
+    });
+
+    initialize_twerkdir(client, &tc, &container_id, &torkdir_volume_name, task).await?;
+    initialize_workdir(client, &tc, &container_id, &torkdir_volume_name, task).await?;
+
+    tracing::debug!(container_id = %container_id, CREATED_CONTAINER);
     Ok(tc)
 }
 
 /// Cleans up a container and its volume on error.
 async fn cleanup_container(client: &Docker, container_id: &str, volume_name: &str) {
-    // Run both cleanup operations in parallel for faster teardown
     let _ = tokio::join!(
         client.remove_container(
             container_id,

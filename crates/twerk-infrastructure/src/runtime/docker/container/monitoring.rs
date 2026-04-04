@@ -13,6 +13,43 @@ use std::sync::Arc;
 use twerk_core::id::TaskId;
 use twerk_core::task::TaskLogPart;
 
+/// Builds the `LogsOptions` for streaming all container logs.
+fn build_log_options() -> LogsOptions {
+    LogsOptions {
+        stdout: true,
+        stderr: true,
+        follow: true,
+        tail: "all".to_string(),
+        ..Default::default()
+    }
+}
+
+/// Extracts a non-empty message from a log output, returning `None` for empty or non-stdout/stderr output.
+fn extract_log_message(result: bollard::container::LogOutput) -> Option<String> {
+    let (bollard::container::LogOutput::StdOut { message }
+    | bollard::container::LogOutput::StdErr { message }) = result
+    else {
+        return None;
+    };
+    let msg = String::from_utf8_lossy(message.as_ref()).to_string();
+    if msg.is_empty() {
+        None
+    } else {
+        Some(msg)
+    }
+}
+
+/// Creates a `TaskLogPart` from a message and part number.
+fn make_log_part(task_id: &TaskId, part_num: i64, msg: String) -> TaskLogPart {
+    TaskLogPart {
+        id: None,
+        number: part_num,
+        task_id: Some(task_id.clone()),
+        contents: Some(msg),
+        created_at: None,
+    }
+}
+
 /// Streams container logs to the broker.
 pub async fn stream_logs(
     client: Docker,
@@ -20,39 +57,24 @@ pub async fn stream_logs(
     task_id: TaskId,
     broker: Option<Arc<dyn Broker>>,
 ) {
-    let Some(broker) = broker else { return };
-
-    let options = LogsOptions {
-        stdout: true,
-        stderr: true,
-        follow: true,
-        tail: "all".to_string(),
-        ..Default::default()
+    let Some(broker) = broker else {
+        return;
     };
 
+    let options = build_log_options();
     let mut stream = client.logs(&container_id, Some(options));
     let mut part_num = 0i64;
 
     while let Some(result) = stream.next().await {
-        if let Ok(
-            bollard::container::LogOutput::StdOut { message }
-            | bollard::container::LogOutput::StdErr { message },
-        ) = result
-        {
-            let msg = String::from_utf8_lossy(message.as_ref()).to_string();
-            if !msg.is_empty() {
-                part_num += 1;
-                let _ = broker
-                    .publish_task_log_part(&TaskLogPart {
-                        id: None,
-                        number: part_num,
-                        task_id: Some(task_id.clone()),
-                        contents: Some(msg),
-                        created_at: None,
-                    })
-                    .await;
-            }
-        }
+        let Ok(result) = result else {
+            continue;
+        };
+        let Some(msg) = extract_log_message(result) else {
+            continue;
+        };
+        part_num += 1;
+        let part = make_log_part(&task_id, part_num, msg);
+        let _ = broker.publish_task_log_part(&part).await;
     }
 }
 

@@ -51,6 +51,65 @@ pub fn can_connect(address: &str) -> bool {
         .is_some()
 }
 
+/// Spawns the HTTP server and returns an error receiver channel.
+fn spawn_server(
+    listener: tokio::net::TcpListener,
+    router: axum::Router,
+) -> tokio::sync::mpsc::Receiver<HttpxError> {
+    let (err_sender, err_receiver) = tokio::sync::mpsc::channel::<HttpxError>(1);
+
+    tokio::spawn(async move {
+        let server = axum::serve(listener, router);
+
+        if let Err(e) = server.await {
+            let _ = err_sender
+                .send(HttpxError::ServerError(e.to_string()))
+                .await;
+        }
+    });
+
+    err_receiver
+}
+
+/// Handles retry logic when binding to an address fails.
+async fn handle_bind_retry(
+    addr: &str,
+    bind_error: std::io::Error,
+    config: PollingConfig,
+) -> Result<(), HttpxError> {
+    for _ in 0..config.max_attempts {
+        if can_connect(addr) {
+            return Err(HttpxError::ServerError(bind_error.to_string()));
+        }
+
+        sleep(config.delay).await;
+    }
+
+    Err(HttpxError::ConnectionTimeout(config.max_attempts))
+}
+
+/// Polls for server readiness until connected or timeout.
+async fn poll_for_readiness(
+    addr: &str,
+    delay: Duration,
+    max_attempts: u32,
+    mut err_receiver: tokio::sync::mpsc::Receiver<HttpxError>,
+) -> Result<(), HttpxError> {
+    for _ in 0..max_attempts {
+        if let Ok(err) = err_receiver.try_recv() {
+            return Err(err);
+        }
+
+        if can_connect(addr) {
+            return Ok(());
+        }
+
+        sleep(delay).await;
+    }
+
+    Err(HttpxError::ConnectionTimeout(max_attempts))
+}
+
 /// Starts an HTTP server asynchronously and waits for it to become ready.
 ///
 /// This function spawns the server in a background task and polls for connectivity
@@ -82,19 +141,10 @@ pub async fn start_async(
         .parse::<SocketAddr>()
         .map_err(|_| HttpxError::InvalidAddress(address.clone()))?;
 
-    // Create the TCP listener first
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => listener,
         Err(bind_error) => {
-            for _ in 0..config.max_attempts {
-                if can_connect(&address) {
-                    return Err(HttpxError::ServerError(bind_error.to_string()));
-                }
-
-                sleep(config.delay).await;
-            }
-
-            return Err(HttpxError::ConnectionTimeout(config.max_attempts));
+            return handle_bind_retry(&address, bind_error, config).await;
         }
     };
 
@@ -102,39 +152,16 @@ pub async fn start_async(
         .local_addr()
         .map_err(|e| HttpxError::ServerError(e.to_string()))?;
 
-    // Channel to capture server errors
-    let (err_sender, mut err_receiver) = tokio::sync::mpsc::channel::<HttpxError>(1);
-
-    // Spawn the server in a background task
-    tokio::spawn(async move {
-        let server = axum::serve(listener, router);
-
-        if let Err(e) = server.await {
-            let _ = err_sender
-                .send(HttpxError::ServerError(e.to_string()))
-                .await;
-        }
-    });
-
-    // Poll for readiness
+    let err_receiver = spawn_server(listener, router);
     let polling_addr = actual_addr.to_string();
-    let delay = config.delay;
-    let max_attempts = config.max_attempts;
 
-    for _ in 0..max_attempts {
-        // Check if server errored first
-        if let Ok(err) = err_receiver.try_recv() {
-            return Err(err);
-        }
-
-        if can_connect(&polling_addr) {
-            return Ok(());
-        }
-
-        sleep(delay).await;
-    }
-
-    Err(HttpxError::ConnectionTimeout(max_attempts))
+    poll_for_readiness(
+        &polling_addr,
+        config.delay,
+        config.max_attempts,
+        err_receiver,
+    )
+    .await
 }
 
 #[cfg(test)]

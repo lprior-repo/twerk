@@ -1,0 +1,11 @@
+name: distributed mode test
+description: test coordinator + worker distributed mode
+
+tasks:
+  - name: say hello
+    image: alpine:latest
+    run: echo "hello from coordinator"
+  
+  - name: say goodbye  
+    image: ubuntu:mantic
+    run: echo "goodbye from worker"

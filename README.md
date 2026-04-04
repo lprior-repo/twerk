@@ -29,8 +29,10 @@ Twerk handles workflow execution across Docker, Podman, and Shell environments. 
 git clone https://github.com/lprior-repo/twerk.git
 cd twerk
 cargo build --release
-cargo run --bin twerk -- help
+./target/release/twerk-cli --help
 ```
+
+
 
 ## Project Structure
 

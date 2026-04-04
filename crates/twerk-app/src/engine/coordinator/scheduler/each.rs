@@ -109,13 +109,25 @@ impl Scheduler {
             .map(|(ix, item)| {
                 let cx = {
                     let mut m = job_ctx.clone();
+                    // Insert index as a simple value (e.g., "0", "1", ...)
                     m.insert(
-                        var_name.to_string(),
-                        serde_json::json!({
-                            "index": ix.to_string(),
-                            "value": item
-                        }),
+                        format!("{var_name}_index"),
+                        serde_json::Value::String(ix.to_string()),
                     );
+                    // Flatten item.value into context:
+                    // - If value is an object with primitive properties, flatten them (e.g., value.start → value_start)
+                    // - If value is a primitive, insert as var_name directly
+                    if let Some(obj) = item.as_object() {
+                        for (k, v) in obj {
+                            let flat_key = format!("{var_name}_value_{k}");
+                            m.insert(flat_key, v.clone());
+                        }
+                        // Also insert the full value as var_name for complex access
+                        m.insert(var_name.to_string(), item.clone());
+                    } else {
+                        // Scalar value - insert directly as var_name
+                        m.insert(var_name.to_string(), item.clone());
+                    }
                     m
                 };
 

@@ -1,0 +1,10 @@
+name: bash-quick-test
+description: Quick smoke test - runs fast for debugging
+tasks:
+  - name: quick echo
+    image: ubuntu:mantic
+    run: |
+      echo "Quick test!"
+      echo "Current time: $(date)"
+      echo "Hostname: $(hostname)"
+      echo "PWD: $PWD"

@@ -1,0 +1,24 @@
+name: bash-ci-demo
+description: Simple CI-style demo
+tasks:
+  - name: checkout
+    image: ubuntu:mantic
+    run: echo "Checking out code..."
+
+  - name: parallel tests
+    parallel:
+      tasks:
+        - name: unit tests
+          image: ubuntu:mantic
+          run: echo "Running unit tests..."
+        - name: lint
+          image: ubuntu:mantic
+          run: echo "Running linter..."
+
+  - name: deploy
+    image: ubuntu:mantic
+    run: echo "Deploying..."
+
+  - name: health check
+    image: ubuntu:mantic
+    run: echo "Health check passed!"

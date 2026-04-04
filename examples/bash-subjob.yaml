@@ -1,0 +1,69 @@
+---
+name: bash-subjob-demo
+description: Demonstrates nested subjobs with bash
+output: "{{ tasks.subjob_output }}"
+tasks:
+  # Simple greeting
+  - name: start
+    image: ubuntu:mantic
+    run: echo "Starting workflow..."
+
+  # Subjob - runs as a nested job
+  - var: subjob_output
+    name: nested build job
+    subjob:
+      name: build phase
+      output: "{{ tasks.build_result }}"
+      tasks:
+        - var: build_result
+          name: compile step
+          image: ubuntu:mantic
+          run: |
+            echo "Compiling code..."
+            echo "✓ Compiled successfully"
+            echo -n "BUILD_OK" > $TORK_OUTPUT
+
+        - name: test step
+          image: ubuntu:mantic
+          run: |
+            echo "Running tests..."
+            echo "✓ All tests passed"
+
+        - name: package step
+          image: ubuntu:mantic
+          run: |
+            echo "Packaging..."
+            echo "✓ Packaged as app.tar.gz"
+
+  # Parallel subjobs - two builds at once
+  - name: parallel builds
+    parallel:
+      tasks:
+        - name: build frontend
+          subjob:
+            name: frontend build
+            tasks:
+              - name: frontend step 1
+                image: ubuntu:mantic
+                run: echo "Building frontend..."
+              - name: frontend step 2
+                image: ubuntu:mantic
+                run: echo "Frontend ready"
+
+        - name: build backend
+          subjob:
+            name: backend build
+            tasks:
+              - name: backend step 1
+                image: ubuntu:mantic
+                run: echo "Building backend..."
+              - name: backend step 2
+                image: ubuntu:mantic
+                run: echo "Backend ready"
+
+  # Final aggregation
+  - name: finish
+    image: ubuntu:mantic
+    run: |
+      echo "Subjob result: {{ tasks.subjob_output }}"
+      echo "All builds complete!"

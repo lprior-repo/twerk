@@ -137,14 +137,14 @@ tasks:
       list: "{{ fromJSON(tasks.chunks) }}"
       task:
         name: encode the chunk
-        var: chunk{{ item.index }}
+        var: chunk{{ item_index }}
         run: |
           ffmpeg -ss ${START} -i $SOURCE -to $LENGTH /tmp/chunk.mp4
         image: jrottenberg/ffmpeg:3.4-alpine
         env:
-          LENGTH: "{{ item.value.length }}"
+          LENGTH: "{{ item_value_length }}"
           SOURCE: "{{ tasks.signedURL }}"
-          START: "{{ item.value.start }}"
+          START: "{{ item_value_start }}"
         post:
           - name: upload the chunk to minio
             run: aws --endpoint-url $ENDPOINT_URL s3 cp /tmp/chunk.mp4 s3://$BUCKET_NAME/chunks/chunk_$NUMBER.mp4
@@ -154,7 +154,7 @@ tasks:
               AWS_SECRET_ACCESS_KEY: "{{inputs.secretKeyID}}"
               BUCKET_NAME: "{{tasks.bucketName}}"
               ENDPOINT_URL: "{{inputs.endpointURL}}"
-              NUMBER: "{{ item.index }}"
+              NUMBER: "{{ item_index }}"
         mounts:
           - type: volume
             target: /tmp

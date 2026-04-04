@@ -1,6 +1,7 @@
 //! Webhook module for the coordinator
 //!
 //! Handles triggering of job and task webhooks using a Data-Calc-Actions approach.
+//! The async webhook call uses reqwest with `tokio::time::sleep` for proper non-blocking retries.
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -9,19 +10,108 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Result;
+use reqwest::Client;
 use std::sync::Arc;
+use std::time::Duration;
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::job::Job;
-use twerk_core::task::{Task, TaskSummary};
-use twerk_core::webhook::{self, Webhook};
+use twerk_core::task::Task;
+use twerk_core::webhook::{
+    self, Webhook, WEBHOOK_DEFAULT_MAX_ATTEMPTS, WEBHOOK_DEFAULT_TIMEOUT_SECS,
+};
 use twerk_infrastructure::datastore::Datastore;
+
+// ── Async HTTP Client ───────────────────────────────────────────
+
+/// Async webhook caller with retry logic using `tokio::time::sleep`.
+///
+/// This is the **Action** layer - pure async I/O with proper backoff.
+async fn call_webhook_async(
+    wh: &Webhook,
+    body: &impl serde::Serialize,
+) -> Result<(), webhook::WebhookError> {
+    let url = wh
+        .url
+        .as_ref()
+        .ok_or_else(|| webhook::WebhookError::NonRetryableError("missing url".to_string(), 0))?;
+
+    let serialized =
+        serde_json::to_string(body).map_err(|_| webhook::WebhookError::SerializationError)?;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(WEBHOOK_DEFAULT_TIMEOUT_SECS))
+        .build()
+        .map_err(|_| webhook::WebhookError::SerializationError)?;
+
+    for attempt in 0..WEBHOOK_DEFAULT_MAX_ATTEMPTS {
+        let current_attempt = attempt + 1;
+        let remaining = WEBHOOK_DEFAULT_MAX_ATTEMPTS - current_attempt;
+
+        // Build request with headers
+        let mut request = client
+            .post(url)
+            .header("Content-Type", "application/json; charset=UTF-8")
+            .body(serialized.clone());
+
+        if let Some(ref headers) = wh.headers {
+            for (k, v) in headers {
+                request = request.header(k, v);
+            }
+        }
+
+        // Execute HTTP request
+        let status = if let Ok(resp) = request.send().await {
+            resp.status().as_u16()
+        } else {
+            tracing::info!(
+                webhook_url = %url,
+                attempt = current_attempt,
+                "[Webhook] request to {} failed with connection error",
+                url
+            );
+            continue;
+        };
+
+        // Check result - success (2xx), non-retryable, or retryable
+        if (200..300).contains(&status) {
+            return Ok(());
+        }
+
+        if !webhook::is_retryable(status) {
+            return Err(webhook::WebhookError::NonRetryableError(
+                url.clone(),
+                status,
+            ));
+        }
+
+        tracing::info!(
+            webhook_url = %url,
+            status,
+            attempt = current_attempt,
+            "[Webhook] request to {} failed with {}",
+            url, status
+        );
+
+        if !webhook::should_retry(Ok(status), remaining) {
+            break;
+        }
+
+        // Async backoff - does NOT block the thread
+        tokio::time::sleep(webhook::backoff_duration(current_attempt)).await;
+    }
+
+    Err(webhook::WebhookError::MaxAttemptsExceeded(
+        url.clone(),
+        WEBHOOK_DEFAULT_MAX_ATTEMPTS,
+    ))
+}
 
 // ── Actions ───────────────────────────────────────────────────
 
 /// Fires webhooks for a job based on the event type.
 ///
-/// This is an **Action** that spawns background tasks for network calls.
-pub fn fire_job_webhooks(job: &Job, event: &str) {
+/// This is an **Action** that spawns background tasks for async network calls.
+pub async fn fire_job_webhooks(job: &Job, event: &str) {
     let event = event.to_string();
 
     // Pure Calculation: Filter webhooks that match the event
@@ -32,12 +122,12 @@ pub fn fire_job_webhooks(job: &Job, event: &str) {
             .collect::<Vec<_>>()
     });
 
-    // Action: Spawn blocking tasks for network calls
-    let job_clone = job.clone();
+    // Action: Spawn async tasks for network calls
     for wh in matching_webhooks {
-        let job = job_clone.clone();
-        tokio::task::spawn_blocking(move || {
-            if let Err(e) = call_job_webhook(&wh, &job) {
+        let job = job.clone();
+        let wh = wh.clone();
+        tokio::spawn(async move {
+            if let Err(e) = call_webhook_async(&wh, &job).await {
                 tracing::error!(
                     url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
@@ -50,7 +140,7 @@ pub fn fire_job_webhooks(job: &Job, event: &str) {
 
 /// Fires webhooks for a task based on the event type.
 ///
-/// This is an **Action** that retrieves the job and spawns background tasks.
+/// This is an **Action** that retrieves the job and spawns async tasks.
 ///
 /// # Errors
 /// Returns error if the datastore query fails.
@@ -78,11 +168,12 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
 
     let summary = twerk_core::task::new_task_summary(task);
 
-    // Action: Spawn blocking tasks
+    // Action: Spawn async tasks
     for wh in matching_webhooks {
         let summary = summary.clone();
-        tokio::task::spawn_blocking(move || {
-            if let Err(e) = call_task_webhook(&wh, &summary) {
+        let wh = wh.clone();
+        tokio::spawn(async move {
+            if let Err(e) = call_webhook_async(&wh, &summary).await {
                 tracing::error!(
                     url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
@@ -93,18 +184,6 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
     }
 
     Ok(())
-}
-
-// ── Internal Actions ──────────────────────────────────────────
-
-/// Performs the blocking webhook call for a job.
-fn call_job_webhook(wh: &Webhook, job: &Job) -> Result<()> {
-    webhook::call(wh, job).map_err(|e| anyhow::anyhow!(e))
-}
-
-/// Performs the blocking webhook call for a task.
-fn call_task_webhook(wh: &Webhook, task_summary: &TaskSummary) -> Result<()> {
-    webhook::call(wh, task_summary).map_err(|e| anyhow::anyhow!(e))
 }
 
 #[cfg(test)]
@@ -124,6 +203,6 @@ mod tests {
         };
 
         // This just verifies the logic flow doesn't panic
-        fire_job_webhooks(&job, "job.Completed");
+        fire_job_webhooks(&job, "job.Completed").await;
     }
 }

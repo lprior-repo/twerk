@@ -119,7 +119,7 @@ async fn start_job(
     )
     .await?;
 
-    fire_job_webhooks(&job, "job.Scheduled");
+    fire_job_webhooks(&job, "job.Scheduled").await;
     broker.publish_task(QUEUE_PENDING.to_string(), &task).await
 }
 
@@ -181,7 +181,7 @@ async fn complete_job(
     .await?;
 
     let updated_job = ds.get_job_by_id(job_id).await?;
-    fire_job_webhooks(&updated_job, "job.Completed");
+    fire_job_webhooks(&updated_job, "job.Completed").await;
 
     match &job.parent_id {
         Some(parent_id) => {

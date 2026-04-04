@@ -1,0 +1,59 @@
+name: bash-pipeline-demo
+description: A 5-step bash pipeline demonstrating orchestration features
+output: "{{ tasks.final_result }}"
+tasks:
+  - var: step1_output
+    name: step 1 - hello world
+    image: ubuntu:mantic
+    run: |
+      echo "Step 1: Hello from bash!"
+      echo -n "hello-world" > $TORK_OUTPUT
+
+  - name: step 2 - uppercase
+    image: ubuntu:mantic
+    run: |
+      echo "Step 2: Converting to uppercase..."
+      echo "{{ tasks.step1_output }}" | tr '[:lower:]' '[:upper:]' > $TORK_OUTPUT
+
+  - var: math_result
+    name: step 3 - calculate
+    image: ubuntu:mantic
+    run: |
+      echo "Step 3: Doing math..."
+      RESULT=$((42 + 137))
+      echo "42 + 137 = $RESULT"
+      echo -n "$RESULT" > $TORK_OUTPUT
+
+  - name: step 4 - parallel greetings
+    parallel:
+      tasks:
+        - var: greeting1
+          name: parallel hello
+          image: ubuntu:mantic
+          run: |
+            echo "Hello from task A!"
+            echo -n "TaskA" > $TORK_OUTPUT
+        - var: greeting2
+          name: parallel world
+          image: ubuntu:mantic
+          run: |
+            echo "Hello from task B!"
+            echo -n "TaskB" > $TORK_OUTPUT
+        - var: greeting3
+          name: parallel rust
+          image: ubuntu:mantic
+          run: |
+            echo "Hello from task C!"
+            echo -n "TaskC" > $TORK_OUTPUT
+
+  - var: final_result
+    name: step 5 - final output
+    image: ubuntu:mantic
+    run: |
+      echo "Step 5: Aggregating results..."
+      echo "Original: {{ tasks.step1_output }}"
+      echo "Uppercased: {{ tasks.step2_output }}"
+      echo "Math result: {{ tasks.math_result }}"
+      echo "Parallel results: {{ tasks.greeting1 }}, {{ tasks.greeting2 }}, {{ tasks.greeting3 }}"
+      FINAL="Final: done at $(date)"
+      echo "$FINAL" > $TORK_OUTPUT

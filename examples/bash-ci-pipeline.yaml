@@ -1,0 +1,75 @@
+name: bash-ci-pipeline
+description: Realistic CI-style pipeline with build, test, deploy stages
+tasks:
+  - var: checkout
+    name: checkout code
+    image: ubuntu:mantic
+    run: |
+      echo "Checking out code..."
+      echo "commit: abc123"
+      echo -n "CHECKOUT_OK" > $TORK_OUTPUT
+
+  - name: parallel build
+    parallel:
+      tasks:
+        - var: deps_result
+          name: install dependencies
+          image: ubuntu:mantic
+          run: |
+            echo "Installing npm packages..."
+            sleep 0.3
+            echo -n "DEPS_OK" > $TORK_OUTPUT
+
+        - var: lint_result
+          name: lint code
+          image: ubuntu:mantic
+          run: |
+            echo "Running linter..."
+            sleep 0.2
+            echo "✓ No lint errors"
+            echo -n "LINT_OK" > $TORK_OUTPUT
+
+        - var: typecheck_result
+          name: type check
+          image: ubuntu:mantic
+          run: |
+            echo "Running type checker..."
+            sleep 0.2
+            echo "✓ Types OK"
+            echo -n "TYPES_OK" > $TORK_OUTPUT
+
+  - name: parallel tests
+    parallel:
+      tasks:
+        - name: unit tests
+          image: ubuntu:mantic
+          run: |
+            echo "Running unit tests..."
+            sleep 0.5
+            echo "✓ 42 unit tests passed"
+        - name: integration tests
+          image: ubuntu:mantic
+          run: |
+            echo "Running integration tests..."
+            sleep 0.8
+            echo "✓ 12 integration tests passed"
+
+  - var: deploy_result
+    name: deploy to production
+    image: ubuntu:mantic
+    entrypoint: ["bash","-c"]
+    run: |
+      echo "Deploying to production..."
+      sleep 1
+      echo "✓ Deploy successful!"
+      echo -n "DEPLOYED_v1.0" > $TORK_OUTPUT
+
+  - name: health check
+    image: ubuntu:mantic
+    run: |
+      echo "Running health checks..."
+      sleep 0.3
+      echo "✓ Service healthy"
+      echo "✓ Database connected"
+      echo ""
+      echo "CI Pipeline Complete!"

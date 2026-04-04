@@ -1,0 +1,23 @@
+name: bash-retry-demo
+description: Demonstrates retry behavior with bash - coin flip until success
+output: "{{ tasks.flip }}"
+tasks:
+  - var: flip
+    name: coin flip with retry
+    image: ubuntu:mantic
+    entrypoint: ["bash", "-c"]
+    run: |
+      FLIP=$((RANDOM % 2))
+      if [ $FLIP -eq 0 ]; then
+        echo "TAILS - failing!"
+        exit 1
+      else
+        echo "HEADS - success!"
+        exit 0
+      fi
+    retry:
+      limit: 5
+
+  - name: after success
+    image: ubuntu:mantic
+    run: echo "Flip succeeded! Continuing..."

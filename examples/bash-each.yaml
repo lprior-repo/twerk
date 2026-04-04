@@ -1,0 +1,14 @@
+name: bash-each-demo
+description: Demonstrates each/iteration with bash
+tasks:
+  - name: iterate numbers
+    each:
+      list: "{{ sequence(1, 3) }}"
+      var: "num"
+      task:
+        name: process {{num_value}}
+        image: ubuntu:mantic
+        env:
+          NUM: "{{num_value}}"
+          IDX: "{{num_index}}"
+        run: echo "Processing item #{{num_index}} = $NUM"

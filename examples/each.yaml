@@ -10,10 +10,10 @@ tasks:
       list: "{{ sequence(1,5) }}"
       task:
         name: output task item
-        var: eachTask{{item.index}}
+        var: eachTask{{item_index}}
         image: ubuntu:mantic
         env:
-          ITEM: "{{item.value}}"
+          ITEM: "{{item_value}}"
         run: echo -n $ITEM > $TORK_OUTPUT
 
   - name: sample each task with custom var
@@ -22,10 +22,10 @@ tasks:
       var: "myitem"
       task:
         name: output task item
-        var: eachTask{{myitem.index}}
+        var: eachTask{{myitem_index}}
         image: ubuntu:mantic
         env:
-          ITEM: "{{myitem.value}}"
+          ITEM: "{{myitem_value}}"
         run: echo -n $ITEM > $TORK_OUTPUT
 
   - name: bye task

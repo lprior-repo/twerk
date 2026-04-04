@@ -100,9 +100,9 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
 /// Measures how fast PostgreSQL can handle sequential inserts
 #[tokio::test]
 async fn db_write_throughput_test() -> anyhow::Result<()> {
+    use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
     use twerk_infrastructure::datastore::{Datastore, Options};
-    use twerk_core::uuid::new_short_uuid;
 
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
     let options = Options::default();
@@ -140,9 +140,9 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
 /// Measures get_active_tasks performance as data grows
 #[tokio::test]
 async fn db_query_under_load_test() -> anyhow::Result<()> {
+    use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
     use twerk_infrastructure::datastore::{Datastore, Options};
-    use twerk_core::uuid::new_short_uuid;
 
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
     let options = Options::default();
@@ -185,9 +185,9 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
 /// Measures database performance under concurrent load
 #[tokio::test]
 async fn db_concurrent_write_test() -> anyhow::Result<()> {
+    use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
     use twerk_infrastructure::datastore::{Datastore, Options};
-    use twerk_core::uuid::new_short_uuid;
 
     let dsn = "postgres://twerk:twerk@localhost:5433/twerk";
 

@@ -12,7 +12,7 @@ format = "pretty"
 type = "rabbitmq"
 
 [broker.rabbitmq]
-url = "amqp://guest:guest@localhost:5672/"
+url = "amqp://guest:guest@localhost:5672/%2f"
 consumer.timeout = "30m"
 durable.queues = false
 queue.type = "classic"
@@ -21,7 +21,7 @@ queue.type = "classic"
 type = "postgres"
 
 [datastore.postgres]
-dsn = "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable"
+dsn = "postgres://twerk:twerk@localhost:5433/twerk"
 max_open_conns = 25
 max_idle_conns = 25
 conn_max_lifetime = "1h"
@@ -48,9 +48,7 @@ name = "Worker"
 default = 1
 
 [runtime]
-type = "docker"
+type = "shell"
 
-[runtime.docker]
-config = ""
-privileged = false
-image.ttl = "24h"
+[runtime.shell]
+cmd = "bash,-c"

@@ -270,6 +270,68 @@ mod tests {
     }
 
     #[test]
+    fn from_slice_deserializes_negative_float() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct FloatVal {
+            value: f64,
+        }
+        let yaml = b"value: -3.14159\n";
+        let result: FloatVal = from_slice(yaml)?;
+        assert!((result.value - (-3.14159)).abs() < 1e-10);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_float_scientific_notation() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct SciVal {
+            value: f64,
+        }
+        let yaml = b"value: 1.5e10\n";
+        let result: SciVal = from_slice(yaml)?;
+        assert!((result.value - 1.5e10).abs() < 1e-1);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_hash_with_integer_keys() -> Result<(), ApiError> {
+        use std::collections::HashMap;
+        let yaml = b"1: one\n2: two\n3: three\n";
+        let map: HashMap<String, String> = from_slice(yaml)?;
+        assert_eq!(map.get("1"), Some(&"one".to_string()));
+        assert_eq!(map.get("2"), Some(&"two".to_string()));
+        assert_eq!(map.get("3"), Some(&"three".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_nested_arrays() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct Nested {
+            matrix: Vec<Vec<i32>>,
+        }
+        let yaml = b"matrix: [[1, 2], [3, 4]]\n";
+        let result: Nested = from_slice(yaml)?;
+        assert_eq!(result.matrix, vec![vec![1, 2], vec![3, 4]]);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_mixed_array_types() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct Mixed {
+            items: Vec<serde_json::Value>,
+        }
+        let yaml = b"items: [1, \"two\", true, null]\n";
+        let result: Mixed = from_slice(yaml)?;
+        assert_eq!(result.items[0], serde_json::json!(1));
+        assert_eq!(result.items[1], serde_json::json!("two"));
+        assert_eq!(result.items[2], serde_json::json!(true));
+        assert_eq!(result.items[3], serde_json::Value::Null);
+        Ok(())
+    }
+
+    #[test]
     fn from_slice_returns_bad_request_for_type_mismatch() {
         #[derive(Debug, serde::Deserialize)]
         struct Strict {

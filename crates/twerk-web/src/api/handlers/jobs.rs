@@ -17,20 +17,36 @@ use super::{default_user, extract_current_user, parse_page, parse_size, AppState
 use crate::middleware::hooks::{on_read_job, on_read_job_summary};
 
 /// Whether the create-job endpoint should block until the job completes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WaitMode {
     #[default]
     Detached,
     Blocking,
 }
 
-impl From<bool> for WaitMode {
-    fn from(b: bool) -> Self {
-        if b {
-            WaitMode::Blocking
-        } else {
-            WaitMode::Detached
+impl<'de> Deserialize<'de> for WaitMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum WaitModeHelper {
+            Bool(bool),
+            String(String),
+        }
+
+        let helper = WaitModeHelper::deserialize(deserializer)?;
+        match helper {
+            WaitModeHelper::Bool(b) => Ok(if b {
+                WaitMode::Blocking
+            } else {
+                WaitMode::Detached
+            }),
+            WaitModeHelper::String(s) => match s.to_lowercase().as_str() {
+                "blocking" | "true" | "1" | "yes" => Ok(WaitMode::Blocking),
+                _ => Ok(WaitMode::Detached),
+            },
         }
     }
 }

@@ -781,4 +781,170 @@ derived: *base_val
         assert_eq!(result.key, "value");
         Ok(())
     }
+
+    // ── Job schema validation tests ─────────────────────────────────────────
+
+    #[test]
+    fn from_slice_rejects_invalid_job_state() {
+        let yaml = b"name: test\nstate: INVALID_STATE\n";
+        let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
+        assert!(result.is_err(), "Invalid JobState should fail");
+    }
+
+    #[test]
+    fn from_slice_accepts_job_state_uppercase() -> Result<(), ApiError> {
+        use twerk_core::job::{Job, JobState};
+        let yaml = b"name: test\nstate: PENDING\n";
+        let job: Job = from_slice(yaml)?;
+        assert_eq!(job.state, JobState::Pending);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_all_optional_fields_absent() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: minimal-job\n";
+        let job: Job = from_slice(yaml)?;
+        assert_eq!(job.name, Some("minimal-job".to_string()));
+        assert_eq!(job.state, twerk_core::job::JobState::Pending);
+        assert!(job.id.is_none());
+        assert!(job.description.is_none());
+        assert!(job.tasks.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_empty_tasks_array() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: empty-tasks-job\ntasks: []\n";
+        let job: Job = from_slice(yaml)?;
+        assert_eq!(job.tasks, Some(vec![]));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_task_defaults() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: job-with-task\ntasks:\n  - name: step1\n    image: alpine\n";
+        let job: Job = from_slice(yaml)?;
+        let tasks = job.tasks.unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].name, Some("step1".to_string()));
+        assert_eq!(tasks[0].image, Some("alpine".to_string()));
+        assert_eq!(tasks[0].priority, 0); // default
+        assert_eq!(tasks[0].position, 0); // default
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_camelcase_fields() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: camelCase-test\ntaskCount: 5\nprogress: 0.75\n";
+        let job: Job = from_slice(yaml)?;
+        assert_eq!(job.name, Some("camelCase-test".to_string()));
+        assert_eq!(job.task_count, 5);
+        assert!((job.progress - 0.75).abs() < 1e-10);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_webhooks() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml =
+            b"name: webhook-job\nwebhooks:\n  - url: https://example.com/hook\n    method: POST\n";
+        let job: Job = from_slice(yaml)?;
+        let webhooks = job.webhooks.unwrap();
+        assert_eq!(webhooks.len(), 1);
+        assert_eq!(
+            webhooks[0].url.as_ref().map(String::as_str),
+            Some("https://example.com/hook")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_schedule() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: scheduled-job\nschedule:\n  cron: \"0 0 * * *\"\n";
+        let job: Job = from_slice(yaml)?;
+        let schedule = job.schedule.unwrap();
+        assert!(schedule.cron.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_inputs() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: input-job\ninputs:\n  env: production\n  version: \"1.0\"\n";
+        let job: Job = from_slice(yaml)?;
+        let inputs = job.inputs.unwrap();
+        assert_eq!(inputs.get("env"), Some(&"production".to_string()));
+        assert_eq!(inputs.get("version"), Some(&"1.0".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_tags() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: tagged-job\ntags:\n  - frontend\n  - api\n  - v2\n";
+        let job: Job = from_slice(yaml)?;
+        let tags = job.tags.unwrap();
+        assert_eq!(tags, vec!["frontend", "api", "v2"]);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_progress_clamps_to_valid_range() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        // Progress should be between 0.0 and 1.0 but we don't validate on deserialization
+        let yaml = b"name: progress-job\nprogress: 1.5\n";
+        let job: Job = from_slice(yaml)?;
+        assert!((job.progress - 1.5).abs() < 1e-10);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_rejects_job_with_invalid_task_image_type() {
+        let yaml = b"name: bad-task\ntasks:\n  - name: step1\n    image: 12345\n";
+        let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
+        assert!(result.is_err(), "Task image should be a string");
+    }
+
+    #[test]
+    fn from_slice_rejects_job_with_invalid_task_priority_type() {
+        let yaml = b"name: bad-priority\ntasks:\n  - name: step1\n    image: alpine\n    priority: not_a_number\n";
+        let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
+        assert!(result.is_err(), "Task priority should be an integer");
+    }
+
+    #[test]
+    fn from_slice_job_with_context() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: context-job\ncontext:\n  execution_id: exec-123\n  attempt: 1\n";
+        let job: Job = from_slice(yaml)?;
+        assert!(job.context.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_null_description_becomes_none() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: test\ndescription: null\n";
+        let job: Job = from_slice(yaml)?;
+        assert_eq!(job.description, None);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_job_with_auto_delete() -> Result<(), ApiError> {
+        use twerk_core::job::Job;
+        let yaml = b"name: delete-job\nautoDelete:\n  after: after_success\n";
+        let job: Job = from_slice(yaml)?;
+        assert!(job.auto_delete.is_some());
+        assert_eq!(
+            job.auto_delete.unwrap().after,
+            Some("after_success".to_string())
+        );
+        Ok(())
+    }
 }

@@ -6,7 +6,7 @@ use crate::datastore::postgres::encrypt;
 use crate::datastore::Error as DatastoreError;
 use twerk_core::{
     id::{JobId, ScheduledJobId},
-    job::{Job, JobContext, JobSchedule, JobState},
+    job::{Job, JobContext, JobSchedule},
     task::{Permission, Task},
     user::User,
     webhook::Webhook,
@@ -132,7 +132,7 @@ impl JobRecordExt for JobRecord {
             name: self.name.clone(),
             description: self.description.clone(),
             tags: self.tags.clone(),
-            state: JobState::from(self.state.as_str()),
+            state: self.state.parse().unwrap_or_default(),
             created_at: Some(self.created_at),
             created_by: Some(created_by),
             started_at: self.started_at,
@@ -237,7 +237,7 @@ mod tests {
         assert_eq!(job.id.as_deref(), Some("job-001"));
         assert_eq!(job.name.as_deref(), Some("Build Job"));
         assert_eq!(job.description.as_deref(), Some("Build the project"));
-        assert_eq!(job.state, "PENDING");
+        assert_eq!(job.state, JobState::Pending);
         assert_eq!(job.position, 1);
         assert_eq!(job.task_count, 5);
         assert_eq!(job.progress, 0.0);

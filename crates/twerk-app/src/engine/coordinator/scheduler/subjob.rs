@@ -25,7 +25,7 @@ impl Scheduler {
             parent_id: Some(task_id.to_string().into()),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),
-            state: twerk_core::job::JOB_STATE_PENDING.to_string(),
+            state: twerk_core::job::JobState::Pending,
             tasks: subjob_task.tasks.clone(),
             inputs: subjob_task.inputs.clone(),
             secrets: subjob_task.secrets.clone(),
@@ -44,7 +44,7 @@ impl Scheduler {
             .update_task(
                 &task_id,
                 Box::new(move |mut u| {
-                    u.state = twerk_core::task::TASK_STATE_RUNNING.to_string();
+                    u.state = twerk_core::task::TaskState::Running;
                     u.started_at = Some(now);
                     if let Some(ref mut sj) = u.subjob {
                         sj.id = Some(subjob_id.clone());

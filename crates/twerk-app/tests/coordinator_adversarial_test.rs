@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::oneshot;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
-use twerk_core::job::{Job, JOB_STATE_PENDING};
+use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::broker::{
@@ -323,7 +323,7 @@ async fn submit_job_returns_error_when_datastore_create_fails() -> Result<()> {
 
     let job = Job {
         id: Some("fail-job-1".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -363,7 +363,7 @@ async fn submit_job_returns_error_when_broker_publish_fails() -> Result<()> {
 
     let job = Job {
         id: Some("fail-job-2".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -405,7 +405,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
 
     let job = Job {
         id: Some("job-3".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("task 1".to_string()),
             ..Default::default()
@@ -429,7 +429,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
         let mut attempts = 0;
         loop {
             match ds.get_job_by_id("job-3").await {
-                Ok(persisted_job) if persisted_job.state != JOB_STATE_PENDING => {
+                Ok(persisted_job) if persisted_job.state != JobState::Pending => {
                     let _ = tx.send(Ok(persisted_job));
                     return;
                 }

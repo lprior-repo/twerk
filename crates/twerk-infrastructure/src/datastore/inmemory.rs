@@ -7,7 +7,8 @@ use twerk_core::id::{JobId, NodeId, ScheduledJobId, TaskId};
 use twerk_core::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use twerk_core::node::Node;
 use twerk_core::role::Role;
-use twerk_core::task::{Task, TaskLogPart};
+use twerk_core::job::{JobState, ScheduledJobState};
+use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_core::user::User;
 
 pub struct InMemoryDatastore {
@@ -112,7 +113,7 @@ impl Datastore for InMemoryDatastore {
             .iter()
             .find(|e| {
                 e.value().parent_id.as_deref() == Some(parent_task_id)
-                    && e.value().state == "CREATED"
+                    && e.value().state == TaskState::Created
             })
             .map(|e| e.value().clone())
             .ok_or(DatastoreError::TaskNotFound)
@@ -259,7 +260,7 @@ impl Datastore for InMemoryDatastore {
         Ok(self
             .scheduled_jobs
             .iter()
-            .filter(|e| e.value().state == "ACTIVE")
+            .filter(|e| e.value().state == ScheduledJobState::Active)
             .map(|e| e.value().clone())
             .collect())
     }
@@ -376,12 +377,12 @@ impl Datastore for InMemoryDatastore {
         let jobs_running = self
             .jobs
             .iter()
-            .filter(|e| e.value().state == "RUNNING")
+            .filter(|e| e.value().state == JobState::Running)
             .count() as i32;
         let tasks_running = self
             .tasks
             .iter()
-            .filter(|e| e.value().state == "RUNNING")
+            .filter(|e| e.value().state == TaskState::Running)
             .count() as i32;
         let nodes_running = self.nodes.len() as i32;
         Ok(twerk_core::stats::Metrics {

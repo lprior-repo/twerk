@@ -202,7 +202,7 @@ async fn test_postgres_all() {
     for state in states {
         let t = Task {
             id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
-            state: state.to_string(),
+            state: state.parse().unwrap_or_default(),
             created_at: Some(now),
             job_id: j_active.id.clone(),
             ..Task::default()
@@ -219,7 +219,7 @@ async fn test_postgres_all() {
     ds.update_task(
         t1.id.as_ref().unwrap(),
         Box::new(|mut u| {
-            u.state = twerk_core::task::TASK_STATE_SCHEDULED.to_string();
+            u.state = twerk_core::task::TaskState::Scheduled;
             u.result = Some("my result".to_string());
             u.queue = Some("somequeue".to_string());
             u.progress = 57.3;
@@ -233,7 +233,7 @@ async fn test_postgres_all() {
         .get_task_by_id(t1.id.as_ref().unwrap())
         .await
         .expect("failed to get task");
-    assert_eq!(t1_updated.state, twerk_core::task::TASK_STATE_SCHEDULED);
+    assert_eq!(t1_updated.state, twerk_core::task::TaskState::Scheduled);
     assert_eq!(t1_updated.progress, 57.3);
     assert_eq!(t1_updated.priority, 5);
 
@@ -454,7 +454,7 @@ async fn test_postgres_all() {
         description: Some("Test description".to_string()),
         cron: Some("* * * * *".to_string()),
         created_by: Some(guest.clone()),
-        state: twerk_core::job::SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        state: twerk_core::job::ScheduledJobState::Active,
         created_at: Some(now),
         tasks: Some(vec![]),
         inputs: Some(HashMap::new()),
@@ -482,7 +482,7 @@ async fn test_postgres_all() {
     let j_expired = Job {
         id: Some("job_expired".into()),
         created_by: Some(guest.clone()),
-        state: twerk_core::job::JOB_STATE_COMPLETED.to_string(),
+        state: twerk_core::job::JobState::Completed,
         created_at: Some(now - Duration::days(400)),
         completed_at: Some(now - Duration::days(400)),
         tags: Some(vec![]),

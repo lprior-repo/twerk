@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use twerk_core::task::{TASK_STATE_COMPLETED, TASK_STATE_FAILED};
+use twerk_core::task::TaskState;
 use twerk_infrastructure::broker::queue::QUEUE_COMPLETED;
 
 // ── Subtask Completion Handlers ──────────────────────────────────
@@ -60,7 +60,7 @@ async fn handle_parallel_subtask_completed(
 
     if is_last.load(std::sync::atomic::Ordering::SeqCst) {
         let mut completed_parent = parent;
-        completed_parent.state = TASK_STATE_COMPLETED.to_string();
+        completed_parent.state = TaskState::Completed;
         completed_parent.completed_at = Some(time::OffsetDateTime::now_utc());
         broker
             .publish_task(QUEUE_COMPLETED.to_string(), &completed_parent)
@@ -97,7 +97,7 @@ async fn handle_each_subtask_completed(
 
     if is_last.load(std::sync::atomic::Ordering::SeqCst) {
         let mut completed_parent = parent;
-        completed_parent.state = TASK_STATE_COMPLETED.to_string();
+        completed_parent.state = TaskState::Completed;
         completed_parent.completed_at = Some(time::OffsetDateTime::now_utc());
         broker
             .publish_task(QUEUE_COMPLETED.to_string(), &completed_parent)
@@ -121,7 +121,7 @@ pub(crate) fn handle_subtask_failed(
 
         if parent.parallel.is_some() || parent.each.is_some() {
             let mut failed_parent = parent;
-            failed_parent.state = TASK_STATE_FAILED.to_string();
+            failed_parent.state = TaskState::Failed;
             failed_parent.failed_at = Some(time::OffsetDateTime::now_utc());
             failed_parent.error = task.error.clone();
 

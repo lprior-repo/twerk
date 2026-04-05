@@ -11,15 +11,15 @@
 
 use std::time::{Duration, Instant};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
-use twerk_core::job::Job;
-use twerk_core::task::Task;
+use twerk_core::job::{Job, JobState};
+use twerk_core::task::{Task, TaskState};
 
 /// Creates a parallel job struct with N tasks
 fn create_parallel_job(job_id: &str, num_tasks: usize) -> Job {
     Job {
         id: Some(job_id.into()),
         name: Some("load-test-job".to_string()),
-        state: "PENDING".to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel-root".to_string()),
             parallel: Some(twerk_core::task::ParallelTask {
@@ -121,7 +121,7 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
                 id: Some(format!("{}-{:04}", job_id, i).into()),
                 job_id: Some(job_id.clone().into()),
                 name: Some("db-test".to_string()),
-                state: "CREATED".to_string(),
+                state: TaskState::Created,
                 ..Default::default()
             };
             ds.create_task(&task).await?;
@@ -160,7 +160,7 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
                 id: Some(format!("{}-{:04}", job_id, i).into()),
                 job_id: Some(job_id.clone().into()),
                 name: Some("query-test".to_string()),
-                state: "CREATED".to_string(),
+                state: TaskState::Created,
                 ..Default::default()
             };
             ds.create_task(&task).await?;
@@ -217,7 +217,7 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
                             id: Some(format!("{}-{t}-{i:04}", &job_id[..8]).into()),
                             job_id: Some(job_id.clone().into()),
                             name: Some("concurrent-test".to_string()),
-                            state: "CREATED".to_string(),
+                            state: TaskState::Created,
                             ..Default::default()
                         };
                         ds.create_task(&task).await.expect("failed to create task");

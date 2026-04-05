@@ -2,8 +2,8 @@
 
 use crate::engine::types::JobHandlerError;
 use std::sync::Arc;
-use twerk_core::job::JOB_STATE_CANCELLED;
-use twerk_core::task::TASK_STATE_CANCELLED;
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
 /// Cancels the parent job when a subjob is cancelled.
@@ -25,7 +25,7 @@ pub(crate) async fn cancel_parent_job(
         .await
         .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
     let mut cancelled_job = parent_job;
-    cancelled_job.state = JOB_STATE_CANCELLED.to_string();
+    cancelled_job.state = JobState::Cancelled;
     broker
         .publish_job(&cancelled_job)
         .await
@@ -49,7 +49,7 @@ pub(crate) async fn cancel_task_affinity(
                 .await
                 .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
             let mut cancelled_job = job_to_cancel;
-            cancelled_job.state = JOB_STATE_CANCELLED.to_string();
+            cancelled_job.state = JobState::Cancelled;
             broker
                 .publish_job(&cancelled_job)
                 .await
@@ -92,7 +92,7 @@ pub(crate) async fn cancel_active_tasks(
         ds.update_task(
             task_id,
             Box::new(|mut u| {
-                u.state = TASK_STATE_CANCELLED.to_string();
+                u.state = TaskState::Cancelled;
                 Ok(u)
             }),
         )

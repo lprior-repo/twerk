@@ -5,11 +5,11 @@
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::Arc;
-use twerk_core::job::{Job, JobContext, JobSummary, ScheduledJob, ScheduledJobSummary};
+use twerk_core::job::{Job, JobContext, JobState, JobSummary, ScheduledJob, ScheduledJobSummary};
 use twerk_core::node::Node;
 use twerk_core::role::Role;
 use twerk_core::stats::Metrics;
-use twerk_core::task::Task;
+use twerk_core::task::{Task, TaskState};
 use twerk_core::user::User;
 use twerk_infrastructure::datastore::{
     Datastore, Error as DatastoreError, Page, Result as DatastoreResult,
@@ -248,7 +248,7 @@ pub(crate) fn create_test_job() -> Job {
     Job {
         id: Some(twerk_core::id::JobId::new("job-1")),
         name: Some("Test Job".to_string()),
-        state: twerk_core::job::JOB_STATE_PENDING.to_string(),
+        state: twerk_core::job::JobState::Pending,
         context: Some(JobContext {
             inputs: Some(HashMap::new()),
             ..Default::default()
@@ -261,7 +261,7 @@ pub(crate) fn create_test_task() -> Task {
     Task {
         id: Some(twerk_core::id::TaskId::new("task-1")),
         job_id: Some(twerk_core::id::JobId::new("job-1")),
-        state: twerk_core::task::TASK_STATE_CREATED.to_string(),
+        state: twerk_core::task::TaskState::Created,
         name: Some("Test Task".to_string()),
         ..Default::default()
     }

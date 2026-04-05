@@ -35,7 +35,7 @@ impl Scheduler {
                 task_id,
                 Box::new(move |u| {
                     Ok(Task {
-                        state: twerk_core::task::TASK_STATE_RUNNING.to_string(),
+                        state: twerk_core::task::TaskState::Running,
                         started_at: Some(now),
                         ..u
                     })
@@ -62,7 +62,7 @@ impl Scheduler {
                     id: Some(new_short_uuid().into()),
                     job_id: Some(job_id.to_string().into()),
                     parent_id: Some(task_id.to_string().into()),
-                    state: twerk_core::task::TASK_STATE_PENDING.to_string(),
+                    state: twerk_core::task::TaskState::Pending,
                     created_at: Some(now),
                     ..evaluated
                 })
@@ -88,7 +88,7 @@ impl Scheduler {
                             id,
                             Box::new(move |t| {
                                 Ok(Task {
-                                    state: twerk_core::task::TASK_STATE_FAILED.to_string(),
+                                    state: twerk_core::task::TaskState::Failed,
                                     error: Some(msg),
                                     ..t
                                 })

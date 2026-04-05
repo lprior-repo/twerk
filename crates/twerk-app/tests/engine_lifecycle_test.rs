@@ -5,7 +5,7 @@ use std::sync::Arc;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::coordinator::middleware::HttpLogConfig;
 use twerk_app::engine::{BrokerProxy, Config, DatastoreProxy, Engine, Mode, State};
-use twerk_core::job::{Job, JOB_STATE_PENDING};
+use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
 use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
@@ -223,7 +223,7 @@ async fn engine_submit_job_returns_error_when_engine_not_running() -> Result<()>
     let engine = engine_with_mode(Mode::Standalone);
     let job = Job {
         id: Some("test-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -242,7 +242,7 @@ async fn engine_submit_job_returns_error_when_not_coordinator_mode() -> Result<(
 
     let job = Job {
         id: Some("test-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -267,7 +267,7 @@ async fn engine_submit_job_submits_to_coordinator_in_standalone_mode() -> Result
 
     let job = Job {
         id: Some("submit-test-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("test task".to_string()),
             image: Some("alpine".to_string()),
@@ -283,7 +283,7 @@ async fn engine_submit_job_submits_to_coordinator_in_standalone_mode() -> Result
 
     let submitted = result.unwrap();
     assert_eq!(submitted.id, job.id);
-    assert_eq!(submitted.state, JOB_STATE_PENDING);
+    assert_eq!(submitted.state, JobState::Pending);
 
     engine.terminate().await?;
     Ok(())
@@ -397,7 +397,7 @@ async fn coordinator_submit_job_creates_job_in_datastore() -> Result<()> {
 
     let job = Job {
         id: Some("coordinator-test-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -425,7 +425,7 @@ async fn coordinator_submit_job_generates_id_when_missing() -> Result<()> {
 
     let job = Job {
         id: None,
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         ..Default::default()
     };
 
@@ -451,7 +451,7 @@ async fn coordinator_submit_job_sets_created_at() -> Result<()> {
 
     let job = Job {
         id: Some("timestamp-test-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         created_at: None,
         ..Default::default()
     };

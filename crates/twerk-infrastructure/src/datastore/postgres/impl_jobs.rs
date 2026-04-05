@@ -325,7 +325,7 @@ async fn apply_job_update(
         .map_err(|e| DatastoreError::Serialization(format!("job.context: {e}")))?;
 
     sqlx::query(SQL_UPDATE_JOB)
-        .bind(&job.state)
+        .bind(job.state.to_string())
         .bind(job.started_at)
         .bind(job.completed_at)
         .bind(job.failed_at)
@@ -391,7 +391,7 @@ impl PostgresDatastore {
             .bind(&job.name)
             .bind(&job.description)
             .bind(job.tags.as_ref().map_or_else(Vec::new, Clone::clone))
-            .bind(&job.state)
+            .bind(job.state.to_string())
             .bind(match job.created_at {
                 Some(t) => t,
                 None => OffsetDateTime::now_utc(),

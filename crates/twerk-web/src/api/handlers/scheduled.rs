@@ -6,9 +6,7 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
-use twerk_core::job::{
-    new_scheduled_job_summary, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
-};
+use twerk_core::job::{new_scheduled_job_summary, ScheduledJob, ScheduledJobState};
 use twerk_core::repository;
 use twerk_core::user::User;
 use twerk_core::validation::{validate_cron, validate_job};
@@ -100,7 +98,7 @@ fn build_scheduled_job(
         name: body.name,
         description: body.description,
         cron: Some(cron),
-        state: SCHEDULED_JOB_STATE_ACTIVE.to_string(),
+        state: ScheduledJobState::Active,
         inputs: body.inputs,
         tasks: Some(tasks),
         created_by,
@@ -117,7 +115,7 @@ fn build_scheduled_job(
 
 /// Validate scheduled job can be paused (pure).
 fn validate_pause(sj: &ScheduledJob) -> Result<(), ApiError> {
-    if sj.state != SCHEDULED_JOB_STATE_ACTIVE {
+    if sj.state != ScheduledJobState::Active {
         return Err(ApiError::bad_request("scheduled job is not active"));
     }
     Ok(())
@@ -125,7 +123,7 @@ fn validate_pause(sj: &ScheduledJob) -> Result<(), ApiError> {
 
 /// Validate scheduled job can be resumed (pure).
 fn validate_resume(sj: &ScheduledJob) -> Result<(), ApiError> {
-    if sj.state != SCHEDULED_JOB_STATE_PAUSED {
+    if sj.state != ScheduledJobState::Paused {
         return Err(ApiError::bad_request("scheduled job is not paused"));
     }
     Ok(())
@@ -135,7 +133,7 @@ fn validate_resume(sj: &ScheduledJob) -> Result<(), ApiError> {
 fn pause_state_transition(
 ) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
     Box::new(|mut sj| {
-        sj.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+        sj.state = ScheduledJobState::Paused;
         Ok(sj)
     })
 }
@@ -144,7 +142,7 @@ fn pause_state_transition(
 fn resume_state_transition(
 ) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
     Box::new(|mut sj| {
-        sj.state = SCHEDULED_JOB_STATE_ACTIVE.to_string();
+        sj.state = ScheduledJobState::Active;
         Ok(sj)
     })
 }
@@ -161,13 +159,13 @@ fn build_scheduled_job_event_value() -> Result<serde_json::Value, ApiError> {
 
 /// Check if scheduled job was active (pure).
 fn was_active(sj: &ScheduledJob) -> bool {
-    sj.state == SCHEDULED_JOB_STATE_ACTIVE
+    sj.state == ScheduledJobState::Active
 }
 
 /// Build paused scheduled job for event (pure).
 fn build_paused_for_event(sj: &ScheduledJob) -> ScheduledJob {
     let mut paused = sj.clone();
-    paused.state = SCHEDULED_JOB_STATE_PAUSED.to_string();
+    paused.state = ScheduledJobState::Paused;
     paused
 }
 

@@ -8,11 +8,8 @@ use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tracing::{debug, error};
-use twerk_core::job::{
-    JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
-    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
-};
-use twerk_core::task::{TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_PENDING};
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING};
 
@@ -28,15 +25,15 @@ pub async fn handle_job_event(
     job: twerk_core::job::Job,
 ) -> Result<()> {
     debug!(job_id = job_id_str(&job), state = %job.state, "Handling job event");
-    let res = match job.state.as_str() {
-        JOB_STATE_PENDING => start_job(ds, broker, job).await,
-        JOB_STATE_COMPLETED => complete_job(ds, broker, job).await,
-        JOB_STATE_RESTART => restart_job(ds, broker, job).await,
-        JOB_STATE_CANCELLED => handle_cancel(ds, broker, job)
+    let res = match job.state {
+        JobState::Pending => start_job(ds, broker, job).await,
+        JobState::Completed => complete_job(ds, broker, job).await,
+        JobState::Restart => restart_job(ds, broker, job).await,
+        JobState::Cancelled => handle_cancel(ds, broker, job)
             .await
             .map_err(|e| anyhow!("{e}")),
-        JOB_STATE_FAILED => fail_job(ds, broker, job).await.map_err(|e| anyhow!("{e}")),
-        JOB_STATE_RUNNING => mark_job_as_running(ds, broker, job)
+        JobState::Failed => fail_job(ds, broker, job).await.map_err(|e| anyhow!("{e}")),
+        JobState::Running => mark_job_as_running(ds, broker, job)
             .await
             .map_err(|e| anyhow!("{e}")),
         _ => Ok(()),
@@ -62,11 +59,11 @@ pub async fn handle_cancel(
         .as_deref()
         .ok_or_else(|| JobHandlerError::Handler("job has no id".to_string()))?;
 
-    if is_job_active(&job.state) {
+    if is_job_active(job.state) {
         ds.update_job(
             job_id,
             Box::new(|mut u| {
-                u.state = JOB_STATE_CANCELLED.to_string();
+                u.state = JobState::Cancelled;
                 Ok(u)
             }),
         )
@@ -102,7 +99,7 @@ async fn start_job(
         twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow!("{e}"))?;
     task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
-    task.state = TASK_STATE_PENDING.to_string();
+    task.state = TaskState::Pending;
     task.position = 1;
     task.created_at = Some(now);
 
@@ -111,7 +108,7 @@ async fn start_job(
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
-            u.state = JOB_STATE_SCHEDULED.to_string();
+            u.state = JobState::Scheduled;
             u.started_at = Some(now);
             u.position = 1;
             Ok(u)
@@ -134,7 +131,7 @@ async fn restart_job(
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
-            u.state = JOB_STATE_RUNNING.to_string();
+            u.state = JobState::Running;
             u.failed_at = None;
             Ok(u)
         }),
@@ -154,7 +151,7 @@ async fn restart_job(
         .map_err(|e| anyhow!("{e}"))?;
     task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
-    task.state = TASK_STATE_PENDING.to_string();
+    task.state = TaskState::Pending;
     task.position = job.position;
     task.created_at = Some(now);
 
@@ -173,7 +170,7 @@ async fn complete_job(
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
-            u.state = JOB_STATE_COMPLETED.to_string();
+            u.state = JobState::Completed;
             u.completed_at = Some(now);
             Ok(u)
         }),
@@ -186,7 +183,7 @@ async fn complete_job(
     match &job.parent_id {
         Some(parent_id) => {
             let mut parent = ds.get_task_by_id(parent_id).await?;
-            parent.state = TASK_STATE_COMPLETED.to_string();
+            parent.state = TaskState::Completed;
             parent.completed_at = Some(now);
             broker
                 .publish_task(QUEUE_COMPLETED.to_string(), &parent)
@@ -213,8 +210,8 @@ async fn mark_job_as_running(
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
-            if u.state == JOB_STATE_SCHEDULED {
-                u.state = JOB_STATE_RUNNING.to_string();
+            if u.state == JobState::Scheduled {
+                u.state = JobState::Running;
                 u.failed_at = None;
             }
             Ok(u)
@@ -238,8 +235,8 @@ async fn fail_job(
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
-            if is_job_active(&u.state) {
-                u.state = JOB_STATE_FAILED.to_string();
+            if is_job_active(u.state) {
+                u.state = JobState::Failed;
                 u.failed_at = failed_at;
             }
             Ok(u)
@@ -253,7 +250,7 @@ async fn fail_job(
             .get_task_by_id(parent_id)
             .await
             .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
-        parent.state = TASK_STATE_FAILED.to_string();
+        parent.state = TaskState::Failed;
         parent.failed_at = failed_at;
         parent.error.clone_from(&job.error);
         broker
@@ -268,7 +265,7 @@ async fn fail_job(
         .get_job_by_id(job_id)
         .await
         .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
-    if updated_job.state == JOB_STATE_FAILED {
+    if updated_job.state == JobState::Failed {
         broker
             .publish_event(
                 TOPIC_JOB_FAILED.to_string(),

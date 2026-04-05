@@ -13,9 +13,7 @@ use crate::engine::coordinator::webhook::fire_task_webhooks;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tracing::error;
-use twerk_core::task::{
-    TaskLogPart, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_PENDING, TASK_STATE_RUNNING,
-};
+use twerk_core::task::{TaskLogPart, TaskState};
 use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
 
 // ── Public Task Handlers ────────────────────────────────────────
@@ -29,10 +27,10 @@ pub async fn handle_task_progress(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    match task.state.as_str() {
-        TASK_STATE_PENDING => handle_pending_task(ds, broker, task).await,
-        TASK_STATE_COMPLETED => handle_task_completed(ds, broker, task).await,
-        TASK_STATE_FAILED => handle_error(ds, broker, task).await,
+    match task.state {
+        TaskState::Pending => handle_pending_task(ds, broker, task).await,
+        TaskState::Completed => handle_task_completed(ds, broker, task).await,
+        TaskState::Failed => handle_error(ds, broker, task).await,
         _ => {
             let task_id = task
                 .id
@@ -41,7 +39,7 @@ pub async fn handle_task_progress(
             ds.update_task(
                 task_id,
                 Box::new(move |mut u| {
-                    u.state.clone_from(&task.state);
+                    u.state = task.state;
                     u.started_at = task.started_at;
                     u.completed_at = task.completed_at;
                     u.failed_at = task.failed_at;
@@ -103,7 +101,7 @@ pub async fn handle_started(
     ds.update_task(
         task_id,
         Box::new(move |mut u| {
-            u.state = TASK_STATE_RUNNING.to_string();
+            u.state = TaskState::Running;
             u.started_at = Some(now);
             Ok(u)
         }),
@@ -147,7 +145,7 @@ pub async fn handle_task_completed(
     ds.update_task(
         task_id,
         Box::new(move |mut u| {
-            u.state = TASK_STATE_COMPLETED.to_string();
+            u.state = TaskState::Completed;
             u.completed_at = completed_at;
             u.result = result;
             Ok(u)
@@ -187,7 +185,7 @@ pub async fn handle_task_failed(
     ds.update_task(
         task_id,
         Box::new(move |mut u| {
-            u.state = TASK_STATE_FAILED.to_string();
+            u.state = TaskState::Failed;
             u.failed_at = failed_at;
             u.error = task_error;
             Ok(u)
@@ -237,7 +235,7 @@ pub async fn handle_error(
     ds.update_task(
         task_id,
         Box::new(move |mut u| {
-            u.state = TASK_STATE_FAILED.to_string();
+            u.state = TaskState::Failed;
             u.failed_at = Some(now);
             u.error.clone_from(&task_error);
             u.result.clone_from(&task_result);
@@ -248,7 +246,7 @@ pub async fn handle_error(
 
     let job = ds.get_job_by_id(job_id).await?;
 
-    if !is_job_active(&job.state) {
+    if !is_job_active(job.state) {
         let _ = fire_task_webhooks(ds, &task, "task.Error").await;
         return Ok(());
     }
@@ -260,7 +258,7 @@ pub async fn handle_error(
     }
 
     let mut failed_task = task.clone();
-    failed_task.state = TASK_STATE_FAILED.to_string();
+    failed_task.state = TaskState::Failed;
     failed_task.failed_at = Some(now);
     broker
         .publish_task(QUEUE_FAILED.to_string(), &failed_task)

@@ -3,7 +3,7 @@
 use crate::engine::coordinator::handlers::util::build_job_context;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use twerk_core::task::TASK_STATE_PENDING;
+use twerk_core::task::TaskState;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
@@ -23,7 +23,7 @@ pub(crate) async fn create_retry_task(
     let mut retry_task = task;
     retry_task.id = Some(new_short_uuid().into());
     retry_task.created_at = Some(now);
-    retry_task.state = TASK_STATE_PENDING.to_string();
+    retry_task.state = TaskState::Pending;
     retry_task.error = None;
     retry_task.failed_at = None;
     retry_task.retry = Some(twerk_core::task::TaskRetry {

@@ -15,7 +15,7 @@
 use crate::engine::types::{TaskEventType, TaskHandlerFunc, TaskMiddlewareFunc};
 use std::collections::HashMap;
 use std::sync::Arc;
-use twerk_core::task::{Task, TASK_STATE_RUNNING};
+use twerk_core::task::{Task, TaskState};
 use twerk_infrastructure::config;
 
 /// Host environment configuration - maps host env var names to task env var names.
@@ -103,7 +103,7 @@ impl HostEnv {
             let next = next.clone();
             let vars = vars.clone();
             Arc::new(move |ctx: Arc<()>, et: TaskEventType, task: &mut Task| {
-                if et == TaskEventType::StateChange && task.state == TASK_STATE_RUNNING {
+                if et == TaskEventType::StateChange && task.state == TaskState::Running {
                     let env_vars = get_existing_env_vars(&vars);
                     apply_host_vars_recursive(task, &env_vars);
                 }

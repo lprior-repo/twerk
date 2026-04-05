@@ -15,7 +15,7 @@ use tracing::{debug, warn};
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::id::TaskId;
 use twerk_core::task::{
-    Task, TaskLimits, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING,
+    Task, TaskLimits, TaskState,
 };
 
 use crate::broker::Broker;
@@ -48,7 +48,7 @@ pub async fn execute_task(
     apply_limits(&mut t, &limits);
 
     // Update task state
-    t.state = TASK_STATE_RUNNING.to_string();
+    t.state = TaskState::Running;
     t.started_at = Some(OffsetDateTime::now_utc());
 
     // Publish task started
@@ -62,11 +62,11 @@ pub async fn execute_task(
     // Update final state
     match result {
         Ok(()) => {
-            t.state = TASK_STATE_COMPLETED.to_string();
+            t.state = TaskState::Completed;
             t.completed_at = Some(OffsetDateTime::now_utc());
         }
         Err(e) => {
-            t.state = TASK_STATE_FAILED.to_string();
+            t.state = TaskState::Failed;
             t.failed_at = Some(OffsetDateTime::now_utc());
             t.error = Some(e.to_string());
         }

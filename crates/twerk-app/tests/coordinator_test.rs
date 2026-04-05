@@ -4,9 +4,8 @@
 use anyhow::Result;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
-use twerk_core::job::Job;
-use twerk_core::job::JOB_STATE_PENDING;
-use twerk_core::task::Task;
+use twerk_core::job::{Job, JobState};
+use twerk_core::task::{Task, TaskState};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 
@@ -27,7 +26,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     let job = Job {
         id: Some("test-job-2".into()),
         name: Some("test job 2".to_string()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("task 1".to_string()),
             image: Some("alpine".to_string()),
@@ -59,7 +58,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
 
     // Simulate task completion
     let mut completed_task = task.clone();
-    completed_task.state = twerk_core::task::TASK_STATE_COMPLETED.to_string();
+    completed_task.state = twerk_core::task::TaskState::Completed;
     completed_task.completed_at = Some(time::OffsetDateTime::now_utc());
 
     broker.publish_task_progress(&completed_task).await?;
@@ -68,7 +67,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     let persisted = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let persisted = datastore.get_job_by_id("test-job-2").await?;
-            if persisted.state == "COMPLETED" {
+            if persisted.state == JobState::Completed {
                 return Ok::<_, anyhow::Error>(persisted);
             }
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
@@ -100,7 +99,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
 
     let job = Job {
         id: Some("parallel-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel task".to_string()),
             parallel: Some(twerk_core::task::ParallelTask {
@@ -174,7 +173,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
 
     let job = Job {
         id: Some("each-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         context: Some(twerk_core::job::JobContext {
             inputs: Some(inputs),
             ..Default::default()
@@ -244,7 +243,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
 
     let job = Job {
         id: Some("parent-job".into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("subjob task".to_string()),
             subjob: Some(twerk_core::task::SubJobTask {
@@ -267,7 +266,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let tasks = datastore.get_active_tasks("parent-job").await?;
-            if !tasks.is_empty() && tasks[0].state == "RUNNING" {
+            if !tasks.is_empty() && tasks[0].state == JobState::Running {
                 return Ok::<_, anyhow::Error>(tasks);
             }
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
@@ -295,7 +294,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     let persisted_sj = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let persisted = datastore.get_job_by_id(&subjob_id).await?;
-            if persisted.state == "SCHEDULED" {
+            if persisted.state == JobState::Scheduled {
                 return Ok::<_, anyhow::Error>(persisted);
             }
             tokio::time::advance(std::time::Duration::from_millis(100)).await;

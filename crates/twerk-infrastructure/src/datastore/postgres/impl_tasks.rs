@@ -131,7 +131,7 @@ INSERT INTO tasks (
         .bind(&**job_id)
         .bind(task.position)
         .bind(&task.name)
-        .bind(task.state.as_str())
+        .bind(task.state.to_string())
         .bind(match task.created_at {
             Some(t) => t,
             None => OffsetDateTime::now_utc(),
@@ -265,7 +265,7 @@ impl PostgresDatastore {
                 let task = modify(task)?;
                 let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
                 sqlx::query(SQL_UPDATE_TASK)
-                    .bind(task.state.as_str())
+                    .bind(task.state.to_string())
                     .bind(task.scheduled_at)
                     .bind(task.started_at)
                     .bind(task.completed_at)
@@ -300,7 +300,7 @@ impl PostgresDatastore {
                 let task = modify(task)?;
                 let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
                 sqlx::query(SQL_UPDATE_TASK)
-                    .bind(task.state.as_str())
+                    .bind(task.state.to_string())
                     .bind(task.scheduled_at)
                     .bind(task.started_at)
                     .bind(task.completed_at)

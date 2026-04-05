@@ -305,11 +305,11 @@ mod tests {
 
     #[test]
     fn from_slice_deserializes_job_struct_with_minimal_fields() -> Result<(), ApiError> {
-        use twerk_core::job::Job;
+        use twerk_core::job::{Job, JobState};
         let yaml = b"name: test-job\nstate: PENDING\nposition: 5\ntaskCount: 3\nprogress: 0.5\n";
         let job: Job = from_slice(yaml)?;
         assert_eq!(job.name, Some("test-job".to_string()));
-        assert_eq!(job.state, "PENDING");
+        assert_eq!(job.state, JobState::Pending);
         assert_eq!(job.position, 5);
         assert_eq!(job.task_count, 3);
         assert!((job.progress - 0.5).abs() < 1e-10);
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn from_slice_deserializes_job_with_tasks() -> Result<(), ApiError> {
-        use twerk_core::job::Job;
+        use twerk_core::job::{Job, JobState};
         let yaml = b"name: multi-task\nstate: PENDING\ntasks:\n  - name: step1\n    image: alpine\n    position: 0\n    priority: 0\n    progress: 0.0\n    redelivered: 0\n  - name: step2\n    image: node:18\n    position: 0\n    priority: 0\n    progress: 0.0\n    redelivered: 0\nposition: 0\ntaskCount: 2\nprogress: 0.0\n";
         let job: Job = from_slice(yaml)?;
         assert_eq!(job.name, Some("multi-task".to_string()));

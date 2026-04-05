@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::time::Duration;
 use tokio::time::timeout;
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
-use twerk_core::job::{Job, JOB_STATE_PENDING};
+use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 
@@ -48,7 +48,7 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
     let job_id = "failing-e2e-job";
     let job = Job {
         id: Some(job_id.into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("failing-task".to_string()),
             image: Some("alpine".to_string()),
@@ -67,7 +67,7 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
     let failed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "FAILED" {
+                if j.state == JobState::Failed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }
@@ -106,7 +106,7 @@ async fn standalone_engine_retries_failed_task() -> Result<()> {
     let job_id = "retry-e2e-job";
     let job = Job {
         id: Some(job_id.into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("retry-task".to_string()),
             image: Some("alpine".to_string()),
@@ -129,7 +129,7 @@ async fn standalone_engine_retries_failed_task() -> Result<()> {
     let failed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "FAILED" {
+                if j.state == JobState::Failed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }
@@ -172,7 +172,7 @@ async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> 
     let job_id = "failing-parallel-job";
     let job = Job {
         id: Some(job_id.into()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel-task".to_string()),
             parallel: Some(twerk_core::task::ParallelTask {
@@ -198,7 +198,7 @@ async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> 
     let failed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "FAILED" {
+                if j.state == JobState::Failed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }
@@ -238,7 +238,7 @@ async fn standalone_engine_completes_job_naturally() -> Result<()> {
     let job = Job {
         id: Some(job_id.into()),
         name: Some("E2E Test Job".to_string()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("test-task".to_string()),
             image: Some("alpine".to_string()),
@@ -257,7 +257,7 @@ async fn standalone_engine_completes_job_naturally() -> Result<()> {
     let completed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "COMPLETED" {
+                if j.state == JobState::Completed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }
@@ -298,7 +298,7 @@ async fn standalone_engine_completes_parallel_job_naturally() -> Result<()> {
     let job = Job {
         id: Some(job_id.into()),
         name: Some("Parallel E2E Test Job".to_string()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel-task".to_string()),
             parallel: Some(twerk_core::task::ParallelTask {
@@ -332,7 +332,7 @@ async fn standalone_engine_completes_parallel_job_naturally() -> Result<()> {
     let completed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "COMPLETED" {
+                if j.state == JobState::Completed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }
@@ -372,7 +372,7 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
     let job = Job {
         id: Some(job_id.into()),
         name: Some("Each E2E Test Job".to_string()),
-        state: JOB_STATE_PENDING.to_string(),
+        state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("each-task".to_string()),
             each: Some(Box::new(twerk_core::task::EachTask {
@@ -399,7 +399,7 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
     let completed_job = timeout(Duration::from_secs(10), async {
         loop {
             if let Ok(j) = datastore.get_job_by_id(job_id).await {
-                if j.state == "COMPLETED" {
+                if j.state == JobState::Completed {
                     return Ok::<Job, anyhow::Error>(j);
                 }
             }

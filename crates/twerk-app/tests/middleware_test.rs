@@ -12,13 +12,13 @@ use twerk_app::engine::types::{
 };
 use twerk_core::job::Job;
 use twerk_core::node::{Node, NodeStatus};
-use twerk_core::task::{Task, TaskLogPart, TASK_STATE_RUNNING};
+use twerk_core::task::{Task, TaskLogPart, TaskState};
 
 fn make_task() -> Task {
     Task {
         id: Some("test-task-id".into()),
         job_id: Some("test-job-id".into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         ..Default::default()
     }
 }
@@ -27,7 +27,7 @@ fn make_job() -> Job {
     Job {
         id: Some("test-job-id".into()),
         name: Some("Test Job".to_string()),
-        state: "PENDING".to_string(),
+        state: JobState::Pending,
         ..Default::default()
     }
 }
@@ -530,7 +530,7 @@ fn hostenv_middleware_injects_env_vars_on_state_change() {
     let hostenv_middleware: TaskMiddlewareFunc = Arc::new(move |next: TaskHandlerFunc| {
         let next = next.clone();
         Arc::new(move |_ctx: Arc<()>, et: TaskEventType, task: &mut Task| {
-            if et == TaskEventType::StateChange && task.state == TASK_STATE_RUNNING {
+            if et == TaskEventType::StateChange && task.state == TaskState::Running {
                 if task.env.is_none() {
                     task.env = Some(HashMap::new());
                 }
@@ -546,7 +546,7 @@ fn hostenv_middleware_injects_env_vars_on_state_change() {
 
     let handler: TaskHandlerFunc =
         Arc::new(move |_ctx: Arc<()>, _et: TaskEventType, task: &mut Task| {
-            if task.state == TASK_STATE_RUNNING {
+            if task.state == TaskState::Running {
                 let env = task.env.as_ref().expect("task env should be set");
                 assert_eq!(env.get("HOST_VAR"), Some(&"host_value".to_string()));
             }
@@ -557,7 +557,7 @@ fn hostenv_middleware_injects_env_vars_on_state_change() {
     let wrapped = composer.compose_task_handler(handler);
 
     let mut task = make_task();
-    task.state = TASK_STATE_RUNNING.to_string();
+    task.state = TaskState::Running;
     let ctx = Arc::new(());
     wrapped(ctx, TaskEventType::StateChange, &mut task).unwrap();
 
@@ -569,7 +569,7 @@ fn hostenv_middleware_does_not_inject_on_other_events() {
     let hostenv_middleware: TaskMiddlewareFunc = Arc::new(move |next: TaskHandlerFunc| {
         let next = next.clone();
         Arc::new(move |_ctx: Arc<()>, et: TaskEventType, task: &mut Task| {
-            if et == TaskEventType::StateChange && task.state == TASK_STATE_RUNNING {
+            if et == TaskEventType::StateChange && task.state == TaskState::Running {
                 if task.env.is_none() {
                     task.env = Some(HashMap::new());
                 }
@@ -594,7 +594,7 @@ fn hostenv_middleware_does_not_inject_on_other_events() {
     let wrapped = composer.compose_task_handler(handler);
 
     let mut task = make_task();
-    task.state = TASK_STATE_RUNNING.to_string();
+    task.state = TaskState::Running;
     let ctx = Arc::new(());
     wrapped(ctx, TaskEventType::Started, &mut task).unwrap();
 }
@@ -604,7 +604,7 @@ fn hostenv_middleware_preserves_existing_env() {
     let hostenv_middleware: TaskMiddlewareFunc = Arc::new(move |next: TaskHandlerFunc| {
         let next = next.clone();
         Arc::new(move |_ctx: Arc<()>, et: TaskEventType, task: &mut Task| {
-            if et == TaskEventType::StateChange && task.state == TASK_STATE_RUNNING {
+            if et == TaskEventType::StateChange && task.state == TaskState::Running {
                 if task.env.is_none() {
                     task.env = Some(HashMap::new());
                 }
@@ -628,7 +628,7 @@ fn hostenv_middleware_preserves_existing_env() {
     let wrapped = composer.compose_task_handler(handler);
 
     let mut task = make_task();
-    task.state = TASK_STATE_RUNNING.to_string();
+    task.state = TaskState::Running;
     task.env = Some(
         [("EXISTING_VAR".to_string(), "existing_value".to_string())]
             .into_iter()
@@ -643,7 +643,7 @@ fn hostenv_middleware_multiple_vars_injected() {
     let hostenv_middleware: TaskMiddlewareFunc = Arc::new(move |next: TaskHandlerFunc| {
         let next = next.clone();
         Arc::new(move |_ctx: Arc<()>, et: TaskEventType, task: &mut Task| {
-            if et == TaskEventType::StateChange && task.state == TASK_STATE_RUNNING {
+            if et == TaskEventType::StateChange && task.state == TaskState::Running {
                 if task.env.is_none() {
                     task.env = Some(HashMap::new());
                 }
@@ -671,7 +671,7 @@ fn hostenv_middleware_multiple_vars_injected() {
     let wrapped = composer.compose_task_handler(handler);
 
     let mut task = make_task();
-    task.state = TASK_STATE_RUNNING.to_string();
+    task.state = TaskState::Running;
     let ctx = Arc::new(());
     wrapped(ctx, TaskEventType::StateChange, &mut task).unwrap();
 }
@@ -695,7 +695,7 @@ fn hostenv_middleware_empty_does_nothing() {
     let wrapped = composer.compose_task_handler(handler);
 
     let mut task = make_task();
-    task.state = TASK_STATE_RUNNING.to_string();
+    task.state = TaskState::Running;
     let ctx = Arc::new(());
     wrapped(ctx, TaskEventType::StateChange, &mut task).unwrap();
 }

@@ -7,7 +7,8 @@ use twerk_app::engine::coordinator::handlers;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
 use twerk_core::id::NodeId;
 use twerk_core::node::{Node, NodeStatus};
-use twerk_core::task::{Task, TaskLogPart, TASK_STATE_FAILED, TASK_STATE_RUNNING};
+use twerk_core::job::{Job, JobState};
+use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
@@ -39,9 +40,9 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     let job_id = "redeliver-test-job";
     let task_id = "redeliver-test-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -49,7 +50,7 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         redelivered: 1,
         ..Default::default()
     };
@@ -75,9 +76,9 @@ async fn handle_started_updates_task_state() -> Result<()> {
     let job_id = "started-job";
     let task_id = "started-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -85,7 +86,7 @@ async fn handle_started_updates_task_state() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: twerk_core::task::TASK_STATE_SCHEDULED.to_string(),
+        state: twerk_core::task::TaskState::Scheduled,
         ..Default::default()
     };
     datastore.clone_inner().create_task(&task).await?;
@@ -94,7 +95,7 @@ async fn handle_started_updates_task_state() -> Result<()> {
     assert!(result.is_ok());
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
-    assert_eq!(updated_task.state, TASK_STATE_RUNNING);
+    assert_eq!(updated_task.state, TaskState::Running);
     assert!(updated_task.started_at.is_some());
 
     Ok(())
@@ -109,9 +110,9 @@ async fn handle_error_updates_task_state() -> Result<()> {
     let job_id = "error-job";
     let task_id = "error-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -119,7 +120,7 @@ async fn handle_error_updates_task_state() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         error: Some("something went wrong".to_string()),
         ..Default::default()
     };
@@ -129,7 +130,7 @@ async fn handle_error_updates_task_state() -> Result<()> {
     assert!(result.is_ok());
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
-    assert_eq!(updated_task.state, TASK_STATE_FAILED);
+    assert_eq!(updated_task.state, TaskState::Failed);
     assert!(updated_task.failed_at.is_some());
     assert_eq!(updated_task.error, Some("something went wrong".to_string()));
 
@@ -145,9 +146,9 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     let job_id = "error-queue-job";
     let task_id = "error-queue-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -155,7 +156,7 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         error: Some("task failed".to_string()),
         ..Default::default()
     };
@@ -207,9 +208,9 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let job_id = "log-job";
     let task_id = "log-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -217,7 +218,7 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_task(&task).await?;
@@ -252,9 +253,9 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
     let job_id = "multi-log-job";
     let task_id = "multi-log-task";
 
-    let job = twerk_core::job::Job {
+    let job = Job {
         id: Some(job_id.into()),
-        state: twerk_core::job::JOB_STATE_RUNNING.to_string(),
+        state: JobState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_job(&job).await?;
@@ -262,7 +263,7 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
     let task = Task {
         id: Some(task_id.into()),
         job_id: Some(job_id.into()),
-        state: TASK_STATE_RUNNING.to_string(),
+        state: TaskState::Running,
         ..Default::default()
     };
     datastore.clone_inner().create_task(&task).await?;

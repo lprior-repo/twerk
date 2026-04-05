@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use twerk_core::job::{JOB_STATE_COMPLETED, JOB_STATE_FAILED};
-use twerk_core::task::TASK_STATE_PENDING;
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
@@ -35,7 +35,7 @@ pub async fn handle_top_level_task_completed(
         let mut task = base_task.clone();
         task.id = Some(new_short_uuid().into());
         task.job_id = Some(job_id.clone().into());
-        task.state = TASK_STATE_PENDING.to_string();
+        task.state = TaskState::Pending;
         task.position = next_position;
         task.created_at = Some(now);
 
@@ -53,7 +53,7 @@ pub async fn handle_top_level_task_completed(
         broker.publish_task(QUEUE_PENDING.to_string(), &task).await
     } else {
         let mut completed_job = job;
-        completed_job.state = JOB_STATE_COMPLETED.to_string();
+        completed_job.state = JobState::Completed;
         broker.publish_job(&completed_job).await
     }
 }
@@ -69,7 +69,7 @@ pub async fn handle_top_level_task_failed(
     task_error: Option<String>,
 ) -> Result<()> {
     let mut job = ds.get_job_by_id(&job_id).await?;
-    job.state = JOB_STATE_FAILED.to_string();
+    job.state = JobState::Failed;
     job.failed_at = Some(time::OffsetDateTime::now_utc());
     job.error = task_error;
 

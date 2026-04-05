@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 use twerk_core::id::{NodeId, TaskId};
 use twerk_core::node::{Node, NodeStatus};
-use twerk_core::task::{Task, TASK_STATE_COMPLETED, TASK_STATE_FAILED, TASK_STATE_RUNNING};
+use twerk_core::task::{Task, TaskState};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::Runtime as RuntimeTrait;
 
@@ -262,7 +262,7 @@ async fn execute_task(
         t.id.clone()
             .ok_or_else(|| anyhow::anyhow!("task ID required for execution"))?;
     active_tasks.insert(tid.clone(), task.clone());
-    t.state = TASK_STATE_RUNNING.to_string();
+    t.state = TaskState::Running;
     t.started_at = Some(time::OffsetDateTime::now_utc());
 
     // Fire and forget progress update
@@ -276,11 +276,11 @@ async fn execute_task(
 
     match runtime.run(&t).await {
         Ok(()) => {
-            t.state = TASK_STATE_COMPLETED.to_string();
+            t.state = TaskState::Completed;
             t.completed_at = Some(time::OffsetDateTime::now_utc());
         }
         Err(e) => {
-            t.state = TASK_STATE_FAILED.to_string();
+            t.state = TaskState::Failed;
             t.failed_at = Some(time::OffsetDateTime::now_utc());
             t.error = Some(e.to_string());
         }
@@ -330,7 +330,7 @@ pub fn create_hostenv_middleware(vars: &[String]) -> Option<crate::engine::TaskM
             let vm = var_map.clone();
             Arc::new(move |_ctx, et, task| {
                 if et == crate::engine::TaskEventType::StateChange
-                    && task.state == TASK_STATE_RUNNING
+                    && task.state == TaskState::Running
                 {
                     if task.env.is_none() {
                         task.env = Some(HashMap::new());

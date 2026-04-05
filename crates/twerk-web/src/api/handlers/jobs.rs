@@ -7,10 +7,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use twerk_core::job::{
-    new_job_summary, Job, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED,
-    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
-};
+use twerk_core::job::{new_job_summary, Job, JobState};
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
@@ -53,9 +50,7 @@ pub async fn create_job_handler(
         job.created_at = Some(time::OffsetDateTime::now_utc());
     }
 
-    if job.state.is_empty() {
-        job.state = twerk_core::job::JOB_STATE_PENDING.to_string();
-    }
+    // JobState defaults to Pending via serde/Default trait
 
     if job.created_by.is_none() {
         job.created_by = default_user(&state).await;
@@ -95,9 +90,10 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
                 Box::pin(async move {
                     if let Ok(ev_job) = serde_json::from_value::<Job>(val) {
                         if ev_job.id.as_ref() == Some(&job_id)
-                            && (ev_job.state == JOB_STATE_COMPLETED
-                                || ev_job.state == JOB_STATE_FAILED
-                                || ev_job.state == JOB_STATE_CANCELLED)
+                            && matches!(
+                                ev_job.state,
+                                JobState::Completed | JobState::Failed | JobState::Cancelled
+                            )
                         {
                             let _ = tx.send(ev_job).await;
                         }
@@ -191,11 +187,11 @@ pub async fn cancel_job_handler(
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
-    if job.state != JOB_STATE_RUNNING && job.state != JOB_STATE_SCHEDULED {
+    if !matches!(job.state, JobState::Running | JobState::Scheduled) {
         return Err(ApiError::bad_request("job is not running"));
     }
 
-    job.state = JOB_STATE_CANCELLED.to_string();
+    job.state = JobState::Cancelled;
     state
         .broker
         .publish_job(&job)
@@ -214,11 +210,11 @@ pub async fn restart_job_handler(
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
-    if job.state != JOB_STATE_FAILED && job.state != JOB_STATE_CANCELLED {
+    if !matches!(job.state, JobState::Failed | JobState::Cancelled) {
         return Err(ApiError::bad_request("job cannot be restarted"));
     }
 
-    job.state = JOB_STATE_RESTART.to_string();
+    job.state = JobState::Restart;
     state
         .broker
         .publish_job(&job)

@@ -11,7 +11,7 @@ impl Scheduler {
         let task_id = task.id.clone().unwrap_or_default();
         let now = time::OffsetDateTime::now_utc();
 
-        task.state = twerk_core::task::TASK_STATE_SCHEDULED.to_string();
+        task.state = twerk_core::task::TaskState::Scheduled;
         task.scheduled_at = Some(now);
 
         if task.queue.is_none() {
@@ -25,7 +25,7 @@ impl Scheduler {
             .update_task(
                 &task_id,
                 Box::new(move |mut u| {
-                    u.state = twerk_core::task::TASK_STATE_SCHEDULED.to_string();
+                    u.state = twerk_core::task::TaskState::Scheduled;
                     u.scheduled_at = Some(now);
                     u.queue = t_queue;
                     Ok(u)

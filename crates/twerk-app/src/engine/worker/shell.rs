@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::interval;
 use twerk_core::env::{read_cleanup_env, read_timeout_env};
-use twerk_core::task::{Task, TASK_STATE_ACTIVE};
+use twerk_core::task::{is_task_state_active, Task};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::docker::config::ERROR_PUBLISHING_TASK_PROGRESS;
 use twerk_infrastructure::runtime::{
@@ -165,8 +165,8 @@ impl ShellRuntimeAdapter {
         }
 
         // Check if task is in active state (precondition)
-        if !TASK_STATE_ACTIVE.contains(&task.state.as_str()) {
-            return Err(ShutdownError::TaskNotRunning(task.state.clone()));
+        if !is_task_state_active(task.state) {
+            return Err(ShutdownError::TaskNotRunning(task.state.to_string()));
         }
 
         Ok(())
@@ -299,7 +299,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let (task_id_str, task_state, config, active_processes, temp_dirs) = (
             task.id.clone().unwrap_or_default().to_string(),
-            task.state.clone(),
+            task.state,
             self.config.clone(),
             self.active_processes.clone(),
             self.temp_dirs.clone(),
@@ -310,8 +310,8 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             if task_id_str.is_empty() {
                 return Ok(Err(ShutdownError::InvalidTaskId(task_id_str.clone())));
             }
-            if !TASK_STATE_ACTIVE.contains(&task_state.as_str()) {
-                return Ok(Err(ShutdownError::TaskNotRunning(task_state.clone())));
+            if !is_task_state_active(task_state) {
+                return Ok(Err(ShutdownError::TaskNotRunning(task_state.to_string())));
             }
 
             // Check if process is tracked (precondition check)
@@ -349,40 +349,40 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use twerk_core::task::Task;
+    use twerk_core::task::{Task, TaskState};
 
-    fn create_test_task(id: &str, state: &str) -> Task {
+    fn create_test_task(id: &str, state: TaskState) -> Task {
         Task {
             id: Some(id.to_string().into()),
-            state: state.to_string(),
+            state,
             ..Default::default()
         }
     }
 
     #[test]
     fn validate_task_returns_error_when_id_is_empty() {
-        let task = create_test_task("", "RUNNING");
+        let task = create_test_task("", TaskState::Running);
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::InvalidTaskId(_))));
     }
 
     #[test]
     fn validate_task_returns_error_when_state_is_completed() {
-        let task = create_test_task("task-1", "COMPLETED");
+        let task = create_test_task("task-1", TaskState::Completed);
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));
     }
 
     #[test]
     fn validate_task_returns_ok_when_state_is_running() {
-        let task = create_test_task("task-1", "RUNNING");
+        let task = create_test_task("task-1", TaskState::Running);
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(result.is_ok());
     }
 
     #[test]
     fn validate_task_returns_error_when_state_is_stopped() {
-        let task = create_test_task("task-1", "STOPPED");
+        let task = create_test_task("task-1", TaskState::Stopped);
         let result = ShellRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));
     }

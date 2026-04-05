@@ -101,7 +101,7 @@ impl TaskRecordExt for TaskRecord {
             position: self.position,
             name: self.name.clone(),
             description: self.description.clone(),
-            state: twerk_core::task::TaskState::from(self.state.clone()),
+            state: self.state.parse().unwrap_or_default(),
             created_at: Some(self.created_at),
             scheduled_at: self.scheduled_at,
             started_at: self.started_at,
@@ -215,7 +215,7 @@ mod tests {
         assert_eq!(task.position, 0);
         assert_eq!(task.name.as_deref(), Some("build"));
         assert_eq!(task.description.as_deref(), Some("build the project"));
-        assert_eq!(task.state.as_str(), "PENDING");
+        assert_eq!(task.state.to_string(), "PENDING");
         assert_eq!(task.run.as_deref(), Some("cargo build"));
         assert_eq!(task.image.as_deref(), Some("rust:latest"));
         assert_eq!(task.queue.as_deref(), Some("default"));
@@ -475,7 +475,7 @@ mod tests {
         let task = record.to_task().expect("conversion should succeed");
 
         assert_eq!(task.id.as_deref(), Some("task-minimal"));
-        assert_eq!(task.state.as_str(), "CREATED");
+        assert_eq!(task.state.to_string(), "CREATED");
         assert!(task.name.is_none());
         assert!(task.description.is_none());
         assert!(task.cmd.is_none());

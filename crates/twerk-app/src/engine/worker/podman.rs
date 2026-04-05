@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::process::Command;
 use twerk_core::env::{read_cleanup_env, read_timeout_env};
 use twerk_core::task::Task;
-use twerk_core::task::TASK_STATE_ACTIVE;
+use twerk_core::task::is_task_state_active;
 use twerk_infrastructure::runtime::{
     BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult, DEFAULT_FORCE_TIMEOUT,
     DEFAULT_GRACEFUL_TIMEOUT, ENV_TASK_STOP_ENABLE_CLEANUP, ENV_TASK_STOP_FORCE_TIMEOUT,
@@ -85,8 +85,8 @@ impl PodmanRuntimeAdapter {
         }
 
         // Check if task is in active state
-        if !TASK_STATE_ACTIVE.contains(&task.state.as_str()) {
-            return Err(ShutdownError::TaskNotRunning(task.state.clone()));
+        if !is_task_state_active(task.state) {
+            return Err(ShutdownError::TaskNotRunning(task.state.to_string()));
         }
 
         Ok(())
@@ -148,7 +148,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let (task_id_str, task_state, config, active_containers) = (
             task.id.clone().unwrap_or_default().to_string(),
-            task.state.clone(),
+            task.state,
             self.config.clone(),
             self.active_containers.clone(),
         );
@@ -158,8 +158,8 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
             if task_id_str.is_empty() {
                 return Ok(Err(ShutdownError::InvalidTaskId(task_id_str.clone())));
             }
-            if !TASK_STATE_ACTIVE.contains(&task_state.as_str()) {
-                return Ok(Err(ShutdownError::TaskNotRunning(task_state.clone())));
+            if !is_task_state_active(task_state) {
+                return Ok(Err(ShutdownError::TaskNotRunning(task_state.to_string())));
             }
 
             // Check if container is tracked (precondition check)
@@ -291,12 +291,12 @@ impl PodmanRuntimeAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use twerk_core::task::Task;
+    use twerk_core::task::{Task, TaskState};
 
-    fn create_test_task(id: &str, state: &str) -> Task {
+    fn create_test_task(id: &str, state: TaskState) -> Task {
         Task {
             id: Some(id.to_string().into()),
-            state: state.to_string(),
+            state,
             ..Default::default()
         }
     }
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_validate_task_empty_id() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
-        let task = create_test_task("", "RUNNING");
+        let task = create_test_task("", TaskState::Running);
 
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::InvalidTaskId(_))));
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_validate_task_completed_state() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
-        let task = create_test_task("task-1", "COMPLETED");
+        let task = create_test_task("task-1", TaskState::Completed);
 
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(matches!(result, Err(ShutdownError::TaskNotRunning(_))));
@@ -322,7 +322,7 @@ mod tests {
     #[test]
     fn test_validate_task_running_state() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
-        let task = create_test_task("task-1", "RUNNING");
+        let task = create_test_task("task-1", TaskState::Running);
 
         let result = PodmanRuntimeAdapter::validate_task(&task);
         assert!(result.is_ok());

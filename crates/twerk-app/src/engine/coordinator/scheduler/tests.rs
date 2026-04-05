@@ -5,7 +5,7 @@
 use super::mock::{create_test_job, create_test_task, MockDatastore};
 use super::Scheduler;
 use std::sync::Arc;
-use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task};
+use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 
 #[tokio::test]
@@ -25,7 +25,7 @@ async fn test_schedule_regular_task_sets_scheduled_state() {
     assert!(stored.is_some());
     assert_eq!(
         stored.unwrap().state,
-        twerk_core::task::TASK_STATE_SCHEDULED
+        TaskState::Scheduled
     );
 }
 
@@ -82,7 +82,7 @@ async fn test_schedule_parallel_task_creates_child_tasks() {
         .tasks
         .get(&twerk_core::id::TaskId::new("task-parallel-1"));
     assert!(parent.is_some());
-    assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(parent.unwrap().state, TaskState::Running);
 
     let child_count = ds
         .tasks
@@ -164,7 +164,7 @@ async fn test_schedule_each_task_creates_task_per_list_item() {
 
     let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-1"));
     assert!(parent.is_some());
-    assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(parent.unwrap().state, TaskState::Running);
 
     let child_count = ds
         .tasks
@@ -224,7 +224,7 @@ async fn test_schedule_subjob_task_creates_subjob() {
     let subjob_task = Task {
         id: Some(twerk_core::id::TaskId::new("task-subjob-1")),
         job_id: Some(twerk_core::id::JobId::new("job-1")),
-        state: twerk_core::task::TASK_STATE_CREATED.to_string(),
+        state: twerk_core::task::TaskState::Created,
         name: Some("SubJob Task".to_string()),
         subjob: Some(SubJobTask {
             id: None,
@@ -251,7 +251,7 @@ async fn test_schedule_subjob_task_creates_subjob() {
 
     let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-subjob-1"));
     assert!(parent.is_some());
-    assert_eq!(parent.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(parent.unwrap().state, TaskState::Running);
 
     let subjob_count = ds.jobs.iter().count();
     assert!(subjob_count >= 1);
@@ -286,7 +286,7 @@ async fn test_schedule_task_dispatches_to_parallel() {
         .tasks
         .get(&twerk_core::id::TaskId::new("task-dispatch-parallel"));
     assert!(stored.is_some());
-    assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(stored.unwrap().state, TaskState::Running);
 }
 
 #[tokio::test]
@@ -323,7 +323,7 @@ async fn test_schedule_task_dispatches_to_each() {
         .tasks
         .get(&twerk_core::id::TaskId::new("task-dispatch-each"));
     assert!(stored.is_some());
-    assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(stored.unwrap().state, TaskState::Running);
 }
 
 #[tokio::test]
@@ -351,7 +351,7 @@ async fn test_schedule_task_dispatches_to_subjob() {
         .tasks
         .get(&twerk_core::id::TaskId::new("task-dispatch-subjob"));
     assert!(stored.is_some());
-    assert_eq!(stored.unwrap().state, twerk_core::task::TASK_STATE_RUNNING);
+    assert_eq!(stored.unwrap().state, TaskState::Running);
 }
 
 #[tokio::test]
@@ -373,6 +373,6 @@ async fn test_schedule_task_dispatches_to_regular() {
     assert!(stored.is_some());
     assert_eq!(
         stored.unwrap().state,
-        twerk_core::task::TASK_STATE_SCHEDULED
+        TaskState::Scheduled
     );
 }

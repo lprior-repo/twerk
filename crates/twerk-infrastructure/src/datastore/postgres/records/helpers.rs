@@ -5,7 +5,7 @@ use twerk_core::task::TaskState;
 /// Helper to convert a string slice to `TaskState`
 #[must_use]
 pub fn str_to_task_state(s: &str) -> TaskState {
-    TaskState::from(s.to_string())
+    s.parse().unwrap_or_default()
 }
 
 /// Creates a fixed-point timestamp for deterministic tests.
@@ -42,7 +42,7 @@ mod tests {
         ];
         for state in &states {
             let converted = str_to_task_state(state);
-            assert_eq!(converted.as_str(), *state);
+            assert_eq!(converted.to_string(), *state);
         }
     }
 }

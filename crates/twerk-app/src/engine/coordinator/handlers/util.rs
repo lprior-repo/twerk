@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use twerk_core::job::{JOB_STATE_RUNNING, JOB_STATE_SCHEDULED};
-use twerk_core::task::TASK_STATE_SKIPPED;
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 use twerk_infrastructure::broker::queue::QUEUE_COMPLETED;
 
 // ── Calculations (Pure) ────────────────────────────────────────
@@ -40,8 +40,8 @@ pub fn build_job_context(
 }
 
 /// Checks if job is in an active state.
-pub fn is_job_active(job_state: &str) -> bool {
-    matches!(job_state, JOB_STATE_RUNNING | JOB_STATE_SCHEDULED)
+pub fn is_job_active(job_state: JobState) -> bool {
+    matches!(job_state, JobState::Running | JobState::Scheduled)
 }
 
 /// Checks if retry is available.
@@ -71,7 +71,7 @@ pub async fn skip_task(
     ds.update_task(
         task_id,
         Box::new(move |mut u| {
-            u.state = TASK_STATE_SKIPPED.to_string();
+            u.state = TaskState::Skipped;
             u.scheduled_at = Some(now);
             u.started_at = Some(now);
             u.completed_at = Some(now);
@@ -81,7 +81,7 @@ pub async fn skip_task(
     .await?;
 
     let mut skipped_task = task;
-    skipped_task.state = TASK_STATE_SKIPPED.to_string();
+    skipped_task.state = TaskState::Skipped;
     skipped_task.scheduled_at = Some(now);
     skipped_task.started_at = Some(now);
     skipped_task.completed_at = Some(now);

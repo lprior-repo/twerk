@@ -19,9 +19,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::{debug, error, info};
-use twerk_core::job::{
-    Job as TorkJob, JobState, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
-};
+use twerk_core::job::{Job as TorkJob, JobState, ScheduledJob, ScheduledJobState};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
@@ -82,10 +80,9 @@ impl JobSchedulerHandler {
     /// # Errors
     /// Returns error if state transition fails.
     pub async fn handle_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
-        match sj.state.as_str() {
-            SCHEDULED_JOB_STATE_ACTIVE => self.handle_active(sj).await,
-            SCHEDULED_JOB_STATE_PAUSED => self.handle_paused(sj).await,
-            _ => Err(anyhow!("unknown scheduled job state: {}", sj.state)),
+        match sj.state {
+            ScheduledJobState::Active => self.handle_active(sj).await,
+            ScheduledJobState::Paused => self.handle_paused(sj).await,
         }
     }
 
@@ -183,7 +180,7 @@ async fn trigger_scheduled_job(
         tags: sj.tags.clone(),
         name: sj.name.clone(),
         description: sj.description.clone(),
-        state: JobState::from(twerk_core::job::JOB_STATE_PENDING),
+        state: JobState::Pending,
         tasks: sj.tasks.clone(),
         inputs: sj.inputs.clone(),
         secrets: sj.secrets.clone(),

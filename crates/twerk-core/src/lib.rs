@@ -1,3 +1,4 @@
+pub mod domain_types;
 pub mod encrypt;
 pub mod env;
 pub mod eval;
@@ -17,4 +18,5 @@ pub mod uuid;
 pub mod validation;
 pub mod webhook;
 
+pub use domain_types::{CronExpression, GoDuration, QueueName};
 pub use repository::{Repository, Result as RepoResult};

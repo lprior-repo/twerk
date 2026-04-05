@@ -30,25 +30,31 @@ pub enum QueueNameError {
     InvalidLength(usize),
     #[error("queue name contains invalid characters")]
     InvalidCharacter,
+    #[error("queue name \"{0}\" is reserved")]
+    Reserved(String),
 }
 
 impl QueueName {
     /// Create a new `QueueName`, returning an error if validation fails.
+    ///
+    /// # Errors
+    /// Returns [`QueueNameError::InvalidLength`] if name is empty or > 128 chars.
+    /// Returns [`QueueNameError::InvalidCharacter`] if name contains non-allowed chars.
     pub fn new(name: impl Into<String>) -> Result<Self, QueueNameError> {
         let s = name.into();
         if s.is_empty() || s.len() > 128 {
             return Err(QueueNameError::InvalidLength(s.len()));
         }
-        if !s
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.')
-        {
+        if !s.chars().all(|c| {
+            c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.'
+        }) {
             return Err(QueueNameError::InvalidCharacter);
         }
         Ok(Self(s))
     }
 
     /// View the queue name as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -102,14 +108,17 @@ pub enum CronError {
 impl CronExpression {
     /// Create a new `CronExpression`, returning an error if the expression
     /// cannot be parsed by the `cron` crate.
+    ///
+    /// # Errors
+    /// Returns [`CronError::InvalidExpression`] if the cron expression is malformed.
     pub fn new(expr: impl Into<String>) -> Result<Self, CronError> {
         let s = expr.into();
-        cron::Schedule::from_str(&s)
-            .map_err(|e| CronError::InvalidExpression(e.to_string()))?;
+        cron::Schedule::from_str(&s).map_err(|e| CronError::InvalidExpression(e.to_string()))?;
         Ok(Self(s))
     }
 
     /// View the cron expression as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -156,6 +165,12 @@ pub enum GoDurationError {
 
 impl GoDuration {
     /// Create a new `GoDuration`, returning an error if parsing fails.
+    ///
+    /// # Errors
+    /// Returns [`GoDurationError::Empty`] if the string is empty.
+    /// Returns [`GoDurationError::NoUnit`] if a duration segment lacks a unit.
+    /// Returns [`GoDurationError::UnknownUnit`] if an unknown unit is found.
+    /// Returns [`GoDurationError::ParseNumber`] if a number can't be parsed.
     pub fn new(s: impl Into<String>) -> Result<Self, GoDurationError> {
         let original = s.into();
         if original.is_empty() {
@@ -167,12 +182,17 @@ impl GoDuration {
     }
 
     /// Convert to a `std::time::Duration`.
+    ///
+    /// Since `Self` is only constructible via `new()` which validates the format,
+    /// this method is guaranteed to succeed.
+    #[must_use]
     pub fn to_duration(&self) -> Duration {
-        // We already validated in `new`, so unwrap is safe.
-        parse_go_duration(&self.0).unwrap()
+        parse_go_duration(&self.0)
+            .unwrap_or_else(|e| unreachable!("GoDuration was validated at construction: {e}"))
     }
 
     /// View the original Go-style duration string.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -248,19 +268,134 @@ fn parse_go_duration(s: &str) -> Result<Duration, GoDurationError> {
             let val: f64 = num_str
                 .parse()
                 .map_err(|_| GoDurationError::ParseNumber(start))?;
-            (val * multiplier as f64) as u128
+            // Safe: multiplier fits in f64 without precision loss for reasonable durations
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                clippy::cast_precision_loss
+            )]
+            let result = (val * multiplier as f64) as u128;
+            result
         } else {
             let val: u64 = num_str
                 .parse()
                 .map_err(|_| GoDurationError::ParseNumber(start))?;
-            val as u128 * multiplier
+            u128::from(val) * multiplier
         };
 
-        total += Duration::from_nanos(nanos as u64);
+        // Safe: nanos won't exceed u64::MAX for any reasonable duration string
+        total += Duration::from_nanos(u64::try_from(nanos).unwrap_or(u64::MAX));
         i += unit_len;
     }
 
     Ok(total)
+}
+
+// ---------------------------------------------------------------------------
+// Priority
+// ---------------------------------------------------------------------------
+
+/// A validated job/Task priority value (0-9).
+///
+/// Lower values = higher priority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[must_use = "Priority should be used; it validates at construction"]
+pub struct Priority(i64);
+
+/// Errors that can arise when constructing a [`Priority`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum PriorityError {
+    #[error("priority {0} is out of range (must be 0-9)")]
+    OutOfRange(i64),
+}
+
+impl Priority {
+    /// Create a new `Priority`, returning an error if outside 0..=9.
+    ///
+    /// # Errors
+    /// Returns [`PriorityError::OutOfRange`] if value is not in 0..=9.
+    pub fn new(value: i64) -> Result<Self, PriorityError> {
+        if (0..=9).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(PriorityError::OutOfRange(value))
+        }
+    }
+
+    /// Returns the raw priority value.
+    #[must_use]
+    pub fn value(self) -> i64 {
+        self.0
+    }
+}
+
+impl fmt::Display for Priority {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RetryLimit
+// ---------------------------------------------------------------------------
+
+/// A validated task retry limit (1-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[must_use = "RetryLimit should be used; it validates at construction"]
+pub struct RetryLimit(i64);
+
+/// Errors that can arise when constructing a [`RetryLimit`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum RetryLimitError {
+    #[error("retry limit {0} is out of range (must be 1-10)")]
+    OutOfRange(i64),
+}
+
+impl RetryLimit {
+    /// Create a new `RetryLimit`, returning an error if outside 1..=10.
+    ///
+    /// # Errors
+    /// Returns [`RetryLimitError::OutOfRange`] if value is not in 1..=10.
+    pub fn new(value: i64) -> Result<Self, RetryLimitError> {
+        if (1..=10).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(RetryLimitError::OutOfRange(value))
+        }
+    }
+
+    /// Returns the raw retry limit value.
+    #[must_use]
+    pub fn value(self) -> i64 {
+        self.0
+    }
+}
+
+impl fmt::Display for RetryLimit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DomainParseError (aggregated error type)
+// ---------------------------------------------------------------------------
+
+/// Unified error type for domain parsing failures.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum DomainParseError {
+    #[error("invalid cron expression: {0}")]
+    Cron(#[from] CronError),
+    #[error("invalid duration: {0}")]
+    Duration(#[from] GoDurationError),
+    #[error("invalid queue name: {0}")]
+    QueueName(#[from] QueueNameError),
+    #[error("invalid priority: {0}")]
+    Priority(#[from] PriorityError),
+    #[error("invalid retry limit: {0}")]
+    RetryLimit(#[from] RetryLimitError),
 }
 
 // ---------------------------------------------------------------------------
@@ -379,8 +514,8 @@ mod tests {
     #[test]
     fn go_duration_complex() {
         let d = GoDuration::new("2d12h30m15s500ms").unwrap();
-        let expected = Duration::from_secs(2 * 86400 + 12 * 3600 + 30 * 60 + 15)
-            + Duration::from_millis(500);
+        let expected =
+            Duration::from_secs(2 * 86400 + 12 * 3600 + 30 * 60 + 15) + Duration::from_millis(500);
         assert_eq!(d.to_duration(), expected);
     }
 

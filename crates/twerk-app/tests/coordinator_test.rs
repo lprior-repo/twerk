@@ -77,7 +77,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     .await
     .expect("timeout waiting for job completion")?;
 
-    assert_eq!(persisted.state, "COMPLETED");
+    assert_eq!(persisted.state, JobState::Completed);
     assert!(persisted.completed_at.is_some());
 
     Ok(())
@@ -140,7 +140,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     assert_eq!(tasks.len(), 3);
 
     let parallel_task = tasks.iter().find(|t| t.parallel.is_some()).unwrap();
-    assert_eq!(parallel_task.state, "RUNNING");
+    assert_eq!(parallel_task.state, TaskState::Running);
 
     let subtasks: Vec<_> = tasks
         .iter()
@@ -148,7 +148,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
         .collect();
     assert_eq!(subtasks.len(), 2);
     for st in subtasks {
-        assert_eq!(st.state, "SCHEDULED");
+        assert_eq!(st.state, TaskState::Scheduled);
     }
 
     Ok(())
@@ -213,7 +213,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     assert_eq!(tasks.len(), 3);
 
     let each_task = tasks.iter().find(|t| t.each.is_some()).unwrap();
-    assert_eq!(each_task.state, "RUNNING");
+    assert_eq!(each_task.state, TaskState::Running);
 
     let subtasks: Vec<_> = tasks
         .iter()
@@ -221,7 +221,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
         .collect();
     assert_eq!(subtasks.len(), 2);
     for st in subtasks {
-        assert_eq!(st.state, "SCHEDULED");
+        assert_eq!(st.state, TaskState::Scheduled);
     }
 
     Ok(())
@@ -266,7 +266,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let tasks = datastore.get_active_tasks("parent-job").await?;
-            if !tasks.is_empty() && tasks[0].state == JobState::Running {
+            if !tasks.is_empty() && tasks[0].state == TaskState::Running {
                 return Ok::<_, anyhow::Error>(tasks);
             }
             tokio::time::advance(std::time::Duration::from_millis(100)).await;
@@ -278,7 +278,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
 
     assert_eq!(tasks.len(), 1);
     let subjob_task = &tasks[0];
-    assert_eq!(subjob_task.state, "RUNNING");
+    assert_eq!(subjob_task.state, TaskState::Running);
 
     let subjob_id = subjob_task
         .subjob
@@ -304,7 +304,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     .await
     .expect("timeout waiting for subjob scheduling")?;
 
-    assert_eq!(persisted_sj.state, "SCHEDULED");
+    assert_eq!(persisted_sj.state, JobState::Scheduled);
 
     Ok(())
 }

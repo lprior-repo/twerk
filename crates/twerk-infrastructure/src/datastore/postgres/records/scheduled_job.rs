@@ -139,6 +139,7 @@ mod tests {
     use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;
+    use twerk_core::job::ScheduledJobState;
 
     // ── Helpers ──────────────────────────────────────────────────────────
 

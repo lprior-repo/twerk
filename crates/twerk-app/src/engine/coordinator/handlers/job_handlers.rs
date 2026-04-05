@@ -36,7 +36,7 @@ pub async fn handle_job_event(
         JobState::Running => mark_job_as_running(ds, broker, job)
             .await
             .map_err(|e| anyhow!("{e}")),
-        _ => Ok(()),
+        JobState::Scheduled => Ok(()),
     };
 
     if let Err(ref e) = res {

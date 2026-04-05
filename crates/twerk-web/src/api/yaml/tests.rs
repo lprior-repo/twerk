@@ -94,42 +94,41 @@ mod tests {
 
     #[test]
     fn ast_depth_returns_zero_for_flat_yaml() {
-        let docs = yaml_rust2::YamlLoader::load_from_str("name: hello\nvalue: world\n").unwrap();
-        let (depth, nodes) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value = serde_yaml::from_str("name: hello\nvalue: world\n").unwrap();
+        let (depth, nodes) = measure_ast_depth_and_nodes(&doc);
         assert_eq!(depth, 1);
         assert!(nodes > 0);
     }
 
     #[test]
     fn ast_depth_returns_correct_depth_for_nested_yaml() {
-        let docs =
-            yaml_rust2::YamlLoader::load_from_str("root:\n  child:\n    grandchild: value\n")
-                .unwrap();
-        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value =
+            serde_yaml::from_str("root:\n  child:\n    grandchild: value\n").unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&doc);
         assert_eq!(depth, 3);
     }
 
     #[test]
     fn ast_depth_catches_flow_style_nesting() {
         let yaml = "root: {a: {b: {c: value}}}";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&doc);
         assert!(depth >= 4, "flow-style depth should be >= 4, got {depth}");
     }
 
     #[test]
     fn ast_depth_counts_array_nesting() {
         let yaml = "items:\n  - name: a\n    tags:\n      - x\n      - y";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&doc);
         assert!(depth >= 3, "array nesting should be >= 3, got {depth}");
     }
 
     #[test]
     fn ast_nodes_counts_all_nodes() {
         let yaml = "a: 1\nb: 2\nc:\n  - x\n  - y";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let (_, nodes) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        let (_, nodes) = measure_ast_depth_and_nodes(&doc);
         assert!(nodes >= 8, "should count all nodes, got {nodes}");
     }
 
@@ -140,8 +139,8 @@ mod tests {
     #[case("root:\n  child: 1", 2)]
     #[case("root:\n  child:\n    leaf: 1", 3)]
     fn ast_depth_returns_expected_for_nesting_levels(#[case] input: &str, #[case] expected: usize) {
-        let docs = yaml_rust2::YamlLoader::load_from_str(input).unwrap();
-        let (depth, _) = measure_ast_depth_and_nodes(&docs[0]);
+        let doc: serde_yaml::Value = serde_yaml::from_str(input).unwrap();
+        let (depth, _) = measure_ast_depth_and_nodes(&doc);
         assert_eq!(depth, expected);
     }
 
@@ -405,7 +404,7 @@ mod tests {
 
     #[test]
     fn from_slice_deserializes_job_with_tasks() -> Result<(), ApiError> {
-        use twerk_core::job::{Job, JobState};
+        use twerk_core::job::Job;
         let yaml = b"name: multi-task\nstate: PENDING\ntasks:\n  - name: step1\n    image: alpine\n    position: 0\n    priority: 0\n    progress: 0.0\n    redelivered: 0\n  - name: step2\n    image: node:18\n    position: 0\n    priority: 0\n    progress: 0.0\n    redelivered: 0\nposition: 0\ntaskCount: 2\nprogress: 0.0\n";
         let job: Job = from_slice(yaml)?;
         assert_eq!(job.name, Some("multi-task".to_string()));
@@ -441,24 +440,18 @@ mod tests {
     proptest! {
         #[test]
         fn ast_depth_and_nodes_deterministic(input in "[a-zA-Z0-9: \\n\\[\\]{}]{0,200}") {
-            let docs = yaml_rust2::YamlLoader::load_from_str(&input);
-            if let Ok(d) = docs {
-                if let Some(first) = d.first() {
-                    let (d1, n1) = measure_ast_depth_and_nodes(first);
-                    let (d2, n2) = measure_ast_depth_and_nodes(first);
-                    prop_assert_eq!((d1, n1), (d2, n2));
-                }
+            if let Ok(doc) = serde_yaml::from_str::<serde_yaml::Value>(&input) {
+                let (d1, n1) = measure_ast_depth_and_nodes(&doc);
+                let (d2, n2) = measure_ast_depth_and_nodes(&doc);
+                prop_assert_eq!((d1, n1), (d2, n2));
             }
         }
 
         #[test]
         fn ast_depth_never_negative(input in "[a-zA-Z0-9: \\n]{0,200}") {
-            let docs = yaml_rust2::YamlLoader::load_from_str(&input);
-            if let Ok(d) = docs {
-                if let Some(first) = d.first() {
-                    let (depth, _) = measure_ast_depth_and_nodes(first);
-                    prop_assert!(depth < 1000);
-                }
+            if let Ok(doc) = serde_yaml::from_str::<serde_yaml::Value>(&input) {
+                let (depth, _) = measure_ast_depth_and_nodes(&doc);
+                prop_assert!(depth < 1000);
             }
         }
 
@@ -551,8 +544,8 @@ mod tests {
             panic!("expected BadRequest for empty body, got {result:?}");
         };
         assert!(
-            msg.contains("YAML parse error"),
-            "expected parse error for empty input, got: {msg}"
+            msg.contains("empty"),
+            "expected empty body error for empty input, got: {msg}"
         );
     }
 }

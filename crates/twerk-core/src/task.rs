@@ -48,28 +48,25 @@ impl TaskState {
     pub fn can_transition_to(&self, target: &TaskState) -> bool {
         match (self, target) {
             // Terminal states cannot transition out
-            (TaskState::Completed, _)
-            | (TaskState::Cancelled, _)
-            | (TaskState::Stopped, _)
-            | (TaskState::Skipped, _) => false,
+            (
+                TaskState::Completed
+                | TaskState::Cancelled
+                | TaskState::Stopped
+                | TaskState::Skipped,
+                _,
+            ) => false,
 
-            // Created -> Pending
-            (TaskState::Created, TaskState::Pending) => true,
-
-            // Pending -> Scheduled
-            (TaskState::Pending, TaskState::Scheduled) => true,
-
-            // Scheduled -> Running
-            (TaskState::Scheduled, TaskState::Running) => true,
+            // Linear chain: Created->Pending->Scheduled->Running and Failed->Pending
+            (s, t) if Self::is_valid_linear_transition(*s, *t) => true,
 
             // Running -> Completed | Failed | Cancelled | Stopped
-            (TaskState::Running, TaskState::Completed)
-            | (TaskState::Running, TaskState::Failed)
-            | (TaskState::Running, TaskState::Cancelled)
-            | (TaskState::Running, TaskState::Stopped) => true,
-
-            // Failed -> Pending (retry)
-            (TaskState::Failed, TaskState::Pending) => true,
+            (
+                TaskState::Running,
+                TaskState::Completed
+                | TaskState::Failed
+                | TaskState::Cancelled
+                | TaskState::Stopped,
+            ) => true,
 
             // Any active state -> Skipped
             (s, TaskState::Skipped) if s.is_active() => true,
@@ -77,6 +74,34 @@ impl TaskState {
             _ => false,
         }
     }
+
+    /// Check if transition follows the linear path: Created->Pending->Scheduled->Running or Failed->Pending
+    fn is_valid_linear_transition(from: TaskState, to: TaskState) -> bool {
+        matches!((from, to), (TaskState::Created, TaskState::Pending))
+            || matches!((from, to), (TaskState::Pending, TaskState::Scheduled))
+            || matches!((from, to), (TaskState::Scheduled, TaskState::Running))
+            || matches!((from, to), (TaskState::Failed, TaskState::Pending))
+    }
+}
+
+/// Returns true if the given state represents an active (in-progress) task.
+///
+/// This is a convenience function that delegates to [`TaskState::is_active`].
+///
+/// # Arguments
+/// * `state` - The task state to check
+///
+/// # Examples
+/// ```
+/// use twerk_core::task::{is_task_state_active, TaskState};
+///
+/// assert!(is_task_state_active(TaskState::Running));
+/// assert!(!is_task_state_active(TaskState::Completed));
+/// ```
+#[inline]
+#[must_use]
+pub fn is_task_state_active(state: TaskState) -> bool {
+    state.is_active()
 }
 
 impl fmt::Display for TaskState {
@@ -99,7 +124,7 @@ impl FromStr for TaskState {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_uppercase().as_str() {
             "CREATED" => Ok(TaskState::Created),
             "PENDING" => Ok(TaskState::Pending),
             "SCHEDULED" => Ok(TaskState::Scheduled),
@@ -339,7 +364,7 @@ pub fn new_task_summary(t: &Task) -> TaskSummary {
         progress: t.progress,
         name: t.name.clone(),
         description: t.description.clone(),
-        state: t.state.clone(),
+        state: t.state,
         created_at: t.created_at,
         scheduled_at: t.scheduled_at,
         started_at: t.started_at,

@@ -18,5 +18,8 @@ pub mod uuid;
 pub mod validation;
 pub mod webhook;
 
-pub use domain_types::{CronExpression, GoDuration, QueueName};
+pub use domain_types::{
+    CronExpression, CronError, DomainParseError, GoDuration, GoDurationError, Priority,
+    PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
+};
 pub use repository::{Repository, Result as RepoResult};

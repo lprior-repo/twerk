@@ -214,7 +214,7 @@ pub fn evaluate_task(
         position: task.position,
         name,
         description: task.description.clone(),
-        state: task.state.clone(),
+        state: task.state,
         created_at: task.created_at,
         scheduled_at: task.scheduled_at,
         started_at: task.started_at,

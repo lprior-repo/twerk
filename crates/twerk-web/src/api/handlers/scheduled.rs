@@ -6,14 +6,8 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
-<<<<<<< HEAD
-use twerk_core::job::{new_scheduled_job_summary, ScheduledJob, ScheduledJobState};
-=======
 use twerk_core::id::ScheduledJobId;
-use twerk_core::job::{
-    new_scheduled_job_summary, ScheduledJob, SCHEDULED_JOB_STATE_ACTIVE, SCHEDULED_JOB_STATE_PAUSED,
-};
->>>>>>> b85df73 (feat: add typed axum extractors and WaitMode enum)
+use twerk_core::job::{new_scheduled_job_summary, ScheduledJob, ScheduledJobState};
 use twerk_core::repository;
 use twerk_core::user::User;
 use twerk_core::validation::{validate_cron, validate_job};

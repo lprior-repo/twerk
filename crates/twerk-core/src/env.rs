@@ -7,6 +7,7 @@
 /// # Examples
 ///
 /// ```
+/// use twerk_core::env::format_kv;
 /// assert_eq!(format_kv("PORT", "8080"), "PORT=8080");
 /// ```
 #[must_use]

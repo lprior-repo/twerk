@@ -139,7 +139,13 @@ mod tests {
 
         let redacted = redact_task(task, &secrets);
         assert_eq!(
-            redacted.registry.as_ref().unwrap().password.as_ref().unwrap(),
+            redacted
+                .registry
+                .as_ref()
+                .unwrap()
+                .password
+                .as_ref()
+                .unwrap(),
             "[REDACTED]"
         );
     }

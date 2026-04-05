@@ -10,7 +10,7 @@ use twerk_app::engine::types::{
     LogMiddlewareFunc, NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, TaskEventType,
     TaskHandlerError, TaskHandlerFunc, TaskMiddlewareFunc,
 };
-use twerk_core::job::Job;
+use twerk_core::job::{Job, JobState};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
 

@@ -77,7 +77,7 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
     .await
     .expect("timeout waiting for job failure")?;
 
-    assert_eq!(failed_job.state, "FAILED");
+    assert_eq!(failed_job.state, JobState::Failed);
 
     // Terminate the engine
     engine.terminate().await?;
@@ -139,7 +139,7 @@ async fn standalone_engine_retries_failed_task() -> Result<()> {
     .await
     .expect("timeout waiting for retry job failure")?;
 
-    assert_eq!(failed_job.state, "FAILED");
+    assert_eq!(failed_job.state, JobState::Failed);
 
     // Check if task was actually retried by checking task count in datastore for this job
     // The original task + 2 retries = 3 tasks
@@ -208,7 +208,7 @@ async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> 
     .await
     .expect("timeout waiting for parallel job failure")?;
 
-    assert_eq!(failed_job.state, "FAILED");
+    assert_eq!(failed_job.state, JobState::Failed);
 
     // Terminate
     engine.terminate().await?;
@@ -267,7 +267,7 @@ async fn standalone_engine_completes_job_naturally() -> Result<()> {
     .await
     .expect("timeout waiting for job completion")?;
 
-    assert_eq!(completed_job.state, "COMPLETED");
+    assert_eq!(completed_job.state, JobState::Completed);
     assert!(completed_job.completed_at.is_some());
 
     // Terminate the engine
@@ -342,7 +342,7 @@ async fn standalone_engine_completes_parallel_job_naturally() -> Result<()> {
     .await
     .expect("timeout waiting for parallel job completion")?;
 
-    assert_eq!(completed_job.state, "COMPLETED");
+    assert_eq!(completed_job.state, JobState::Completed);
 
     // Terminate the engine
     engine.terminate().await?;
@@ -409,7 +409,7 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
     .await
     .expect("timeout waiting for each job completion")?;
 
-    assert_eq!(completed_job.state, "COMPLETED");
+    assert_eq!(completed_job.state, JobState::Completed);
 
     // Terminate the engine
     engine.terminate().await?;

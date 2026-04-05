@@ -6,17 +6,9 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
-<<<<<<< HEAD
-use std::sync::Arc;
-use twerk_core::id::JobId;
-use twerk_core::job::{new_job_summary, Job, JobState};
-=======
 use tokio::sync::broadcast::error::RecvError;
-use twerk_core::job::{
-    new_job_summary, Job, JobEvent, JOB_STATE_CANCELLED, JOB_STATE_FAILED, JOB_STATE_RESTART,
-    JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
-};
->>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
+use twerk_core::id::JobId;
+use twerk_core::job::{new_job_summary, Job, JobEvent, JobState};
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
@@ -107,30 +99,7 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
 
     let mut rx = state
         .broker
-<<<<<<< HEAD
-        .subscribe_for_events(
-            pattern,
-            Arc::new(move |val| {
-                let tx = tx.clone();
-                let job_id = job_id.clone();
-                Box::pin(async move {
-                    if let Ok(ev_job) = serde_json::from_value::<Job>(val) {
-                        if ev_job.id.as_ref() == Some(&job_id)
-                            && matches!(
-                                ev_job.state,
-                                JobState::Completed | JobState::Failed | JobState::Cancelled
-                            )
-                        {
-                            let _ = tx.send(ev_job).await;
-                        }
-                    }
-                    Ok(())
-                })
-            }),
-        )
-=======
         .subscribe("job.*".to_string())
->>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -151,11 +120,10 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
                 ) if job.id.as_ref() == Some(&job_id) => {
                     return Ok(job.clone());
                 }
-                Ok(_) => continue,
+                Ok(_) | Err(RecvError::Lagged(_)) => {},
                 Err(RecvError::Closed) => {
                     return Err(ApiError::internal("subscription channel closed"));
                 }
-                Err(RecvError::Lagged(_)) => continue,
             }
         }
     })

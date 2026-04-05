@@ -66,7 +66,9 @@ pub async fn create_user_handler(
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
     let user = twerk_core::user::User {
-        id: None,
+        id: Some(twerk_core::id::UserId::new(
+            twerk_core::uuid::new_short_uuid(),
+        )),
         username: Some(username),
         password_hash: Some(password_hash),
         ..Default::default()

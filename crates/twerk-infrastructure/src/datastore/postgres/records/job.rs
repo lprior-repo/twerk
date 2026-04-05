@@ -174,7 +174,7 @@ mod tests {
     use super::super::helpers::fixed_now;
     use super::*;
     use std::collections::HashMap;
-    use twerk_core::job::JobDefaults as CoreJobDefaults;
+    use twerk_core::job::{JobDefaults as CoreJobDefaults, JobState};
     use twerk_core::task::{AutoDelete, TaskLimits, TaskRetry};
 
     // ── Helpers ──────────────────────────────────────────────────────────

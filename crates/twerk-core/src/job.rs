@@ -64,7 +64,7 @@ impl FromStr for JobState {
     type Err = ParseJobStateError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_uppercase().as_str() {
             "PENDING" => Ok(Self::Pending),
             "SCHEDULED" => Ok(Self::Scheduled),
             "RUNNING" => Ok(Self::Running),
@@ -81,14 +81,17 @@ impl JobState {
     /// Returns `true` if the transition from `self` to `target` is valid.
     #[must_use]
     pub fn can_transition_to(&self, target: &JobState) -> bool {
-        match (self, target) {
-            (Self::Pending, Self::Scheduled) => true,
-            (Self::Scheduled, Self::Running) => true,
-            (Self::Running, Self::Completed | Self::Failed | Self::Cancelled) => true,
-            (Self::Failed | Self::Cancelled, Self::Restart) => true,
-            (Self::Restart, Self::Pending) => true,
-            _ => false,
-        }
+        matches!(
+            (self, target),
+            (Self::Pending, Self::Scheduled)
+                | (Self::Scheduled, Self::Running)
+                | (
+                    Self::Running,
+                    Self::Completed | Self::Failed | Self::Cancelled
+                )
+                | (Self::Failed | Self::Cancelled, Self::Restart)
+                | (Self::Restart, Self::Pending)
+        )
     }
 
     /// Returns `true` if this state can be cancelled.
@@ -113,11 +116,6 @@ pub const JOB_STATE_COMPLETED: &str = "COMPLETED";
 pub const JOB_STATE_FAILED: &str = "FAILED";
 pub const JOB_STATE_RESTART: &str = "RESTART";
 
-<<<<<<< HEAD
-// ---------------------------------------------------------------------------
-// ScheduledJobState enum
-// ---------------------------------------------------------------------------
-=======
 /// Typed events emitted by the broker when a job changes state.
 ///
 /// This replaces the raw `serde_json::Value` + callback pattern with a
@@ -145,9 +143,9 @@ impl JobEvent {
     pub fn job_id(&self) -> Option<&JobId> {
         match self {
             JobEvent::StateChanged { job_id, .. } => Some(job_id),
-            JobEvent::Completed(job)
-            | JobEvent::Failed(job)
-            | JobEvent::Cancelled(job) => job.id.as_ref(),
+            JobEvent::Completed(job) | JobEvent::Failed(job) | JobEvent::Cancelled(job) => {
+                job.id.as_ref()
+            }
         }
     }
 
@@ -163,22 +161,19 @@ impl JobEvent {
     }
 }
 
-/// Constructs a `JobEvent` from a job's state string.
+/// Constructs a `JobEvent` from a job's state.
 ///
 /// This is a convenience for publishers that already know the job state
 /// and want to emit the correct typed variant.
 #[must_use]
 pub fn job_event_from_state(job: &Job) -> Option<JobEvent> {
-    match job.state.as_str() {
-        JOB_STATE_COMPLETED => Some(JobEvent::Completed(job.clone())),
-        JOB_STATE_FAILED => Some(JobEvent::Failed(job.clone())),
-        JOB_STATE_CANCELLED => Some(JobEvent::Cancelled(job.clone())),
+    match job.state {
+        JobState::Completed => Some(JobEvent::Completed(job.clone())),
+        JobState::Failed => Some(JobEvent::Failed(job.clone())),
+        JobState::Cancelled => Some(JobEvent::Cancelled(job.clone())),
         _ => None,
     }
 }
-
-pub type ScheduledJobState = String;
->>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
 
 /// State for a [`ScheduledJob`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -215,7 +210,7 @@ impl FromStr for ScheduledJobState {
     type Err = ParseScheduledJobStateError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.to_uppercase().as_str() {
             "ACTIVE" => Ok(Self::Active),
             "PAUSED" => Ok(Self::Paused),
             other => Err(ParseScheduledJobStateError(other.to_owned())),
@@ -482,7 +477,7 @@ pub fn new_job_summary(j: &Job) -> JobSummary {
         description: j.description.clone(),
         tags: j.tags.clone(),
         inputs: j.inputs.clone(),
-        state: j.state.clone(),
+        state: j.state,
         created_at: j.created_at,
         started_at: j.started_at,
         completed_at: j.completed_at,
@@ -502,7 +497,7 @@ pub fn new_scheduled_job_summary(sj: &ScheduledJob) -> ScheduledJobSummary {
         id: sj.id.clone(),
         created_by: sj.created_by.clone(),
         name: sj.name.clone(),
-        state: sj.state.clone(),
+        state: sj.state,
         description: sj.description.clone(),
         tags: sj.tags.clone(),
         inputs: sj.inputs.clone(),

@@ -51,7 +51,7 @@ pub struct InMemoryBroker {
     pub(crate) progress_handlers: Arc<RwLock<Vec<TaskProgressHandler>>>,
     /// Event handlers (topic pattern -> list of handlers)
     pub(crate) event_handlers: Arc<DashMap<String, Vec<EventHandler>>>,
-    /// Typed event channels (topic pattern -> broadcast sender for JobEvent)
+    /// Typed event channels (topic pattern -> broadcast sender for `JobEvent`)
     pub(crate) typed_event_channels: Arc<DashMap<String, tokio::sync::broadcast::Sender<JobEvent>>>,
     /// Heartbeat handlers
     pub(crate) heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,

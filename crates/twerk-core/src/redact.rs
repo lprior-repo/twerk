@@ -140,13 +140,19 @@ pub fn redact_vars(
 // ---------------------------------------------------------------------------
 
 /// Redact environment variables on a task.
-fn redact_task_env(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+fn redact_task_env(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
     let env = task.env.as_ref().map(|e| redact_vars(e, secrets));
     crate::task::Task { env, ..task }
 }
 
 /// Redact mount options on a task.
-fn redact_task_mounts(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+fn redact_task_mounts(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
     let mounts = task.mounts.as_ref().map(|mounts| {
         mounts
             .iter()
@@ -175,7 +181,9 @@ fn redact_task_subjob(
 ) -> crate::task::Task {
     let subjob = task.subjob.as_ref().map(|sj| {
         let secrets_map = sj.secrets.as_ref().map(|s| {
-            s.iter().map(|(k, _)| (k.clone(), REDACTED_STR.to_string())).collect()
+            s.keys()
+                .map(|k| (k.clone(), REDACTED_STR.to_string()))
+                .collect()
         });
         let webhooks = sj.webhooks.as_ref().map(|whs| {
             whs.iter()
@@ -222,7 +230,12 @@ fn redact_task_pre_post_sidecars(
     let pre = redact_nested_tasks(task.pre.clone(), secrets);
     let post = redact_nested_tasks(task.post.clone(), secrets);
     let sidecars = redact_nested_tasks(task.sidecars.clone(), secrets);
-    crate::task::Task { pre, post, sidecars, ..task }
+    crate::task::Task {
+        pre,
+        post,
+        sidecars,
+        ..task
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,8 +245,12 @@ fn redact_task_pre_post_sidecars(
 /// Redacts a task and all its nested tasks recursively.
 ///
 /// Takes ownership and returns a new redacted task.
+#[must_use]
 #[allow(clippy::implicit_hasher)]
-pub fn redact_task(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+pub fn redact_task(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
     let task = redact_task_env(task, secrets);
     let task = redact_task_mounts(task, secrets);
     let task = redact_task_pre_post_sidecars(task, secrets);
@@ -245,6 +262,7 @@ pub fn redact_task(task: crate::task::Task, secrets: &HashMap<String, String>) -
 /// Redacts task log parts by replacing secret values in contents.
 ///
 /// Takes ownership of the vec and returns a new redacted vec.
+#[must_use]
 #[allow(clippy::implicit_hasher)]
 pub fn redact_task_log_parts(
     parts: Vec<crate::task::TaskLogPart>,
@@ -290,20 +308,31 @@ fn redact_job_inputs_webhooks_context(
         ..ctx.clone()
     });
 
-    crate::job::Job { inputs, webhooks, context, ..job }
+    crate::job::Job {
+        inputs,
+        context,
+        webhooks,
+        ..job
+    }
 }
 
 /// Redact all tasks and execution entries in a job.
 fn redact_job_tasks(job: crate::job::Job, secrets: &HashMap<String, String>) -> crate::job::Job {
     let tasks = redact_nested_tasks(job.tasks, secrets);
     let execution = redact_nested_tasks(job.execution, secrets);
-    crate::job::Job { tasks, execution, ..job }
+    crate::job::Job {
+        tasks,
+        execution,
+        ..job
+    }
 }
 
 /// Redact the job's own secrets map (values become [REDACTED]).
 fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
     let secrets = job.secrets.as_ref().map(|s| {
-        s.iter().map(|(k, _)| (k.clone(), REDACTED_STR.to_string())).collect()
+        s.keys()
+            .map(|k| (k.clone(), REDACTED_STR.to_string()))
+            .collect()
     });
     crate::job::Job { secrets, ..job }
 }
@@ -311,6 +340,7 @@ fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
 /// Redacts a job and all its tasks.
 ///
 /// Takes ownership and returns a new redacted job.
+#[must_use]
 pub fn redact_job(job: crate::job::Job) -> crate::job::Job {
     let secrets = job.secrets.clone().unwrap_or_default();
     let job = redact_job_inputs_webhooks_context(job, &secrets);

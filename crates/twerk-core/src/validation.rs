@@ -90,7 +90,7 @@ fn push_fault(
 /// # Errors
 /// Returns [`DomainParseError::Cron`] on invalid syntax.
 pub fn parse_cron(cron: &str) -> Result<CronExpression, DomainParseError> {
-    CronExpression::parse(cron)
+    CronExpression::new(cron).map_err(DomainParseError::Cron)
 }
 
 /// Parse a Go-style duration into a validated [`GoDuration`].
@@ -98,15 +98,21 @@ pub fn parse_cron(cron: &str) -> Result<CronExpression, DomainParseError> {
 /// # Errors
 /// Returns [`DomainParseError::Duration`] on invalid syntax.
 pub fn parse_duration(duration: &str) -> Result<GoDuration, DomainParseError> {
-    GoDuration::parse(duration)
+    GoDuration::new(duration).map_err(DomainParseError::Duration)
 }
 
 /// Parse a queue name into a validated [`QueueName`].
 ///
 /// # Errors
-/// Returns [`DomainParseError::QueueName`] if the name is reserved.
+/// Returns [`DomainParseError::QueueName`] if the name is reserved or malformed.
 pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
-    QueueName::parse(name)
+    // Check for reserved names
+    if name == "x-jobs" || name.starts_with("x-exclusive.") {
+        return Err(DomainParseError::QueueName(
+            crate::domain_types::QueueNameError::Reserved(name.to_string()),
+        ));
+    }
+    QueueName::new(name).map_err(DomainParseError::QueueName)
 }
 
 /// Parse a retry limit into a validated [`RetryLimit`].
@@ -114,7 +120,7 @@ pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
 /// # Errors
 /// Returns [`DomainParseError::RetryLimit`] if not in 1..=10.
 pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
-    RetryLimit::new(limit)
+    RetryLimit::new(limit).map_err(DomainParseError::RetryLimit)
 }
 
 /// Parse a priority value into a validated [`Priority`].
@@ -122,7 +128,7 @@ pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
 /// # Errors
 /// Returns [`DomainParseError::Priority`] if not in 0..=9.
 pub fn parse_priority(priority: i64) -> Result<Priority, DomainParseError> {
-    Priority::new(priority)
+    Priority::new(priority).map_err(DomainParseError::Priority)
 }
 
 // ===================================================================
@@ -162,9 +168,7 @@ pub fn validate_queue_name(queue: &str) -> Result<(), String> {
 /// # Errors
 /// Returns an error if the retry limit is not between 1 and 10.
 pub fn validate_retry(limit: i64) -> Result<(), String> {
-    parse_retry(limit)
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    parse_retry(limit).map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Validates a priority value.
@@ -200,15 +204,13 @@ pub fn parse_go_duration(s: &str) -> Result<StdDuration, String> {
 /// Accumulate named time units (`s`/`m`/`h`/`d`) and return total seconds
 /// plus any trailing (unlabelled) numeric remainder.
 fn accumulate_duration_units(s: &str) -> Result<(i64, i64), String> {
-    s.chars().try_fold((0i64, 0i64), |(total, num), c| {
-        match c {
-            '0'..='9' => Ok((total, num * 10 + i64::from(c as u32 - '0' as u32))),
-            's' => Ok((total + num, 0)),
-            'm' => Ok((total + num * 60, 0)),
-            'h' => Ok((total + num * 3600, 0)),
-            'd' => Ok((total + num * 86400, 0)),
-            _ => Err(format!("invalid duration character: {c}")),
-        }
+    s.chars().try_fold((0i64, 0i64), |(total, num), c| match c {
+        '0'..='9' => Ok((total, num * 10 + i64::from(c as u32 - '0' as u32))),
+        's' => Ok((total + num, 0)),
+        'm' => Ok((total + num * 60, 0)),
+        'h' => Ok((total + num * 3600, 0)),
+        'd' => Ok((total + num * 86400, 0)),
+        _ => Err(format!("invalid duration character: {c}")),
     })
 }
 
@@ -311,9 +313,7 @@ fn collect_job_faults(
 ) -> Vec<ValidationFault> {
     let name_faults = check_job_name(name);
     let task_faults = check_job_tasks(tasks);
-    let default_faults = defaults
-        .map(check_job_defaults)
-        .unwrap_or_default();
+    let default_faults = defaults.map(check_job_defaults).unwrap_or_default();
     name_faults
         .into_iter()
         .chain(task_faults)
@@ -494,7 +494,7 @@ fn collect_webhook_faults(
     let sub: Vec<ValidationFault> = tasks
         .map(|ts| {
             ts.iter()
-                .flat_map(|t| check_subjob_webhooks(t))
+                .flat_map(check_subjob_webhooks)
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();

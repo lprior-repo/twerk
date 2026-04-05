@@ -462,7 +462,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
         .expect("polling timed out")
         .expect("channel dropped")?;
 
-    assert_eq!(persisted_job.state, "SCHEDULED");
+    assert_eq!(persisted_job.state, JobState::Scheduled);
 
     // Verify a task was created
     let tasks = datastore.get_active_tasks("job-3").await?;

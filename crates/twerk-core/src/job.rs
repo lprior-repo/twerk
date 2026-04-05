@@ -4,10 +4,107 @@ use crate::user::User;
 use crate::webhook::Webhook;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
+use std::str::FromStr;
 use time::OffsetDateTime;
 
-pub type JobState = String;
+// ---------------------------------------------------------------------------
+// JobState enum
+// ---------------------------------------------------------------------------
 
+/// State machine for a [`Job`].
+///
+/// Valid transitions:
+/// - `Pending` -> `Scheduled`
+/// - `Scheduled` -> `Running`
+/// - `Running` -> `Completed` | `Failed` | `Cancelled`
+/// - `Failed` | `Cancelled` -> `Restart`
+/// - `Restart` -> `Pending`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum JobState {
+    #[default]
+    Pending,
+    Scheduled,
+    Running,
+    Cancelled,
+    Completed,
+    Failed,
+    Restart,
+}
+
+impl fmt::Display for JobState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Pending => "PENDING",
+            Self::Scheduled => "SCHEDULED",
+            Self::Running => "RUNNING",
+            Self::Cancelled => "CANCELLED",
+            Self::Completed => "COMPLETED",
+            Self::Failed => "FAILED",
+            Self::Restart => "RESTART",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Error returned when a string cannot be parsed as a [`JobState`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseJobStateError(String);
+
+impl fmt::Display for ParseJobStateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "unknown JobState: {:?}", self.0)
+    }
+}
+
+impl std::error::Error for ParseJobStateError {}
+
+impl FromStr for JobState {
+    type Err = ParseJobStateError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "PENDING" => Ok(Self::Pending),
+            "SCHEDULED" => Ok(Self::Scheduled),
+            "RUNNING" => Ok(Self::Running),
+            "CANCELLED" => Ok(Self::Cancelled),
+            "COMPLETED" => Ok(Self::Completed),
+            "FAILED" => Ok(Self::Failed),
+            "RESTART" => Ok(Self::Restart),
+            other => Err(ParseJobStateError(other.to_owned())),
+        }
+    }
+}
+
+impl JobState {
+    /// Returns `true` if the transition from `self` to `target` is valid.
+    #[must_use]
+    pub fn can_transition_to(&self, target: &JobState) -> bool {
+        match (self, target) {
+            (Self::Pending, Self::Scheduled) => true,
+            (Self::Scheduled, Self::Running) => true,
+            (Self::Running, Self::Completed | Self::Failed | Self::Cancelled) => true,
+            (Self::Failed | Self::Cancelled, Self::Restart) => true,
+            (Self::Restart, Self::Pending) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns `true` if this state can be cancelled.
+    #[must_use]
+    pub fn can_cancel(&self) -> bool {
+        matches!(self, Self::Pending | Self::Scheduled | Self::Running)
+    }
+
+    /// Returns `true` if this state can be restarted.
+    #[must_use]
+    pub fn can_restart(&self) -> bool {
+        matches!(self, Self::Failed | Self::Cancelled)
+    }
+}
+
+// Backwards-compatible string constants (will be removed in migration bead).
 pub const JOB_STATE_PENDING: &str = "PENDING";
 pub const JOB_STATE_SCHEDULED: &str = "SCHEDULED";
 pub const JOB_STATE_RUNNING: &str = "RUNNING";
@@ -16,8 +113,54 @@ pub const JOB_STATE_COMPLETED: &str = "COMPLETED";
 pub const JOB_STATE_FAILED: &str = "FAILED";
 pub const JOB_STATE_RESTART: &str = "RESTART";
 
-pub type ScheduledJobState = String;
+// ---------------------------------------------------------------------------
+// ScheduledJobState enum
+// ---------------------------------------------------------------------------
 
+/// State for a [`ScheduledJob`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScheduledJobState {
+    #[default]
+    Active,
+    Paused,
+}
+
+impl fmt::Display for ScheduledJobState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Active => "ACTIVE",
+            Self::Paused => "PAUSED",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Error returned when a string cannot be parsed as a [`ScheduledJobState`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseScheduledJobStateError(String);
+
+impl fmt::Display for ParseScheduledJobStateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "unknown ScheduledJobState: {:?}", self.0)
+    }
+}
+
+impl std::error::Error for ParseScheduledJobStateError {}
+
+impl FromStr for ScheduledJobState {
+    type Err = ParseScheduledJobStateError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ACTIVE" => Ok(Self::Active),
+            "PAUSED" => Ok(Self::Paused),
+            other => Err(ParseScheduledJobStateError(other.to_owned())),
+        }
+    }
+}
+
+// Backwards-compatible string constants (will be removed in migration bead).
 pub const SCHEDULED_JOB_STATE_ACTIVE: &str = "ACTIVE";
 pub const SCHEDULED_JOB_STATE_PAUSED: &str = "PAUSED";
 

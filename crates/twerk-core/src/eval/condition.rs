@@ -31,7 +31,7 @@ pub fn evaluate_condition(expr: &str, summary: &crate::job::JobSummary) -> Resul
     let mut context = HashMap::new();
     context.insert(
         "job_state".to_string(),
-        serde_json::Value::String(summary.state.clone()),
+        serde_json::Value::String(summary.state.to_string()),
     );
     context.insert(
         "job_id".to_string(),
@@ -102,7 +102,7 @@ pub fn evaluate_task_condition(
     // Flattened job context
     context.insert(
         "job_state".to_string(),
-        serde_json::Value::String(job_summary.state.clone()),
+        serde_json::Value::String(job_summary.state.to_string()),
     );
     context.insert(
         "job_id".to_string(),

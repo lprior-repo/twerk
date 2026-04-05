@@ -539,6 +539,14 @@ mod tests {
         ) -> BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
+        fn subscribe(
+            &self,
+            _pattern: String,
+        ) -> BoxedFuture<tokio::sync::broadcast::Receiver<twerk_core::job::JobEvent>> {
+            let (tx, rx) = tokio::sync::broadcast::channel(256);
+            drop(tx);
+            Box::pin(async { Ok(rx) })
+        }
         fn publish_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }

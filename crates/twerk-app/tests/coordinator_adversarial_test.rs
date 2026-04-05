@@ -271,6 +271,12 @@ impl Broker for FailableBroker {
     fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()> {
         self.inner.subscribe_for_events(pattern, handler)
     }
+    fn subscribe(
+        &self,
+        pattern: String,
+    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<twerk_core::job::JobEvent>> {
+        self.inner.subscribe(pattern)
+    }
     fn publish_task_log_part(&self, part: &twerk_core::task::TaskLogPart) -> BoxedFuture<()> {
         self.inner.publish_task_log_part(part)
     }

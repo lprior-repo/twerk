@@ -158,9 +158,15 @@ pub(crate) fn job(broker: &InMemoryBroker, job: &Job) -> BoxedFuture<()> {
 }
 
 /// Publish an event to a topic.
+///
+/// This dispatches to both:
+/// - Legacy `EventHandler` callbacks (for backward compatibility)
+/// - Typed `JobEvent` broadcast channels (for the new subscribe API)
 pub(crate) fn event(broker: &InMemoryBroker, topic: String, event: Value) -> BoxedFuture<()> {
     let handlers = broker.event_handlers.clone();
+    let typed_channels = broker.typed_event_channels.clone();
     Box::pin(async move {
+        // Dispatch to legacy callbacks
         for entry in handlers.iter() {
             let pattern = entry.key();
             if wildcard_match(pattern, &topic) {
@@ -172,6 +178,19 @@ pub(crate) fn event(broker: &InMemoryBroker, topic: String, event: Value) -> Box
                 }
             }
         }
+
+        // Dispatch to typed broadcast channels
+        if let Ok(job) = serde_json::from_value::<Job>(event.clone()) {
+            if let Some(typed_event) = twerk_core::job::job_event_from_state(&job) {
+                for entry in typed_channels.iter() {
+                    let pattern = entry.key();
+                    if wildcard_match(pattern, &topic) {
+                        let _ = entry.value().send(typed_event.clone());
+                    }
+                }
+            }
+        }
+
         Ok(())
     })
 }

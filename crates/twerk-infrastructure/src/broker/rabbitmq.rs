@@ -24,7 +24,7 @@ use super::{
     prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler,
     JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
-use twerk_core::job::Job;
+use twerk_core::job::{Job, JobEvent};
 use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
@@ -460,6 +460,41 @@ impl Broker for RabbitMQBroker {
                 }),
             )
             .await
+        })
+    }
+
+    fn subscribe(
+        &self,
+        pattern: String,
+    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>> {
+        let b = self.clone();
+        // Create a broadcast channel that will relay typed events from the
+        // AMQP subscription. The caller gets the receiver side.
+        let (tx, rx) = tokio::sync::broadcast::channel(256);
+        Box::pin(async move {
+            let qname = format!(
+                "{}.{}",
+                queue::QUEUE_EXCLUSIVE_PREFIX,
+                twerk_core::uuid::new_short_uuid()
+            );
+            b.subscribe_with_binding(
+                "amq.topic",
+                &pattern,
+                &qname,
+                Arc::new(move |val: Value| {
+                    let tx = tx.clone();
+                    Box::pin(async move {
+                        if let Ok(job) = serde_json::from_value::<Job>(val) {
+                            if let Some(event) = twerk_core::job::job_event_from_state(&job) {
+                                let _ = tx.send(event);
+                            }
+                        }
+                        Ok(())
+                    })
+                }),
+            )
+            .await?;
+            Ok(rx)
         })
     }
 

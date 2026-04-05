@@ -6,6 +6,7 @@ use super::super::{
 };
 use super::InMemoryBroker;
 use tracing::debug;
+use twerk_core::job::JobEvent;
 use twerk_core::node::Node;
 use twerk_core::task::TaskLogPart;
 
@@ -104,5 +105,27 @@ pub(crate) fn for_task_log_part(
         }
         handlers.write().await.push(handler);
         Ok(())
+    })
+}
+
+/// Subscribe for typed job events matching a pattern.
+///
+/// Returns a `broadcast::Receiver<JobEvent>` that the caller can `.recv()` on.
+/// Each call creates or reuses a broadcast channel for the given pattern.
+pub(crate) fn typed_events(
+    broker: &InMemoryBroker,
+    pattern: &str,
+) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>> {
+    let pattern = pattern.to_string();
+    let channels = broker.typed_event_channels.clone();
+    Box::pin(async move {
+        let rx = channels
+            .entry(pattern)
+            .or_insert_with(|| {
+                let (tx, _rx) = tokio::sync::broadcast::channel(256);
+                tx
+            })
+            .subscribe();
+        Ok(rx)
     })
 }

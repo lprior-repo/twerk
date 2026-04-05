@@ -23,6 +23,7 @@ use twerk_infrastructure::broker::{
     HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler,
     TaskProgressHandler,
 };
+use twerk_core::job::JobEvent;
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{
@@ -211,6 +212,7 @@ impl Broker for BrokerProxy {
     delegate!(subscribe_for_jobs(handler: JobHandler) -> BoxedFuture<()>);
     delegate!(publish_event(topic: String, event: serde_json::Value) -> BoxedFuture<()>);
     delegate!(subscribe_for_events(pattern: String, handler: EventHandler) -> BoxedFuture<()>);
+    delegate!(subscribe(pattern: String) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>>);
     delegate!(subscribe_for_task_log_part(handler: TaskLogPartHandler) -> BoxedFuture<()>);
     delegate!(queues() -> BoxedFuture<Vec<QueueInfo>>);
     delegate!(queue_info(qname: String) -> BoxedFuture<QueueInfo>);

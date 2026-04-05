@@ -11,6 +11,7 @@ use crate::broker::{
     BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, TaskHandler,
     TaskLogPartHandler, TaskProgressHandler,
 };
+use twerk_core::job::JobEvent;
 
 /// Mock broker implementation for testing
 #[derive(Debug, Clone, Default)]
@@ -47,6 +48,14 @@ impl Broker for MockBroker {
     }
     fn subscribe_for_events(&self, _pattern: String, _handler: EventHandler) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })
+    }
+    fn subscribe(
+        &self,
+        _pattern: String,
+    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>> {
+        let (tx, rx) = tokio::sync::broadcast::channel(256);
+        drop(tx);
+        Box::pin(async { Ok(rx) })
     }
     fn publish_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> BoxedFuture<()> {
         Box::pin(async { Ok(()) })

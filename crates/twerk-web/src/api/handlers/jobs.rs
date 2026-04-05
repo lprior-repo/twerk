@@ -6,9 +6,17 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
+<<<<<<< HEAD
 use std::sync::Arc;
 use twerk_core::id::JobId;
 use twerk_core::job::{new_job_summary, Job, JobState};
+=======
+use tokio::sync::broadcast::error::RecvError;
+use twerk_core::job::{
+    new_job_summary, Job, JobEvent, JOB_STATE_CANCELLED, JOB_STATE_FAILED, JOB_STATE_RESTART,
+    JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
+};
+>>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
@@ -92,15 +100,14 @@ pub async fn create_job_handler(
 }
 
 async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, ApiError> {
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let job_id = job
         .id
         .clone()
         .ok_or_else(|| ApiError::internal("job id missing"))?;
 
-    let pattern = "job.*".to_string();
-    state
+    let mut rx = state
         .broker
+<<<<<<< HEAD
         .subscribe_for_events(
             pattern,
             Arc::new(move |val| {
@@ -121,6 +128,9 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
                 })
             }),
         )
+=======
+        .subscribe("job.*".to_string())
+>>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
@@ -131,13 +141,33 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    match tokio::time::timeout(tokio::time::Duration::from_secs(3600), rx.recv()).await {
-        Ok(Some(mut finished_job)) => {
+    let result = tokio::time::timeout(tokio::time::Duration::from_secs(3600), async {
+        loop {
+            match rx.recv().await {
+                Ok(
+                    JobEvent::Completed(ref job)
+                    | JobEvent::Failed(ref job)
+                    | JobEvent::Cancelled(ref job),
+                ) if job.id.as_ref() == Some(&job_id) => {
+                    return Ok(job.clone());
+                }
+                Ok(_) => continue,
+                Err(RecvError::Closed) => {
+                    return Err(ApiError::internal("subscription channel closed"));
+                }
+                Err(RecvError::Lagged(_)) => continue,
+            }
+        }
+    })
+    .await;
+
+    match result {
+        Ok(Ok(mut finished_job)) => {
             let secrets = finished_job.secrets.clone().unwrap_or_default();
             on_read_job(&mut finished_job, &secrets);
             Ok((StatusCode::OK, axum::Json(new_job_summary(&finished_job))).into_response())
         }
-        Ok(None) => Err(ApiError::internal("subscription channel closed")),
+        Ok(Err(e)) => Err(e),
         Err(_) => Err(ApiError::internal("timeout waiting for job")),
     }
 }

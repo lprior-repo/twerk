@@ -113,9 +113,72 @@ pub const JOB_STATE_COMPLETED: &str = "COMPLETED";
 pub const JOB_STATE_FAILED: &str = "FAILED";
 pub const JOB_STATE_RESTART: &str = "RESTART";
 
+<<<<<<< HEAD
 // ---------------------------------------------------------------------------
 // ScheduledJobState enum
 // ---------------------------------------------------------------------------
+=======
+/// Typed events emitted by the broker when a job changes state.
+///
+/// This replaces the raw `serde_json::Value` + callback pattern with a
+/// typed stream that consumers can filter on directly.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum JobEvent {
+    /// A job transitioned to a new state.
+    StateChanged {
+        job_id: JobId,
+        old_state: JobState,
+        new_state: JobState,
+    },
+    /// A job completed successfully.
+    Completed(Job),
+    /// A job failed.
+    Failed(Job),
+    /// A job was cancelled.
+    Cancelled(Job),
+}
+
+impl JobEvent {
+    /// Returns the job ID associated with this event, if available.
+    #[must_use]
+    pub fn job_id(&self) -> Option<&JobId> {
+        match self {
+            JobEvent::StateChanged { job_id, .. } => Some(job_id),
+            JobEvent::Completed(job)
+            | JobEvent::Failed(job)
+            | JobEvent::Cancelled(job) => job.id.as_ref(),
+        }
+    }
+
+    /// Returns the inner `Job` for terminal-state events (Completed, Failed, Cancelled).
+    #[must_use]
+    pub fn into_job(self) -> Option<Job> {
+        match self {
+            JobEvent::StateChanged { .. } => None,
+            JobEvent::Completed(job) | JobEvent::Failed(job) | JobEvent::Cancelled(job) => {
+                Some(job)
+            }
+        }
+    }
+}
+
+/// Constructs a `JobEvent` from a job's state string.
+///
+/// This is a convenience for publishers that already know the job state
+/// and want to emit the correct typed variant.
+#[must_use]
+pub fn job_event_from_state(job: &Job) -> Option<JobEvent> {
+    match job.state.as_str() {
+        JOB_STATE_COMPLETED => Some(JobEvent::Completed(job.clone())),
+        JOB_STATE_FAILED => Some(JobEvent::Failed(job.clone())),
+        JOB_STATE_CANCELLED => Some(JobEvent::Cancelled(job.clone())),
+        _ => None,
+    }
+}
+
+pub type ScheduledJobState = String;
+>>>>>>> d67cdc8 (refactor: replace Arc<dyn FnOnce> callbacks with typed JobEvent streams)
 
 /// State for a [`ScheduledJob`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]

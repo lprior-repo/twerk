@@ -133,6 +133,14 @@ impl twerk_infrastructure::broker::Broker for FailingHealthBroker {
     ) -> twerk_infrastructure::broker::BoxedFuture<()> {
         self.inner.subscribe_for_events(pattern, handler)
     }
+    fn subscribe(
+        &self,
+        pattern: String,
+    ) -> twerk_infrastructure::broker::BoxedFuture<
+        tokio::sync::broadcast::Receiver<twerk_core::job::JobEvent>,
+    > {
+        self.inner.subscribe(pattern)
+    }
     fn publish_task_log_part(
         &self,
         part: &twerk_core::task::TaskLogPart,
@@ -315,6 +323,14 @@ async fn job_wait_returns_completed_when_job_finishes() {
                 let _ = tx.send(()).await;
                 Ok(())
             })
+        }
+        fn subscribe(
+            &self,
+            pattern: String,
+        ) -> twerk_infrastructure::broker::BoxedFuture<
+            tokio::sync::broadcast::Receiver<twerk_core::job::JobEvent>,
+        > {
+            self.inner.subscribe(pattern)
         }
         fn publish_task_log_part(
             &self,

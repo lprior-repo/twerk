@@ -15,6 +15,7 @@ use super::{
     BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
     TaskLogPartHandler, TaskProgressHandler,
 };
+use twerk_core::job::JobEvent;
 use twerk_core::node::Node;
 use twerk_core::task::TaskLogPart;
 
@@ -36,6 +37,9 @@ use twerk_core::task::TaskLogPart;
 ///
 /// - **`DashMap`** directly for `tasks`, `handlers`, and `event_handlers`:
 ///   These use `DashMap`'s internal synchronization.
+///
+/// - **`DashMap`** for `typed_event_channels`: Maps topic patterns to
+///   `tokio::sync::broadcast` senders for typed `JobEvent` streams.
 pub struct InMemoryBroker {
     /// Queue name -> list of tasks
     pub(crate) tasks: DashMap<String, Vec<Arc<twerk_core::task::Task>>>,
@@ -47,6 +51,8 @@ pub struct InMemoryBroker {
     pub(crate) progress_handlers: Arc<RwLock<Vec<TaskProgressHandler>>>,
     /// Event handlers (topic pattern -> list of handlers)
     pub(crate) event_handlers: Arc<DashMap<String, Vec<EventHandler>>>,
+    /// Typed event channels (topic pattern -> broadcast sender for JobEvent)
+    pub(crate) typed_event_channels: Arc<DashMap<String, tokio::sync::broadcast::Sender<JobEvent>>>,
     /// Heartbeat handlers
     pub(crate) heartbeat_handlers: Arc<RwLock<Vec<HeartbeatHandler>>>,
     /// Stored heartbeats (`node_id` -> node) — `RwLock` ensures consistent iteration
@@ -73,6 +79,7 @@ impl InMemoryBroker {
             job_handlers: Arc::new(RwLock::new(Vec::new())),
             progress_handlers: Arc::new(RwLock::new(Vec::new())),
             event_handlers: Arc::new(DashMap::new()),
+            typed_event_channels: Arc::new(DashMap::new()),
             heartbeat_handlers: Arc::new(RwLock::new(Vec::new())),
             heartbeats: Arc::new(RwLock::new(DashMap::new())),
             task_log_part_handlers: Arc::new(RwLock::new(Vec::new())),
@@ -130,6 +137,13 @@ impl Broker for InMemoryBroker {
 
     fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()> {
         subscription::for_events(self, pattern, handler)
+    }
+
+    fn subscribe(
+        &self,
+        pattern: String,
+    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>> {
+        subscription::typed_events(self, &pattern)
     }
 
     fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()> {

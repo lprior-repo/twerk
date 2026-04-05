@@ -9,7 +9,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use twerk_core::job::Job;
+use twerk_core::job::{Job, JobEvent};
 use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
@@ -150,6 +150,16 @@ pub trait Broker: Send + Sync {
     fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()>;
     fn publish_event(&self, topic: String, event: Value) -> BoxedFuture<()>;
     fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()>;
+    /// Subscribe to typed job events matching a topic pattern.
+    ///
+    /// Returns a `broadcast::Receiver` that yields `JobEvent` values.
+    /// This is the typed replacement for the `subscribe_for_events` callback
+    /// pattern, allowing consumers to filter events with match expressions
+    /// instead of deserializing raw JSON values.
+    fn subscribe(
+        &self,
+        pattern: String,
+    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>>;
     fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()>;
     fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()>;
     fn queues(&self) -> BoxedFuture<Vec<QueueInfo>>;

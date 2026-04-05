@@ -429,7 +429,6 @@ mod tests {
 
     #[test]
     fn from_slice_returns_bad_request_for_embedded_null_byte() {
-        // \x00 is valid UTF-8 (U+0000) but serde_yaml2 rejects it at parse time
         let bad: &[u8] = b"key: \x00value";
         let result: Result<serde_json::Value, ApiError> = from_slice(bad);
         let Err(ApiError::BadRequest(msg)) = result else {

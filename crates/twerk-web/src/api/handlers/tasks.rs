@@ -3,6 +3,7 @@
 use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
+use twerk_core::id::TaskId;
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
@@ -22,7 +23,7 @@ pub struct PaginationQuery {
 /// # Errors
 pub async fn get_task_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<TaskId>,
 ) -> Result<Response, ApiError> {
     let mut task = state.ds.get_task_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -41,7 +42,7 @@ pub async fn get_task_handler(
 /// # Errors
 pub async fn get_task_log_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<TaskId>,
     Query(qp): Query<PaginationQuery>,
 ) -> Result<Response, ApiError> {
     let page = parse_page(qp.page);

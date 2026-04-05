@@ -7,6 +7,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use twerk_core::id::JobId;
 use twerk_core::job::{new_job_summary, Job, JobState};
 
 use super::super::error::ApiError;
@@ -15,9 +16,28 @@ use super::tasks::PaginationQuery;
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
 use crate::middleware::hooks::{on_read_job, on_read_job_summary};
 
+/// Whether the create-job endpoint should block until the job completes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WaitMode {
+    #[default]
+    Detached,
+    Blocking,
+}
+
+impl From<bool> for WaitMode {
+    fn from(b: bool) -> Self {
+        if b {
+            WaitMode::Blocking
+        } else {
+            WaitMode::Detached
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct CreateJobQuery {
-    pub wait: Option<bool>,
+    pub wait: Option<WaitMode>,
 }
 
 /// POST /jobs
@@ -65,10 +85,9 @@ pub async fn create_job_handler(
         return Err(ApiError::bad_request(errors.join("; ")));
     }
 
-    if cq.wait.unwrap_or(false) {
-        wait_for_job_completion(state, job).await
-    } else {
-        create_job_no_wait(state, job).await
+    match cq.wait.unwrap_or_default() {
+        WaitMode::Blocking => wait_for_job_completion(state, job).await,
+        WaitMode::Detached => create_job_no_wait(state, job).await,
     }
 }
 
@@ -142,7 +161,7 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 /// # Errors
 pub async fn get_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -183,7 +202,7 @@ pub async fn list_jobs_handler(
 /// # Errors
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -206,7 +225,7 @@ pub async fn cancel_job_handler(
 /// # Errors
 pub async fn restart_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -229,7 +248,7 @@ pub async fn restart_job_handler(
 /// # Errors
 pub async fn get_job_log_handler(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    Path(id): Path<JobId>,
     Query(qp): Query<PaginationQuery>,
 ) -> Result<Response, ApiError> {
     let page = parse_page(qp.page);

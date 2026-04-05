@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::fmt;
 use std::ops::Deref;
+use std::str::FromStr;
 
 macro_rules! define_id {
     ($name:ident) => {
@@ -56,6 +57,14 @@ macro_rules! define_id {
         impl Borrow<str> for $name {
             fn borrow(&self) -> &str {
                 &self.0
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = std::convert::Infallible;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Ok(Self(s.to_string()))
             }
         }
     };

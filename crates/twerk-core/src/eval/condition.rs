@@ -112,7 +112,7 @@ pub fn evaluate_task_condition(
     // Flattened task context
     context.insert(
         "task_state".to_string(),
-        serde_json::Value::String(task_summary.state.clone()),
+        serde_json::Value::String(task_summary.state.to_string()),
     );
     context.insert(
         "task_id".to_string(),

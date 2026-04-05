@@ -5,11 +5,116 @@ use crate::user::User;
 pub use crate::webhook::Webhook;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
+use std::str::FromStr;
 use time::OffsetDateTime;
 
 /// `TaskState` represents the list of states that a task can be in at any given moment.
-pub type TaskState = String;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TaskState {
+    #[default]
+    Created,
+    Pending,
+    Scheduled,
+    Running,
+    Cancelled,
+    Stopped,
+    Completed,
+    Failed,
+    Skipped,
+}
 
+impl TaskState {
+    /// Returns true if this state represents an active (in-progress) task.
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        matches!(
+            self,
+            TaskState::Created | TaskState::Pending | TaskState::Scheduled | TaskState::Running
+        )
+    }
+
+    /// Returns true if a transition from `self` to `target` is valid.
+    ///
+    /// Valid transitions:
+    /// - Created -> Pending
+    /// - Pending -> Scheduled
+    /// - Scheduled -> Running
+    /// - Running -> Completed | Failed | Cancelled | Stopped
+    /// - Failed -> Pending (retry)
+    /// - Any active state -> Skipped
+    #[must_use]
+    pub fn can_transition_to(&self, target: &TaskState) -> bool {
+        match (self, target) {
+            // Terminal states cannot transition out
+            (TaskState::Completed, _)
+            | (TaskState::Cancelled, _)
+            | (TaskState::Stopped, _)
+            | (TaskState::Skipped, _) => false,
+
+            // Created -> Pending
+            (TaskState::Created, TaskState::Pending) => true,
+
+            // Pending -> Scheduled
+            (TaskState::Pending, TaskState::Scheduled) => true,
+
+            // Scheduled -> Running
+            (TaskState::Scheduled, TaskState::Running) => true,
+
+            // Running -> Completed | Failed | Cancelled | Stopped
+            (TaskState::Running, TaskState::Completed)
+            | (TaskState::Running, TaskState::Failed)
+            | (TaskState::Running, TaskState::Cancelled)
+            | (TaskState::Running, TaskState::Stopped) => true,
+
+            // Failed -> Pending (retry)
+            (TaskState::Failed, TaskState::Pending) => true,
+
+            // Any active state -> Skipped
+            (s, TaskState::Skipped) if s.is_active() => true,
+
+            _ => false,
+        }
+    }
+}
+
+impl fmt::Display for TaskState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TaskState::Created => write!(f, "CREATED"),
+            TaskState::Pending => write!(f, "PENDING"),
+            TaskState::Scheduled => write!(f, "SCHEDULED"),
+            TaskState::Running => write!(f, "RUNNING"),
+            TaskState::Cancelled => write!(f, "CANCELLED"),
+            TaskState::Stopped => write!(f, "STOPPED"),
+            TaskState::Completed => write!(f, "COMPLETED"),
+            TaskState::Failed => write!(f, "FAILED"),
+            TaskState::Skipped => write!(f, "SKIPPED"),
+        }
+    }
+}
+
+impl FromStr for TaskState {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "CREATED" => Ok(TaskState::Created),
+            "PENDING" => Ok(TaskState::Pending),
+            "SCHEDULED" => Ok(TaskState::Scheduled),
+            "RUNNING" => Ok(TaskState::Running),
+            "CANCELLED" => Ok(TaskState::Cancelled),
+            "STOPPED" => Ok(TaskState::Stopped),
+            "COMPLETED" => Ok(TaskState::Completed),
+            "FAILED" => Ok(TaskState::Failed),
+            "SKIPPED" => Ok(TaskState::Skipped),
+            _ => Err(format!("unknown task state: {s}")),
+        }
+    }
+}
+
+// Backwards-compatible string constants for migration.
 pub const TASK_STATE_CREATED: &str = "CREATED";
 pub const TASK_STATE_PENDING: &str = "PENDING";
 pub const TASK_STATE_SCHEDULED: &str = "SCHEDULED";
@@ -164,7 +269,7 @@ pub struct Task {
 impl Task {
     #[must_use]
     pub fn is_active(&self) -> bool {
-        TASK_STATE_ACTIVE.contains(&self.state.as_str())
+        self.state.is_active()
     }
 
     #[must_use]

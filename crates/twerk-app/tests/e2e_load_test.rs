@@ -9,7 +9,7 @@
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::cast_precision_loss)]
 
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::job::Job;
 use twerk_core::task::Task;

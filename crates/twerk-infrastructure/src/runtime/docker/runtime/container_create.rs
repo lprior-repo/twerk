@@ -147,7 +147,7 @@ pub(super) async fn create_container(
     let twerkdir_volume_name_clone = twerkdir_volume_name.clone();
 
     // Extract task_id - we know it exists because we checked earlier
-    let task_id = task.id.as_ref().expect("Task ID must be set"); // TODO: replace with proper error handling
+    let task_id = task.id.as_ref().ok_or(DockerError::TaskIdRequired)?;
 
     // Build torkdir mount struct for the container
     let torkdir = twerk_core::mount::Mount {

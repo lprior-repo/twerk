@@ -3,9 +3,7 @@
 //! Orchestrates the CLI: parses arguments, displays banner, and dispatches commands.
 
 use std::ffi::OsString;
-use std::io::Write;
-
-use clap::{CommandFactory, Parser};
+use clap::Parser;
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use twerk_common::load_config;
@@ -34,7 +32,6 @@ pub const GIT_COMMIT: &str = "unknown";
 /// Parsed top-level CLI action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CliAction {
-    ShowHelp,
     Execute(Commands),
 }
 
@@ -116,17 +113,7 @@ fn collect_args() -> Vec<OsString> {
 }
 
 fn parse_cli_args(args: &[OsString]) -> Result<CliAction, clap::Error> {
-    if args.len() <= 1 {
-        Ok(CliAction::ShowHelp)
-    } else {
-        Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command))
-    }
-}
-
-fn print_help() -> Result<(), CliError> {
-    Cli::command().print_long_help()?;
-    writeln!(std::io::stdout())?;
-    Ok(())
+    Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command))
 }
 
 fn exit_for_parse_error(error: clap::Error) -> ! {
@@ -151,13 +138,7 @@ pub async fn run() -> Result<(), CliError> {
         Err(error) => exit_for_parse_error(error),
     };
 
-    if action == CliAction::ShowHelp {
-        return print_help();
-    }
-
-    let CliAction::Execute(cmd) = action else {
-        return Ok(());
-    };
+    let CliAction::Execute(cmd) = action;
 
     // Parse command line arguments before any output side effects.
 
@@ -242,7 +223,10 @@ mod tests {
     fn test_parse_cli_args_without_subcommand_shows_help() {
         let args = vec![OsString::from("twerk")];
 
-        assert!(matches!(parse_cli_args(&args), Ok(CliAction::ShowHelp)));
+        match parse_cli_args(&args) {
+            Ok(_) => unreachable!("expected clap to short-circuit with error when missing subcommand"),
+            Err(error) => assert_eq!(error.kind(), ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand),
+        }
     }
 
     #[test]

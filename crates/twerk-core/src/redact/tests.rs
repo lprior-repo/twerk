@@ -1,5 +1,7 @@
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
+#[allow(clippy::module_inception)]
+#[allow(unused_imports)]
 mod tests {
     use crate::redact::{
         is_secret_key, redact_job, redact_task, redact_task_log_parts, redact_vars, Redacter,

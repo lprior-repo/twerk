@@ -56,7 +56,7 @@ async fn setup_postgres() -> PostgresDatastore {
         .expect("failed to create datastore");
 
     sqlx::query(&format!("CREATE SCHEMA \"{schema_name}\""))
-        .execute(ds.pool())
+        .execute(ds.pool().unwrap())
         .await
         .expect("failed to create schema");
 
@@ -273,7 +273,7 @@ async fn test_postgres_all() {
 
     // Delete job manually (simulating cleanup)
     sqlx::query("DELETE FROM jobs WHERE id = 'job_cascade'")
-        .execute(ds.pool())
+        .execute(ds.pool().unwrap())
         .await
         .expect("failed to delete job");
 

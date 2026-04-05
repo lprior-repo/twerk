@@ -1,0 +1,5 @@
+error: unexpected argument '--flag' found
+
+Usage: twerk <COMMAND>
+
+For more information, try '--help'.

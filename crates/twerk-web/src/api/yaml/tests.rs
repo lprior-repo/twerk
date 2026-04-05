@@ -1,5 +1,6 @@
 #[cfg(test)]
 #[allow(clippy::panic, clippy::approx_constant, clippy::unwrap_used, dead_code)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::api::yaml::{
         from_slice, measure_ast_depth_and_nodes, ApiError, MAX_YAML_BODY_SIZE, MAX_YAML_DEPTH,

@@ -122,15 +122,11 @@ impl PostgresDatastore {
 
     /// Returns the underlying database pool.
     ///
-    /// # Panics
-    ///
-    /// Panics if called on a transaction-scoped datastore.
-    #[must_use]
-    #[allow(clippy::panic)]
-    pub fn pool(&self) -> &PgPool {
+    /// Returns an error if called on a transaction-scoped datastore.
+    pub fn pool(&self) -> DatastoreResult<&PgPool> {
         match &self.executor {
-            Executor::Pool(p) => p,
-            Executor::Tx(_) => panic!("cannot get pool from transaction"),
+            Executor::Pool(p) => Ok(p),
+            Executor::Tx(_) => Err(DatastoreError::Database("cannot get pool from transaction".to_string())),
         }
     }
 
@@ -190,7 +186,7 @@ impl PostgresDatastore {
 
     async fn cleanup_logs(&self) -> DatastoreResult<i64> {
         let cutoff = OffsetDateTime::now_utc() - self.logs_retention_duration;
-        let pool = self.pool();
+        let pool = self.pool()?;
         let result = sqlx::query("DELETE FROM tasks_log_parts WHERE created_at < $1")
             .bind(cutoff)
             .execute(pool)
@@ -201,14 +197,14 @@ impl PostgresDatastore {
 
     async fn cleanup_jobs(&self) -> DatastoreResult<i64> {
         let cutoff = OffsetDateTime::now_utc() - self.jobs_retention_duration;
-        let pool = self.pool();
+        let pool = self.pool()?;
         let result = sqlx::query("DELETE FROM jobs WHERE state IN ($1, $2) AND (delete_at IS NOT NULL AND delete_at < $3 OR (delete_at IS NULL AND (completed_at < $4 OR failed_at < $4)))").bind(JOB_STATE_COMPLETED).bind(JOB_STATE_FAILED).bind(OffsetDateTime::now_utc()).bind(cutoff).execute(pool).await.map_err(|e| DatastoreError::Database(format!("cleanup jobs failed: {e}")))?;
         Ok(result.rows_affected() as i64)
     }
 
     /// Executes a SQL script (multiple statements separated by semicolons).
     pub async fn exec_script(&self, script: &str) -> DatastoreResult<()> {
-        let pool = self.pool();
+        let pool = self.pool()?;
         for stmt in script.split(';') {
             let trimmed = stmt.trim();
             if trimmed.is_empty() {

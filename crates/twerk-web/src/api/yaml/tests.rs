@@ -270,7 +270,105 @@ mod tests {
     }
 
     #[test]
-    fn from_slice_deserializes_negative_float() -> Result<(), ApiError> {
+    fn from_slice_deserializes_empty_string_value() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct EmptyVal {
+            value: String,
+        }
+        let yaml = b"value: \"\"\n";
+        let result: EmptyVal = from_slice(yaml)?;
+        assert_eq!(result.value, "");
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_whitespace_only_value() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct WhitespaceVal {
+            value: String,
+        }
+        let yaml = b"value: \"   \\t  \"\n";
+        let result: WhitespaceVal = from_slice(yaml)?;
+        assert_eq!(result.value, "   \t  ");
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_very_large_integer() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct BigInt {
+            value: i64,
+        }
+        let yaml = b"value: 9223372036854775807\n";
+        let result: BigInt = from_slice(yaml)?;
+        assert_eq!(result.value, i64::MAX);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_handles_single_quoted_strings() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct QuoteVal {
+            value: String,
+        }
+        let yaml = b"value: 'hello world'\n";
+        let result: QuoteVal = from_slice(yaml)?;
+        assert_eq!(result.value, "hello world");
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_multiline_literal_block() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct BlockVal {
+            content: String,
+        }
+        let yaml = b"content: |\n  line one\n  line two\n  line three\n";
+        let result: BlockVal = from_slice(yaml)?;
+        assert!(result.content.contains("line one"));
+        assert!(result.content.contains("line two"));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_multiline_folded_block() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize)]
+        struct FoldedVal {
+            content: String,
+        }
+        let yaml = b"content: >\n  line one\n  line two\n  line three\n";
+        let result: FoldedVal = from_slice(yaml)?;
+        // Folded block collapses newlines to spaces
+        assert!(result.content.contains("line one"));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_zero_integer() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct ZeroVal {
+            count: i32,
+        }
+        let yaml = b"count: 0\n";
+        let result: ZeroVal = from_slice(yaml)?;
+        assert_eq!(result.count, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_zero_float() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct ZeroFloat {
+            value: f64,
+        }
+        let yaml = b"value: 0.0\n";
+        let result: ZeroFloat = from_slice(yaml)?;
+        assert_eq!(result.value, 0.0);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_negative_integer() -> Result<(), ApiError> {
         #[derive(Debug, serde::Deserialize, PartialEq)]
         struct FloatVal {
             value: f64,

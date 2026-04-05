@@ -1,129 +1,291 @@
+//! Validation and parsing for domain types.
+//!
+//! This module follows the **Parse, Don't Validate** principle: every `parse_*`
+//! function returns a *validated* newtype from [`domain_types`](crate::domain_types),
+//! so callers receive a value that is correct by construction.
+//!
+//! The legacy `validate_*` functions are retained for backwards compatibility;
+//! they simply delegate to the new parsers and discard the typed return value.
+
 use crate::job::JobDefaults;
 use crate::mount::Mount;
 use crate::task::Task;
 use crate::webhook::Webhook;
-use std::str::FromStr;
 use std::time::Duration as StdDuration;
 
-/// Validates a cron expression.
+pub use crate::domain_types::{
+    CronExpression, DomainParseError, GoDuration, Priority, QueueName, RetryLimit,
+};
+
+// ---------------------------------------------------------------------------
+// Typed error accumulation
+// ---------------------------------------------------------------------------
+
+/// A single validation failure, carrying a machine-readable kind and context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationFault {
+    pub kind: ValidationKind,
+    pub message: String,
+}
+
+/// Categorises the kind of validation failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationKind {
+    Cron,
+    Duration,
+    QueueName,
+    RetryLimit,
+    Priority,
+    JobName,
+    TaskName,
+    TaskField,
+    WebhookUrl,
+    MountType,
+    MountTarget,
+    MountSource,
+    Parallel,
+    Each,
+    Var,
+    Expression,
+    Subjob,
+}
+
+impl std::fmt::Display for ValidationFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+/// Helper: convert a `Vec<ValidationFault>` into a `Vec<String>` for the
+/// backwards-compatible API.
+fn fault_messages(faults: &[ValidationFault]) -> Vec<String> {
+    faults.iter().map(|f| f.message.clone()).collect()
+}
+
+/// Collect validation results: push a fault if `Err`.
+fn push_fault(
+    faults: &mut Vec<ValidationFault>,
+    kind: ValidationKind,
+    prefix: &str,
+    result: Result<(), DomainParseError>,
+) {
+    if let Err(e) = result {
+        faults.push(ValidationFault {
+            kind,
+            message: if prefix.is_empty() {
+                e.to_string()
+            } else {
+                format!("{prefix}: {e}")
+            },
+        });
+    }
+}
+
+// ===================================================================
+// Parse-Don't-Validate: new parser functions returning validated types
+// ===================================================================
+
+/// Parse a cron expression into a validated [`CronExpression`].
 ///
-/// # Arguments
-/// * `cron` - The cron expression to validate
+/// # Errors
+/// Returns [`DomainParseError::Cron`] on invalid syntax.
+pub fn parse_cron(cron: &str) -> Result<CronExpression, DomainParseError> {
+    CronExpression::parse(cron)
+}
+
+/// Parse a Go-style duration into a validated [`GoDuration`].
+///
+/// # Errors
+/// Returns [`DomainParseError::Duration`] on invalid syntax.
+pub fn parse_duration(duration: &str) -> Result<GoDuration, DomainParseError> {
+    GoDuration::parse(duration)
+}
+
+/// Parse a queue name into a validated [`QueueName`].
+///
+/// # Errors
+/// Returns [`DomainParseError::QueueName`] if the name is reserved.
+pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
+    QueueName::parse(name)
+}
+
+/// Parse a retry limit into a validated [`RetryLimit`].
+///
+/// # Errors
+/// Returns [`DomainParseError::RetryLimit`] if not in 1..=10.
+pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
+    RetryLimit::new(limit)
+}
+
+/// Parse a priority value into a validated [`Priority`].
+///
+/// # Errors
+/// Returns [`DomainParseError::Priority`] if not in 0..=9.
+pub fn parse_priority(priority: i64) -> Result<Priority, DomainParseError> {
+    Priority::new(priority)
+}
+
+// ===================================================================
+// Backwards-compatible public API (validate_* returning Result<(), _>)
+// ===================================================================
+
+/// Validates a cron expression.
 ///
 /// # Errors
 /// Returns an error if the cron expression is invalid.
 pub fn validate_cron(cron: &str) -> Result<(), String> {
-    cron::Schedule::from_str(cron)
-        .map(|_| ())
-        .map_err(|e| format!("invalid cron expression: {e}"))
+    parse_cron(cron).map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Validates a duration string (e.g., "1h30m", "30s", "2d").
 ///
-/// # Arguments
-/// * `duration` - The duration string to validate
-///
 /// # Errors
 /// Returns an error if the duration string is invalid.
 pub fn validate_duration(duration: &str) -> Result<(), String> {
-    parse_go_duration(duration).map(|_| ())
-}
-
-fn parse_go_duration(s: &str) -> Result<StdDuration, String> {
-    let s = s.trim();
-    if s.is_empty() {
-        return Err("empty duration".into());
-    }
-
-    let mut total_secs: i64 = 0;
-    let mut current_num: i64 = 0;
-
-    for c in s.chars() {
-        match c {
-            '0'..='9' => {
-                current_num = current_num * 10 + (c as i64 - '0' as i64);
-            }
-            's' => {
-                total_secs += current_num;
-                current_num = 0;
-            }
-            'm' => {
-                total_secs += current_num * 60;
-                current_num = 0;
-            }
-            'h' => {
-                total_secs += current_num * 3600;
-                current_num = 0;
-            }
-            'd' => {
-                total_secs += current_num * 86400;
-                current_num = 0;
-            }
-            _ => return Err(format!("invalid duration character: {c}")),
-        }
-    }
-
-    if current_num > 0 {
-        total_secs += current_num;
-    }
-
-    #[allow(clippy::cast_sign_loss)]
-    let secs = usize::try_from(total_secs).map_err(|_| "duration overflow")?;
-    Ok(StdDuration::from_secs(secs as u64))
+    parse_duration(duration)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Validates a queue name.
 ///
-/// # Arguments
-/// * `queue` - The queue name to validate
-///
 /// # Errors
 /// Returns an error if the queue name starts with "x-exclusive." or is "x-jobs".
 pub fn validate_queue_name(queue: &str) -> Result<(), String> {
-    if queue.starts_with("x-exclusive.") {
-        return Err("queue cannot start with x-exclusive.".into());
-    }
-    if queue == "x-jobs" {
-        return Err("queue x-jobs is reserved".into());
-    }
-    Ok(())
+    parse_queue_name(queue)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Validates a retry limit.
 ///
-/// # Arguments
-/// * `limit` - The retry limit to validate
-///
 /// # Errors
 /// Returns an error if the retry limit is not between 1 and 10.
 pub fn validate_retry(limit: i64) -> Result<(), String> {
-    if !(1..=10).contains(&limit) {
-        return Err("retry limit must be between 1 and 10".into());
-    }
-    Ok(())
+    parse_retry(limit)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Validates a priority value.
 ///
-/// # Arguments
-/// * `priority` - The priority to validate
-///
 /// # Errors
 /// Returns an error if the priority is not between 0 and 9.
 pub fn validate_priority(priority: i64) -> Result<(), String> {
-    if !(0..=9).contains(&priority) {
-        return Err("priority must be between 0 and 9".into());
+    parse_priority(priority)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+// ===================================================================
+// Go-duration parser (pure, zero mut)
+// ===================================================================
+
+/// Parse a Go-style duration string into `std::time::Duration`.
+///
+/// Supports: `s` (seconds), `m` (minutes), `h` (hours), `d` (days).
+///
+/// # Errors
+/// Returns a descriptive `String` on empty input, invalid characters, or overflow.
+pub fn parse_go_duration(s: &str) -> Result<StdDuration, String> {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return Err("empty duration".into());
     }
-    Ok(())
+    let (total_secs, trailing) = accumulate_duration_units(trimmed)?;
+    let total_secs = total_secs + trailing;
+    to_unsigned_duration(total_secs)
+}
+
+/// Accumulate named time units (`s`/`m`/`h`/`d`) and return total seconds
+/// plus any trailing (unlabelled) numeric remainder.
+fn accumulate_duration_units(s: &str) -> Result<(i64, i64), String> {
+    s.chars().try_fold((0i64, 0i64), |(total, num), c| {
+        match c {
+            '0'..='9' => Ok((total, num * 10 + i64::from(c as u32 - '0' as u32))),
+            's' => Ok((total + num, 0)),
+            'm' => Ok((total + num * 60, 0)),
+            'h' => Ok((total + num * 3600, 0)),
+            'd' => Ok((total + num * 86400, 0)),
+            _ => Err(format!("invalid duration character: {c}")),
+        }
+    })
+}
+
+/// Convert signed seconds into an unsigned `Duration`, rejecting negatives.
+fn to_unsigned_duration(total_secs: i64) -> Result<StdDuration, String> {
+    usize::try_from(total_secs)
+        .map(|s| StdDuration::from_secs(s as u64))
+        .map_err(|_| "duration overflow".into())
+}
+
+// ===================================================================
+// Job validation helpers (each < 25 lines)
+// ===================================================================
+
+/// Check that a job name is present and non-empty.
+fn check_job_name(name: Option<&String>) -> Option<ValidationFault> {
+    name.as_ref()
+        .is_none_or(|s| s.trim().is_empty())
+        .then(|| ValidationFault {
+            kind: ValidationKind::JobName,
+            message: "job name is required".into(),
+        })
+}
+
+/// Check that tasks are present and non-empty, collecting per-task name faults.
+fn check_job_tasks(tasks: Option<&Vec<Task>>) -> Vec<ValidationFault> {
+    let empty_fault = tasks
+        .as_ref()
+        .is_none_or(|t| t.is_empty())
+        .then(|| ValidationFault {
+            kind: ValidationKind::TaskName,
+            message: "at least one task is required".into(),
+        });
+    let task_name_faults = tasks
+        .map(|ts| {
+            ts.iter()
+                .enumerate()
+                .filter(|(_, t)| t.name.as_ref().is_none_or(|n| n.trim().is_empty()))
+                .map(|(i, _)| ValidationFault {
+                    kind: ValidationKind::TaskName,
+                    message: format!("task at index {i} has no name"),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    empty_fault.into_iter().chain(task_name_faults).collect()
+}
+
+/// Validate job defaults (timeout, queue, priority).
+fn check_job_defaults(defaults: &JobDefaults) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    if let Some(timeout) = &defaults.timeout {
+        push_fault(
+            &mut faults,
+            ValidationKind::Duration,
+            &format!("invalid default timeout: {timeout}"),
+            parse_duration(timeout).map(|_| ()),
+        );
+    }
+    if let Some(queue) = &defaults.queue {
+        push_fault(
+            &mut faults,
+            ValidationKind::QueueName,
+            &format!("invalid default queue: {queue}"),
+            parse_queue_name(queue).map(|_| ()),
+        );
+    }
+    push_fault(
+        &mut faults,
+        ValidationKind::Priority,
+        &format!("invalid default priority: {}", defaults.priority),
+        parse_priority(defaults.priority).map(|_| ()),
+    );
+    faults
 }
 
 /// Validates a job configuration.
-///
-/// # Arguments
-/// * `name` - Optional job name
-/// * `tasks` - Optional task list
-/// * `defaults` - Optional job defaults
-/// * `_output` - Optional output (unused)
 ///
 /// # Errors
 /// Returns a list of validation errors if any fields are invalid.
@@ -133,137 +295,179 @@ pub fn validate_job(
     defaults: Option<&JobDefaults>,
     _output: Option<&String>,
 ) -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
-
-    if name.as_ref().is_none_or(|s| s.trim().is_empty()) {
-        errors.push("job name is required".into());
-    }
-
-    if tasks.as_ref().is_none_or(|t: &&Vec<Task>| t.is_empty()) {
-        errors.push("at least one task is required".into());
-    }
-
-    if let Some(tasks) = tasks {
-        for (i, task) in tasks.iter().enumerate() {
-            if task.name.as_ref().is_none_or(|n| n.trim().is_empty()) {
-                errors.push(format!("task at index {i} has no name"));
-            }
-        }
-    }
-
-    if let Some(defaults) = defaults {
-        if let Some(timeout) = &defaults.timeout {
-            if validate_duration(timeout).is_err() {
-                errors.push(format!("invalid default timeout: {timeout}"));
-            }
-        }
-        if let Some(queue) = &defaults.queue {
-            if validate_queue_name(queue).is_err() {
-                errors.push(format!("invalid default queue: {queue}"));
-            }
-        }
-        if validate_priority(defaults.priority).is_err() {
-            errors.push(format!("invalid default priority: {}", defaults.priority));
-        }
-    }
-
-    if errors.is_empty() {
+    let faults = collect_job_faults(name, tasks, defaults);
+    if faults.is_empty() {
         Ok(())
     } else {
-        Err(errors)
+        Err(fault_messages(&faults))
     }
+}
+
+/// Collect all faults for a job configuration.
+fn collect_job_faults(
+    name: Option<&String>,
+    tasks: Option<&Vec<Task>>,
+    defaults: Option<&JobDefaults>,
+) -> Vec<ValidationFault> {
+    let name_faults = check_job_name(name);
+    let task_faults = check_job_tasks(tasks);
+    let default_faults = defaults
+        .map(check_job_defaults)
+        .unwrap_or_default();
+    name_faults
+        .into_iter()
+        .chain(task_faults)
+        .chain(default_faults)
+        .collect()
+}
+
+// ===================================================================
+// Task validation helpers (each < 25 lines)
+// ===================================================================
+
+/// Validate a task's timeout, queue, retry, and priority fields.
+fn check_task_fields(task: &Task) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    if let Some(timeout) = &task.timeout {
+        push_fault(
+            &mut faults,
+            ValidationKind::Duration,
+            &format!("invalid timeout: {timeout}"),
+            parse_duration(timeout).map(|_| ()),
+        );
+    }
+    if let Some(queue) = &task.queue {
+        push_fault(
+            &mut faults,
+            ValidationKind::QueueName,
+            &format!("invalid queue: {queue}"),
+            parse_queue_name(queue).map(|_| ()),
+        );
+    }
+    if let Some(retry) = &task.retry {
+        push_fault(
+            &mut faults,
+            ValidationKind::RetryLimit,
+            &format!("invalid retry limit: {}", retry.limit),
+            parse_retry(retry.limit).map(|_| ()),
+        );
+    }
+    push_fault(
+        &mut faults,
+        ValidationKind::Priority,
+        &format!("invalid priority: {}", task.priority),
+        parse_priority(task.priority).map(|_| ()),
+    );
+    faults
+}
+
+/// Validate parallel/each/subjob structural constraints.
+fn check_task_structure(task: &Task) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    if let Some(p) = &task.parallel {
+        if p.tasks.as_ref().is_none_or(Vec::is_empty) {
+            faults.push(ValidationFault {
+                kind: ValidationKind::Parallel,
+                message: "parallel tasks cannot be empty".into(),
+            });
+        }
+    }
+    if let Some(e) = &task.each {
+        if e.list.as_ref().is_none_or(String::is_empty) {
+            faults.push(ValidationFault {
+                kind: ValidationKind::Each,
+                message: "each list cannot be empty".into(),
+            });
+        }
+    }
+    if task.parallel.is_some() && task.each.is_some() {
+        faults.push(ValidationFault {
+            kind: ValidationKind::TaskField,
+            message: "task cannot have both parallel and each".into(),
+        });
+    }
+    if task.parallel.is_some() && task.subjob.is_some() {
+        faults.push(ValidationFault {
+            kind: ValidationKind::TaskField,
+            message: "task cannot have both parallel and subjob".into(),
+        });
+    }
+    faults
+}
+
+/// Validate `var` name length and `each` expression validity.
+fn check_task_expressions(task: &Task) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    if let Some(var) = &task.var {
+        if var.len() > 64 {
+            faults.push(ValidationFault {
+                kind: ValidationKind::Var,
+                message: format!("variable name exceeds 64 characters: {}", var.len()),
+            });
+        }
+    }
+    if let Some(each) = &task.each {
+        if let Some(list) = &each.list {
+            if !list.is_empty() && !crate::eval::valid_expr(list) {
+                faults.push(ValidationFault {
+                    kind: ValidationKind::Expression,
+                    message: format!("invalid expression: {list}"),
+                });
+            }
+        }
+    }
+    faults
+}
+
+/// Validate webhook URLs inside a subjob.
+fn check_subjob_webhooks(task: &Task) -> Vec<ValidationFault> {
+    task.subjob
+        .as_ref()
+        .and_then(|sj| sj.webhooks.as_ref())
+        .map(|whs| check_webhook_urls(whs))
+        .unwrap_or_default()
+}
+
+/// Check that every webhook in a slice has a non-empty URL.
+fn check_webhook_urls(webhooks: &[Webhook]) -> Vec<ValidationFault> {
+    webhooks
+        .iter()
+        .filter(|w| w.url.as_ref().is_none_or(|u| u.trim().is_empty()))
+        .map(|_| ValidationFault {
+            kind: ValidationKind::WebhookUrl,
+            message: "webhook URL cannot be empty".into(),
+        })
+        .collect()
 }
 
 /// Validates a task configuration.
 ///
-/// # Arguments
-/// * `task` - The task to validate
-///
 /// # Errors
 /// Returns a list of validation errors if any fields are invalid.
 pub fn validate_task(task: &Task) -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
-
-    if let Some(timeout) = &task.timeout {
-        if validate_duration(timeout).is_err() {
-            errors.push(format!("invalid timeout: {timeout}"));
-        }
-    }
-
-    if let Some(queue) = &task.queue {
-        if validate_queue_name(queue).is_err() {
-            errors.push(format!("invalid queue: {queue}"));
-        }
-    }
-
-    if let Some(retry) = &task.retry {
-        if validate_retry(retry.limit).is_err() {
-            errors.push(format!("invalid retry limit: {}", retry.limit));
-        }
-    }
-
-    if validate_priority(task.priority).is_err() {
-        errors.push(format!("invalid priority: {}", task.priority));
-    }
-
-    if let Some(parallel) = &task.parallel {
-        if parallel.tasks.as_ref().is_none_or(Vec::is_empty) {
-            errors.push("parallel tasks cannot be empty".into());
-        }
-    }
-    if let Some(each) = &task.each {
-        if each.list.as_ref().is_none_or(String::is_empty) {
-            errors.push("each list cannot be empty".into());
-        }
-    }
-
-    if let Some(var) = &task.var {
-        if var.len() > 64 {
-            errors.push(format!(
-                "variable name exceeds 64 characters: {}",
-                var.len()
-            ));
-        }
-    }
-
-    if let Some(each) = &task.each {
-        if let Some(list) = &each.list {
-            if !list.is_empty() && !crate::eval::valid_expr(list) {
-                errors.push(format!("invalid expression: {list}"));
-            }
-        }
-    }
-
-    if task.parallel.is_some() && task.each.is_some() {
-        errors.push("task cannot have both parallel and each".to_string());
-    }
-
-    if task.parallel.is_some() && task.subjob.is_some() {
-        errors.push("task cannot have both parallel and subjob".to_string());
-    }
-
-    if let Some(subjob) = &task.subjob {
-        if let Some(webhooks) = &subjob.webhooks {
-            for webhook in webhooks {
-                if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
-                    errors.push("webhook URL cannot be empty".to_string());
-                }
-            }
-        }
-    }
-
-    if errors.is_empty() {
+    let faults = collect_task_faults(task);
+    if faults.is_empty() {
         Ok(())
     } else {
-        Err(errors)
+        Err(fault_messages(&faults))
     }
 }
 
+/// Collect all faults for a task configuration.
+fn collect_task_faults(task: &Task) -> Vec<ValidationFault> {
+    check_task_fields(task)
+        .into_iter()
+        .chain(check_task_structure(task))
+        .chain(check_task_expressions(task))
+        .chain(check_subjob_webhooks(task))
+        .collect()
+}
+
+// ===================================================================
+// Webhook validation
+// ===================================================================
+
 /// Validates webhook configurations.
-///
-/// # Arguments
-/// * `webhooks` - Optional list of webhooks
-/// * `tasks` - Optional list of tasks (to check subjob webhooks)
 ///
 /// # Errors
 /// Returns a list of validation errors if any webhook URLs are empty.
@@ -271,82 +475,108 @@ pub fn validate_webhooks(
     webhooks: Option<&Vec<Webhook>>,
     tasks: Option<&Vec<Task>>,
 ) -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
-
-    if let Some(webhooks) = webhooks {
-        for webhook in webhooks {
-            if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
-                errors.push("webhook URL cannot be empty".to_string());
-            }
-        }
-    }
-
-    if let Some(tasks) = tasks {
-        for task in tasks {
-            if let Some(subjob) = &task.subjob {
-                if let Some(subjob_webhooks) = &subjob.webhooks {
-                    for webhook in subjob_webhooks {
-                        if webhook.url.as_ref().is_none_or(|u| u.trim().is_empty()) {
-                            errors.push("webhook URL cannot be empty".to_string());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if errors.is_empty() {
+    let faults = collect_webhook_faults(webhooks, tasks);
+    if faults.is_empty() {
         Ok(())
     } else {
-        Err(errors)
+        Err(fault_messages(&faults))
+    }
+}
+
+/// Collect webhook faults from top-level webhooks and subjob webhooks in tasks.
+fn collect_webhook_faults(
+    webhooks: Option<&Vec<Webhook>>,
+    tasks: Option<&Vec<Task>>,
+) -> Vec<ValidationFault> {
+    let top: Vec<ValidationFault> = webhooks
+        .map(|ws| check_webhook_urls(ws))
+        .unwrap_or_default();
+    let sub: Vec<ValidationFault> = tasks
+        .map(|ts| {
+            ts.iter()
+                .flat_map(|t| check_subjob_webhooks(t))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    top.into_iter().chain(sub).collect()
+}
+
+// ===================================================================
+// Mount validation
+// ===================================================================
+
+/// Validate a single mount.
+fn check_mount(mount: &Mount) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    if mount.mount_type.as_ref().is_some_and(String::is_empty) {
+        faults.push(ValidationFault {
+            kind: ValidationKind::MountType,
+            message: "mount type is required".into(),
+        });
+    }
+    faults.extend(check_mount_target(mount));
+    faults.extend(check_bind_source(mount));
+    faults
+}
+
+/// Validate a mount's target path.
+fn check_mount_target(mount: &Mount) -> Vec<ValidationFault> {
+    mount.target.as_ref().map_or_else(Vec::new, |target| {
+        if target.is_empty() {
+            vec![ValidationFault {
+                kind: ValidationKind::MountTarget,
+                message: "target is required".into(),
+            }]
+        } else if target.contains(':') {
+            vec![ValidationFault {
+                kind: ValidationKind::MountTarget,
+                message: "invalid target path: cannot contain colon".into(),
+            }]
+        } else if target == "/tork" {
+            vec![ValidationFault {
+                kind: ValidationKind::MountTarget,
+                message: "target path cannot be /tork".into(),
+            }]
+        } else {
+            Vec::new()
+        }
+    })
+}
+
+/// Validate source path for bind mounts.
+fn check_bind_source(mount: &Mount) -> Vec<ValidationFault> {
+    if mount.mount_type.as_deref() != Some("bind") {
+        return Vec::new();
+    }
+    match &mount.source {
+        None => vec![ValidationFault {
+            kind: ValidationKind::MountSource,
+            message: "source is required for bind mount".into(),
+        }],
+        Some(src) if src.is_empty() => vec![ValidationFault {
+            kind: ValidationKind::MountSource,
+            message: "source is required for bind mount".into(),
+        }],
+        Some(src) if src.contains('#') => vec![ValidationFault {
+            kind: ValidationKind::MountSource,
+            message: "invalid source path: cannot contain hash".into(),
+        }],
+        _ => Vec::new(),
     }
 }
 
 /// Validates mount configurations.
 ///
-/// # Arguments
-/// * `mounts` - Optional list of mounts
-///
 /// # Errors
 /// Returns a list of validation errors if any mounts are invalid.
 pub fn validate_mounts(mounts: &Option<Vec<Mount>>) -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
-
-    let Some(mounts) = mounts else {
-        return Ok(());
-    };
-
-    for mount in mounts {
-        if mount.mount_type.as_ref().is_some_and(String::is_empty) {
-            errors.push("mount type is required".to_string());
-        }
-
-        if let Some(target) = &mount.target {
-            if target.is_empty() {
-                errors.push("target is required".to_string());
-            } else if target.contains(':') {
-                errors.push("invalid target path: cannot contain colon".to_string());
-            } else if target == "/tork" {
-                errors.push("target path cannot be /tork".to_string());
-            }
-        }
-
-        if mount.mount_type.as_deref() == Some("bind") {
-            if let Some(source) = &mount.source {
-                if source.is_empty() {
-                    errors.push("source is required for bind mount".to_string());
-                } else if source.contains('#') {
-                    errors.push("invalid source path: cannot contain hash".to_string());
-                }
-            } else {
-                errors.push("source is required for bind mount".to_string());
-            }
-        }
-    }
-
-    if errors.is_empty() {
+    let faults = mounts
+        .as_ref()
+        .map(|ms| ms.iter().flat_map(check_mount).collect::<Vec<_>>())
+        .unwrap_or_default();
+    if faults.is_empty() {
         Ok(())
     } else {
-        Err(errors)
+        Err(fault_messages(&faults))
     }
 }

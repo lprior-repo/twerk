@@ -23,12 +23,17 @@ fn yaml_key_to_string(yaml: &yaml_rust2::Yaml) -> String {
     }
 }
 
-/// Parses a YAML Real (float) to serde_json Number, returning 0.0 for invalid literals.
+/// Parses a YAML Real (float) to `serde_json::Number`, returning 0.0 for invalid literals.
 fn parse_yaml_real(s: &str) -> serde_json::Number {
     s.parse::<f64>()
         .ok()
         .and_then(serde_json::Number::from_f64)
-        .unwrap_or_else(|| serde_json::Number::from_f64(0.0).unwrap())
+        .unwrap_or_else(|| {
+            // Safety: 0.0 is a valid f64 and serde_json::Number::from_f64(0.0) never fails
+            #[allow(clippy::unwrap_used)]
+            let n = serde_json::Number::from_f64(0.0).unwrap();
+            n
+        })
 }
 
 /// Converts yaml-rust2 `Yaml` to `serde_json::Value` for deserialization.
@@ -120,14 +125,16 @@ impl AstVisitor {
         match yaml {
             yaml_rust2::Yaml::Array(items) => {
                 self.max_depth = self.max_depth.max(depth + 1);
-                items.iter().for_each(|item| self.visit(item, depth + 1));
+                for item in items {
+                    self.visit(item, depth + 1);
+                }
             }
             yaml_rust2::Yaml::Hash(map) => {
                 self.max_depth = self.max_depth.max(depth + 1);
-                map.iter().for_each(|(k, v)| {
+                for (k, v) in map {
                     self.visit(k, depth + 1);
                     self.visit(v, depth + 1);
-                });
+                }
             }
             yaml_rust2::Yaml::Alias(_) => self.count += 1,
             _ => {}

@@ -1,7 +1,8 @@
 //! Redaction functionality for masking sensitive data.
 //!
 //! This module provides redaction for jobs, tasks, and log parts,
-//! following the functional-rust principles with zero mutability in core logic.
+//! using pure functions with zero mutability - every function takes
+//! values by-value and returns new instances.
 
 use std::collections::HashMap;
 
@@ -41,14 +42,6 @@ impl Redacter {
     /// Checks if the input string contains any sensitive key.
     ///
     /// Matching is case-insensitive.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The string to check for sensitive keys.
-    ///
-    /// # Returns
-    ///
-    /// `true` if any sensitive key is found in the input, `false` otherwise.
     #[must_use]
     pub fn contains(&self, input: &str) -> bool {
         self.keys
@@ -62,28 +55,15 @@ impl Redacter {
     /// that match any key pattern are replaced with `[REDACTED]`.
     ///
     /// Matching is case-insensitive.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The string to redact.
-    ///
-    /// # Returns
-    ///
-    /// A new string with all sensitive values replaced by `[REDACTED]`.
     #[must_use]
     pub fn wildcard(&self, input: &str) -> String {
-        let mut result = input.to_string();
-
-        for key in &self.keys {
-            // Skip empty keys to avoid infinite loop
+        self.keys.iter().fold(input.to_string(), |acc, key| {
             if key.is_empty() {
-                continue;
+                return acc;
             }
-
             let upper_key = key.to_uppercase();
-
-            // Replace all occurrences of this key (case-insensitive)
-            // Keep replacing until no more matches found
+            // Fold over the string, replacing each case-insensitive match.
+            let mut result = acc;
             loop {
                 let upper_result = result.to_uppercase();
                 match upper_result.find(&upper_key) {
@@ -98,9 +78,8 @@ impl Redacter {
                     None => break,
                 }
             }
-        }
-
-        result
+            result
+        })
     }
 
     /// Returns the list of sensitive keys.
@@ -132,14 +111,9 @@ pub fn is_secret_key(key: &str) -> bool {
 /// - If the key is sensitive (matches SECRET, PASSWORD, `ACCESS_KEY`), the value is redacted
 /// - Otherwise, all secret values are replaced with `[REDACTED]`
 ///
-/// # Arguments
-///
-/// * `m` - The map of string key-value pairs to redact
-/// * `secrets` - A map of secret names to secret values
-///
 /// # Returns
 ///
-/// A new `HashMap` with sensitive values redacted
+/// A new `HashMap` with sensitive values redacted.
 #[must_use]
 #[allow(clippy::implicit_hasher)]
 pub fn redact_vars(
@@ -161,161 +135,185 @@ pub fn redact_vars(
         .collect()
 }
 
-/// Redacts a task and all its nested tasks recursively.
-///
-/// # Arguments
-///
-/// * `task` - The task to redact (mutated in place)
-/// * `secrets` - A map of secret names to secret values
-#[allow(clippy::implicit_hasher)]
-pub fn redact_task(task: &mut crate::task::Task, secrets: &HashMap<String, String>) {
-    redact_task_internal(task, secrets);
+// ---------------------------------------------------------------------------
+// Task-level pure redaction helpers (each under 25 lines)
+// ---------------------------------------------------------------------------
+
+/// Redact environment variables on a task.
+fn redact_task_env(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+    let env = task.env.as_ref().map(|e| redact_vars(e, secrets));
+    crate::task::Task { env, ..task }
 }
 
-/// Internal helper for recursive task redaction.
-fn redact_task_internal(task: &mut crate::task::Task, secrets: &HashMap<String, String>) {
-    // Redact env
-    if let Some(ref mut env) = task.env {
-        *env = redact_vars(env, secrets);
-    }
+/// Redact mount options on a task.
+fn redact_task_mounts(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+    let mounts = task.mounts.as_ref().map(|mounts| {
+        mounts
+            .iter()
+            .map(|m| crate::mount::Mount {
+                opts: m.opts.as_ref().map(|o| redact_vars(o, secrets)),
+                ..m.clone()
+            })
+            .collect()
+    });
+    crate::task::Task { mounts, ..task }
+}
 
-    // Redact mounts
-    if let Some(ref mut mounts) = task.mounts {
-        for m in mounts {
-            if let Some(ref mut opts) = m.opts {
-                *opts = redact_vars(opts, secrets);
-            }
-        }
-    }
+/// Redact registry password on a task.
+fn redact_task_registry(task: crate::task::Task) -> crate::task::Task {
+    let registry = task.registry.as_ref().map(|r| crate::task::Registry {
+        password: r.password.as_ref().map(|_| REDACTED_STR.to_string()),
+        ..r.clone()
+    });
+    crate::task::Task { registry, ..task }
+}
 
-    // Redact pre/post/sidecars
-    if let Some(ref mut pre) = task.pre {
-        for t in pre {
-            redact_task_internal(t, secrets);
+/// Redact subjob secrets and webhook headers on a task.
+fn redact_task_subjob(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
+    let subjob = task.subjob.as_ref().map(|sj| {
+        let secrets_map = sj.secrets.as_ref().map(|s| {
+            s.iter().map(|(k, _)| (k.clone(), REDACTED_STR.to_string())).collect()
+        });
+        let webhooks = sj.webhooks.as_ref().map(|whs| {
+            whs.iter()
+                .map(|w| crate::webhook::Webhook {
+                    headers: w.headers.as_ref().map(|h| redact_vars(h, secrets)),
+                    ..w.clone()
+                })
+                .collect()
+        });
+        crate::task::SubJobTask {
+            secrets: secrets_map,
+            webhooks,
+            ..sj.clone()
         }
-    }
-    if let Some(ref mut post) = task.post {
-        for t in post {
-            redact_task_internal(t, secrets);
-        }
-    }
-    if let Some(ref mut sidecars) = task.sidecars {
-        for t in sidecars {
-            redact_task_internal(t, secrets);
-        }
-    }
+    });
+    crate::task::Task { subjob, ..task }
+}
 
-    // Redact parallel tasks
-    if let Some(ref mut parallel) = task.parallel {
-        if let Some(ref mut tasks) = parallel.tasks {
-            for t in tasks {
-                redact_task_internal(t, secrets);
-            }
-        }
-    }
+/// Recursively redact a vector of tasks.
+fn redact_nested_tasks(
+    tasks: Option<Vec<crate::task::Task>>,
+    secrets: &HashMap<String, String>,
+) -> Option<Vec<crate::task::Task>> {
+    tasks.map(|ts| ts.into_iter().map(|t| redact_task(t, secrets)).collect())
+}
 
-    // Registry creds
-    if let Some(ref mut registry) = task.registry {
-        if registry.password.is_some() {
-            registry.password = Some(REDACTED_STR.to_string());
-        }
-    }
+/// Redact parallel tasks on a task.
+fn redact_task_parallel(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
+    let parallel = task.parallel.as_ref().map(|p| crate::task::ParallelTask {
+        tasks: redact_nested_tasks(p.tasks.clone(), secrets),
+        ..p.clone()
+    });
+    crate::task::Task { parallel, ..task }
+}
 
-    // Redact subjob
-    if let Some(ref mut subjob) = task.subjob {
-        if let Some(ref mut subjob_secrets) = subjob.secrets {
-            for v in subjob_secrets.values_mut() {
-                *v = REDACTED_STR.to_string();
-            }
-        }
-        if let Some(ref mut webhooks) = subjob.webhooks {
-            for w in webhooks {
-                if let Some(ref mut headers) = w.headers {
-                    *headers = redact_vars(headers, secrets);
-                }
-            }
-        }
-    }
+/// Redact pre, post, and sidecar nested tasks.
+fn redact_task_pre_post_sidecars(
+    task: crate::task::Task,
+    secrets: &HashMap<String, String>,
+) -> crate::task::Task {
+    let pre = redact_nested_tasks(task.pre.clone(), secrets);
+    let post = redact_nested_tasks(task.post.clone(), secrets);
+    let sidecars = redact_nested_tasks(task.sidecars.clone(), secrets);
+    crate::task::Task { pre, post, sidecars, ..task }
+}
+
+// ---------------------------------------------------------------------------
+// Public API - pure functions, take by-value, return new instance
+// ---------------------------------------------------------------------------
+
+/// Redacts a task and all its nested tasks recursively.
+///
+/// Takes ownership and returns a new redacted task.
+#[allow(clippy::implicit_hasher)]
+pub fn redact_task(task: crate::task::Task, secrets: &HashMap<String, String>) -> crate::task::Task {
+    let task = redact_task_env(task, secrets);
+    let task = redact_task_mounts(task, secrets);
+    let task = redact_task_pre_post_sidecars(task, secrets);
+    let task = redact_task_parallel(task, secrets);
+    let task = redact_task_registry(task);
+    redact_task_subjob(task, secrets)
 }
 
 /// Redacts task log parts by replacing secret values in contents.
 ///
-/// # Arguments
-///
-/// * `parts` - The log parts to redact (mutated in place)
-/// * `secrets` - A map of secret names to secret values
+/// Takes ownership of the vec and returns a new redacted vec.
 #[allow(clippy::implicit_hasher)]
 pub fn redact_task_log_parts(
-    parts: &mut [crate::task::TaskLogPart],
+    parts: Vec<crate::task::TaskLogPart>,
     secrets: &HashMap<String, String>,
-) {
+) -> Vec<crate::task::TaskLogPart> {
     if secrets.is_empty() {
-        return;
+        return parts;
     }
-    for part in parts.iter_mut() {
-        if let Some(ref mut contents) = part.contents {
-            for secret_val in secrets.values() {
-                if !secret_val.is_empty() {
-                    *contents = contents.replace(secret_val, REDACTED_STR);
-                }
-            }
-        }
-    }
+    parts
+        .into_iter()
+        .map(|part| {
+            let contents = part.contents.as_ref().map(|c| {
+                secrets
+                    .values()
+                    .filter(|sv| !sv.is_empty())
+                    .fold(c.clone(), |acc, sv| acc.replace(sv, REDACTED_STR))
+            });
+            crate::task::TaskLogPart { contents, ..part }
+        })
+        .collect()
+}
+
+/// Redact job inputs, webhooks, context, and tasks.
+fn redact_job_inputs_webhooks_context(
+    job: crate::job::Job,
+    secrets: &HashMap<String, String>,
+) -> crate::job::Job {
+    let inputs = job.inputs.as_ref().map(|i| redact_vars(i, secrets));
+
+    let webhooks = job.webhooks.as_ref().map(|whs| {
+        whs.iter()
+            .map(|w| crate::webhook::Webhook {
+                headers: w.headers.as_ref().map(|h| redact_vars(h, secrets)),
+                ..w.clone()
+            })
+            .collect()
+    });
+
+    let context = job.context.as_ref().map(|ctx| crate::job::JobContext {
+        inputs: ctx.inputs.as_ref().map(|i| redact_vars(i, secrets)),
+        secrets: ctx.secrets.as_ref().map(|s| redact_vars(s, secrets)),
+        tasks: ctx.tasks.as_ref().map(|t| redact_vars(t, secrets)),
+        ..ctx.clone()
+    });
+
+    crate::job::Job { inputs, webhooks, context, ..job }
+}
+
+/// Redact all tasks and execution entries in a job.
+fn redact_job_tasks(job: crate::job::Job, secrets: &HashMap<String, String>) -> crate::job::Job {
+    let tasks = redact_nested_tasks(job.tasks, secrets);
+    let execution = redact_nested_tasks(job.execution, secrets);
+    crate::job::Job { tasks, execution, ..job }
+}
+
+/// Redact the job's own secrets map (values become [REDACTED]).
+fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
+    let secrets = job.secrets.as_ref().map(|s| {
+        s.iter().map(|(k, _)| (k.clone(), REDACTED_STR.to_string())).collect()
+    });
+    crate::job::Job { secrets, ..job }
 }
 
 /// Redacts a job and all its tasks.
 ///
-/// # Arguments
-///
-/// * `job` - The job to redact (mutated in place)
-pub fn redact_job(job: &mut crate::job::Job) {
+/// Takes ownership and returns a new redacted job.
+pub fn redact_job(job: crate::job::Job) -> crate::job::Job {
     let secrets = job.secrets.clone().unwrap_or_default();
-
-    // Redact inputs
-    if let Some(ref mut inputs) = job.inputs {
-        *inputs = redact_vars(inputs, &secrets);
-    }
-
-    // Redact webhooks
-    if let Some(ref mut webhooks) = job.webhooks {
-        for w in webhooks {
-            if let Some(ref mut headers) = w.headers {
-                *headers = redact_vars(headers, &secrets);
-            }
-        }
-    }
-
-    // Redact context
-    if let Some(ref mut context) = job.context {
-        if let Some(ref mut inputs) = context.inputs {
-            *inputs = redact_vars(inputs, &secrets);
-        }
-        if let Some(ref mut context_secrets) = context.secrets {
-            *context_secrets = redact_vars(context_secrets, &secrets);
-        }
-        if let Some(ref mut tasks) = context.tasks {
-            *tasks = redact_vars(tasks, &secrets);
-        }
-    }
-
-    // Redact tasks
-    if let Some(ref mut tasks) = job.tasks {
-        for t in tasks {
-            redact_task_internal(t, &secrets);
-        }
-    }
-
-    // Redact execution
-    if let Some(ref mut execution) = job.execution {
-        for t in execution {
-            redact_task_internal(t, &secrets);
-        }
-    }
-
-    // Redact secrets themselves
-    if let Some(ref mut job_secrets) = job.secrets {
-        for v in job_secrets.values_mut() {
-            *v = REDACTED_STR.to_string();
-        }
-    }
+    let job = redact_job_inputs_webhooks_context(job, &secrets);
+    let job = redact_job_tasks(job, &secrets);
+    redact_job_secrets(job)
 }

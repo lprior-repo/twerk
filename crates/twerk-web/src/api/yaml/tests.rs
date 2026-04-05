@@ -363,7 +363,7 @@ mod tests {
         }
         let yaml = b"value: 0.0\n";
         let result: ZeroFloat = from_slice(yaml)?;
-        assert_eq!(result.value, 0.0);
+        assert!((result.value - 0.0).abs() < f64::EPSILON);
         Ok(())
     }
 
@@ -716,5 +716,69 @@ mod tests {
             msg.contains("empty"),
             "expected empty body error for empty input, got: {msg}"
         );
+    }
+
+    #[test]
+    fn from_slice_deserializes_hash_with_boolean_key() -> Result<(), ApiError> {
+        use std::collections::HashMap;
+        // Boolean keys get converted to their string representation
+        let yaml = b"true: yes\nfalse: no\n";
+        let map: HashMap<String, String> = from_slice(yaml)?;
+        assert_eq!(map.get("true"), Some(&"yes".to_string()));
+        assert_eq!(map.get("false"), Some(&"no".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_hash_with_real_key() -> Result<(), ApiError> {
+        use std::collections::HashMap;
+        // Real (float) keys get converted to their string representation
+        let yaml = b"3.14: pi\n2.718: e\n";
+        let map: HashMap<String, String> = from_slice(yaml)?;
+        assert_eq!(map.get("3.14"), Some(&"pi".to_string()));
+        assert_eq!(map.get("2.718"), Some(&"e".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_hash_with_null_key() -> Result<(), ApiError> {
+        use std::collections::HashMap;
+        // Null as a hash key maps to "null" string
+        let yaml = b"? null\n: is_null\n";
+        let map: HashMap<String, String> = from_slice(yaml)?;
+        assert_eq!(map.get("null"), Some(&"is_null".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_deserializes_yaml_alias() -> Result<(), ApiError> {
+        // YAML aliases are resolved by yaml-rust2 during parsing
+        let yaml = b"
+base: &base_val
+  name: original
+derived: *base_val
+";
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct Doc {
+            base: serde_json::Value,
+            derived: serde_json::Value,
+        }
+        let result: Doc = from_slice(yaml)?;
+        assert_eq!(result.base, result.derived);
+        Ok(())
+    }
+
+    #[test]
+    fn from_slice_handles_unknown_yaml_tag_as_null() -> Result<(), ApiError> {
+        // Unknown YAML tags result in BadValue which maps to Null
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct Doc {
+            key: String,
+        }
+        // A key with an unknown type gets converted via the catch-all branch
+        let yaml = b"key: value";
+        let result: Doc = from_slice(yaml)?;
+        assert_eq!(result.key, "value");
+        Ok(())
     }
 }

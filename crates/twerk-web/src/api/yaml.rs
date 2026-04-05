@@ -11,17 +11,16 @@ pub(crate) const MAX_YAML_DEPTH: usize = 64;
 pub(crate) const MAX_YAML_BODY_SIZE: usize = 512 * 1024;
 pub(crate) const MAX_YAML_NODES: usize = 10_000;
 
-/// Converts yaml-rust2 Yaml to serde_json::Value for deserialization.
+/// Converts yaml-rust2 `Yaml` to `serde_json::Value` for deserialization.
 fn yaml_to_json(yaml: &yaml_rust2::Yaml) -> serde_json::Value {
     match yaml {
-        yaml_rust2::Yaml::Null => serde_json::Value::Null,
         yaml_rust2::Yaml::Boolean(b) => serde_json::Value::Bool(*b),
         yaml_rust2::Yaml::Integer(i) => serde_json::Value::Number((*i).into()),
         yaml_rust2::Yaml::Real(s) => {
             // Real is a string representation, parse as f64
             s.parse::<f64>()
                 .ok()
-                .and_then(|f| serde_json::Number::from_f64(f))
+                .and_then(serde_json::Number::from_f64)
                 .map_or(serde_json::Value::Null, serde_json::Value::Number)
         }
         yaml_rust2::Yaml::String(s) => serde_json::Value::String(s.clone()),
@@ -45,7 +44,9 @@ fn yaml_to_json(yaml: &yaml_rust2::Yaml) -> serde_json::Value {
                 .collect();
             serde_json::Value::Object(obj)
         }
-        yaml_rust2::Yaml::Alias(_) | yaml_rust2::Yaml::BadValue => serde_json::Value::Null,
+        yaml_rust2::Yaml::Null | yaml_rust2::Yaml::Alias(_) | yaml_rust2::Yaml::BadValue => {
+            serde_json::Value::Null
+        }
     }
 }
 

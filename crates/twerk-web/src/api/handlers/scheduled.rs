@@ -13,8 +13,9 @@ use twerk_core::user::User;
 use twerk_core::validation::{validate_cron, validate_job};
 
 use super::super::error::ApiError;
-use super::tasks::PaginationQuery;
+use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
+use tracing::instrument;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateScheduledJobBody {
@@ -184,6 +185,7 @@ fn build_scheduled_job_event_value_from_sj(
 /// POST /scheduled-jobs
 ///
 /// # Errors
+#[instrument(name = "create_scheduled_job_handler", skip_all)]
 pub async fn create_scheduled_job_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -208,11 +210,13 @@ pub async fn create_scheduled_job_handler(
 /// GET /scheduled-jobs
 ///
 /// # Errors
+#[instrument(name = "list_scheduled_jobs_handler", skip_all)]
 pub async fn list_scheduled_jobs_handler(
     State(state): State<AppState>,
-    Query(qp): Query<PaginationQuery>,
+    Query(raw): Query<RawPaginationQuery>,
     req: axum::extract::Request,
 ) -> Result<Response, ApiError> {
+    let qp = PaginationQuery::from_raw(raw);
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 10, 20);
     let current_user = extract_current_user(&req);
@@ -229,6 +233,7 @@ pub async fn list_scheduled_jobs_handler(
 /// GET /scheduled-jobs/{id}
 ///
 /// # Errors
+#[instrument(name = "get_scheduled_job_handler", skip_all)]
 pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,
@@ -245,6 +250,7 @@ pub async fn get_scheduled_job_handler(
 /// PUT /scheduled-jobs/{id}/pause
 ///
 /// # Errors
+#[instrument(name = "pause_scheduled_job_handler", skip_all)]
 pub async fn pause_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,
@@ -278,6 +284,7 @@ pub async fn pause_scheduled_job_handler(
 /// PUT /scheduled-jobs/{id}/resume
 ///
 /// # Errors
+#[instrument(name = "resume_scheduled_job_handler", skip_all)]
 pub async fn resume_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,
@@ -311,6 +318,7 @@ pub async fn resume_scheduled_job_handler(
 /// DELETE /scheduled-jobs/{id}
 ///
 /// # Errors
+#[instrument(name = "delete_scheduled_job_handler", skip_all)]
 pub async fn delete_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,

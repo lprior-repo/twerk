@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use twerk_core::job::JobState;
 use twerk_core::task::TaskState;
+use tracing::instrument;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
@@ -14,6 +15,7 @@ use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 ///
 /// # Errors
 /// Returns error if task creation or job update fails.
+#[instrument(name = "handle_top_level_task_completed", skip_all, fields(job_id = %job_id))]
 pub async fn handle_top_level_task_completed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -62,6 +64,7 @@ pub async fn handle_top_level_task_completed(
 ///
 /// # Errors
 /// Returns error if job publishing fails.
+#[instrument(name = "handle_top_level_task_failed", skip_all, fields(job_id = %job_id))]
 pub async fn handle_top_level_task_failed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,

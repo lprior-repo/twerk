@@ -41,7 +41,10 @@ pub fn build_job_context(
 
 /// Checks if job is in an active state.
 pub fn is_job_active(job_state: JobState) -> bool {
-    matches!(job_state, JobState::Running | JobState::Scheduled)
+    matches!(
+        job_state,
+        JobState::Running | JobState::Scheduled | JobState::Pending
+    )
 }
 
 /// Checks if retry is available.

@@ -12,7 +12,7 @@ use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, instrument};
 use twerk_core::task::{TaskLogPart, TaskState};
 use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
 
@@ -22,6 +22,7 @@ use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
 ///
 /// # Errors
 /// Returns error if task update fails.
+#[instrument(name = "handle_task_progress", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown"), state = %task.state))]
 pub async fn handle_task_progress(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -58,6 +59,7 @@ pub async fn handle_task_progress(
 ///
 /// # Errors
 /// Returns error if scheduling fails.
+#[instrument(name = "handle_pending_task", skip_all)]
 pub async fn handle_pending_task(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -130,6 +132,7 @@ pub async fn handle_log_part(
 ///
 /// # Errors
 /// Returns error if task update or next step scheduling fails.
+#[instrument(name = "handle_task_completed", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
 pub async fn handle_task_completed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -210,6 +213,7 @@ pub async fn handle_task_failed(
 ///
 /// # Errors
 /// Returns error if task update or retry logic fails.
+#[instrument(name = "handle_error", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
 pub async fn handle_error(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,

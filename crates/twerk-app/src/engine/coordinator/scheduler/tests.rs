@@ -4,6 +4,7 @@
 
 use super::mock::{create_test_job, create_test_task, MockDatastore};
 use super::Scheduler;
+use std::collections::HashMap;
 use std::sync::Arc;
 use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
@@ -375,4 +376,97 @@ async fn test_schedule_task_dispatches_to_regular() {
         stored.unwrap().state,
         TaskState::Scheduled
     );
+}
+
+#[tokio::test]
+async fn test_schedule_each_task_with_sequence_expression() {
+    let ds = Arc::new(MockDatastore::new());
+    let broker = InMemoryBroker::new();
+
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+
+    let template = Task {
+        id: None,
+        name: Some("Each Item".to_string()),
+        run: Some("echo {{item_value}}".to_string()),
+        ..Default::default()
+    };
+
+    let mut task = create_test_task();
+    task.id = Some(twerk_core::id::TaskId::new("task-each-seq"));
+    task.each = Some(Box::new(EachTask {
+        var: Some("item".to_string()),
+        list: Some("{{ sequence(1,5) }}".to_string()),
+        task: Some(Box::new(template)),
+        size: 0,
+        completions: 0,
+        concurrency: 0,
+        index: 0,
+    }));
+
+    ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+
+    let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+    let result = scheduler.schedule_each_task(task.clone()).await;
+
+    assert!(result.is_ok(), "schedule_each_task failed: {:?}", result.err());
+
+    let child_count = ds
+        .tasks
+        .iter()
+        .filter(|r| r.value().parent_id.is_some())
+        .count();
+    assert_eq!(child_count, 4, "expected 4 children from sequence(1,5), got {child_count}");
+}
+
+/// Reproduces the exact YAML template from examples/each.yaml
+#[tokio::test]
+async fn test_schedule_each_task_with_real_yaml_template() {
+    let ds = Arc::new(MockDatastore::new());
+    let broker = InMemoryBroker::new();
+
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+
+    // Exact template from examples/each.yaml "sample each task"
+    let template = Task {
+        id: None,
+        name: Some("output task item".to_string()),
+        var: Some("eachTask{{item_index}}".to_string()),
+        image: Some("ubuntu:mantic".to_string()),
+        env: Some({
+            let mut m = HashMap::new();
+            m.insert("ITEM".to_string(), "{{item_value}}".to_string());
+            m
+        }),
+        run: Some("echo -n $ITEM > $TWERK_OUTPUT".to_string()),
+        ..Default::default()
+    };
+
+    let mut task = create_test_task();
+    task.id = Some(twerk_core::id::TaskId::new("task-each-yaml"));
+    task.each = Some(Box::new(EachTask {
+        var: Some("item".to_string()),
+        list: Some("{{ sequence(1,5) }}".to_string()),
+        task: Some(Box::new(template)),
+        size: 0,
+        completions: 0,
+        concurrency: 0,
+        index: 0,
+    }));
+
+    ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+
+    let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+    let result = scheduler.schedule_each_task(task.clone()).await;
+
+    assert!(result.is_ok(), "schedule_each_task with real YAML template failed: {:?}", result.err());
+
+    let child_count = ds
+        .tasks
+        .iter()
+        .filter(|r| r.value().parent_id.is_some())
+        .count();
+    assert_eq!(child_count, 4, "expected 4 children, got {child_count}");
 }

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, instrument};
 use twerk_core::job::{Job as TorkJob, JobState, ScheduledJob, ScheduledJobState};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
@@ -79,6 +79,7 @@ impl JobSchedulerHandler {
     ///
     /// # Errors
     /// Returns error if state transition fails.
+    #[instrument(name = "handle_scheduled_job", skip_all, fields(sj_id = %sj_id_str(sj), state = ?sj.state))]
     pub async fn handle_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
         match sj.state {
             ScheduledJobState::Active => self.handle_active(sj).await,
@@ -159,6 +160,7 @@ impl Clone for JobSchedulerHandler {
     }
 }
 
+#[instrument(name = "trigger_scheduled_job", skip_all, fields(sj_id = %sj_id))]
 async fn trigger_scheduled_job(
     ds: &Arc<dyn Datastore>,
     broker: &Arc<dyn Broker>,

@@ -225,14 +225,31 @@ fn to_unsigned_duration(total_secs: i64) -> Result<StdDuration, String> {
 // Job validation helpers (each < 25 lines)
 // ===================================================================
 
-/// Check that a job name is present and non-empty.
-fn check_job_name(name: Option<&String>) -> Option<ValidationFault> {
-    name.as_ref()
-        .is_none_or(|s| s.trim().is_empty())
-        .then(|| ValidationFault {
-            kind: ValidationKind::JobName,
-            message: "job name is required".into(),
-        })
+/// Check that a job name is present, non-empty, and not too long.
+fn check_job_name(name: Option<&String>) -> Vec<ValidationFault> {
+    let mut faults = Vec::new();
+    match name {
+        None => {
+            faults.push(ValidationFault {
+                kind: ValidationKind::JobName,
+                message: "job name is required".into(),
+            });
+        }
+        Some(s) if s.trim().is_empty() => {
+            faults.push(ValidationFault {
+                kind: ValidationKind::JobName,
+                message: "job name is required".into(),
+            });
+        }
+        Some(s) if s.len() > 256 => {
+            faults.push(ValidationFault {
+                kind: ValidationKind::JobName,
+                message: format!("job name exceeds 256 characters (got {})", s.len()),
+            });
+        }
+        _ => {}
+    }
+    faults
 }
 
 /// Check that tasks are present and non-empty, collecting per-task name faults.
@@ -311,13 +328,10 @@ fn collect_job_faults(
     tasks: Option<&Vec<Task>>,
     defaults: Option<&JobDefaults>,
 ) -> Vec<ValidationFault> {
-    let name_faults = check_job_name(name);
-    let task_faults = check_job_tasks(tasks);
-    let default_faults = defaults.map(check_job_defaults).unwrap_or_default();
-    name_faults
+    check_job_name(name)
         .into_iter()
-        .chain(task_faults)
-        .chain(default_faults)
+        .chain(check_job_tasks(tasks))
+        .chain(defaults.map(check_job_defaults).unwrap_or_default())
         .collect()
 }
 

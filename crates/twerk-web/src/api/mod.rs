@@ -147,7 +147,10 @@ pub fn create_router(state: AppState) -> Router {
             )
             .route("/jobs/{id}", get(handlers::get_job_handler))
             .route("/jobs/{id}/log", get(handlers::get_job_log_handler))
-            .route("/jobs/{id}/cancel", put(handlers::cancel_job_handler))
+            .route(
+                "/jobs/{id}/cancel",
+                put(handlers::cancel_job_handler).post(handlers::cancel_job_handler),
+            )
             .route("/jobs/{id}/restart", put(handlers::restart_job_handler))
             .route(
                 "/scheduled-jobs",

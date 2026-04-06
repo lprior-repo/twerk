@@ -125,8 +125,9 @@ impl Scheduler {
                         // Also insert the full value as var_name for complex access
                         m.insert(var_name.to_string(), item.clone());
                     } else {
-                        // Scalar value - insert directly as var_name
+                        // Scalar value - insert as var_name and var_name_value
                         m.insert(var_name.to_string(), item.clone());
+                        m.insert(format!("{var_name}_value"), item.clone());
                     }
                     m
                 };

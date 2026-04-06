@@ -14,7 +14,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{info, instrument};
 
 use twerk_infrastructure::broker::queue::{
     QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_PENDING, QUEUE_REDELIVERIES, QUEUE_STARTED,
@@ -119,6 +119,7 @@ impl Coordinator for DefaultCoordinator {
         "Coordinator"
     }
 
+    #[instrument(name = "coordinator_start", skip_all)]
     async fn start(&self) -> Result<()> {
         // 1. Task Subscription Pipeline
         self.subscribe_task_handler(QUEUE_PENDING, handlers::handle_pending_task)
@@ -145,7 +146,7 @@ impl Coordinator for DefaultCoordinator {
                     if st.is_cancelled() {
                         Ok(())
                     } else {
-                        handlers::handle_task_progress(ds, b, task).await
+                        Box::pin(handlers::handle_task_progress(ds, b, task)).await
                     }
                 })
             }))
@@ -237,6 +238,7 @@ impl Coordinator for DefaultCoordinator {
         Ok(())
     }
 
+    #[instrument(name = "submit_job", skip_all, fields(job_name = %job.name.as_deref().unwrap_or("unknown")))]
     async fn submit_job(&self, job: twerk_core::job::Job) -> Result<twerk_core::job::Job> {
         let job_id = job
             .id

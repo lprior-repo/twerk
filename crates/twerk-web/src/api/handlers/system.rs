@@ -8,8 +8,10 @@ use serde_json::json;
 
 use super::super::error::ApiError;
 use super::{AppState, VERSION};
+use tracing::instrument;
 
 /// Health check handler
+#[instrument(name = "health_handler", skip_all)]
 pub async fn health_handler(State(state): State<AppState>) -> Response {
     let ds_ok = state.ds.health_check().await.is_ok();
     let broker_ok = state.broker.health_check().await.is_ok();
@@ -28,6 +30,7 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 /// GET /nodes
 ///
 /// # Errors
+#[instrument(name = "list_nodes_handler", skip_all)]
 pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let nodes = state.ds.get_active_nodes().await.map_err(ApiError::from)?;
     Ok(axum::Json(nodes).into_response())
@@ -36,6 +39,7 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
 /// GET /metrics
 ///
 /// # Errors
+#[instrument(name = "get_metrics_handler", skip_all)]
 pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let metrics = state.ds.get_metrics().await.map_err(ApiError::from)?;
     Ok(axum::Json(metrics).into_response())
@@ -51,6 +55,7 @@ pub struct CreateUserBody {
 /// POST /users
 ///
 /// # Errors
+#[instrument(name = "create_user_handler", skip_all)]
 pub async fn create_user_handler(
     State(state): State<AppState>,
     axum::Json(body): axum::Json<CreateUserBody>,

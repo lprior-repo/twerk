@@ -12,9 +12,10 @@ use twerk_core::job::{new_job_summary, Job, JobEvent, JobState};
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
-use super::tasks::PaginationQuery;
+use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
 use crate::middleware::hooks::{on_read_job, on_read_job_summary};
+use tracing::instrument;
 
 /// Whether the create-job endpoint should block until the job completes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -59,6 +60,7 @@ pub struct CreateJobQuery {
 /// POST /jobs
 ///
 /// # Errors
+#[instrument(name = "create_job_handler", skip_all)]
 pub async fn create_job_handler(
     State(state): State<AppState>,
     Query(cq): Query<CreateJobQuery>,
@@ -74,7 +76,7 @@ pub async fn create_job_handler(
         "application/json" => {
             serde_json::from_slice(&body).map_err(|e| ApiError::bad_request(e.to_string()))?
         }
-        "text/yaml" | "application/x-yaml" => super::super::yaml::from_slice(&body)?,
+        "text/yaml" | "application/x-yaml" | "application/yaml" => super::super::yaml::from_slice(&body)?,
         _ => return Err(ApiError::bad_request("unsupported content type")),
     };
 
@@ -136,7 +138,7 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
                 ) if job.id.as_ref() == Some(&job_id) => {
                     return Ok(job.clone());
                 }
-                Ok(_) | Err(RecvError::Lagged(_)) => {},
+                Ok(_) | Err(RecvError::Lagged(_)) => {}
                 Err(RecvError::Closed) => {
                     return Err(ApiError::internal("subscription channel closed"));
                 }
@@ -173,6 +175,7 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 /// GET /jobs/{id}
 ///
 /// # Errors
+#[instrument(name = "get_job_handler", skip_all)]
 pub async fn get_job_handler(
     State(state): State<AppState>,
     Path(id): Path<JobId>,
@@ -188,11 +191,13 @@ pub async fn get_job_handler(
 /// GET /jobs
 ///
 /// # Errors
+#[instrument(name = "list_jobs_handler", skip_all)]
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
-    Query(qp): Query<PaginationQuery>,
+    Query(raw): Query<RawPaginationQuery>,
     req: axum::extract::Request,
 ) -> Result<Response, ApiError> {
+    let qp = PaginationQuery::from_raw(raw);
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 10, 20);
     let q = qp.q.unwrap_or_default();
@@ -214,14 +219,18 @@ pub async fn list_jobs_handler(
 /// PUT /jobs/{id}/cancel
 ///
 /// # Errors
+#[instrument(name = "cancel_job_handler", skip_all)]
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
     Path(id): Path<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
-    if !matches!(job.state, JobState::Running | JobState::Scheduled) {
-        return Err(ApiError::bad_request("job is not running"));
+    if matches!(
+        job.state,
+        JobState::Completed | JobState::Failed | JobState::Cancelled
+    ) {
+        return Err(ApiError::bad_request("job cannot be cancelled in its current state"));
     }
 
     job.state = JobState::Cancelled;
@@ -237,6 +246,7 @@ pub async fn cancel_job_handler(
 /// PUT /jobs/{id}/restart
 ///
 /// # Errors
+#[instrument(name = "restart_job_handler", skip_all)]
 pub async fn restart_job_handler(
     State(state): State<AppState>,
     Path(id): Path<JobId>,
@@ -260,11 +270,13 @@ pub async fn restart_job_handler(
 /// GET /jobs/{id}/log
 ///
 /// # Errors
+#[instrument(name = "get_job_log_handler", skip_all)]
 pub async fn get_job_log_handler(
     State(state): State<AppState>,
     Path(id): Path<JobId>,
-    Query(qp): Query<PaginationQuery>,
+    Query(raw): Query<RawPaginationQuery>,
 ) -> Result<Response, ApiError> {
+    let qp = PaginationQuery::from_raw(raw);
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 25, 100);
 

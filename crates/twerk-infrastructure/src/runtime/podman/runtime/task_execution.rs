@@ -3,7 +3,7 @@
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
 use twerk_core::id::TaskId;
 use twerk_core::uuid::new_uuid;
 
@@ -13,6 +13,7 @@ use super::types::PodmanRuntime;
 
 impl PodmanRuntime {
     /// Main run method - validates task and executes pre/main/post tasks.
+    #[instrument(name = "podman_run", skip_all)]
     pub(crate) async fn run_inner(&self, task: &mut CoreTask) -> Result<(), PodmanError> {
         // Validate task - must have ID, image, and name
         let _task_id = task.id.as_ref().ok_or(PodmanError::TaskIdRequired)?;
@@ -73,6 +74,7 @@ impl PodmanRuntime {
     }
 
     /// Execute pre tasks, main task, and post tasks.
+    #[instrument(name = "podman_execute_task_tree", skip_all)]
     async fn execute_task_tree(
         &self,
         task: &CoreTask,
@@ -123,6 +125,7 @@ impl PodmanRuntime {
     }
 
     /// Execute a single task (main, pre, or post).
+    #[instrument(name = "podman_do_run", skip_all)]
     async fn do_run(&self, task: &mut CoreTask) -> Result<(), PodmanError> {
         self.active_tasks
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

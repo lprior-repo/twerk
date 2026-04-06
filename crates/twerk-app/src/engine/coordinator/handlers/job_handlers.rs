@@ -7,7 +7,7 @@ use crate::engine::types::JobHandlerError;
 use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 use twerk_core::job::JobState;
 use twerk_core::task::TaskState;
 use twerk_core::uuid::new_short_uuid;
@@ -19,6 +19,7 @@ use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_P
 ///
 /// # Errors
 /// Returns error if job handling logic fails.
+#[instrument(name = "handle_job_event", skip_all, fields(job_id = %job.id.as_deref().unwrap_or("unknown"), state = %job.state))]
 pub async fn handle_job_event(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -80,6 +81,7 @@ pub async fn handle_cancel(
 
 // ── Private Job Handlers ────────────────────────────────────────
 
+#[instrument(name = "start_job", skip_all)]
 async fn start_job(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,

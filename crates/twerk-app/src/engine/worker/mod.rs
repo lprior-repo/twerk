@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use sysinfo::System;
 use tokio::sync::broadcast;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 use twerk_core::id::{NodeId, TaskId};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskState};
@@ -251,6 +251,7 @@ async fn send_heartbeat(
     let _ = broker.publish_heartbeat(node).await;
 }
 
+#[instrument(skip_all, fields(task_id = %task.id.as_ref().map_or("unknown", |id| id.as_str())))]
 async fn execute_task(
     task: Arc<Task>,
     runtime: Arc<dyn RuntimeTrait + Send + Sync>,

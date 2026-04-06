@@ -14,6 +14,7 @@ use super::container_create::create_container;
 use super::types::PullRequest;
 use twerk_core::id::TaskId;
 use twerk_core::task::Task;
+use tracing::instrument;
 use twerk_core::uuid::new_uuid;
 
 /// Runs a task in a Docker container.
@@ -21,6 +22,7 @@ use twerk_core::uuid::new_uuid;
 /// # Errors
 ///
 /// Returns `DockerError` if the task cannot be executed.
+#[instrument(name = "docker_run", skip_all, fields(task_id = %task.id.as_ref().map_or("unknown", |id| id.as_str())))]
 pub(super) async fn run(
     client: bollard::Docker,
     config: DockerConfig,
@@ -123,6 +125,7 @@ pub(super) async fn run(
 }
 
 /// Runs a single task (main, pre, or post).
+#[instrument(name = "docker_run_task", skip_all)]
 async fn run_task(
     client: &bollard::Docker,
     config: &DockerConfig,

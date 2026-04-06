@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 
 /// Spawns a signal handler task that listens for SIGINT, SIGTERM, or a broadcast
 /// termination signal, then runs the provided cleanup future.
@@ -46,6 +46,7 @@ where
 
 impl super::Engine {
     /// Starts the engine in the configured mode
+    #[instrument(skip_all)]
     pub async fn start(&mut self) -> Result<()> {
         if self.state != State::Idle {
             anyhow::bail!("engine is not idle");
@@ -64,6 +65,7 @@ impl super::Engine {
     }
 
     /// Runs the engine and waits for termination
+    #[instrument(skip_all)]
     pub async fn run(&mut self) -> Result<()> {
         self.start().await?;
         self.await_shutdown().await;
@@ -71,6 +73,7 @@ impl super::Engine {
     }
 
     /// Terminates the engine
+    #[instrument(skip_all)]
     pub async fn terminate(&mut self) -> Result<()> {
         if self.state != State::Running {
             anyhow::bail!("engine is not running");
@@ -118,6 +121,7 @@ impl super::Engine {
         self.terminated_notify.notified().await;
     }
 
+    #[instrument(skip_all)]
     async fn run_coordinator(&mut self) -> Result<()> {
         self.broker
             .init(
@@ -153,6 +157,7 @@ impl super::Engine {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     async fn run_worker(&mut self) -> Result<()> {
         self.broker
             .init(
@@ -182,6 +187,7 @@ impl super::Engine {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     async fn run_standalone(&mut self) -> Result<()> {
         self.broker
             .init(

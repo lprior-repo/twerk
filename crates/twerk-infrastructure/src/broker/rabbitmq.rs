@@ -18,7 +18,7 @@ use std::sync::{
 };
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use super::{
     prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler,
@@ -178,6 +178,7 @@ impl RabbitMQBroker {
         *self.shutting_down.read().await
     }
 
+    #[instrument(name = "rabbitmq_publish", skip_all, fields(exchange = %exchange, routing_key = %routing_key))]
     async fn publish_raw(
         &self,
         exchange: &str,

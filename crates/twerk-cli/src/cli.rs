@@ -5,7 +5,7 @@
 use std::ffi::OsString;
 use clap::Parser;
 use tracing::Level;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
 use twerk_common::load_config;
 use twerk_infrastructure::config as app_config;
 use twerk_infrastructure::reexec;
@@ -51,18 +51,27 @@ pub fn get_git_commit() -> String {
 ///
 /// Returns [`CliError::Logging`] if the log level is invalid.
 pub fn setup_logging() -> Result<(), CliError> {
-    let log_level_str = get_config_string("logging.level").unwrap_or_else(|| "info".to_string());
+    let log_level_str = get_config_string("logging.level")
+        .unwrap_or_else(|| String::from("info"));
 
     let level: Level = log_level_str
         .parse()
         .map_err(|_| CliError::Logging(format!("invalid log level: {log_level_str}")))?;
 
-    let filter = EnvFilter::builder()
-        .with_default_directive(level.into())
-        .from_env_lossy();
+    let level_directive: tracing_subscriber::filter::Directive = level.into();
+    let filter = EnvFilter::try_from_default_env()
+        .map_or_else(|_| EnvFilter::new(&log_level_str), |env| {
+            env.add_directive(level_directive)
+        });
 
     tracing_subscriber::registry()
-        .with(fmt::layer())
+        .with(
+            fmt::layer()
+                .with_span_events(FmtSpan::CLOSE)
+                .with_target(true)
+                .with_file(true)
+                .with_line_number(true),
+        )
         .with(filter)
         .init();
 

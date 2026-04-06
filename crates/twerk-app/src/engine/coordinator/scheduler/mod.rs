@@ -15,6 +15,8 @@
 use anyhow::Result;
 use std::sync::Arc;
 
+use tracing::instrument;
+
 mod each;
 mod parallel;
 mod regular;
@@ -44,6 +46,7 @@ impl Scheduler {
     /// Schedules a task based on its type (regular, parallel, each, or subjob).
     /// # Errors
     /// Returns error if task scheduling fails.
+    #[instrument(name = "schedule_task", skip_all)]
     pub async fn schedule_task(&self, task: twerk_core::task::Task) -> Result<()> {
         if task.parallel.is_some() {
             self.schedule_parallel_task(task).await

@@ -13,6 +13,7 @@ use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::instrument;
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::job::Job;
 use twerk_core::task::Task;
@@ -26,6 +27,7 @@ use twerk_infrastructure::datastore::Datastore;
 /// Async webhook caller with retry logic using `tokio::time::sleep`.
 ///
 /// This is the **Action** layer - pure async I/O with proper backoff.
+#[instrument(name = "call_webhook_async", skip_all, fields(url = %wh.url.as_deref().unwrap_or("unknown")))]
 async fn call_webhook_async(
     wh: &Webhook,
     body: &impl serde::Serialize,
@@ -111,6 +113,7 @@ async fn call_webhook_async(
 /// Fires webhooks for a job based on the event type.
 ///
 /// This is an **Action** that spawns background tasks for async network calls.
+#[instrument(name = "fire_job_webhooks", skip_all, fields(event = %event))]
 pub async fn fire_job_webhooks(job: &Job, event: &str) {
     let event = event.to_string();
 
@@ -144,6 +147,7 @@ pub async fn fire_job_webhooks(job: &Job, event: &str) {
 ///
 /// # Errors
 /// Returns error if the datastore query fails.
+#[instrument(name = "fire_task_webhooks", skip_all, fields(event = %event))]
 pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str) -> Result<()> {
     let job_id = task
         .job_id

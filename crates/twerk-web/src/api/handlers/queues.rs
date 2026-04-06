@@ -6,10 +6,12 @@ use axum::response::{IntoResponse, Response};
 
 use super::super::error::ApiError;
 use super::AppState;
+use tracing::instrument;
 
 /// GET /queues
 ///
 /// # Errors
+#[instrument(name = "list_queues_handler", skip_all)]
 pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let queues = state
         .broker
@@ -22,6 +24,7 @@ pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Respon
 /// GET /queues/{name}
 ///
 /// # Errors
+#[instrument(name = "get_queue_handler", skip_all)]
 pub async fn get_queue_handler(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -38,6 +41,7 @@ pub async fn get_queue_handler(
 /// DELETE /queues/{name}
 ///
 /// # Errors
+#[instrument(name = "delete_queue_handler", skip_all)]
 pub async fn delete_queue_handler(
     State(state): State<AppState>,
     Path(name): Path<String>,

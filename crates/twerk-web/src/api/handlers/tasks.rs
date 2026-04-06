@@ -9,18 +9,43 @@ use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
 use super::{parse_page, parse_size, AppState};
 use crate::middleware::hooks::on_read_task;
+use tracing::instrument;
 
-/// Pagination query parameters for list endpoints
+/// Raw pagination query parameters — uses String types to avoid
+/// serde rejection errors when users send invalid input like `?page=abc`.
 #[derive(Debug, Clone, Deserialize, Default)]
+pub struct RawPaginationQuery {
+    pub page: Option<String>,
+    pub size: Option<String>,
+    pub q: Option<String>,
+}
+
+/// Typed pagination query parsed from raw strings.
+/// Invalid integer values silently become `None` rather than
+/// leaking raw serde/axum error messages to the user.
+#[derive(Debug, Clone)]
 pub struct PaginationQuery {
     pub page: Option<i64>,
     pub size: Option<i64>,
     pub q: Option<String>,
 }
 
+impl PaginationQuery {
+    /// Parse from raw query strings, converting parse failures to `None` gracefully.
+    #[must_use]
+    pub fn from_raw(raw: RawPaginationQuery) -> Self {
+        Self {
+            page: raw.page.and_then(|s| s.parse().ok()),
+            size: raw.size.and_then(|s| s.parse().ok()),
+            q: raw.q,
+        }
+    }
+}
+
 /// GET /tasks/{id}
 ///
 /// # Errors
+#[instrument(name = "get_task_handler", skip_all)]
 pub async fn get_task_handler(
     State(state): State<AppState>,
     Path(id): Path<TaskId>,
@@ -40,11 +65,13 @@ pub async fn get_task_handler(
 /// GET /tasks/{id}/log
 ///
 /// # Errors
+#[instrument(name = "get_task_log_handler", skip_all)]
 pub async fn get_task_log_handler(
     State(state): State<AppState>,
     Path(id): Path<TaskId>,
-    Query(qp): Query<PaginationQuery>,
+    Query(raw): Query<RawPaginationQuery>,
 ) -> Result<Response, ApiError> {
+    let qp = PaginationQuery::from_raw(raw);
     let page = parse_page(qp.page);
     let size = parse_size(qp.size, 25, 100);
     let q = qp.q.unwrap_or_default();

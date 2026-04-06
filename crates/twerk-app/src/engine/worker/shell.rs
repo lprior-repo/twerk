@@ -13,7 +13,8 @@ use twerk_infrastructure::runtime::{
     BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult,
 };
 
-// Module-level function to avoid lifetime issues with associated functions
+use tracing::instrument;
+
 // Module-level function to avoid lifetime issues with associated functions
 async fn terminate_process(
     pid: u32,
@@ -174,6 +175,7 @@ impl ShellRuntimeAdapter {
 }
 
 impl RuntimeTrait for ShellRuntimeAdapter {
+    #[instrument(name = "shell_run", skip_all)]
     fn run(&self, task: &Task) -> BoxedFuture<()> {
         let (sc, tid, rs, env, active_processes, temp_dirs, broker) = (
             self.config.cmd.clone(),

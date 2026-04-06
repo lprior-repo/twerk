@@ -10,7 +10,7 @@ use dashmap::DashMap;
 use time::OffsetDateTime;
 use tokio::sync::broadcast;
 use tokio::time::sleep;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::id::TaskId;
@@ -24,6 +24,7 @@ use crate::runtime::Runtime as RuntimeTrait;
 use super::types::{Limits, RunningTask};
 
 /// Execute a task
+#[instrument(skip_all, fields(task_id = ?task.id))]
 pub async fn execute_task(
     task: Arc<Task>,
     runtime: Arc<dyn RuntimeTrait>,

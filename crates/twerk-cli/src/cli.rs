@@ -2,8 +2,8 @@
 //!
 //! Orchestrates the CLI: parses arguments, displays banner, and dispatches commands.
 
-use std::ffi::OsString;
 use clap::Parser;
+use std::ffi::OsString;
 use tracing::Level;
 use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
 use twerk_common::load_config;
@@ -51,18 +51,17 @@ pub fn get_git_commit() -> String {
 ///
 /// Returns [`CliError::Logging`] if the log level is invalid.
 pub fn setup_logging() -> Result<(), CliError> {
-    let log_level_str = get_config_string("logging.level")
-        .unwrap_or_else(|| String::from("info"));
+    let log_level_str = get_config_string("logging.level").unwrap_or_else(|| String::from("info"));
 
     let level: Level = log_level_str
         .parse()
         .map_err(|_| CliError::Logging(format!("invalid log level: {log_level_str}")))?;
 
     let level_directive: tracing_subscriber::filter::Directive = level.into();
-    let filter = EnvFilter::try_from_default_env()
-        .map_or_else(|_| EnvFilter::new(&log_level_str), |env| {
-            env.add_directive(level_directive)
-        });
+    let filter = EnvFilter::try_from_default_env().map_or_else(
+        |_| EnvFilter::new(&log_level_str),
+        |env| env.add_directive(level_directive),
+    );
 
     tracing_subscriber::registry()
         .with(
@@ -233,8 +232,13 @@ mod tests {
         let args = vec![OsString::from("twerk")];
 
         match parse_cli_args(&args) {
-            Ok(_) => unreachable!("expected clap to short-circuit with error when missing subcommand"),
-            Err(error) => assert_eq!(error.kind(), ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand),
+            Ok(_) => {
+                unreachable!("expected clap to short-circuit with error when missing subcommand")
+            }
+            Err(error) => assert_eq!(
+                error.kind(),
+                ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+            ),
         }
     }
 

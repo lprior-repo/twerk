@@ -947,4 +947,34 @@ derived: *base_val
         );
         Ok(())
     }
+
+    #[test]
+    fn parse_all_example_yaml_files() {
+        use std::fs;
+        use yaml_rust2::YamlLoader;
+
+        let examples = vec![
+            "/home/lewis/src/twerk/examples/hello.yaml",
+            "/home/lewis/src/twerk/examples/parallel.yaml",
+            "/home/lewis/src/twerk/examples/retry.yaml",
+            "/home/lewis/src/twerk/examples/each.yaml",
+            "/home/lewis/src/twerk/examples/subjob.yaml",
+            "/home/lewis/src/twerk/examples/timeout.yaml",
+            "/home/lewis/src/twerk/examples/bash-subjob.yaml",
+            "/home/lewis/src/twerk/examples/bash-retry.yaml",
+            "/home/lewis/src/twerk/examples/bash-quick.yaml",
+            "/home/lewis/src/twerk/examples/bash-pipeline.yaml",
+            "/home/lewis/src/twerk/examples/bash-each.yaml",
+            "/home/lewis/src/twerk/examples/bash-ci-pipeline.yaml",
+            "/home/lewis/src/twerk/examples/bash-ci-demo.yaml",
+            "/home/lewis/src/twerk/examples/split_and_stitch.yaml",
+        ];
+
+        for file in examples {
+            let content = fs::read_to_string(file).expect(&format!("Failed to read {}", file));
+            let docs =
+                YamlLoader::load_from_str(&content).expect(&format!("Failed to parse {}", file));
+            assert!(!docs.is_empty(), "No YAML documents in {}", file);
+        }
+    }
 }

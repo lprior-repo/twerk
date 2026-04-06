@@ -104,7 +104,7 @@ impl ScheduledJobRecordExt for ScheduledJobRecord {
         }
 
         Ok(ScheduledJob {
-            id: Some(ScheduledJobId::new(self.id.clone())),
+            id: Some(ScheduledJobId::new(self.id.clone())?),
             name: self.name.clone(),
             description: self.description.clone(),
             cron: self.cron_expr.clone(),
@@ -167,7 +167,7 @@ mod tests {
 
     fn base_user() -> User {
         User {
-            id: Some(twerk_core::id::UserId::new("user-001")),
+            id: Some(twerk_core::id::UserId::new("user-001").unwrap()),
             name: Some("Test User".to_string()),
             username: Some("testuser".to_string()),
             password_hash: Some("hashed".to_string()),

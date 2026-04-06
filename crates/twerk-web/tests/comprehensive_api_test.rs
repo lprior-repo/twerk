@@ -44,7 +44,7 @@ async fn body_to_json(response: Response) -> Value {
 async fn health_returns_up_status() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -54,7 +54,7 @@ async fn health_returns_up_status() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert_eq!(body["status"], "UP");
@@ -69,7 +69,7 @@ async fn health_returns_up_status() {
 async fn jobs_create_returns_job_summary() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let job_input = json!({
         "name": "test-job",
         "tasks": [
@@ -80,7 +80,7 @@ async fn jobs_create_returns_job_summary() {
             }
         ]
     });
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -94,7 +94,7 @@ async fn jobs_create_returns_job_summary() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert_eq!(body["name"], "test-job");
@@ -105,7 +105,7 @@ async fn jobs_create_returns_job_summary() {
 async fn jobs_create_with_yaml_returns_job_summary() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let yaml_input = "
 name: test-job-yaml
 tasks:
@@ -113,7 +113,7 @@ tasks:
     image: alpine
     run: echo hello
 ";
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -125,7 +125,7 @@ tasks:
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert_eq!(body["name"], "test-job-yaml");
@@ -136,15 +136,15 @@ async fn jobs_list_returns_job_list() {
     let state = setup_state().await;
     let ds = state.ds.clone();
     let app = create_router(state);
-    
+
     // Create a job first
     let job = Job {
-        id: Some(JobId::new("test-job-1")),
+        id: Some(JobId::new("test-job-1").unwrap()),
         name: Some("Test Job".to_string()),
         ..Default::default()
     };
     ds.create_job(&job).await.unwrap();
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -154,7 +154,7 @@ async fn jobs_list_returns_job_list() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body["items"].is_array());
@@ -166,15 +166,15 @@ async fn jobs_get_returns_job() {
     let state = setup_state().await;
     let ds = state.ds.clone();
     let app = create_router(state);
-    
+
     // Create a job first
     let job = Job {
-        id: Some(JobId::new("test-job-get")),
+        id: Some(JobId::new("test-job-get").unwrap()),
         name: Some("Test Job Get".to_string()),
         ..Default::default()
     };
     ds.create_job(&job).await.unwrap();
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -184,7 +184,7 @@ async fn jobs_get_returns_job() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert_eq!(body["name"], "Test Job Get");
@@ -194,7 +194,7 @@ async fn jobs_get_returns_job() {
 async fn jobs_get_returns_404_for_nonexistent() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -204,7 +204,7 @@ async fn jobs_get_returns_404_for_nonexistent() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
@@ -213,16 +213,16 @@ async fn jobs_cancel_returns_ok_for_running_job() {
     let state = setup_state().await;
     let ds = state.ds.clone();
     let app = create_router(state);
-    
+
     // Create a running job (using string state for this version)
     let job = Job {
-        id: Some(JobId::new("cancel-test-job")),
+        id: Some(JobId::new("cancel-test-job").unwrap()),
         name: Some("Cancel Test".to_string()),
         state: JobState::Running,
         ..Default::default()
     };
     ds.create_job(&job).await.unwrap();
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -233,7 +233,7 @@ async fn jobs_cancel_returns_ok_for_running_job() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -242,16 +242,16 @@ async fn jobs_restart_returns_ok_for_failed_job() {
     let state = setup_state().await;
     let ds = state.ds.clone();
     let app = create_router(state);
-    
+
     // Create a failed job (using string state for this version)
     let job = Job {
-        id: Some(JobId::new("restart-test-job")),
+        id: Some(JobId::new("restart-test-job").unwrap()),
         name: Some("Restart Test".to_string()),
         state: JobState::Failed,
         ..Default::default()
     };
     ds.create_job(&job).await.unwrap();
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -262,7 +262,7 @@ async fn jobs_restart_returns_ok_for_failed_job() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -274,7 +274,7 @@ async fn jobs_restart_returns_ok_for_failed_job() {
 async fn queues_list_returns_queue_list() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -284,7 +284,7 @@ async fn queues_list_returns_queue_list() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     // In-memory broker should return empty or default queues
     let body = body_to_json(response).await;
@@ -295,7 +295,7 @@ async fn queues_list_returns_queue_list() {
 async fn queues_get_returns_queue_info() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -305,7 +305,7 @@ async fn queues_get_returns_queue_info() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body["name"].is_string());
@@ -315,7 +315,7 @@ async fn queues_get_returns_queue_info() {
 async fn queues_delete_returns_ok() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -326,7 +326,7 @@ async fn queues_delete_returns_ok() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -338,7 +338,7 @@ async fn queues_delete_returns_ok() {
 async fn nodes_list_returns_node_list() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -348,7 +348,7 @@ async fn nodes_list_returns_node_list() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body.is_array());
@@ -362,7 +362,7 @@ async fn nodes_list_returns_node_list() {
 async fn metrics_returns_metrics_data() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -372,7 +372,7 @@ async fn metrics_returns_metrics_data() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     // Metrics should have some structure
@@ -387,12 +387,12 @@ async fn metrics_returns_metrics_data() {
 async fn users_create_returns_ok() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let user_input = json!({
         "username": "testuser",
         "password": "testpassword"
     });
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -406,7 +406,7 @@ async fn users_create_returns_ok() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -414,11 +414,11 @@ async fn users_create_returns_ok() {
 async fn users_create_returns_bad_request_without_username() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let user_input = json!({
         "password": "testpassword"
     });
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -432,7 +432,7 @@ async fn users_create_returns_bad_request_without_username() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
@@ -440,11 +440,11 @@ async fn users_create_returns_bad_request_without_username() {
 async fn users_create_returns_bad_request_without_password() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let user_input = json!({
         "username": "testuser"
     });
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -458,7 +458,7 @@ async fn users_create_returns_bad_request_without_password() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
@@ -470,7 +470,7 @@ async fn users_create_returns_bad_request_without_password() {
 async fn error_response_has_json_format() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -480,7 +480,7 @@ async fn error_response_has_json_format() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = body_to_json(response).await;
     assert!(body["message"].is_string());
@@ -494,7 +494,7 @@ async fn error_response_has_json_format() {
 async fn jobs_create_rejects_unsupported_content_type() {
     let state = setup_state().await;
     let app = create_router(state);
-    
+
     let response = app
         .oneshot(
             axum::http::Request::builder()
@@ -506,6 +506,6 @@ async fn jobs_create_rejects_unsupported_content_type() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }

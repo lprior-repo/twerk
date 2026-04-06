@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_node_clone() {
         let original = Node {
-            id: Some(NodeId::new("node-1")),
+            id: Some(NodeId::new("node-1").unwrap()),
             name: Some("worker-1".to_string()),
             status: Some(NodeStatus::UP),
             ..Default::default()

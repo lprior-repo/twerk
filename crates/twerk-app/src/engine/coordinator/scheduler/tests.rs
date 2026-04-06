@@ -15,19 +15,16 @@ async fn test_schedule_regular_task_sets_scheduled_state() {
     let broker = InMemoryBroker::new();
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-regular-1"));
+    task.id = Some(twerk_core::id::TaskId::new("task-regular-1").unwrap());
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
 
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_regular_task(task.clone()).await.unwrap();
 
-    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-1"));
+    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-1").unwrap());
     assert!(stored.is_some());
-    assert_eq!(
-        stored.unwrap().state,
-        TaskState::Scheduled
-    );
+    assert_eq!(stored.unwrap().state, TaskState::Scheduled);
 }
 
 #[tokio::test]
@@ -36,7 +33,7 @@ async fn test_schedule_regular_task_sets_default_queue() {
     let broker = InMemoryBroker::new();
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-regular-2"));
+    task.id = Some(twerk_core::id::TaskId::new("task-regular-2").unwrap());
     task.queue = None;
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
@@ -44,7 +41,7 @@ async fn test_schedule_regular_task_sets_default_queue() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_regular_task(task.clone()).await.unwrap();
 
-    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-2"));
+    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-2").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().queue, Some("default".to_string()));
 }
@@ -65,7 +62,7 @@ async fn test_schedule_parallel_task_creates_child_tasks() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-parallel-1"));
+    task.id = Some(twerk_core::id::TaskId::new("task-parallel-1").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![child_task]),
         completions: 1,
@@ -81,7 +78,7 @@ async fn test_schedule_parallel_task_creates_child_tasks() {
 
     let parent = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-parallel-1"));
+        .get(&twerk_core::id::TaskId::new("task-parallel-1").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -109,7 +106,7 @@ async fn test_schedule_parallel_task_sets_parent_id_on_children() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-parallel-2"));
+    task.id = Some(twerk_core::id::TaskId::new("task-parallel-2").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![child_task]),
         completions: 1,
@@ -127,7 +124,7 @@ async fn test_schedule_parallel_task_sets_parent_id_on_children() {
     assert!(child.is_some());
     assert_eq!(
         child.unwrap().value().parent_id,
-        Some(twerk_core::id::TaskId::new("task-parallel-2"))
+        Some(twerk_core::id::TaskId::new("task-parallel-2").unwrap())
     );
 }
 
@@ -147,7 +144,7 @@ async fn test_schedule_each_task_creates_task_per_list_item() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-1"));
+    task.id = Some(twerk_core::id::TaskId::new("task-each-1").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some(r#"["a", "b", "c"]"#.to_string()),
@@ -163,7 +160,7 @@ async fn test_schedule_each_task_creates_task_per_list_item() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_each_task(task.clone()).await.unwrap();
 
-    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-1"));
+    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-1").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -191,7 +188,7 @@ async fn test_schedule_each_task_sets_size() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-2"));
+    task.id = Some(twerk_core::id::TaskId::new("task-each-2").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some(r#"["x", "y"]"#.to_string()),
@@ -207,7 +204,7 @@ async fn test_schedule_each_task_sets_size() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_each_task(task.clone()).await.unwrap();
 
-    let parent_guard = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-2"));
+    let parent_guard = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-2").unwrap());
     assert!(parent_guard.is_some());
     let parent = parent_guard.unwrap();
     let each = parent.each.as_ref().unwrap();
@@ -223,8 +220,8 @@ async fn test_schedule_subjob_task_creates_subjob() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let subjob_task = Task {
-        id: Some(twerk_core::id::TaskId::new("task-subjob-1")),
-        job_id: Some(twerk_core::id::JobId::new("job-1")),
+        id: Some(twerk_core::id::TaskId::new("task-subjob-1").unwrap()),
+        job_id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
         state: twerk_core::task::TaskState::Created,
         name: Some("SubJob Task".to_string()),
         subjob: Some(SubJobTask {
@@ -250,7 +247,7 @@ async fn test_schedule_subjob_task_creates_subjob() {
         .await
         .unwrap();
 
-    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-subjob-1"));
+    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-subjob-1").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -267,7 +264,7 @@ async fn test_schedule_task_dispatches_to_parallel() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-parallel"));
+    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-parallel").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![Task {
             id: None,
@@ -285,7 +282,7 @@ async fn test_schedule_task_dispatches_to_parallel() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-parallel"));
+        .get(&twerk_core::id::TaskId::new("task-dispatch-parallel").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -299,7 +296,7 @@ async fn test_schedule_task_dispatches_to_each() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-each"));
+    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-each").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("i".to_string()),
         list: Some(r"[1, 2]".to_string()),
@@ -322,7 +319,7 @@ async fn test_schedule_task_dispatches_to_each() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-each"));
+        .get(&twerk_core::id::TaskId::new("task-dispatch-each").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -336,7 +333,7 @@ async fn test_schedule_task_dispatches_to_subjob() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-subjob"));
+    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-subjob").unwrap());
     task.subjob = Some(SubJobTask {
         name: Some("SubJob Dispatch Test".to_string()),
         tasks: Some(vec![]),
@@ -350,7 +347,7 @@ async fn test_schedule_task_dispatches_to_subjob() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-subjob"));
+        .get(&twerk_core::id::TaskId::new("task-dispatch-subjob").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -361,7 +358,7 @@ async fn test_schedule_task_dispatches_to_regular() {
     let broker = InMemoryBroker::new();
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-regular"));
+    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-regular").unwrap());
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
 
@@ -370,12 +367,9 @@ async fn test_schedule_task_dispatches_to_regular() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-regular"));
+        .get(&twerk_core::id::TaskId::new("task-dispatch-regular").unwrap());
     assert!(stored.is_some());
-    assert_eq!(
-        stored.unwrap().state,
-        TaskState::Scheduled
-    );
+    assert_eq!(stored.unwrap().state, TaskState::Scheduled);
 }
 
 #[tokio::test]
@@ -394,7 +388,7 @@ async fn test_schedule_each_task_with_sequence_expression() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-seq"));
+    task.id = Some(twerk_core::id::TaskId::new("task-each-seq").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some("{{ sequence(1,5) }}".to_string()),
@@ -410,14 +404,21 @@ async fn test_schedule_each_task_with_sequence_expression() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     let result = scheduler.schedule_each_task(task.clone()).await;
 
-    assert!(result.is_ok(), "schedule_each_task failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "schedule_each_task failed: {:?}",
+        result.err()
+    );
 
     let child_count = ds
         .tasks
         .iter()
         .filter(|r| r.value().parent_id.is_some())
         .count();
-    assert_eq!(child_count, 4, "expected 4 children from sequence(1,5), got {child_count}");
+    assert_eq!(
+        child_count, 4,
+        "expected 4 children from sequence(1,5), got {child_count}"
+    );
 }
 
 /// Reproduces the exact YAML template from examples/each.yaml
@@ -445,7 +446,7 @@ async fn test_schedule_each_task_with_real_yaml_template() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-yaml"));
+    task.id = Some(twerk_core::id::TaskId::new("task-each-yaml").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some("{{ sequence(1,5) }}".to_string()),
@@ -461,7 +462,11 @@ async fn test_schedule_each_task_with_real_yaml_template() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     let result = scheduler.schedule_each_task(task.clone()).await;
 
-    assert!(result.is_ok(), "schedule_each_task with real YAML template failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "schedule_each_task with real YAML template failed: {:?}",
+        result.err()
+    );
 
     let child_count = ds
         .tasks

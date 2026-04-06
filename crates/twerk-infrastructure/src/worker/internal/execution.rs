@@ -14,9 +14,7 @@ use tracing::{debug, instrument, warn};
 
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::id::TaskId;
-use twerk_core::task::{
-    Task, TaskLimits, TaskState,
-};
+use twerk_core::task::{Task, TaskLimits, TaskState};
 
 use crate::broker::Broker;
 use crate::runtime::Runtime as RuntimeTrait;

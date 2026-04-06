@@ -5,9 +5,9 @@ use std::sync::Arc;
 use super::{Datastore, Error as DatastoreError, Page, Result};
 use twerk_core::id::{JobId, NodeId, ScheduledJobId, TaskId};
 use twerk_core::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
+use twerk_core::job::{JobState, ScheduledJobState};
 use twerk_core::node::Node;
 use twerk_core::role::Role;
-use twerk_core::job::{JobState, ScheduledJobState};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_core::user::User;
 
@@ -88,7 +88,8 @@ impl Datastore for InMemoryDatastore {
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::TaskNotFound)?;
         let task = modify(task)?;
-        self.tasks.insert(TaskId::new(id), task);
+        let task_id = TaskId::new(id).map_err(|e| DatastoreError::InvalidId(e.to_string()))?;
+        self.tasks.insert(task_id, task);
         Ok(())
     }
 
@@ -165,7 +166,8 @@ impl Datastore for InMemoryDatastore {
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::NodeNotFound)?;
         node = modify(node)?;
-        self.nodes.insert(NodeId::new(id), node);
+        let node_id = NodeId::new(id).map_err(|e| DatastoreError::InvalidId(e.to_string()))?;
+        self.nodes.insert(node_id, node);
         Ok(())
     }
 
@@ -200,7 +202,8 @@ impl Datastore for InMemoryDatastore {
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::JobNotFound)?;
         job = modify(job)?;
-        self.jobs.insert(JobId::new(id), job);
+        let job_id = JobId::new(id).map_err(|e| DatastoreError::InvalidId(e.to_string()))?;
+        self.jobs.insert(job_id, job);
         Ok(())
     }
 
@@ -297,7 +300,9 @@ impl Datastore for InMemoryDatastore {
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::ScheduledJobNotFound)?;
         sj = modify(sj)?;
-        self.scheduled_jobs.insert(ScheduledJobId::new(id), sj);
+        let sj_id =
+            ScheduledJobId::new(id).map_err(|e| DatastoreError::InvalidId(e.to_string()))?;
+        self.scheduled_jobs.insert(sj_id, sj);
         Ok(())
     }
 

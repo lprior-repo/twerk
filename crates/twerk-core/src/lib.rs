@@ -19,7 +19,7 @@ pub mod validation;
 pub mod webhook;
 
 pub use domain_types::{
-    CronExpression, CronError, DomainParseError, GoDuration, GoDurationError, Priority,
+    CronError, CronExpression, DomainParseError, GoDuration, GoDurationError, Priority,
     PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
 };
 pub use repository::{Repository, Result as RepoResult};

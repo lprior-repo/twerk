@@ -2,6 +2,7 @@
 
 use sqlx::FromRow;
 
+use crate::datastore::Error as DatastoreError;
 use twerk_core::{
     id::{RoleId, UserId},
     role::Role,
@@ -51,39 +52,43 @@ pub struct RoleRecord {
 /// Extension trait for UserRecord conversions
 pub trait UserRecordExt {
     /// Converts the database record to a User domain object.
-    #[must_use]
-    fn to_user(&self) -> User;
+    fn to_user(&self) -> Result<User, DatastoreError>;
 }
 
 impl UserRecordExt for UserRecord {
-    fn to_user(&self) -> User {
-        User {
-            id: Some(UserId::new(self.id.clone())),
+    fn to_user(&self) -> Result<User, DatastoreError> {
+        Ok(User {
+            id: Some(
+                UserId::new(self.id.clone())
+                    .map_err(|e| DatastoreError::InvalidId(e.to_string()))?,
+            ),
             name: Some(self.name.clone()),
             username: Some(self.username_.clone()),
             password_hash: Some(self.password_.clone()),
             password: None,
             created_at: Some(self.created_at),
             disabled: self.is_disabled,
-        }
+        })
     }
 }
 
 /// Extension trait for RoleRecord conversions
 pub trait RoleRecordExt {
     /// Converts the database record to a Role domain object.
-    #[must_use]
-    fn to_role(&self) -> Role;
+    fn to_role(&self) -> Result<Role, DatastoreError>;
 }
 
 impl RoleRecordExt for RoleRecord {
-    fn to_role(&self) -> Role {
-        Role {
-            id: Some(RoleId::new(self.id.clone())),
+    fn to_role(&self) -> Result<Role, DatastoreError> {
+        Ok(Role {
+            id: Some(
+                RoleId::new(self.id.clone())
+                    .map_err(|e| DatastoreError::InvalidId(e.to_string()))?,
+            ),
             slug: Some(self.slug.clone()),
             name: Some(self.name.clone()),
             created_at: Some(self.created_at),
-        }
+        })
     }
 }
 
@@ -107,7 +112,7 @@ mod tests {
             created_at: now,
             is_disabled: false,
         };
-        let user = record.to_user();
+        let user = record.to_user().expect("conversion should succeed");
 
         assert_eq!(user.id.as_deref(), Some("user-001"));
         assert_eq!(user.name.as_deref(), Some("Test User"));
@@ -128,7 +133,7 @@ mod tests {
             created_at: now,
             is_disabled: true,
         };
-        let user = record.to_user();
+        let user = record.to_user().expect("conversion should succeed");
 
         assert!(user.disabled);
     }
@@ -144,7 +149,7 @@ mod tests {
             name: "Administrator".to_string(),
             created_at: now,
         };
-        let role = record.to_role();
+        let role = record.to_role().expect("conversion should succeed");
 
         assert_eq!(role.id.as_deref(), Some("role-001"));
         assert_eq!(role.slug.as_deref(), Some("admin"));

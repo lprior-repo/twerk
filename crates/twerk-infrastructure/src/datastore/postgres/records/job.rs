@@ -121,14 +121,22 @@ impl JobRecordExt for JobRecord {
             secrets = encrypt::decrypt_secrets(&secrets, encryption_key)?;
         }
 
-        let schedule = self.scheduled_job_id.as_ref().map(|id| JobSchedule {
-            id: Some(ScheduledJobId::new(id.clone())),
-            cron: None,
-        });
+        let schedule = match &self.scheduled_job_id {
+            Some(id) => Some(JobSchedule {
+                id: Some(ScheduledJobId::new(id.clone())?),
+                cron: None,
+            }),
+            None => None,
+        };
+
+        let parent_id = match &self.parent_id {
+            Some(id) => Some(JobId::new(id.clone())?),
+            None => None,
+        };
 
         Ok(Job {
-            id: Some(JobId::new(self.id.clone())),
-            parent_id: self.parent_id.as_ref().map(|id| JobId::new(id.clone())),
+            id: Some(JobId::new(self.id.clone())?),
+            parent_id,
             name: self.name.clone(),
             description: self.description.clone(),
             tags: self.tags.clone(),
@@ -214,7 +222,7 @@ mod tests {
 
     fn base_user() -> User {
         User {
-            id: Some(twerk_core::id::UserId::new("user-001")),
+            id: Some(twerk_core::id::UserId::new("user-001").unwrap()),
             name: Some("Test User".to_string()),
             username: Some("testuser".to_string()),
             password_hash: Some("hashed".to_string()),
@@ -394,7 +402,7 @@ mod tests {
             Permission {
                 user: None,
                 role: Some(twerk_core::role::Role {
-                    id: Some(twerk_core::id::RoleId::new("role-pub")),
+                    id: Some(twerk_core::id::RoleId::new("role-pub").unwrap()),
                     slug: Some("public".to_string()),
                     name: Some("Public".to_string()),
                     created_at: Some(fixed_now()),

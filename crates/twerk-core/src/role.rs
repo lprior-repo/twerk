@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn clone_preserves_all_fields() {
         let original = Role {
-            id: Some(RoleId::new("role-123")),
+            id: Some(RoleId::new("role-123").unwrap()),
             slug: Some("admin".to_string()),
             name: Some("Administrator".to_string()),
             created_at: None,
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn partial_eq_matches_for_identical_roles() {
         let role1 = Role {
-            id: Some(RoleId::new("r1")),
+            id: Some(RoleId::new("r1").unwrap()),
             slug: Some("s1".to_string()),
             ..Role::default()
         };
@@ -112,11 +112,11 @@ mod tests {
     #[test]
     fn partial_eq_returns_false_for_different_ids() {
         let r1 = Role {
-            id: Some(RoleId::new("r1")),
+            id: Some(RoleId::new("r1").unwrap()),
             ..Role::default()
         };
         let r2 = Role {
-            id: Some(RoleId::new("r2")),
+            id: Some(RoleId::new("r2").unwrap()),
             ..Role::default()
         };
         assert_ne!(r1, r2);
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn debug_format_contains_fields() {
         let role = Role {
-            id: Some(RoleId::new("r1")),
+            id: Some(RoleId::new("r1").unwrap()),
             slug: Some("s1".to_string()),
             ..Role::default()
         };
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn serialization_roundtrip_preserves_all_fields() {
         let role = Role {
-            id: Some(RoleId::new("role-1")),
+            id: Some(RoleId::new("role-1").unwrap()),
             slug: Some("admin".to_string()),
             name: Some("Admin".to_string()),
             created_at: Some(OffsetDateTime::now_utc()),
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn id_newtype_preserves_value() {
-        let id = RoleId::new("abc");
+        let id = RoleId::new("abc").unwrap();
         assert_eq!(id.as_str(), "abc");
     }
 
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn id_display_matches_inner() {
-        let id = RoleId::new("display-test");
+        let id = RoleId::new("display-test").unwrap();
         assert_eq!(format!("{id}"), "display-test");
     }
 

@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use tokio::sync::RwLock;
+use twerk_core::job::JobEvent;
 use twerk_core::node::Node;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{
@@ -23,7 +24,6 @@ use twerk_infrastructure::broker::{
     HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler,
     TaskProgressHandler,
 };
-use twerk_core::job::JobEvent;
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{

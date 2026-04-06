@@ -6,8 +6,8 @@ use std::sync::Arc;
 use twerk_app::engine::coordinator::handlers;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
 use twerk_core::id::NodeId;
-use twerk_core::node::{Node, NodeStatus};
 use twerk_core::job::{Job, JobState};
+use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
 use twerk_infrastructure::broker::Broker;
@@ -181,7 +181,7 @@ async fn handle_heartbeat_updates_node_status() -> Result<()> {
 
     let now = time::OffsetDateTime::now_utc();
     let node = Node {
-        id: Some(NodeId::new("worker-1")),
+        id: Some(NodeId::new("worker-1").unwrap()),
         name: Some("test-worker".to_string()),
         status: Some(NodeStatus::UP),
         last_heartbeat_at: Some(now),

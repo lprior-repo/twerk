@@ -34,7 +34,7 @@ fn make_job() -> Job {
 
 fn make_node() -> Node {
     Node {
-        id: Some(twerk_core::id::NodeId::new("test-node")),
+        id: Some(twerk_core::id::NodeId::new("test-node").unwrap()),
         name: Some("test-node".to_string()),
         status: Some(NodeStatus::UP),
         ..Default::default()

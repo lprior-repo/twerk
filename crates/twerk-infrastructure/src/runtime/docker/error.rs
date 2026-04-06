@@ -1,6 +1,7 @@
 //! Docker runtime errors.
 
 use thiserror::Error;
+use twerk_core::id::IdError;
 
 /// Errors from Docker runtime operations.
 #[derive(Debug, Error)]
@@ -100,6 +101,9 @@ pub enum DockerError {
 
     #[error("host networking is not enabled")]
     HostNetworkDisabled,
+
+    #[error("invalid ID: {0}")]
+    Id(#[from] IdError),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),

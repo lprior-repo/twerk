@@ -126,7 +126,9 @@ impl PostgresDatastore {
     pub fn pool(&self) -> DatastoreResult<&PgPool> {
         match &self.executor {
             Executor::Pool(p) => Ok(p),
-            Executor::Tx(_) => Err(DatastoreError::Database("cannot get pool from transaction".to_string())),
+            Executor::Tx(_) => Err(DatastoreError::Database(
+                "cannot get pool from transaction".to_string(),
+            )),
         }
     }
 

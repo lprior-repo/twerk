@@ -92,11 +92,10 @@ fn build_scheduled_job(
     cron: String,
     tasks: Vec<twerk_core::task::Task>,
     created_by: Option<User>,
-) -> ScheduledJob {
-    ScheduledJob {
-        id: Some(twerk_core::id::ScheduledJobId::new(
-            twerk_core::uuid::new_short_uuid(),
-        )),
+) -> Result<ScheduledJob, ApiError> {
+    let id = twerk_core::id::ScheduledJobId::new(twerk_core::uuid::new_short_uuid())?;
+    Ok(ScheduledJob {
+        id: Some(id),
         name: body.name,
         description: body.description,
         cron: Some(cron),
@@ -112,7 +111,7 @@ fn build_scheduled_job(
         tags: body.tags,
         secrets: body.secrets,
         output: body.output,
-    }
+    })
 }
 
 /// Validate scheduled job can be paused (pure).
@@ -195,7 +194,7 @@ pub async fn create_scheduled_job_handler(
     let sj_input = parse_create_body(content_type, &body)?;
     let (cron, tasks) = validate_create_input(&sj_input)?;
     let user = default_user(&state).await;
-    let sj = build_scheduled_job(sj_input, cron, tasks, user);
+    let sj = build_scheduled_job(sj_input, cron, tasks, user)?;
 
     state
         .ds

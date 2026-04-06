@@ -8,12 +8,12 @@ use twerk_core::eval::{
     transform_operators, valid_expr,
 };
 use twerk_core::id::{JobId, TaskId};
-use twerk_core::job::{JobSummary, JobState};
-use twerk_core::task::{TaskSummary, TaskState};
+use twerk_core::job::{JobState, JobSummary};
+use twerk_core::task::{TaskState, TaskSummary};
 
 fn make_job_summary(state: &str) -> JobSummary {
     JobSummary {
-        id: Some(JobId::new("job-123")),
+        id: Some(JobId::new("job-123").unwrap()),
         name: Some("test-job".to_string()),
         state: state.parse().unwrap_or_default(),
         error: None,
@@ -23,8 +23,8 @@ fn make_job_summary(state: &str) -> JobSummary {
 
 fn make_task_summary(state: &str) -> TaskSummary {
     TaskSummary {
-        id: Some(TaskId::new("task-456")),
-        job_id: Some(JobId::new("job-123")),
+        id: Some(TaskId::new("task-456").unwrap()),
+        job_id: Some(JobId::new("job-123").unwrap()),
         state: state.parse().unwrap_or_default(),
         ..Default::default()
     }

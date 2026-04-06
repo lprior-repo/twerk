@@ -77,6 +77,12 @@ impl From<anyhow::Error> for ApiError {
     }
 }
 
+impl From<twerk_core::id::IdError> for ApiError {
+    fn from(err: twerk_core::id::IdError) -> Self {
+        Self::Internal(err.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

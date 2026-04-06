@@ -70,10 +70,10 @@ pub async fn create_user_handler(
     let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
+    let user_id = twerk_core::id::UserId::new(twerk_core::uuid::new_short_uuid())?;
+
     let user = twerk_core::user::User {
-        id: Some(twerk_core::id::UserId::new(
-            twerk_core::uuid::new_short_uuid(),
-        )),
+        id: Some(user_id),
         username: Some(username),
         password_hash: Some(password_hash),
         ..Default::default()

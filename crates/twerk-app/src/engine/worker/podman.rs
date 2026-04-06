@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
 use twerk_core::env::{read_cleanup_env, read_timeout_env};
-use twerk_core::task::Task;
 use twerk_core::task::is_task_state_active;
+use twerk_core::task::Task;
 use twerk_infrastructure::runtime::{
     BoxedFuture, Runtime as RuntimeTrait, ShutdownError, ShutdownResult, DEFAULT_FORCE_TIMEOUT,
     DEFAULT_GRACEFUL_TIMEOUT, ENV_TASK_STOP_ENABLE_CLEANUP, ENV_TASK_STOP_FORCE_TIMEOUT,

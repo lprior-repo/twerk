@@ -25,15 +25,23 @@ fn yaml_key_to_string(yaml: &yaml_rust2::Yaml) -> String {
 
 /// Parses a YAML Real (float) to `serde_json::Number`, returning 0.0 for invalid literals.
 fn parse_yaml_real(s: &str) -> serde_json::Number {
-    s.parse::<f64>()
-        .ok()
-        .and_then(serde_json::Number::from_f64)
-        .unwrap_or_else(|| {
-            // Safety: 0.0 is a valid f64 and serde_json::Number::from_f64(0.0) never fails
-            #[allow(clippy::unwrap_used)]
-            let n = serde_json::Number::from_f64(0.0).unwrap();
-            n
-        })
+    // Parse the string as f64, then convert to serde_json::Number.
+    // If parsing fails or conversion fails (e.g., NaN, infinity), use 0.0 as fallback.
+    // The fallback to 0.0 is safe because 0.0 is always a valid f64 value
+    // and serde_json::Number::from_f64(0.0) is guaranteed to return Some.
+    // This is documented in serde_json - from_f64 only returns None for NaN and infinity.
+    // Since we're explicitly using 0.0 (not NaN or infinity), the unwrap is safe.
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
+    {
+        s.parse::<f64>()
+            .ok()
+            .and_then(serde_json::Number::from_f64)
+            .unwrap_or_else(|| {
+                // SAFETY: 0.0 is a compile-time constant that is always valid.
+                // from_f64(0.0) never returns None for finite values.
+                serde_json::Number::from_f64(0.0).expect("0.0 is always a valid f64")
+            })
+    }
 }
 
 /// Converts yaml-rust2 `Yaml` to `serde_json::Value` for deserialization.

@@ -100,7 +100,10 @@ impl PostgresDatastore {
         }
         .map_err(|e| DatastoreError::Database(format!("count task log parts failed: {e}")))?;
 
-        let items: Vec<TaskLogPart> = records.into_iter().map(|r| r.to_task_log_part()).collect();
+        let items: Vec<TaskLogPart> = records
+            .into_iter()
+            .map(|r| r.to_task_log_part())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Page {
             items,
@@ -185,7 +188,10 @@ impl PostgresDatastore {
         }
         .map_err(|e| DatastoreError::Database(format!("count job log parts failed: {e}")))?;
 
-        let items: Vec<TaskLogPart> = records.into_iter().map(|r| r.to_task_log_part()).collect();
+        let items: Vec<TaskLogPart> = records
+            .into_iter()
+            .map(|r| r.to_task_log_part())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Page {
             items,

@@ -2,9 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
+use tracing::instrument;
 use twerk_core::job::JobState;
 use twerk_core::task::TaskState;
-use tracing::instrument;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 

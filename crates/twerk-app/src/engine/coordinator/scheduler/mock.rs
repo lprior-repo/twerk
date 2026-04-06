@@ -46,7 +46,7 @@ impl Datastore for MockDatastore {
         id: &str,
         modify: Box<dyn FnOnce(Task) -> DatastoreResult<Task> + Send>,
     ) -> DatastoreResult<()> {
-        let task_id = twerk_core::id::TaskId::new(id);
+        let task_id = twerk_core::id::TaskId::new(id).unwrap();
         let mut task = self
             .tasks
             .get(&task_id)
@@ -59,7 +59,7 @@ impl Datastore for MockDatastore {
 
     async fn get_task_by_id(&self, id: &str) -> DatastoreResult<Task> {
         self.tasks
-            .get(&twerk_core::id::TaskId::new(id))
+            .get(&twerk_core::id::TaskId::new(id).unwrap())
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::TaskNotFound)
     }
@@ -128,7 +128,7 @@ impl Datastore for MockDatastore {
 
     async fn get_job_by_id(&self, id: &str) -> DatastoreResult<Job> {
         self.jobs
-            .get(&twerk_core::id::JobId::new(id))
+            .get(&twerk_core::id::JobId::new(id).unwrap())
             .map(|r| r.value().clone())
             .ok_or(DatastoreError::JobNotFound)
     }
@@ -246,7 +246,7 @@ use std::collections::HashMap;
 
 pub(crate) fn create_test_job() -> Job {
     Job {
-        id: Some(twerk_core::id::JobId::new("job-1")),
+        id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
         name: Some("Test Job".to_string()),
         state: twerk_core::job::JobState::Pending,
         context: Some(JobContext {
@@ -259,8 +259,8 @@ pub(crate) fn create_test_job() -> Job {
 
 pub(crate) fn create_test_task() -> Task {
     Task {
-        id: Some(twerk_core::id::TaskId::new("task-1")),
-        job_id: Some(twerk_core::id::JobId::new("job-1")),
+        id: Some(twerk_core::id::TaskId::new("task-1").unwrap()),
+        job_id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
         state: twerk_core::task::TaskState::Created,
         name: Some("Test Task".to_string()),
         ..Default::default()

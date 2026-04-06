@@ -94,10 +94,21 @@ impl TaskRecordExt for TaskRecord {
             parse_bytes::<twerk_core::task::Registry>("registry", self.registry.as_ref())?;
         let mounts = parse_bytes::<Vec<twerk_core::mount::Mount>>("mounts", self.mounts.as_ref())?;
 
+        let task_id = TaskId::new(self.id.clone())?;
+        let job_id = JobId::new(self.job_id.clone())?;
+        let parent_id = match &self.parent_id {
+            Some(id) => Some(TaskId::new(id.clone())?),
+            None => None,
+        };
+        let node_id = match &self.node_id {
+            Some(id) => Some(twerk_core::id::NodeId::new(id.clone())?),
+            None => None,
+        };
+
         Ok(Task {
-            id: Some(TaskId::new(self.id.clone())),
-            job_id: Some(JobId::new(self.job_id.clone())),
-            parent_id: self.parent_id.as_ref().map(|id| TaskId::new(id.clone())),
+            id: Some(task_id),
+            job_id: Some(job_id),
+            parent_id,
             position: self.position,
             name: self.name.clone(),
             description: self.description.clone(),
@@ -122,10 +133,7 @@ impl TaskRecordExt for TaskRecord {
             sidecars,
             mounts,
             networks: self.networks.clone(),
-            node_id: self
-                .node_id
-                .as_ref()
-                .map(|id| twerk_core::id::NodeId::new(id.clone())),
+            node_id,
             retry,
             limits,
             timeout: self.timeout.clone(),

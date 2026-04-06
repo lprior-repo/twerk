@@ -156,10 +156,8 @@ pub trait Broker: Send + Sync {
     /// This is the typed replacement for the `subscribe_for_events` callback
     /// pattern, allowing consumers to filter events with match expressions
     /// instead of deserializing raw JSON values.
-    fn subscribe(
-        &self,
-        pattern: String,
-    ) -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>>;
+    fn subscribe(&self, pattern: String)
+        -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>>;
     fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()>;
     fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()>;
     fn queues(&self) -> BoxedFuture<Vec<QueueInfo>>;

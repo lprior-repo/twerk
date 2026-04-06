@@ -243,7 +243,10 @@ mod tests {
         let tasks_notify = Arc::new(tokio::sync::Notify::new());
 
         let (cancel_tx, _) = broadcast::channel(1);
-        active_tasks.insert(TaskId::new("task-1"), RunningTask { cancel_tx });
+        active_tasks.insert(
+            TaskId::new("task-1").expect("valid task id"),
+            RunningTask { cancel_tx },
+        );
 
         let active_tasks_clone = active_tasks.clone();
         let tasks_notify_clone = tasks_notify.clone();
@@ -251,7 +254,7 @@ mod tests {
         // Spawn a background task to simulate a task finishing after 50ms
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
-            active_tasks_clone.remove(&TaskId::new("task-1"));
+            active_tasks_clone.remove(&TaskId::new("task-1").expect("valid task id"));
             tasks_notify_clone.notify_waiters();
         });
 

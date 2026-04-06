@@ -24,6 +24,8 @@ impl Scheduler {
             .ok_or_else(|| anyhow::anyhow!("job ID required for each scheduling"))?;
         let now = time::OffsetDateTime::now_utc();
 
+        tracing::warn!(task_id = %task_id, "SCHEDULE_EACH_TASK called");
+
         let job = self.ds.get_job_by_id(job_id).await?;
         let job_ctx_map = job
             .context
@@ -102,6 +104,8 @@ impl Scheduler {
     ) -> Result<()> {
         let var_name = "item";
 
+        tracing::warn!(list_len = list.len(), "SPAWN_EACH_TASKS building subtasks");
+
         let subtasks: Vec<_> = list
             .iter()
             .enumerate()
@@ -146,8 +150,15 @@ impl Scheduler {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        tracing::warn!(
+            count = subtasks.len(),
+            "SPAWN_EACH_TASKS subtasks built, creating in DB"
+        );
+
         if !subtasks.is_empty() {
             self.ds.create_tasks(&subtasks).await?;
+
+            tracing::warn!("SPAWN_EACH_TASKS DB insert OK, publishing to broker");
             if let Err(e) = self
                 .broker
                 .publish_tasks(QUEUE_PENDING.to_string(), &subtasks)

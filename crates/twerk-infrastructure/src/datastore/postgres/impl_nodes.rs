@@ -81,7 +81,7 @@ impl PostgresDatastore {
                 .await
                 .map_err(|e| DatastoreError::Database(format!("get node failed: {e}")))?
                 .ok_or(DatastoreError::NodeNotFound)?;
-                let node = record.to_node();
+                let node = record.to_node()?;
                 let node = modify(node)?;
                 sqlx::query(r"UPDATE nodes SET last_heartbeat_at = $1, cpu_percent = $2, task_count = $3, status = $4, queue = $5 WHERE id = $6")
                     .bind(node.last_heartbeat_at)
@@ -107,7 +107,7 @@ impl PostgresDatastore {
                 .await
                 .map_err(|e| DatastoreError::Database(format!("get node failed: {e}")))?
                 .ok_or(DatastoreError::NodeNotFound)?;
-                let node = record.to_node();
+                let node = record.to_node()?;
                 let node = modify(node)?;
                 sqlx::query(r"UPDATE nodes SET last_heartbeat_at = $1, cpu_percent = $2, task_count = $3, status = $4, queue = $5 WHERE id = $6")
                     .bind(node.last_heartbeat_at)
@@ -142,7 +142,7 @@ impl PostgresDatastore {
         }
         .map_err(|e| DatastoreError::Database(format!("get node failed: {e}")))?
         .ok_or(DatastoreError::NodeNotFound)?;
-        Ok(record.to_node())
+        record.to_node()
     }
 
     pub(super) async fn get_active_nodes_impl(&self) -> DatastoreResult<Vec<Node>> {
@@ -163,6 +163,9 @@ impl PostgresDatastore {
                 }
             }
             .map_err(|e| DatastoreError::Database(format!("get active nodes failed: {e}")))?;
-        Ok(records.into_iter().map(|r| r.to_node()).collect())
+        records
+            .into_iter()
+            .map(|r| r.to_node())
+            .collect::<Result<Vec<_>, _>>()
     }
 }

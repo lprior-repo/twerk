@@ -12,9 +12,9 @@ use super::super::mounters::Mounter;
 use super::super::network;
 use super::container_create::create_container;
 use super::types::PullRequest;
+use tracing::instrument;
 use twerk_core::id::TaskId;
 use twerk_core::task::Task;
-use tracing::instrument;
 use twerk_core::uuid::new_uuid;
 
 /// Runs a task in a Docker container.
@@ -85,7 +85,7 @@ pub(super) async fn run(
         Vec::new()
     };
     for mut pre_task in pre_tasks {
-        pre_task.id = Some(TaskId::new(new_uuid()));
+        pre_task.id = Some(TaskId::new(new_uuid())?);
         pre_task.mounts = Some(mounted_mounts.clone());
         pre_task.networks = task.networks.clone();
         pre_task.limits = task.limits.clone();
@@ -102,7 +102,7 @@ pub(super) async fn run(
         Vec::new()
     };
     for mut post_task in post_tasks {
-        post_task.id = Some(TaskId::new(new_uuid()));
+        post_task.id = Some(TaskId::new(new_uuid())?);
         post_task.mounts = Some(mounted_mounts.clone());
         post_task.networks = task.networks.clone();
         post_task.limits = task.limits.clone();
@@ -146,7 +146,7 @@ async fn run_task(
         if let Some(ref sidecars) = task.sidecars {
             for sidecar in sidecars {
                 let mut sidecar_task = sidecar.clone();
-                sidecar_task.id = Some(TaskId::new(new_uuid()));
+                sidecar_task.id = Some(TaskId::new(new_uuid())?);
                 sidecar_task.mounts = task.mounts.clone();
                 sidecar_task.networks = task.networks.clone();
                 sidecar_task.limits = task.limits.clone();

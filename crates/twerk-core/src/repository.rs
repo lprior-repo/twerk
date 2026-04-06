@@ -53,6 +53,15 @@ pub enum Error {
 
     #[error("transaction error: {0}")]
     Transaction(String),
+
+    #[error("invalid ID: {0}")]
+    InvalidId(String),
+}
+
+impl From<crate::id::IdError> for Error {
+    fn from(e: crate::id::IdError) -> Self {
+        Error::InvalidId(e.to_string())
+    }
 }
 
 /// Configuration options for Repository

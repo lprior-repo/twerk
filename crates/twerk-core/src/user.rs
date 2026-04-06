@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn deep_clone_removes_password_when_password_is_some() {
         let user = User {
-            id: Some(UserId::new("123")),
+            id: Some(UserId::new("123").unwrap()),
             name: Some("Alice".to_string()),
             username: Some("alice".to_string()),
             password_hash: Some("secret_hash".to_string()),
@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn deep_clone_returns_none_password_when_password_is_none() {
         let user = User {
-            id: Some(UserId::new("123")),
+            id: Some(UserId::new("123").unwrap()),
             password: None,
             ..User::default()
         };
@@ -96,7 +96,7 @@ mod tests {
     fn deep_clone_preserves_all_fields_except_password() {
         let now = OffsetDateTime::now_utc();
         let user = User {
-            id: Some(UserId::new("id-1")),
+            id: Some(UserId::new("id-1").unwrap()),
             name: Some("Bob".to_string()),
             username: Some("bob".to_string()),
             password_hash: Some("hash".to_string()),
@@ -107,7 +107,7 @@ mod tests {
 
         let cloned = user.deep_clone();
 
-        assert_eq!(cloned.id, Some(UserId::new("id-1")));
+        assert_eq!(cloned.id, Some(UserId::new("id-1").unwrap()));
         assert_eq!(cloned.name, Some("Bob".to_string()));
         assert_eq!(cloned.username, Some("bob".to_string()));
         assert_eq!(cloned.password_hash, Some("hash".to_string()));
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn serialization_roundtrip_preserves_all_public_fields() {
         let user = User {
-            id: Some(UserId::new("123")),
+            id: Some(UserId::new("123").unwrap()),
             name: Some("Alice".to_string()),
             username: Some("alice".to_string()),
             ..User::default()
@@ -292,7 +292,7 @@ mod tests {
     fn serialization_roundtrip_with_all_fields_populated() {
         let now = OffsetDateTime::now_utc();
         let user = User {
-            id: Some(UserId::new("uid-1")),
+            id: Some(UserId::new("uid-1").unwrap()),
             name: Some("Full User".to_string()),
             username: Some("fulluser".to_string()),
             password_hash: Some("hash".to_string()),
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn partial_eq_matches_for_identical_users() {
         let u1 = User {
-            id: Some(UserId::new("u1")),
+            id: Some(UserId::new("u1").unwrap()),
             ..User::default()
         };
         let u2 = u1.clone();
@@ -328,11 +328,11 @@ mod tests {
     #[test]
     fn partial_eq_returns_false_for_different_ids() {
         let u1 = User {
-            id: Some(UserId::new("u1")),
+            id: Some(UserId::new("u1").unwrap()),
             ..User::default()
         };
         let u2 = User {
-            id: Some(UserId::new("u2")),
+            id: Some(UserId::new("u2").unwrap()),
             ..User::default()
         };
         assert_ne!(u1, u2);
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn debug_format_contains_fields() {
         let user = User {
-            id: Some(UserId::new("u1")),
+            id: Some(UserId::new("u1").unwrap()),
             username: Some("alice".to_string()),
             ..User::default()
         };
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn id_newtype_preserves_value() {
-        let id = UserId::new("abc");
+        let id = UserId::new("abc").unwrap();
         assert_eq!(id.as_str(), "abc");
     }
 
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn id_display_matches_inner() {
-        let id = UserId::new("display-test");
+        let id = UserId::new("display-test").unwrap();
         assert_eq!(format!("{id}"), "display-test");
     }
 

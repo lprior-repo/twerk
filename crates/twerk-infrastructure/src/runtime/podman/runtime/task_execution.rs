@@ -96,7 +96,7 @@ impl PodmanRuntime {
         if let Some(ref pre_tasks) = task.pre {
             for pre in pre_tasks {
                 let mut pre_clone = pre.clone();
-                pre_clone.id = Some(TaskId::new(new_uuid()));
+                pre_clone.id = Some(TaskId::new(new_uuid())?);
                 pre_clone.mounts = Some(task_mounts.clone());
                 pre_clone.networks = task.networks.clone();
                 pre_clone.limits = task.limits.clone();
@@ -113,7 +113,7 @@ impl PodmanRuntime {
         if let Some(ref post_tasks) = task.post {
             for post in post_tasks {
                 let mut post_clone = post.clone();
-                post_clone.id = Some(TaskId::new(new_uuid()));
+                post_clone.id = Some(TaskId::new(new_uuid())?);
                 post_clone.mounts = Some(task_mounts.clone());
                 post_clone.networks = task.networks.clone();
                 post_clone.limits = task.limits.clone();

@@ -75,7 +75,7 @@ impl PostgresDatastore {
         }
         .map_err(|e| DatastoreError::Database(format!("get user failed: {e}")))?
         .ok_or(DatastoreError::UserNotFound)?;
-        Ok(record.to_user())
+        record.to_user()
     }
 
     pub(super) async fn create_role_impl(&self, role: &Role) -> DatastoreResult<()> {
@@ -129,7 +129,7 @@ impl PostgresDatastore {
         }
         .map_err(|e| DatastoreError::Database(format!("get role failed: {e}")))?
         .ok_or(DatastoreError::RoleNotFound)?;
-        Ok(record.to_role())
+        record.to_role()
     }
 
     pub(super) async fn get_roles_impl(&self) -> DatastoreResult<Vec<Role>> {
@@ -147,7 +147,10 @@ impl PostgresDatastore {
             }
         }
         .map_err(|e| DatastoreError::Database(format!("get roles failed: {e}")))?;
-        Ok(records.into_iter().map(|r| r.to_role()).collect())
+        records
+            .into_iter()
+            .map(|r| r.to_role())
+            .collect::<Result<Vec<_>, _>>()
     }
 
     pub(super) async fn get_user_roles_impl(&self, user_id: &str) -> DatastoreResult<Vec<Role>> {
@@ -181,7 +184,10 @@ impl PostgresDatastore {
             }
         }
         .map_err(|e| DatastoreError::Database(format!("get user roles failed: {e}")))?;
-        Ok(records.into_iter().map(|r| r.to_role()).collect())
+        records
+            .into_iter()
+            .map(|r| r.to_role())
+            .collect::<Result<Vec<_>, _>>()
     }
 
     pub(super) async fn assign_role_impl(

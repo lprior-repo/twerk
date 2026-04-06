@@ -515,7 +515,7 @@ impl PostgresDatastore {
                 let user = self.get_user_impl(&record.created_by).await?;
                 let tasks = deserialize_tasks(&record.tasks)?;
                 let job = record.to_job(tasks, vec![], user, vec![], encryption_key)?;
-                Ok(new_job_summary(&job))
+                Ok::<JobSummary, DatastoreError>(new_job_summary(&job))
             }))
             .await?;
 

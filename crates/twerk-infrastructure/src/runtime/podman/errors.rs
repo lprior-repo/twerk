@@ -1,6 +1,7 @@
 //! Podman error types
 
 use thiserror::Error;
+use twerk_core::id::IdError;
 
 // ── Error taxonomy ──────────────────────────────────────────────
 
@@ -77,4 +78,7 @@ pub enum PodmanError {
 
     #[error("podman is not running")]
     PodmanNotRunning,
+
+    #[error("invalid ID: {0}")]
+    Id(#[from] IdError),
 }

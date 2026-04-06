@@ -65,7 +65,8 @@ mod tests {
 
     #[allow(clippy::unwrap_used)]
     #[test]
-    fn test_health_response_deserialize_with_extra_fields() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_health_response_deserialize_with_extra_fields() -> Result<(), Box<dyn std::error::Error>>
+    {
         let json = r#"{"status": "ok", "extra": "ignored"}"#;
         let response: HealthResponse = serde_json::from_str(json)?;
         assert_eq!(response.status, "ok");

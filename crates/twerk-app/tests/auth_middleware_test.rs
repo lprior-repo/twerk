@@ -39,6 +39,12 @@ async fn basic_auth_layer_creates_proper_layer() {
         ) -> DatastoreResult<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
+        async fn get_all_tasks_for_job(
+            &self,
+            _job_id: &str,
+        ) -> DatastoreResult<Vec<twerk_core::task::Task>> {
+            unimplemented!()
+        }
         async fn get_next_task(
             &self,
             _parent_task_id: &str,

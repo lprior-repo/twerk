@@ -9,7 +9,7 @@ use tracing::{debug, info, instrument, warn};
 use twerk_core::id::{NodeId, TaskId};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskState};
-use twerk_infrastructure::broker::Broker;
+use twerk_infrastructure::broker::{is_worker_queue, Broker};
 use twerk_infrastructure::runtime::Runtime as RuntimeTrait;
 
 pub use twerk_infrastructure::BoxedFuture;
@@ -155,6 +155,9 @@ fn spawn_queue_subscribers(
     active_tasks: &Arc<DashMap<TaskId, Arc<Task>>>,
 ) {
     for (qname, concurrency) in queues {
+        if !is_worker_queue(qname) {
+            continue;
+        }
         for _ in 0..*concurrency {
             spawn_queue_worker(
                 broker.clone(),

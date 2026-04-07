@@ -303,7 +303,7 @@ mod profiling_benchmarks {
         println!(
             "│ P75         │ {:>6} ns  ({} µs)                        │",
             (stats.p50() + stats.p90()) / 2,
-            (stats.p50() + stats.p90()) / 2 as f64 / 1000.0
+            ((stats.p50() + stats.p90()) as f64 / 2.0) / 1000.0
         );
         println!(
             "│ P90         │ {:>6} ns  ({} µs)                        │",
@@ -352,25 +352,21 @@ mod profiling_benchmarks {
         println!(
             "│ Latency P50        │ {:>9} µs │ < 10,000 µs │ {:>8} │",
             stats.p50() / 1000,
-            "",
             if latency_pass { "✓ PASS" } else { "✗ FAIL" }
         );
         println!(
             "│ Latency P90        │ {:>9} µs │ < 10,000 µs │ {:>8} │",
             stats.p90() / 1000,
-            "",
             if latency_pass { "✓ PASS" } else { "✗ FAIL" }
         );
         println!(
             "│ Latency P99        │ {:>9} µs │ < 10,000 µs │ {:>8} │",
             stats.p99() / 1000,
-            "",
             if latency_pass { "✓ PASS" } else { "✗ FAIL" }
         );
         println!(
             "│ Throughput         │ {:>9.0}/s │ > 20,000/s  │ {:>8} │",
             throughput,
-            "",
             if throughput_pass {
                 "✓ PASS"
             } else {

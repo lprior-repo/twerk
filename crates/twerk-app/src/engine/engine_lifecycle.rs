@@ -126,7 +126,7 @@ impl super::Engine {
         self.broker
             .init(
                 &super::engine_helpers::resolve_broker_type(),
-                Some(&self.engine_id),
+                self.engine_id.as_deref(),
             )
             .await?;
         self.datastore.init().await?;
@@ -162,7 +162,7 @@ impl super::Engine {
         self.broker
             .init(
                 &super::engine_helpers::resolve_broker_type(),
-                Some(&self.engine_id),
+                self.engine_id.as_deref(),
             )
             .await?;
 
@@ -192,7 +192,7 @@ impl super::Engine {
         self.broker
             .init(
                 &super::engine_helpers::resolve_broker_type(),
-                Some(&self.engine_id),
+                self.engine_id.as_deref(),
             )
             .await?;
         self.datastore.init().await?;

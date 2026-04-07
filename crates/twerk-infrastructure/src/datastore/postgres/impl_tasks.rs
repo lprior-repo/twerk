@@ -14,8 +14,8 @@ UPDATE tasks SET
     state = $1, scheduled_at = $2, started_at = $3, completed_at = $4,
     failed_at = $5, error_ = $6, node_id = $7, retry = $8, result = $9,
     parallel = $10, each_ = $11, subjob = $12, progress = $13,
-    priority = $14
-WHERE id = $15
+    priority = $14, queue = $15, limits = $16, timeout = $17
+WHERE id = $18
 ";
 
 const SQL_GET_TASK_FOR_UPDATE: &str = "SELECT * FROM tasks WHERE id = $1 FOR UPDATE";
@@ -87,11 +87,12 @@ fn serialize_task_insert_fields(task: &Task) -> DatastoreResult<SerializedTaskFi
     })
 }
 
-/// Serializes optional task fields for UPDATE (retry, parallel, each, subjob).
+/// Serializes optional task fields for UPDATE.
 #[allow(clippy::type_complexity)]
 fn serialize_task_optionals_for_update(
     task: &Task,
 ) -> DatastoreResult<(
+    Option<Vec<u8>>,
     Option<Vec<u8>>,
     Option<Vec<u8>>,
     Option<Vec<u8>>,
@@ -102,6 +103,7 @@ fn serialize_task_optionals_for_update(
         serialize_json_field(&task.parallel, "parallel")?,
         serialize_json_field(&task.each, "each")?,
         serialize_json_field(&task.subjob, "subjob")?,
+        serialize_json_field(&task.limits, "limits")?,
     ))
 }
 
@@ -269,7 +271,8 @@ impl PostgresDatastore {
                         .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
-                let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
+                let (retry, parallel, each, subjob, limits) =
+                    serialize_task_optionals_for_update(&task)?;
                 sqlx::query(SQL_UPDATE_TASK)
                     .bind(task.state.to_string())
                     .bind(task.scheduled_at)
@@ -285,6 +288,9 @@ impl PostgresDatastore {
                     .bind(&subjob)
                     .bind(task.progress)
                     .bind(task.priority)
+                    .bind(&task.queue)
+                    .bind(&limits)
+                    .bind(&task.timeout)
                     .bind(id)
                     .execute(&mut *tx)
                     .await
@@ -304,7 +310,8 @@ impl PostgresDatastore {
                         .ok_or(DatastoreError::TaskNotFound)?;
                 let task = record.to_task()?;
                 let task = modify(task)?;
-                let (retry, parallel, each, subjob) = serialize_task_optionals_for_update(&task)?;
+                let (retry, parallel, each, subjob, limits) =
+                    serialize_task_optionals_for_update(&task)?;
                 sqlx::query(SQL_UPDATE_TASK)
                     .bind(task.state.to_string())
                     .bind(task.scheduled_at)
@@ -320,6 +327,9 @@ impl PostgresDatastore {
                     .bind(&subjob)
                     .bind(task.progress)
                     .bind(task.priority)
+                    .bind(&task.queue)
+                    .bind(&limits)
+                    .bind(&task.timeout)
                     .bind(id)
                     .execute(&mut **tx)
                     .await

@@ -6,13 +6,16 @@ use super::mock::{create_test_job, create_test_task, MockDatastore};
 use super::Scheduler;
 use std::collections::HashMap;
 use std::sync::Arc;
-use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskState};
+use twerk_core::job::JobDefaults;
+use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskLimits, TaskState, TaskRetry};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 
 #[tokio::test]
 async fn test_schedule_regular_task_sets_scheduled_state() {
     let ds = Arc::new(MockDatastore::new());
     let broker = InMemoryBroker::new();
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
     task.id = Some(twerk_core::id::TaskId::new("task-regular-1").unwrap());
@@ -31,6 +34,8 @@ async fn test_schedule_regular_task_sets_scheduled_state() {
 async fn test_schedule_regular_task_sets_default_queue() {
     let ds = Arc::new(MockDatastore::new());
     let broker = InMemoryBroker::new();
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
     task.id = Some(twerk_core::id::TaskId::new("task-regular-2").unwrap());
@@ -44,6 +49,61 @@ async fn test_schedule_regular_task_sets_default_queue() {
     let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-2").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().queue, Some("default".to_string()));
+}
+
+#[tokio::test]
+async fn test_schedule_regular_task_applies_job_defaults() {
+    let ds = Arc::new(MockDatastore::new());
+    let broker = InMemoryBroker::new();
+
+    let mut job = create_test_job();
+    job.defaults = Some(JobDefaults {
+        queue: Some("gpu".to_string()),
+        limits: Some(TaskLimits {
+            cpus: Some("2".to_string()),
+            memory: Some("1g".to_string()),
+        }),
+        timeout: Some("30m".to_string()),
+        retry: Some(TaskRetry {
+            attempts: 0,
+            limit: 3,
+        }),
+        priority: 7,
+    });
+    ds.jobs.insert(job.id.clone().unwrap(), job);
+
+    let mut task = create_test_task();
+    task.id = Some(twerk_core::id::TaskId::new("task-regular-defaults").unwrap());
+    task.queue = None;
+    task.limits = None;
+    task.timeout = None;
+    task.retry = None;
+    task.priority = 0;
+
+    ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+
+    let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+    scheduler.schedule_regular_task(task).await.unwrap();
+
+    let stored = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-regular-defaults").unwrap())
+        .unwrap();
+    assert_eq!(stored.queue, Some("gpu".to_string()));
+    assert_eq!(stored.timeout, Some("30m".to_string()));
+    assert_eq!(stored.priority, 7);
+    assert_eq!(stored.retry.as_ref().map(|r| r.limit), Some(3));
+    assert_eq!(
+        stored.limits.as_ref().and_then(|limits| limits.cpus.clone()),
+        Some("2".to_string())
+    );
+    assert_eq!(
+        stored
+            .limits
+            .as_ref()
+            .and_then(|limits| limits.memory.clone()),
+        Some("1g".to_string())
+    );
 }
 
 #[tokio::test]
@@ -356,6 +416,8 @@ async fn test_schedule_task_dispatches_to_subjob() {
 async fn test_schedule_task_dispatches_to_regular() {
     let ds = Arc::new(MockDatastore::new());
     let broker = InMemoryBroker::new();
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
     task.id = Some(twerk_core::id::TaskId::new("task-dispatch-regular").unwrap());

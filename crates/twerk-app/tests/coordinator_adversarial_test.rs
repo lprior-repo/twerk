@@ -58,6 +58,9 @@ impl Datastore for FailableDatastore {
     async fn get_active_tasks(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
         self.inner.get_active_tasks(job_id).await
     }
+    async fn get_all_tasks_for_job(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
+        self.inner.get_all_tasks_for_job(job_id).await
+    }
     async fn get_next_task(&self, parent_task_id: &str) -> DatastoreResult<Task> {
         self.inner.get_next_task(parent_task_id).await
     }

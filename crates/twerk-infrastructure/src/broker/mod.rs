@@ -49,32 +49,57 @@ pub mod queue {
 /// Returns queue unchanged when `engine_id` is empty (backward compatible).
 #[must_use]
 pub fn prefixed_queue(queue: &str, engine_id: &str) -> String {
-    if engine_id.is_empty() {
+    let trimmed = engine_id.trim();
+    if trimmed.is_empty() {
         queue.to_string()
     } else {
-        format!("{queue}.{engine_id}")
+        format!("{queue}.{trimmed}")
     }
+}
+
+fn coordinator_queue_names() -> [&'static str; 8] {
+    [
+        queue::QUEUE_COMPLETED,
+        queue::QUEUE_FAILED,
+        queue::QUEUE_STARTED,
+        queue::QUEUE_HEARTBEAT,
+        queue::QUEUE_JOBS,
+        queue::QUEUE_PROGRESS,
+        queue::QUEUE_TASK_LOG_PART,
+        queue::QUEUE_REDELIVERIES,
+    ]
+}
+
+fn base_queue_name(qname: &str) -> &str {
+    coordinator_queue_names()
+        .into_iter()
+        .find_map(|queue_name| {
+            let dotted = format!("{queue_name}.");
+            qname.starts_with(&dotted).then_some(queue_name)
+        })
+        .unwrap_or(qname)
 }
 
 /// Extracts `engine_id` from a prefixed queue name.
 /// Returns None if the queue is not prefixed (no dot separator at the end).
 #[must_use]
 pub fn extract_engine_id(queue_name: &str) -> Option<String> {
-    if let Some(idx) = queue_name.rfind('.') {
-        let suffix = &queue_name[idx + 1..];
-        // If suffix looks like an engine_id (not another queue segment), return it
-        if !suffix.is_empty() && !suffix.starts_with("x-") {
-            return Some(suffix.to_string());
-        }
-    }
-    None
+    coordinator_queue_names().into_iter().find_map(|coordinator_queue| {
+        let prefix = format!("{coordinator_queue}.");
+        queue_name.strip_prefix(&prefix).and_then(|suffix| {
+            let trimmed = suffix.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+    })
 }
 
 #[must_use]
 pub fn is_coordinator_queue(qname: &str) -> bool {
-    // Check exact matches first
-    if matches!(
-        qname,
+    matches!(base_queue_name(qname),
         queue::QUEUE_COMPLETED
             | queue::QUEUE_FAILED
             | queue::QUEUE_STARTED
@@ -82,29 +107,7 @@ pub fn is_coordinator_queue(qname: &str) -> bool {
             | queue::QUEUE_JOBS
             | queue::QUEUE_PROGRESS
             | queue::QUEUE_TASK_LOG_PART
-            | queue::QUEUE_REDELIVERIES
-    ) {
-        return true;
-    }
-    // Check if it's a prefixed coordinator queue (e.g., "x-jobs.engine-abc")
-    if let Some(engine_id) = extract_engine_id(qname) {
-        // Strip the ".{engine_id}" suffix to get the base queue name
-        let base_queue_len = qname.len() - engine_id.len() - 1;
-        let base_queue = &qname[..base_queue_len];
-        matches!(
-            base_queue,
-            queue::QUEUE_COMPLETED
-                | queue::QUEUE_FAILED
-                | queue::QUEUE_STARTED
-                | queue::QUEUE_HEARTBEAT
-                | queue::QUEUE_JOBS
-                | queue::QUEUE_PROGRESS
-                | queue::QUEUE_TASK_LOG_PART
-                | queue::QUEUE_REDELIVERIES
-        )
-    } else {
-        false
-    }
+            | queue::QUEUE_REDELIVERIES)
 }
 
 #[must_use]
@@ -329,10 +332,6 @@ mod tests {
             Some("test-abc".to_string())
         );
         assert_eq!(
-            extract_engine_id("x-pending.engine-xyz"),
-            Some("engine-xyz".to_string())
-        );
-        assert_eq!(
             extract_engine_id("x-completed.worker-1"),
             Some("worker-1".to_string())
         );
@@ -344,14 +343,7 @@ mod tests {
 
     #[test]
     fn extract_engine_id_handles_engine_id_with_dots() {
-        // Note: The implementation uses rfind('.') which extracts the LAST dot-separated segment.
-        // This means "x-pending.engine.v1" extracts only "v1", not "engine.v1".
-        // This is a limitation of the current design when engine_ids contain dots.
-        assert_eq!(
-            extract_engine_id("x-pending.engine.v1"),
-            Some("v1".to_string())
-        );
-        assert_eq!(extract_engine_id("x-jobs.a.b.c"), Some("c".to_string()));
+        assert_eq!(extract_engine_id("x-jobs.a.b.c"), Some("a.b.c".to_string()));
     }
 
     #[test]
@@ -405,7 +397,7 @@ mod tests {
     #[allow(clippy::panic)]
     fn prefixed_queue_extract_and_reprefix_round_trip() {
         let engine_id = "test-abc";
-        let queue = "x-pending";
+        let queue = "x-jobs";
 
         let prefixed = prefixed_queue(queue, engine_id);
         // Extracting and re-prefixing should give same result
@@ -450,24 +442,24 @@ mod tests {
     // ── Already-prefixed queue handling ──────────────────────────────────────────
 
     /// Calling `prefixed_queue` on an already-prefixed queue appends the new suffix.
-    /// Result is "x-pending.test-abc.test-xyz" - the new `engine_id` becomes part of suffix.
+    /// Result is "x-jobs.test-abc.test-xyz" - the new `engine_id` becomes part of suffix.
     /// This is a KNOWN LIMITATION: callers must ensure they don't call this on
     /// already-prefixed queues. The function doesn't prevent double-suffixing.
     #[test]
     fn prefixed_queue_appends_suffix_when_queue_already_prefixed() {
-        let queue = "x-pending.test-abc";
+        let queue = "x-jobs.test-abc";
         let result = prefixed_queue(queue, "test-xyz");
-        // Current behavior: appends, creating "x-pending.test-abc.test-xyz"
-        assert_eq!(result, "x-pending.test-abc.test-xyz");
+        // Current behavior: appends, creating "x-jobs.test-abc.test-xyz"
+        assert_eq!(result, "x-jobs.test-abc.test-xyz");
     }
 
-    /// Extract from an already-prefixed queue returns the last segment only.
+    /// Extract from an already-prefixed coordinator queue returns the full suffix.
     #[test]
     fn extract_engine_id_from_already_prefixed_queue() {
-        // "x-pending.test-abc.test-xyz" -> extract returns "test-xyz" (last segment)
-        let queue = "x-pending.test-abc.test-xyz";
+        // "x-jobs.test-abc.test-xyz" -> extract returns the full suffix
+        let queue = "x-jobs.test-abc.test-xyz";
         let extracted = extract_engine_id(queue);
-        assert_eq!(extracted, Some("test-xyz".to_string()));
+        assert_eq!(extracted, Some("test-abc.test-xyz".to_string()));
     }
 
     // ── Empty/whitespace engine_id edge cases ─────────────────────────────────
@@ -479,13 +471,11 @@ mod tests {
         assert_eq!(prefixed_queue("x-pending", ""), "x-pending");
     }
 
-    /// Whitespace-only `engine_id` is NOT treated as empty - it produces a prefixed queue.
-    /// This is a behavioral edge case to be aware of.
+    /// Whitespace-only `engine_id` is treated as empty.
     #[test]
     fn whitespace_engine_id_produces_prefixed_queue() {
         let result = prefixed_queue("x-jobs", "   ");
-        // Current implementation: is_empty() check, so whitespace is NOT empty
-        assert_eq!(result, "x-jobs.   ");
+        assert_eq!(result, "x-jobs");
     }
 
     // ── is_task_queue behavior ────────────────────────────────────────────────

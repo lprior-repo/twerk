@@ -1,6 +1,7 @@
 //! Job-related event handlers
 
 use crate::engine::coordinator::handlers::cancellation::{cancel_active_tasks, cancel_parent_job};
+use crate::engine::coordinator::handlers::task_handlers::handle_pending_task;
 use crate::engine::coordinator::handlers::util::{build_job_context, is_job_active, job_id_str};
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::types::JobHandlerError;
@@ -119,7 +120,7 @@ async fn start_job(
     .await?;
 
     fire_job_webhooks(&job, "job.Scheduled").await;
-    broker.publish_task(QUEUE_PENDING.to_string(), &task).await
+    handle_pending_task(ds, broker, task).await
 }
 
 async fn restart_job(

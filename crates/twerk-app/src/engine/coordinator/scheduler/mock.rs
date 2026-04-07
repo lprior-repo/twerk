@@ -5,11 +5,11 @@
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::Arc;
-use twerk_core::job::{Job, JobContext, JobState, JobSummary, ScheduledJob, ScheduledJobSummary};
+use twerk_core::job::{Job, JobContext, JobSummary, ScheduledJob, ScheduledJobSummary};
 use twerk_core::node::Node;
 use twerk_core::role::Role;
 use twerk_core::stats::Metrics;
-use twerk_core::task::{Task, TaskState};
+use twerk_core::task::Task;
 use twerk_core::user::User;
 use twerk_infrastructure::datastore::{
     Datastore, Error as DatastoreError, Page, Result as DatastoreResult,
@@ -66,6 +66,16 @@ impl Datastore for MockDatastore {
 
     async fn get_active_tasks(&self, _job_id: &str) -> DatastoreResult<Vec<Task>> {
         Ok(Vec::new())
+    }
+
+    async fn get_all_tasks_for_job(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
+        let job_id = twerk_core::id::JobId::new(job_id).unwrap();
+        Ok(self
+            .tasks
+            .iter()
+            .filter(|entry| entry.value().job_id.as_ref() == Some(&job_id))
+            .map(|entry| entry.value().clone())
+            .collect())
     }
 
     async fn get_next_task(&self, _parent_task_id: &str) -> DatastoreResult<Task> {

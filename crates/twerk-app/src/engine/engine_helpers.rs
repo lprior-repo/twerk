@@ -36,6 +36,28 @@ pub fn ensure_config_loaded() {
     let _ = load_config();
 }
 
+pub fn resolve_engine_id(config_engine_id: Option<String>) -> Option<String> {
+    config_engine_id
+        .and_then(|value| {
+            let trimmed = value.trim().to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+        .or_else(|| {
+            env_or_config_string("engine.id").and_then(|value| {
+                let trimmed = value.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            })
+        })
+}
+
 pub fn resolve_broker_type() -> String {
     env_or_config_string("broker.type").unwrap_or_else(|| "inmemory".to_string())
 }

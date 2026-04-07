@@ -20,22 +20,11 @@
 //! Run with: cargo test -p twerk-app --test ci_cd_pipeline_simulation -- --nocapture
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use twerk_core::id::JobId;
 use twerk_core::job::Job;
 
 /// Atomic counter for unique IDs
-static JOB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static TASK_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-/// Generate unique IDs
-fn next_job_id() -> String {
-    format!(
-        "ci-pipeline-{:08}",
-        JOB_COUNTER.fetch_add(1, Ordering::Relaxed)
-    )
-}
 
 fn next_task_id() -> String {
     format!("task-{:010}", TASK_COUNTER.fetch_add(1, Ordering::Relaxed))
@@ -131,8 +120,7 @@ tasks:
 
 /// Step 6: Integration Tests
 fn step_integration_tests() -> String {
-    format!(
-        r#"name: "integration-tests"
+    r#"name: "integration-tests"
 version: "1.0"
 tasks:
   - name: jest-integration
@@ -144,15 +132,13 @@ tasks:
   - name: e2e-tests
     image: cypress/base:latest
     command: ["npx", "cypress", "run", "--spec", "cypress/e2e/**/*"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 7: Security Scan
 fn step_security() -> String {
-    format!(
-        r#"name: "security-scan"
+    r#"name: "security-scan"
 version: "1.0"
 tasks:
   - name: npm-audit
@@ -164,15 +150,13 @@ tasks:
   - name: secret-scan
     image: trufflesecurity/trufflehog:latest
     command: ["trufflehog", "filesystem", "./src"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 8: Build - Compile artifacts
 fn step_build() -> String {
-    format!(
-        r#"name: "build"
+    r#"name: "build"
 version: "1.0"
 tasks:
   - name: webpack-bundle
@@ -184,15 +168,13 @@ tasks:
   - name: typescript-compile
     image: node:20-alpine
     command: ["npx", "tsc", "-p", "tsconfig.prod.json"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 9: Benchmark - Performance tests
 fn step_benchmark() -> String {
-    format!(
-        r#"name: "benchmark"
+    r#"name: "benchmark"
 version: "1.0"
 tasks:
   - name: lighthouse-ci
@@ -204,15 +186,13 @@ tasks:
   - name: artillery-test
     image: artillery/artillery:latest
     command: ["artillery", "run", "tests/load/config.yaml"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 10: Package - Create distribution
 fn step_package() -> String {
-    format!(
-        r#"name: "package"
+    r#"name: "package"
 version: "1.0"
 tasks:
   - name: create-docker-image
@@ -224,15 +204,13 @@ tasks:
   - name: create-helm-chart
     image: alpine/helm:latest
     command: ["helm", "package", "charts/app"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 11: Deploy Staging
 fn step_deploy_staging() -> String {
-    format!(
-        r#"name: "deploy-staging"
+    r#"name: "deploy-staging"
 version: "1.0"
 tasks:
   - name: kubectl-apply
@@ -244,15 +222,13 @@ tasks:
   - name: wait-rollout
     image: bitnami/kubectl:latest
     command: ["kubectl", "rollout", "status", "deployment/app", "-n", "staging", "--timeout=5m"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 /// Step 12: Deploy Production
 fn step_deploy_production() -> String {
-    format!(
-        r#"name: "deploy-production"
+    r#"name: "deploy-production"
 version: "1.0"
 tasks:
   - name: pre-flight-check
@@ -260,16 +236,15 @@ tasks:
     command: ["sh", "-c", "echo 'Running pre-flight checks...' && sleep 2"]
   - name: blue-green-switch
     image: bitnami/kubectl:latest
-    command: ["kubectl", "patch", "service/app", "-p", "'{\"spec\":{\"selector\":{\"version\":\"v2\"}}}'"]
+    command: ["kubectl", "patch", "service/app", "-p", "'{{\"spec\":{{\"selector\":{{\"version\":\"v2\"}}}}}}'"]
   - name: smoke-tests
     image: byrnedo/alpine-curl:latest
     command: ["sh", "-c", "for i in $(seq 1 10); do curl -f http://app/health || exit 1; sleep 1; done"]
   - name: cleanup-old
     image: bitnami/kubectl:latest
     command: ["kubectl", "delete", "deployment/app-v1", "-n", "production"]
-"#,
-        next_task_id()
-    )
+"#
+    .to_string()
 }
 
 // ============================================================================
@@ -282,58 +257,45 @@ fn generate_full_pipeline(job_id: &str) -> String {
         r#"name: "{}"
 version: "1.0"
 description: "Full CI/CD pipeline - 12 steps"
-parallel: false
-
-stages:
+tasks:
   - name: checkout
-    {}
-  
+    image: alpine/git:latest
+    run: "git clone --branch main --depth 1 https://github.com/example/repo.git"
   - name: setup
-    {}
-  
+    image: node:20-alpine
+    run: "npm ci"
   - name: lint
-    {}
-  
+    image: node:20-alpine
+    run: "npx eslint src/ && npx prettier --check src/"
   - name: typecheck
-    {}
-  
+    image: node:20-alpine
+    run: "npx tsc --noEmit"
   - name: unit-tests
-    {}
-  
+    image: node:20-alpine
+    run: "npx jest --testPathPattern=unit"
   - name: integration-tests
-    {}
-  
+    image: postman/newman:latest
+    run: "newman run tests/api/postman_collection.json"
   - name: security-scan
-    {}
-  
+    image: aquasec/trivy:latest
+    run: "trivy image --severity HIGH,CRITICAL app:latest"
   - name: build
-    {}
-  
+    image: node:20-alpine
+    run: "npx webpack --mode production"
   - name: benchmark
-    {}
-  
+    image: grafana/k6:latest
+    run: "k6 run tests/load/script.js"
   - name: package
-    {}
-  
+    image: alpine/helm:latest
+    run: "helm package charts/app"
   - name: deploy-staging
-    {}
-  
+    image: bitnami/kubectl:latest
+    run: "kubectl apply -f k8s/staging/ -n staging"
   - name: deploy-production
-    {}
+    image: bitnami/kubectl:latest
+    run: "kubectl delete deployment/app-v1 -n production"
 "#,
-        job_id,
-        step_checkout("https://github.com/example/repo.git", "main"),
-        step_setup(),
-        step_lint(),
-        step_typecheck(),
-        step_unit_tests(),
-        step_integration_tests(),
-        step_security(),
-        step_build(),
-        step_benchmark(),
-        step_package(),
-        step_deploy_staging(),
-        step_deploy_production()
+        job_id
     )
 }
 
@@ -343,22 +305,18 @@ fn generate_simple_pipeline(job_id: &str) -> String {
         r#"name: "{}"
 version: "1.0"
 description: "Simple CI pipeline - 3 steps"
-parallel: false
-
-stages:
+tasks:
   - name: lint
-    {}
-  
+    image: node:20-alpine
+    run: "npx eslint src/"
   - name: test
-    {}
-  
+    image: node:20-alpine
+    run: "npx jest --testPathPattern=unit"
   - name: build
-    {}
+    image: node:20-alpine
+    run: "npx webpack --mode production"
 "#,
-        job_id,
-        step_lint(),
-        step_unit_tests(),
-        step_build()
+        job_id
     )
 }
 
@@ -368,34 +326,27 @@ fn generate_medium_pipeline(job_id: &str) -> String {
         r#"name: "{}"
 version: "1.0"
 description: "Medium CI pipeline - 6 steps"
-parallel: false
-
-stages:
+tasks:
   - name: checkout
-    {}
-  
+    image: alpine/git:latest
+    run: "git clone --branch main --depth 1 https://github.com/example/repo.git"
   - name: setup
-    {}
-  
+    image: node:20-alpine
+    run: "npm ci"
   - name: lint
-    {}
-  
+    image: node:20-alpine
+    run: "npx eslint src/"
   - name: test
-    {}
-  
+    image: node:20-alpine
+    run: "npx jest --testPathPattern=unit"
   - name: build
-    {}
-  
+    image: node:20-alpine
+    run: "npx webpack --mode production"
   - name: package
-    {}
+    image: alpine/helm:latest
+    run: "helm package charts/app"
 "#,
-        job_id,
-        step_checkout("https://github.com/example/repo.git", "main"),
-        step_setup(),
-        step_lint(),
-        step_unit_tests(),
-        step_build(),
-        step_package()
+        job_id
     )
 }
 
@@ -453,14 +404,13 @@ mod ci_cd_pipeline_simulation {
         let iterations = 5000;
 
         // Reset counters
-        JOB_COUNTER.store(0, Ordering::Relaxed);
         TASK_COUNTER.store(0, Ordering::Relaxed);
 
         let start = Instant::now();
         for i in 0..iterations {
             let job_id = format!("simple-{}", i);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
         }
         let duration = start.elapsed();
 
@@ -510,14 +460,13 @@ mod ci_cd_pipeline_simulation {
 
         let iterations = 5000;
 
-        JOB_COUNTER.store(0, Ordering::Relaxed);
         TASK_COUNTER.store(0, Ordering::Relaxed);
 
         let start = Instant::now();
         for i in 0..iterations {
             let job_id = format!("medium-{}", i);
             let yaml = generate_medium_pipeline(&job_id);
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
         }
         let duration = start.elapsed();
 
@@ -562,14 +511,13 @@ mod ci_cd_pipeline_simulation {
 
         let iterations = 2000;
 
-        JOB_COUNTER.store(0, Ordering::Relaxed);
         TASK_COUNTER.store(0, Ordering::Relaxed);
 
         let start = Instant::now();
         for i in 0..iterations {
             let job_id = format!("full-{}", i);
             let yaml = generate_full_pipeline(&job_id);
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
         }
         let duration = start.elapsed();
 
@@ -613,7 +561,6 @@ mod ci_cd_pipeline_simulation {
         println!("Target: {:.0} jobs/sec", target_per_sec);
         println!();
 
-        JOB_COUNTER.store(0, Ordering::Relaxed);
         TASK_COUNTER.store(0, Ordering::Relaxed);
 
         let deadline = Instant::now() + Duration::from_secs(duration_secs);
@@ -638,7 +585,7 @@ mod ci_cd_pipeline_simulation {
                 }
             };
 
-            match twerk_web::api::yaml::from_slice::<Job>(yaml.as_bytes()) {
+            match serde_yaml::from_slice::<Job>(yaml.as_bytes()) {
                 Ok(_) => count += 1,
                 Err(_) => error_count += 1,
             }
@@ -717,7 +664,6 @@ mod ci_cd_pipeline_simulation {
         println!("╚══════════════════════════════════════════════════════════════════════════╝");
         println!();
 
-        JOB_COUNTER.store(0, Ordering::Relaxed);
         TASK_COUNTER.store(0, Ordering::Relaxed);
 
         // Normal load for 2 seconds
@@ -727,7 +673,7 @@ mod ci_cd_pipeline_simulation {
         while start.elapsed().as_secs() < 2 {
             let job_id = format!("normal-{}", count);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
             count += 1;
         }
         let normal_rate = count as f64 / 2.0;
@@ -741,11 +687,11 @@ mod ci_cd_pipeline_simulation {
         while burst_start.elapsed().as_secs() < 3 {
             let job_id = format!("burst-{}", burst_count);
             let yaml = generate_medium_pipeline(&job_id); // Larger YAML during burst
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
             burst_count += 1;
         }
         let burst_rate = burst_count as f64 / 3.0;
-        println!("  Burst rate: {:.0}/sec");
+        println!("  Burst rate: {:.0}/sec", burst_rate);
         println!(
             "  Burst multiplier: {:.1}x normal",
             burst_rate / normal_rate
@@ -759,7 +705,7 @@ mod ci_cd_pipeline_simulation {
         while cooldown_start.elapsed().as_secs() < 2 {
             let job_id = format!("cooldown-{}", cooldown_count);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = twerk_web::api::yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
             cooldown_count += 1;
         }
         let cooldown_rate = cooldown_count as f64 / 2.0;

@@ -29,6 +29,9 @@ impl Datastore for MockDatastore {
     async fn get_active_tasks(&self, _job_id: &str) -> DatastoreResult<Vec<Task>> {
         Ok(Vec::new())
     }
+    async fn get_all_tasks_for_job(&self, _job_id: &str) -> DatastoreResult<Vec<Task>> {
+        Ok(Vec::new())
+    }
     async fn get_next_task(&self, _parent_task_id: &str) -> DatastoreResult<Task> {
         Ok(Task::default())
     }

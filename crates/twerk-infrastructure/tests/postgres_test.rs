@@ -17,7 +17,7 @@ use time::{Duration, OffsetDateTime};
 use tokio::sync::Mutex;
 use twerk_core::job::{Job, JobContext};
 use twerk_core::node::{Node, NodeStatus};
-use twerk_core::task::{Task, TaskLogPart};
+use twerk_core::task::{Task, TaskLimits, TaskLogPart, TaskRetry};
 use twerk_core::user::User;
 use twerk_infrastructure::datastore::postgres::PostgresDatastore;
 use twerk_infrastructure::datastore::{Datastore, Options};
@@ -236,6 +236,48 @@ async fn test_postgres_all() {
     assert_eq!(t1_updated.state, twerk_core::task::TaskState::Scheduled);
     assert_eq!(t1_updated.progress, 57.3);
     assert_eq!(t1_updated.priority, 5);
+    assert_eq!(t1_updated.queue, Some("somequeue".to_string()));
+
+    ds.update_task(
+        t1.id.as_ref().unwrap(),
+        Box::new(|mut u| {
+            u.limits = Some(TaskLimits {
+                cpus: Some("2".to_string()),
+                memory: Some("1g".to_string()),
+            });
+            u.timeout = Some("45s".to_string());
+            u.retry = Some(TaskRetry {
+                attempts: 1,
+                limit: 4,
+            });
+            Ok(u)
+        }),
+    )
+    .await
+    .expect("failed to update scheduling fields");
+    let t1_scheduling = ds
+        .get_task_by_id(t1.id.as_ref().unwrap())
+        .await
+        .expect("failed to get updated scheduling fields");
+    assert_eq!(
+        t1_scheduling
+            .limits
+            .as_ref()
+            .and_then(|limits| limits.cpus.clone()),
+        Some("2".to_string())
+    );
+    assert_eq!(
+        t1_scheduling
+            .limits
+            .as_ref()
+            .and_then(|limits| limits.memory.clone()),
+        Some("1g".to_string())
+    );
+    assert_eq!(t1_scheduling.timeout, Some("45s".to_string()));
+    assert_eq!(
+        t1_scheduling.retry.as_ref().map(|retry| retry.limit),
+        Some(4)
+    );
 
     // 4b. Test cascading cleanup
     let j_cascade = Job {

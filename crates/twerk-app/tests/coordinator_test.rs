@@ -84,6 +84,60 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
 }
 
 #[tokio::test(start_paused = true)]
+async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> Result<()> {
+    std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
+
+    let broker = BrokerProxy::new();
+    let datastore = DatastoreProxy::new();
+
+    broker.init("inmemory", Some("")).await?;
+    datastore.init().await?;
+
+    let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
+    coordinator.start().await?;
+
+    let job = Job {
+        id: Some("first-task-job".into()),
+        name: Some("first task scheduling".to_string()),
+        state: JobState::Pending,
+        tasks: Some(vec![Task {
+            name: Some("task 1".to_string()),
+            image: Some("alpine".to_string()),
+            run: Some("echo hello".to_string()),
+            ..Default::default()
+        }]),
+        task_count: 1,
+        ..Default::default()
+    };
+
+    coordinator.submit_job(job).await?;
+
+    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let tasks = datastore.get_all_tasks_for_job("first-task-job").await?;
+            if !tasks.is_empty() {
+                return Ok::<_, anyhow::Error>(tasks);
+            }
+            tokio::time::advance(std::time::Duration::from_millis(100)).await;
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("timeout waiting for scheduled task")?;
+
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].state, TaskState::Scheduled);
+    assert_eq!(tasks[0].queue, Some("default".to_string()));
+    assert!(tasks[0].scheduled_at.is_some());
+
+    let persisted = datastore.get_job_by_id("first-task-job").await?;
+    assert_eq!(persisted.state, JobState::Scheduled);
+    assert_eq!(persisted.position, 1);
+
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
 async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     // Set up in-memory datastore
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");

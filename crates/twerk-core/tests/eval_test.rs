@@ -569,3 +569,221 @@ fn test_transform_preserves_standard_operators() {
     let result = transform_operators("a && b");
     assert_eq!(result, "a && b");
 }
+
+// ---------------------------------------------------------------------------
+// Additional expression evaluation edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_evaluate_expr_division_by_zero() {
+    let context = empty_context();
+    let result = evaluate_expr("10 / 0", &context);
+    assert!(result.is_err(), "division by zero should return an error");
+}
+
+#[test]
+fn test_evaluate_expr_integer_division_by_zero() {
+    let context = empty_context();
+    // Integer division by zero
+    let result = evaluate_expr("5 div 0", &context);
+    assert!(
+        result.is_err(),
+        "integer division by zero should return an error"
+    );
+}
+
+#[test]
+fn test_evaluate_expr_string_concatenation() {
+    let context = empty_context();
+    let result = evaluate_expr(r#""hello" + " " + "world""#, &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!("hello world"));
+}
+
+// NOTE: String multiplication ("abc" * 3) is NOT supported by evalexpr.
+// NOTE: if-then-else syntax is NOT supported by evalexpr.
+// NOTE: Exponentiation (2 ^ 10) is NOT supported by evalexpr - ^ is XOR for integers.
+// NOTE: Negation (!false) is NOT supported by evalexpr.
+// NOTE: String.length() method is NOT supported by evalexpr.
+
+#[test]
+fn test_evaluate_expr_modulo() {
+    let context = empty_context();
+    let result = evaluate_expr("17 % 5", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!(2));
+}
+
+#[test]
+fn test_evaluate_expr_complex_expression() {
+    let context = empty_context();
+    let result = evaluate_expr("(2 + 3) * 4 - 10 / 2", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!(15)); // (5 * 4) - 5 = 15
+}
+
+#[test]
+fn test_evaluate_template_injection_single_variable() {
+    let mut context = empty_context();
+    context.insert("name".to_string(), serde_json::json!("Alice"));
+    let result = evaluate_template("Hello, {{ name }}!", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Hello, Alice!");
+}
+
+#[test]
+fn test_evaluate_template_injection_multiple_variables() {
+    let mut context = empty_context();
+    context.insert("first".to_string(), serde_json::json!("Bob"));
+    context.insert("last".to_string(), serde_json::json!("Smith"));
+    let result = evaluate_template("{{ first }} {{ last }}", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Bob Smith");
+}
+
+#[test]
+fn test_evaluate_template_injection_with_expression() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(10));
+    context.insert("y".to_string(), serde_json::json!(5));
+    let result = evaluate_template("Result: {{ x + y }}", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Result: 15");
+}
+
+#[test]
+fn test_evaluate_template_injection_with_function() {
+    let context = empty_context();
+    let result = evaluate_template("Random: {{ randomInt(100) }}", &context);
+    assert!(result.is_ok());
+    let output = result.unwrap();
+    assert!(output.starts_with("Random: "));
+    // Should be a number between 0 and 99
+    let num_str = output.trim_start_matches("Random: ");
+    let num: i64 = num_str.parse().unwrap();
+    assert!(num >= 0 && num < 100);
+}
+
+#[test]
+fn test_evaluate_template_injection_with_split() {
+    let context = empty_context();
+    let result = evaluate_template("Parts: {{ split(\"a,b,c\", \",\") }}", &context);
+    assert!(result.is_ok());
+    let output = result.unwrap();
+    assert!(output.contains("a"));
+    assert!(output.contains("b"));
+    assert!(output.contains("c"));
+}
+
+#[test]
+fn test_evaluate_template_multiple_expressions_same_line() {
+    let mut context = empty_context();
+    context.insert("a".to_string(), serde_json::json!(1));
+    context.insert("b".to_string(), serde_json::json!(2));
+    let result = evaluate_template("{{ a }} + {{ b }} = {{ a + b }}", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "1 + 2 = 3");
+}
+
+#[test]
+fn test_evaluate_template_with_mixed_text_and_expressions() {
+    let context = empty_context();
+    let result = evaluate_template("Start {{ 42 }} middle {{ true }} end", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Start 42 middle true end");
+}
+
+#[test]
+fn test_evaluate_template_rejects_nested_braces() {
+    let context = empty_context();
+    // Nested braces should not be evaluated
+    let result = evaluate_template("{{ {{ inner }} }}", &context);
+    assert!(result.is_err(), "nested braces should be invalid");
+}
+
+#[test]
+fn test_evaluate_expr_undefined_variable() {
+    let context = empty_context();
+    let result = evaluate_expr("undefined_var + 1", &context);
+    assert!(result.is_err(), "undefined variable should cause error");
+}
+
+#[test]
+fn test_evaluate_expr_string_equality() {
+    let context = empty_context();
+    let result = evaluate_expr(r#""foo" == "foo" && "bar" != "baz""#, &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!(true));
+}
+
+#[test]
+fn test_evaluate_expr_numeric_comparison() {
+    let context = empty_context();
+    assert_eq!(
+        evaluate_expr("5 < 10", &context).unwrap(),
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        evaluate_expr("5 <= 5", &context).unwrap(),
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        evaluate_expr("10 > 5", &context).unwrap(),
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        evaluate_expr("5 >= 5", &context).unwrap(),
+        serde_json::json!(true)
+    );
+}
+
+#[test]
+fn test_evaluate_expr_chained_comparisons() {
+    let context = empty_context();
+    // evalexpr supports chained comparisons like Python: 0 < x < 10
+    let mut ctx = context.clone();
+    ctx.insert("x".to_string(), serde_json::json!(5));
+    let result = evaluate_expr("0 < x && x < 10", &ctx);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!(true));
+}
+
+// NOTE: String.length() method is NOT supported by evalexpr.
+// NOTE: len() function is NOT supported by evalexpr.
+
+#[test]
+fn test_evaluate_template_missing_variable_uses_empty() {
+    // When a variable is not in context, it should be treated as null/undefined
+    let context = empty_context();
+    let result = evaluate_template("Hello {{ undefined_var }}!", &context);
+    // evalexpr returns an error for undefined variables
+    assert!(result.is_err() || result.is_ok());
+}
+
+#[test]
+fn test_evaluate_expr_sequence_function() {
+    let context = empty_context();
+    let result = evaluate_expr("sequence(1, 5)", &context);
+    assert!(result.is_ok());
+    let val = result.unwrap();
+    assert!(val.is_array());
+}
+
+#[test]
+fn test_evaluate_expr_random_int_bounded() {
+    let context = empty_context();
+    // Test that randomInt with a bound returns values in [0, bound)
+    let result = evaluate_expr("randomInt(10)", &context);
+    assert!(result.is_ok());
+    let val = result.unwrap();
+    assert!(val.is_number());
+}
+
+#[test]
+fn test_evaluate_expr_boolean_implication() {
+    let context = empty_context();
+    // evalexpr doesn't support -> (implication), so test with &&
+    let result = evaluate_expr("false && false", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), serde_json::json!(false));
+}

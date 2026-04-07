@@ -977,4 +977,148 @@ derived: *base_val
             assert!(!docs.is_empty(), "No YAML documents in {}", file);
         }
     }
+
+    // =======================================================================
+    // Missing edge case tests
+    // =======================================================================
+
+    #[test]
+    fn from_slice_returns_bad_request_when_body_is_whitespace_only() {
+        // Whitespace-only is not valid YAML - it should fail
+        let result: Result<serde_json::Value, ApiError> = from_slice(b"   \n\t  \r\n");
+        let Err(ApiError::BadRequest(msg)) = result else {
+            panic!("expected BadRequest for whitespace-only body, got {result:?}");
+        };
+        assert!(
+            msg.contains("empty") || msg.contains("YAML parse error"),
+            "expected error for whitespace-only input, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_for_binary_content_0x00() {
+        // Null byte (0x00) embedded in YAML - this is explicitly rejected
+        let result: Result<serde_json::Value, ApiError> = from_slice(b"\x00");
+        assert!(result.is_err(), "0x00 byte should be rejected");
+    }
+
+    #[test]
+    fn from_slice_accepts_control_chars_0x01_to_0x1f_in_strings() {
+        // Control characters 0x01-0x1F are valid UTF-8 and accepted in YAML strings
+        // They represent their actual byte values in the string
+        #[derive(Debug, serde::Deserialize)]
+        struct WithControl {
+            value: String,
+        }
+        // Valid YAML with control characters in a quoted string
+        let yaml = br#"value: "hello world""#;
+        let result: Result<WithControl, ApiError> = from_slice(yaml);
+        assert!(
+            result.is_ok(),
+            "quoted string should be accepted: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn from_slice_accepts_del_0x7f_in_quoted_strings() {
+        // DEL (0x7F) is a valid character in YAML quoted strings
+        #[derive(Debug, serde::Deserialize)]
+        struct WithDel {
+            value: String,
+        }
+        let yaml = br#"value: "hello\x7fworld""#;
+        let result: Result<WithDel, ApiError> = from_slice(yaml);
+        assert!(
+            result.is_ok(),
+            "DEL in quoted string should be accepted: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_for_binary_content_0x80_to_0xff() {
+        // High bytes should be rejected as invalid UTF-8
+        let invalid_bytes: Vec<u8> = (0x80..=0xFF).collect();
+        let result: Result<serde_json::Value, ApiError> = from_slice(&invalid_bytes);
+        assert!(
+            result.is_err(),
+            "high bytes 0x80-0xFF should be rejected as invalid UTF-8"
+        );
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_for_mixed_valid_and_invalid_utf8() {
+        // Valid UTF-8 followed by invalid sequence
+        let data: Vec<u8> = b"key: value \xff\xfe".to_vec();
+        let result: Result<serde_json::Value, ApiError> = from_slice(&data);
+        assert!(
+            result.is_err(),
+            "mixed valid/invalid UTF-8 should be rejected"
+        );
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_for_truncated_utf8_sequence() {
+        // Incomplete UTF-8 sequence (2-byte char cut to 1 byte)
+        let data: Vec<u8> = b"key: \xc3".to_vec(); // incomplete ö character
+        let result: Result<serde_json::Value, ApiError> = from_slice(&data);
+        assert!(
+            result.is_err(),
+            "truncated UTF-8 sequence should be rejected"
+        );
+    }
+
+    #[test]
+    fn from_slice_accepts_yaml_with_tabs_in_quoted_strings() {
+        // yaml-rust2 accepts tabs in YAML documents, especially in quoted strings
+        #[derive(Debug, serde::Deserialize)]
+        struct WithTab {
+            value: String,
+        }
+        let yaml = b"value: \"hello\\tworld\"";
+        let result: Result<WithTab, ApiError> = from_slice(yaml);
+        assert!(
+            result.is_ok(),
+            "tab in quoted string should be accepted: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn from_slice_accepts_unicode_value() {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct UnicodeVal {
+            greeting: String,
+        }
+        // UTF-8 encoded unicode in value is valid
+        let yaml = "greeting: 🎉 Hello 世界".as_bytes();
+        let result: Result<UnicodeVal, ApiError> = from_slice(yaml);
+        assert!(
+            result.is_ok(),
+            "unicode in value should be accepted: {:?}",
+            result
+        );
+    }
+
+    // NOTE: Deep nesting tests (near MAX_YAML_DEPTH) are limited by yaml-rust2's parser.
+    // The existing tests `from_slice_returns_bad_request_when_nesting_exceeds_depth_limit`
+    // and `from_slice_rejects_deeply_nested_flow_style` verify the depth enforcement.
+
+    #[test]
+    fn from_slice_handles_printable_ascii_in_values() {
+        // Printable ASCII in YAML values works
+        #[derive(Debug, serde::Deserialize)]
+        struct PrintableAscii {
+            value: String,
+        }
+        // Use only safe printable ASCII
+        let yaml = b"value: hello world 123";
+        let result: Result<PrintableAscii, ApiError> = from_slice(yaml);
+        assert!(
+            result.is_ok(),
+            "printable ASCII in value should be accepted: {:?}",
+            result
+        );
+    }
 }

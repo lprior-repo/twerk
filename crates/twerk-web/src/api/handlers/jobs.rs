@@ -153,7 +153,17 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
         Ok(Ok(mut finished_job)) => {
             let secrets = finished_job.secrets.clone().unwrap_or_default();
             on_read_job(&mut finished_job, &secrets);
-            Ok((StatusCode::OK, axum::Json(new_job_summary(&finished_job))).into_response())
+            
+            // Fetch actual task states from the tasks table
+            if let Some(ref job_id) = finished_job.id {
+                if let Ok(actual_tasks) = state.ds.get_all_tasks_for_job(&job_id.to_string()).await {
+                    if !actual_tasks.is_empty() {
+                        finished_job.tasks = Some(actual_tasks);
+                    }
+                }
+            }
+            
+            Ok((StatusCode::OK, axum::Json(finished_job)).into_response())
         }
         Ok(Err(e)) => Err(e),
         Err(_) => Err(ApiError::internal("timeout waiting for job")),

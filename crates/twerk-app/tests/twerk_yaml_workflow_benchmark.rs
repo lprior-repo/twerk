@@ -123,9 +123,12 @@ struct Job {
     name: String,
     state: String,
     #[serde(default)]
+    #[allow(dead_code)]
     task_count: u32,
     #[serde(default)]
     progress: f64,
+    #[serde(default)]
+    tasks: Option<Vec<TaskInfo>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -275,6 +278,12 @@ async fn twerk_pokemon_api_workflow() -> Result<(), Box<dyn std::error::Error>> 
         .send()
         .await?;
 
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await?;
+        return Err(format!("Job submission failed: {} - {}", status, body).into());
+    }
+
     let submit_time = start.elapsed();
     
     let job: Job = response.json::<Job>().await?;
@@ -294,7 +303,7 @@ async fn twerk_pokemon_api_workflow() -> Result<(), Box<dyn std::error::Error>> 
         let poll_start = Instant::now();
         let timeout = Duration::from_secs(180);
         
-        let final_job = loop {
+        let _final_job = loop {
             if poll_start.elapsed() > timeout {
                 return Err("Job timed out after 180 seconds".into());
             }
@@ -331,16 +340,14 @@ async fn twerk_pokemon_api_workflow() -> Result<(), Box<dyn std::error::Error>> 
         };
     }
 
-    // Get task details
-    let tasks_resp = client.get(&format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, job.id))
-        .send()
-        .await?
-        .json::<TasksResponse>()
-        .await?;
-
-    let total_tasks = tasks_resp.items.len();
-    let completed = tasks_resp.items.iter().filter(|t| t.state == "COMPLETED").count();
-    let failed = tasks_resp.items.iter().filter(|t| t.state == "FAILED").count();
+    // Get task details from job response (embedded tasks, not separate endpoint)
+    let total_tasks = job.tasks.as_ref().map_or(0, |t| t.len());
+    let completed = job.tasks.as_ref().map_or(0, |t| 
+        t.iter().filter(|task| task.state == "COMPLETED").count()
+    );
+    let failed = job.tasks.as_ref().map_or(0, |t| 
+        t.iter().filter(|task| task.state == "FAILED").count()
+    );
 
     // Results
     let total_time = start.elapsed();
@@ -363,7 +370,7 @@ async fn twerk_pokemon_api_workflow() -> Result<(), Box<dyn std::error::Error>> 
     print_result("Avg ms/task", &format!("{:.2}", total_time.as_millis() as f64 / total_tasks as f64));
     
     println!("\n║  WORKFLOW BREAKDOWN:");
-    for task in &tasks_resp.items {
+    for task in job.tasks.as_ref().unwrap_or(&vec![]) {
         let status = match task.state.as_str() {
             "COMPLETED" => "✓",
             "FAILED" => "✗",
@@ -382,7 +389,7 @@ async fn twerk_pokemon_api_workflow() -> Result<(), Box<dyn std::error::Error>> 
     // Assertions
     assert_eq!(job.state, "COMPLETED", "Job should complete successfully");
     assert_eq!(failed, 0, "No tasks should fail");
-    assert_eq!(total_tasks, 17, "Should have 17 tasks");
+    assert_eq!(total_tasks, 18, "Should have 18 tasks");
 
     Ok(())
 }

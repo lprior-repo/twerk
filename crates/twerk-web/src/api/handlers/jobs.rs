@@ -184,6 +184,18 @@ pub async fn get_job_handler(
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
+    // Fetch actual task states from the tasks table, not just original definitions
+    if let Some(job_id) = &job.id {
+        let actual_tasks = state
+            .ds
+            .get_all_tasks_for_job(&job_id.to_string())
+            .await
+            .map_err(ApiError::from)?;
+        if !actual_tasks.is_empty() {
+            job.tasks = Some(actual_tasks);
+        }
+    }
+
     let secrets = job.secrets.clone().unwrap_or_default();
     on_read_job(&mut job, &secrets);
 

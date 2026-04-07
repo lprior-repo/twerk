@@ -26,6 +26,12 @@ WHERE job_id = $1 AND state = ANY($2)
 ORDER BY position, created_at ASC
 ";
 
+const SQL_GET_ALL_TASKS_FOR_JOB: &str = r"
+SELECT * FROM tasks
+WHERE job_id = $1
+ORDER BY position, created_at ASC
+";
+
 // ── Pure calculations: JSON field serialization ──────────────────────────────
 
 /// Serializes a single optional JSON field to bytes.
@@ -343,6 +349,26 @@ impl PostgresDatastore {
             }
         }
         .map_err(|e| DatastoreError::Database(format!("get active tasks failed: {e}")))?;
+        records.into_iter().map(|r| r.to_task()).collect()
+    }
+
+    pub(super) async fn get_all_tasks_for_job_impl(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
+        let records: Vec<TaskRecord> = match &self.executor {
+            Executor::Pool(p) => {
+                sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_ALL_TASKS_FOR_JOB)
+                    .bind(job_id)
+                    .fetch_all(p)
+                    .await
+            }
+            Executor::Tx(tx) => {
+                let mut tx = tx.lock().await;
+                sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_ALL_TASKS_FOR_JOB)
+                    .bind(job_id)
+                    .fetch_all(&mut **tx)
+                    .await
+            }
+        }
+        .map_err(|e| DatastoreError::Database(format!("get all tasks for job failed: {e}")))?;
         records.into_iter().map(|r| r.to_task()).collect()
     }
 

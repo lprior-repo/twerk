@@ -71,6 +71,7 @@ pub trait Datastore: Send + Sync {
     ) -> Result<()>;
     async fn get_task_by_id(&self, id: &str) -> Result<Task>;
     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>>;
+    async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>>;
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task>;
     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()>;
     async fn get_task_log_parts(

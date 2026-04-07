@@ -8,6 +8,9 @@ members = [
     "crates/twerk-web",
     "crates/twerk-cli",
 ]
+exclude = [
+    "pokemon-server",
+]
 
 [workspace.package]
 version = "0.1.0"

@@ -109,6 +109,15 @@ impl Datastore for InMemoryDatastore {
             .collect())
     }
 
+    async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {
+        Ok(self
+            .tasks
+            .iter()
+            .filter(|e| e.value().job_id.as_deref() == Some(job_id))
+            .map(|e| e.value().clone())
+            .collect())
+    }
+
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {
         self.tasks
             .iter()

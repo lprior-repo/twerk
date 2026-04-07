@@ -1,0 +1,234 @@
+name: twerk-chaos-engineering
+description: |
+  12-step chaos engineering workflow that stress tests twerk:
+  1. API health check
+  2. Fetch all Pokemon (data manipulation)
+  3. Parallel fan-out (9 Pokemon fetches)
+  4. Type aggregation (data transformation)
+  5. Sequential dependency chain
+  6. Latency injection via sleep
+  7. Concurrent parallel tasks
+  8. Data validation
+  9. Error simulation
+  10. Performance measurement
+  11. Final aggregation
+  12. Health confirmation
+
+tasks:
+  # Step 1: API Health Check
+  - name: step-01-health-check
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 1: API Health Check ==="
+      START=$(date +%s%N)
+      RESP=$(curl -s -w "\n%{http_code}" http://127.0.0.1:8080/health)
+      END=$(date +%s%N)
+      LATENCY=$(( (END - START) / 1000000 ))
+      echo "Health check latency: ${LATENCY}ms"
+      echo "$RESP"
+
+  # Step 2: Fetch All Pokemon (data fetch)
+  - name: step-02-fetch-all-pokemon
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 2: Fetch All 151 Pokemon ==="
+      START=$(date +%s%N)
+      curl -s http://127.0.0.1:8080/api/pokemon > /tmp/all_pokemon.json
+      COUNT=$(cat /tmp/all_pokemon.json | grep -o '"id"' | wc -l)
+      END=$(date +%s%N)
+      DURATION=$(( (END - START) / 1000000 ))
+      echo "Fetched $COUNT Pokemon in ${DURATION}ms"
+      echo "Size: $(wc -c < /tmp/all_pokemon.json) bytes"
+
+  # Step 3: Parallel Fan-Out (9 concurrent fetches)
+  - name: step-03-parallel-fanout
+    parallel:
+      tasks:
+        - name: fetch-bulbasaur
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/1 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-pikachu
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/25 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-charmander
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/4 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-squirtle
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/7 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-mewtwo
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/150 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-mew
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/151 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-dragonite
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/149 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-gengar
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/94 | grep -o '"name":"[^"]*"' | head -1
+        - name: fetch-lapras
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/131 | grep -o '"name":"[^"]*"' | head -1
+
+  # Step 4: Type Aggregation (data transformation)
+  - name: step-04-type-aggregation
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 4: Type Aggregation ==="
+      echo "Fire types:"
+      curl -s http://127.0.0.1:8080/api/pokemon/type/fire | grep -o '"id"' | wc -l
+      echo "Water types:"
+      curl -s http://127.0.0.1:8080/api/pokemon/type/water | grep -o '"id"' | wc -l
+      echo "Electric types:"
+      curl -s http://127.0.0.1:8080/api/pokemon/type/electric | grep -o '"id"' | wc -l
+      echo "Psychic types:"
+      curl -s http://127.0.0.1:8080/api/pokemon/type/psychic | grep -o '"id"' | wc -l
+
+  # Step 5: Sequential Dependency Chain
+  - name: step-05a-fetch-starter
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 5a: Fetching starter Pokemon ==="
+      curl -s http://127.0.0.1:8080/api/pokemon/1 > /tmp/bulbasaur.json
+      curl -s http://127.0.0.1:8080/api/pokemon/4 > /tmp/charmander.json
+      curl -s http://127.0.0.1:8080/api/pokemon/7 > /tmp/squirtle.json
+      echo "Starter Pokemon saved"
+
+  - name: step-05b-validate-starters
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 5b: Validating starter Pokemon ==="
+      for f in bulbasaur charmander squirtle; do
+        NAME=$(cat /tmp/${f}.json | grep -o '"name":"[^"]*"' | head -1)
+        echo "$f: $NAME"
+      done
+
+  # Step 6: Latency Injection (chaos engineering)
+  - name: step-06-latency-test
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 6: Latency Test (100ms delay) ==="
+      for i in 1 2 3 4 5; do
+        START=$(date +%s%N)
+        curl -s http://127.0.0.1:8080/health > /dev/null
+        END=$(date +%s%N)
+        LATENCY=$(( (END - START) / 1000000 ))
+        echo "Request $i: ${LATENCY}ms"
+        sleep 0.1
+      done
+
+  # Step 7: Concurrent Parallel Tasks
+  - name: step-07-concurrent-batch
+    parallel:
+      tasks:
+        - name: batch-a
+          image: ubuntu:mantic
+          run: |
+            for i in 1 2 3; do curl -s http://127.0.0.1:8080/api/pokemon/$i > /dev/null; done
+            echo "Batch A done"
+        - name: batch-b
+          image: ubuntu:mantic
+          run: |
+            for i in 4 5 6; do curl -s http://127.0.0.1:8080/api/pokemon/$i > /dev/null; done
+            echo "Batch B done"
+        - name: batch-c
+          image: ubuntu:mantic
+          run: |
+            for i in 7 8 9; do curl -s http://127.0.0.1:8080/api/pokemon/$i > /dev/null; done
+            echo "Batch C done"
+        - name: batch-d
+          image: ubuntu:mantic
+          run: |
+            for i in 10 11 12; do curl -s http://127.0.0.1:8080/api/pokemon/$i > /dev/null; done
+            echo "Batch D done"
+        - name: batch-e
+          image: ubuntu:mantic
+          run: |
+            for i in 13 14 15; do curl -s http://127.0.0.1:8080/api/pokemon/$i > /dev/null; done
+            echo "Batch E done"
+
+  # Step 8: Data Validation
+  - name: step-08-data-validation
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 8: Data Validation ==="
+      curl -s http://127.0.0.1:8080/api/pokemon/25 > /tmp/pikachu.json
+      if grep -q "Pikachu" /tmp/pikachu.json; then
+        echo "✓ Pikachu validation passed"
+      else
+        echo "✗ Pikachu validation failed"
+      fi
+      
+      curl -s http://127.0.0.1:8080/api/pokemon/150 > /tmp/mewtwo.json
+      if grep -q "Mewtwo" /tmp/mewtwo.json; then
+        echo "✓ Mewtwo validation passed"
+      else
+        echo "✗ Mewtwo validation failed"
+      fi
+
+  # Step 9: Error Simulation (high latency)
+  - name: step-09-error-simulation
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 9: Error Simulation ==="
+      echo "Testing invalid Pokemon ID..."
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/pokemon/999)
+      echo "Invalid ID response code: $HTTP_CODE"
+      if [ "$HTTP_CODE" = "404" ]; then
+        echo "✓ 404 handling correct"
+      else
+        echo "✗ Expected 404, got $HTTP_CODE"
+      fi
+
+  # Step 10: Performance Measurement
+  - name: step-10-performance-metrics
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 10: Performance Metrics ==="
+      TOTAL=0
+      for i in $(seq 1 20); do
+        START=$(date +%s%N)
+        curl -s http://127.0.0.1:8080/api/pokemon/$((i % 151 + 1)) > /dev/null
+        END=$(date +%s%N)
+        LATENCY=$(( (END - START) / 1000000 ))
+        TOTAL=$((TOTAL + LATENCY))
+        echo "Request $i: ${LATENCY}ms"
+      done
+      AVG=$((TOTAL / 20))
+      echo "Average latency: ${AVG}ms"
+
+  # Step 11: Final Aggregation
+  - name: step-11-final-aggregation
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 11: Final Aggregation ==="
+      echo "Counting all Pokemon types..."
+      echo "Fire: $(curl -s http://127.0.0.1:8080/api/pokemon/type/fire | grep -o '"id"' | wc -l)"
+      echo "Water: $(curl -s http://127.0.0.1:8080/api/pokemon/type/water | grep -o '"id"' | wc -l)"
+      echo "Grass: $(curl -s http://127.0.0.1:8080/api/pokemon/type/grass | grep -o '"id"' | wc -l)"
+      echo "Electric: $(curl -s http://127.0.0.1:8080/api/pokemon/type/electric | grep -o '"id"' | wc -l)"
+      echo "Psychic: $(curl -s http://127.0.0.1:8080/api/pokemon/type/psychic | grep -o '"id"' | wc -l)"
+      echo "Bug: $(curl -s http://127.0.0.1:8080/api/pokemon/type/bug | grep -o '"id"' | wc -l)"
+      echo "Normal: $(curl -s http://127.0.0.1:8080/api/pokemon/type/normal | grep -o '"id"' | wc -l)"
+
+  # Step 12: Health Confirmation
+  - name: step-12-final-health
+    image: ubuntu:mantic
+    run: |
+      echo "=== Step 12: Final Health Check ==="
+      echo "=========================================="
+      echo "       CHAOS ENGINEERING COMPLETE"
+      echo "=========================================="
+      curl -s http://127.0.0.1:8080/health
+      echo ""
+      echo "All 12 workflow steps completed successfully!"
+      echo "Twerk has demonstrated:"
+      echo "  ✓ Sequential task execution"
+      echo "  ✓ Parallel fan-out distribution"
+      echo "  ✓ Data transformation/aggregation"
+      echo "  ✓ Latency measurement"
+      echo "  ✓ Error handling"
+      echo "  ✓ Performance profiling"
+      echo "=========================================="

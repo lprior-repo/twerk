@@ -1,0 +1,89 @@
+name: pokemon-api-benchmark
+description: Benchmark twerk by calling Pokemon API - tripled parallelism
+tasks:
+  - name: health-check
+    image: ubuntu:mantic
+    run: |
+      echo "=== Pokemon API Benchmark ==="
+      curl -s http://127.0.0.1:8080/health
+      echo ""
+
+  - name: fetch-all-pokemon
+    image: ubuntu:mantic
+    run: |
+      echo "Fetching all 151 Pokemon..."
+      curl -s http://127.0.0.1:8080/api/pokemon | head -c 200
+      echo "..."
+
+  - name: parallel-pokemon-fetches
+    parallel:
+      tasks:
+        - name: fetch-bulbasaur
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/1
+
+        - name: fetch-pikachu
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/25
+
+        - name: fetch-charmander
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/4
+
+        - name: fetch-squirtle
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/7
+
+        - name: fetch-bullbasaur
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/2
+
+        - name: fetch-charizard
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/6
+
+        - name: fetch-mewtwo
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/150
+
+        - name: fetch-mew
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/151
+
+        - name: fetch-dragonite
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/149
+
+  - name: parallel-type-fetches
+    parallel:
+      tasks:
+        - name: type-fire
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/fire | head -c 100
+
+        - name: type-water
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/water | head -c 100
+
+        - name: type-grass
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/grass | head -c 100
+
+        - name: type-electric
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/electric | head -c 100
+
+        - name: type-psychic
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/psychic | head -c 100
+
+        - name: type-dragon
+          image: ubuntu:mantic
+          run: curl -s http://127.0.0.1:8080/api/pokemon/type/dragon | head -c 100
+
+  - name: final-health
+    image: ubuntu:mantic
+    run: |
+      echo "=== Benchmark Complete ==="
+      curl -s http://127.0.0.1:8080/health
+      echo ""

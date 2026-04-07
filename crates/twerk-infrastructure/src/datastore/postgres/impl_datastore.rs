@@ -40,6 +40,10 @@ impl Datastore for PostgresDatastore {
         self.get_active_tasks_impl(job_id).await
     }
 
+    async fn get_all_tasks_for_job(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
+        self.get_all_tasks_for_job_impl(job_id).await
+    }
+
     async fn get_next_task(&self, parent_task_id: &str) -> DatastoreResult<Task> {
         self.get_next_task_impl(parent_task_id).await
     }

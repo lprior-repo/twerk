@@ -98,6 +98,17 @@ impl Datastore for DatastoreProxy {
         ds.get_active_tasks(job_id).await
     }
 
+    async fn get_all_tasks_for_job(
+        &self,
+        job_id: &str,
+    ) -> twerk_infrastructure::datastore::Result<Vec<Task>> {
+        let inner = self.inner.read().await;
+        let ds = inner
+            .as_deref()
+            .ok_or_else(|| DatastoreError::Database(DATSTORE_NOT_INIT.to_string()))?;
+        ds.get_all_tasks_for_job(job_id).await
+    }
+
     async fn get_next_task(
         &self,
         parent_task_id: &str,

@@ -1,0 +1,304 @@
+name: twerk-pokemon-shell-stress
+description: Stress test twerk calling Pokemon API via shell
+
+tasks:
+  - name: fetch-001
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/1 > /dev/null && echo "1"
+  - name: fetch-002
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/2 > /dev/null && echo "2"
+  - name: fetch-003
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/3 > /dev/null && echo "3"
+  - name: fetch-004
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/4 > /dev/null && echo "4"
+  - name: fetch-005
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/5 > /dev/null && echo "5"
+  - name: fetch-006
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/6 > /dev/null && echo "6"
+  - name: fetch-007
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/7 > /dev/null && echo "7"
+  - name: fetch-008
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/8 > /dev/null && echo "8"
+  - name: fetch-009
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/9 > /dev/null && echo "9"
+  - name: fetch-010
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/10 > /dev/null && echo "10"
+  - name: fetch-011
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/11 > /dev/null && echo "11"
+  - name: fetch-012
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/12 > /dev/null && echo "12"
+  - name: fetch-013
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/13 > /dev/null && echo "13"
+  - name: fetch-014
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/14 > /dev/null && echo "14"
+  - name: fetch-015
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/15 > /dev/null && echo "15"
+  - name: fetch-016
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/16 > /dev/null && echo "16"
+  - name: fetch-017
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/17 > /dev/null && echo "17"
+  - name: fetch-018
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/18 > /dev/null && echo "18"
+  - name: fetch-019
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/19 > /dev/null && echo "19"
+  - name: fetch-020
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/20 > /dev/null && echo "20"
+  - name: fetch-021
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/21 > /dev/null && echo "21"
+  - name: fetch-022
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/22 > /dev/null && echo "22"
+  - name: fetch-023
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/23 > /dev/null && echo "23"
+  - name: fetch-024
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/24 > /dev/null && echo "24"
+  - name: fetch-025
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/25 > /dev/null && echo "25"
+  - name: fetch-026
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/26 > /dev/null && echo "26"
+  - name: fetch-027
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/27 > /dev/null && echo "27"
+  - name: fetch-028
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/28 > /dev/null && echo "28"
+  - name: fetch-029
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/29 > /dev/null && echo "29"
+  - name: fetch-030
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/30 > /dev/null && echo "30"
+  - name: fetch-031
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/31 > /dev/null && echo "31"
+  - name: fetch-032
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/32 > /dev/null && echo "32"
+  - name: fetch-033
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/33 > /dev/null && echo "33"
+  - name: fetch-034
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/34 > /dev/null && echo "34"
+  - name: fetch-035
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/35 > /dev/null && echo "35"
+  - name: fetch-036
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/36 > /dev/null && echo "36"
+  - name: fetch-037
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/37 > /dev/null && echo "37"
+  - name: fetch-038
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/38 > /dev/null && echo "38"
+  - name: fetch-039
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/39 > /dev/null && echo "39"
+  - name: fetch-040
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/40 > /dev/null && echo "40"
+  - name: fetch-041
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/41 > /dev/null && echo "41"
+  - name: fetch-042
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/42 > /dev/null && echo "42"
+  - name: fetch-043
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/43 > /dev/null && echo "43"
+  - name: fetch-044
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/44 > /dev/null && echo "44"
+  - name: fetch-045
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/45 > /dev/null && echo "45"
+  - name: fetch-046
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/46 > /dev/null && echo "46"
+  - name: fetch-047
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/47 > /dev/null && echo "47"
+  - name: fetch-048
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/48 > /dev/null && echo "48"
+  - name: fetch-049
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/49 > /dev/null && echo "49"
+  - name: fetch-050
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/50 > /dev/null && echo "50"
+  - name: fetch-051
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/51 > /dev/null && echo "51"
+  - name: fetch-052
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/52 > /dev/null && echo "52"
+  - name: fetch-053
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/53 > /dev/null && echo "53"
+  - name: fetch-054
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/54 > /dev/null && echo "54"
+  - name: fetch-055
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/55 > /dev/null && echo "55"
+  - name: fetch-056
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/56 > /dev/null && echo "56"
+  - name: fetch-057
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/57 > /dev/null && echo "57"
+  - name: fetch-058
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/58 > /dev/null && echo "58"
+  - name: fetch-059
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/59 > /dev/null && echo "59"
+  - name: fetch-060
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/60 > /dev/null && echo "60"
+  - name: fetch-061
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/61 > /dev/null && echo "61"
+  - name: fetch-062
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/62 > /dev/null && echo "62"
+  - name: fetch-063
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/63 > /dev/null && echo "63"
+  - name: fetch-064
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/64 > /dev/null && echo "64"
+  - name: fetch-065
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/65 > /dev/null && echo "65"
+  - name: fetch-066
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/66 > /dev/null && echo "66"
+  - name: fetch-067
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/67 > /dev/null && echo "67"
+  - name: fetch-068
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/68 > /dev/null && echo "68"
+  - name: fetch-069
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/69 > /dev/null && echo "69"
+  - name: fetch-070
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/70 > /dev/null && echo "70"
+  - name: fetch-071
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/71 > /dev/null && echo "71"
+  - name: fetch-072
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/72 > /dev/null && echo "72"
+  - name: fetch-073
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/73 > /dev/null && echo "73"
+  - name: fetch-074
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/74 > /dev/null && echo "74"
+  - name: fetch-075
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/75 > /dev/null && echo "75"
+  - name: fetch-076
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/76 > /dev/null && echo "76"
+  - name: fetch-077
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/77 > /dev/null && echo "77"
+  - name: fetch-078
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/78 > /dev/null && echo "78"
+  - name: fetch-079
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/79 > /dev/null && echo "79"
+  - name: fetch-080
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/80 > /dev/null && echo "80"
+  - name: fetch-081
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/81 > /dev/null && echo "81"
+  - name: fetch-082
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/82 > /dev/null && echo "82"
+  - name: fetch-083
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/83 > /dev/null && echo "83"
+  - name: fetch-084
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/84 > /dev/null && echo "84"
+  - name: fetch-085
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/85 > /dev/null && echo "85"
+  - name: fetch-086
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/86 > /dev/null && echo "86"
+  - name: fetch-087
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/87 > /dev/null && echo "87"
+  - name: fetch-088
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/88 > /dev/null && echo "88"
+  - name: fetch-089
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/89 > /dev/null && echo "89"
+  - name: fetch-090
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/90 > /dev/null && echo "90"
+  - name: fetch-091
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/91 > /dev/null && echo "91"
+  - name: fetch-092
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/92 > /dev/null && echo "92"
+  - name: fetch-093
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/93 > /dev/null && echo "93"
+  - name: fetch-094
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/94 > /dev/null && echo "94"
+  - name: fetch-095
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/95 > /dev/null && echo "95"
+  - name: fetch-096
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/96 > /dev/null && echo "96"
+  - name: fetch-097
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/97 > /dev/null && echo "97"
+  - name: fetch-098
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/98 > /dev/null && echo "98"
+  - name: fetch-099
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/99 > /dev/null && echo "99"
+  - name: fetch-100
+    image: ubuntu:mantic
+    run: curl -s http://127.0.0.1:8080/api/pokemon/100 > /dev/null && echo "100"

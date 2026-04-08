@@ -2,7 +2,9 @@
 //!
 //! These tests verify that engines with different engine_ids can run concurrently
 //! on the same RabbitMQ without cross-talk (the original bug).
-
+//!
+//! Run with: cargo test -p twerk-web --test concurrent_isolation_test --features integration
+#![cfg(feature = "integration")]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,

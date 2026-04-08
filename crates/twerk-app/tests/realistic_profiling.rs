@@ -69,7 +69,7 @@ impl PercentileStats {
 
 /// Simulates a simple bash echo task (minimal I/O)
 fn workload_echo() {
-    let _s = format!("hello world");
+    let _s = "hello world".to_string();
 }
 
 /// Simulates bash file I/O (write + read)
@@ -158,7 +158,7 @@ mod realistic_profiling {
         let mut stats = PercentileStats::new();
 
         let overall_start = Instant::now();
-        for i in 0..iterations {
+        for _i in 0..iterations {
             let op_start = Instant::now();
             workload_echo();
             let latency = op_start.elapsed().as_nanos() as u64;
@@ -209,7 +209,7 @@ mod realistic_profiling {
         let mut stats = PercentileStats::new();
 
         let overall_start = Instant::now();
-        for i in 0..iterations {
+        for _i in 0..iterations {
             let op_start = Instant::now();
             workload_io();
             let latency = op_start.elapsed().as_nanos() as u64;
@@ -253,7 +253,7 @@ mod realistic_profiling {
         let mut stats = PercentileStats::new();
 
         let overall_start = Instant::now();
-        for i in 0..iterations {
+        for _i in 0..iterations {
             let op_start = Instant::now();
             workload_compute();
             let latency = op_start.elapsed().as_nanos() as u64;
@@ -390,14 +390,14 @@ mod realistic_profiling {
 
         // Run quick latency check
         let mut stats = PercentileStats::new();
-        for i in 0..10_000 {
+        for _i in 0..10_000 {
             let start = Instant::now();
             workload_echo();
             stats.add(start.elapsed().as_nanos() as u64);
         }
 
         // Run quick throughput check
-        let start = Instant::now();
+        let _start = Instant::now();
         let mut count = 0;
         let deadline = Instant::now() + Duration::from_millis(100);
         while Instant::now() < deadline {

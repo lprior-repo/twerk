@@ -5,6 +5,7 @@ use dashmap::DashMap;
 use std::pin::Pin;
 use std::process::ExitCode;
 use std::sync::Arc;
+use tracing::warn;
 use twerk_core::id::TaskId;
 use twerk_core::mount::Mount;
 use twerk_core::task::Task;
@@ -108,10 +109,9 @@ impl DockerRuntimeAdapter {
 
             if let Err(e) = start_result {
                 active_tasks.remove(&task_id);
-                tc.remove()
-                    .await
-                    .map_err(|e| anyhow!("failed to remove container: {}", e))
-                    .ok();
+                if let Err(e) = tc.remove().await {
+                    warn!(error = %e, "failed to remove container after start failure");
+                }
                 return Err(anyhow!("failed to start container: {}", e));
             }
 
@@ -119,17 +119,15 @@ impl DockerRuntimeAdapter {
             active_tasks.remove(&task_id);
 
             if let Err(e) = wait_result {
-                tc.remove()
-                    .await
-                    .map_err(|e| anyhow!("failed to remove container after wait error: {}", e))
-                    .ok();
+                if let Err(re) = tc.remove().await {
+                    warn!(error = %re, "failed to remove container after wait error");
+                }
                 return Err(anyhow!("container wait error: {}", e));
             }
 
-            tc.remove()
-                .await
-                .map_err(|e| anyhow!("failed to remove container: {}", e))
-                .ok();
+            if let Err(e) = tc.remove().await {
+                warn!(error = %e, "failed to remove container after completion");
+            }
             Ok(())
         })
     }
@@ -141,13 +139,16 @@ impl RuntimeTrait for DockerRuntimeAdapter {
     }
 
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
-        let tid = task.id.clone().unwrap_or_default();
+        let tid = task.id.clone();
         let active = self.active_tasks.clone();
         Box::pin(async move {
+            let tid = tid.ok_or_else(|| anyhow::anyhow!("task has no ID for stop operation"))?;
             if let Some((_, cid)) = active.remove(&tid) {
                 let d = Docker::connect_with_local_defaults()?;
-                let _ = d.stop_container(&cid, None).await;
-                let _ = d
+                if let Err(e) = d.stop_container(&cid, None).await {
+                    warn!(error = %e, container_id = %cid, "failed to stop container during cleanup");
+                }
+                if let Err(e) = d
                     .remove_container(
                         &cid,
                         Some(RemoveContainerOptions {
@@ -155,7 +156,10 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                             ..Default::default()
                         }),
                     )
-                    .await;
+                    .await
+                {
+                    warn!(error = %e, container_id = %cid, "failed to remove container during cleanup");
+                }
             }
             Ok(Ok(ExitCode::SUCCESS))
         })

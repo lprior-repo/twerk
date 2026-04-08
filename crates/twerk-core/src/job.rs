@@ -54,7 +54,7 @@ pub struct ParseJobStateError(String);
 
 impl fmt::Display for ParseJobStateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unknown JobState: {:?}", self.0)
+        write!(f, "unknown JobState: {}", self.0)
     }
 }
 

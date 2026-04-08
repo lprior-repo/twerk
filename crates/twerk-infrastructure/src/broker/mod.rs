@@ -59,7 +59,6 @@ pub fn prefixed_queue(queue: &str, engine_id: &str) -> String {
 
 fn coordinator_queue_names() -> [&'static str; 8] {
     [
-        queue::QUEUE_PENDING,
         queue::QUEUE_COMPLETED,
         queue::QUEUE_FAILED,
         queue::QUEUE_STARTED,
@@ -67,6 +66,7 @@ fn coordinator_queue_names() -> [&'static str; 8] {
         queue::QUEUE_JOBS,
         queue::QUEUE_PROGRESS,
         queue::QUEUE_TASK_LOG_PART,
+        queue::QUEUE_REDELIVERIES,
     ]
 }
 
@@ -84,30 +84,34 @@ fn base_queue_name(qname: &str) -> &str {
 /// Returns None if the queue is not prefixed (no dot separator at the end).
 #[must_use]
 pub fn extract_engine_id(queue_name: &str) -> Option<String> {
-    coordinator_queue_names().into_iter().find_map(|coordinator_queue| {
-        let prefix = format!("{coordinator_queue}.");
-        queue_name.strip_prefix(&prefix).and_then(|suffix| {
-            let trimmed = suffix.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
+    coordinator_queue_names()
+        .into_iter()
+        .find_map(|coordinator_queue| {
+            let prefix = format!("{coordinator_queue}.");
+            queue_name.strip_prefix(&prefix).and_then(|suffix| {
+                let trimmed = suffix.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            })
         })
-    })
 }
 
 #[must_use]
 pub fn is_coordinator_queue(qname: &str) -> bool {
-    matches!(base_queue_name(qname),
-        queue::QUEUE_PENDING
-            | queue::QUEUE_COMPLETED
+    matches!(
+        base_queue_name(qname),
+        queue::QUEUE_COMPLETED
             | queue::QUEUE_FAILED
             | queue::QUEUE_STARTED
             | queue::QUEUE_HEARTBEAT
             | queue::QUEUE_JOBS
             | queue::QUEUE_PROGRESS
-            | queue::QUEUE_TASK_LOG_PART)
+            | queue::QUEUE_TASK_LOG_PART
+            | queue::QUEUE_REDELIVERIES
+    )
 }
 
 #[must_use]

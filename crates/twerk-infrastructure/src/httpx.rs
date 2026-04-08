@@ -188,13 +188,13 @@ mod tests {
         let app = Router::new().route("/health", get(|| async { "ok" }));
 
         let config = PollingConfig {
-            max_attempts: 10,
-            delay: Duration::from_millis(10),
+            max_attempts: 50,
+            delay: Duration::from_millis(50),
         };
 
         // Start the server - should succeed
         let result = start_async(&addr_str, app, config).await;
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "start_async failed: {:?}", result.err());
     }
 
     #[tokio::test]

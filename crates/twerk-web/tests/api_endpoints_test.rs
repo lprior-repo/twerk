@@ -19,13 +19,10 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
-use twerk_core::id::{JobId, TaskId};
-use twerk_core::job::{
-    Job, JobState, JOB_STATE_CANCELLED, JOB_STATE_COMPLETED, JOB_STATE_FAILED, JOB_STATE_PENDING,
-    JOB_STATE_RESTART, JOB_STATE_RUNNING, JOB_STATE_SCHEDULED,
-};
-use twerk_core::task::{Task, TaskState, TASK_STATE_PENDING, TASK_STATE_RUNNING};
-use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
+use twerk_core::id::JobId;
+use twerk_core::job::{Job, JobState};
+use twerk_core::task::{Task, TaskState};
+use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_web::api::{create_router, AppState, Config};
@@ -190,7 +187,7 @@ async fn list_jobs_returns_jobs_when_exist() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body["items"].is_array());
-    assert!(body["items"].as_array().unwrap().len() >= 1);
+    assert!(!body["items"].as_array().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -304,7 +301,7 @@ async fn get_job_log_returns_404_when_job_not_found() {
 
 #[tokio::test]
 async fn cancel_job_returns_ok_when_job_is_running() {
-    let (state, ds, _job_id) = setup_state_with_tasks().await;
+    let (state, _ds, _job_id) = setup_state_with_tasks().await;
     let app = create_router(state);
 
     // Job is in Running state - should be cancellable
@@ -664,7 +661,7 @@ async fn list_scheduled_jobs_returns_jobs_when_exist() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body["items"].is_array());
-    assert!(body["items"].as_array().unwrap().len() >= 1);
+    assert!(!body["items"].as_array().unwrap().is_empty());
 }
 
 // ============================================================================
@@ -712,7 +709,7 @@ async fn get_scheduled_job_returns_job_when_exists() {
         .clone()
         .oneshot(
             axum::http::Request::builder()
-                .uri(&format!("/scheduled-jobs/{}", job_id))
+                .uri(format!("/scheduled-jobs/{}", job_id))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -789,7 +786,7 @@ async fn pause_scheduled_job_returns_ok_when_active() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri(&format!("/scheduled-jobs/{}/pause", job_id))
+                .uri(format!("/scheduled-jobs/{}/pause", job_id))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -866,7 +863,7 @@ async fn resume_scheduled_job_returns_ok_when_paused() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri(&format!("/scheduled-jobs/{}/pause", job_id))
+                .uri(format!("/scheduled-jobs/{}/pause", job_id))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -879,7 +876,7 @@ async fn resume_scheduled_job_returns_ok_when_paused() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri(&format!("/scheduled-jobs/{}/resume", job_id))
+                .uri(format!("/scheduled-jobs/{}/resume", job_id))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -956,7 +953,7 @@ async fn delete_scheduled_job_returns_ok_when_exists() {
         .oneshot(
             axum::http::Request::builder()
                 .method("DELETE")
-                .uri(&format!("/scheduled-jobs/{}", job_id))
+                .uri(format!("/scheduled-jobs/{}", job_id))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )

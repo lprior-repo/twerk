@@ -158,7 +158,7 @@ async fn jobs_list_returns_job_list() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert!(body["items"].is_array());
-    assert!(body["items"].as_array().unwrap().len() >= 1);
+    assert!(!body["items"].as_array().unwrap().is_empty());
 }
 
 #[tokio::test]

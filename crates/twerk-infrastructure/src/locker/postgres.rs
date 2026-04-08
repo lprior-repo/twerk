@@ -27,33 +27,21 @@ pub struct PostgresLocker {
     pool: Arc<SyncPostgresPool>,
 }
 
-/// Wrapper for raw pool pointer that safely implements Send + Sync.
+/// Lightweight handle to the pool for returning connections.
 #[derive(Clone)]
 struct PoolRef {
-    ptr: *const SyncPostgresPool,
+    inner: Arc<SyncPostgresPool>,
 }
-
-// SAFETY: PoolRef is only created from Arc<SyncPostgresPool> and the pool
-// is guaranteed to be alive (Arc keeps it alive). The pointer is valid
-// for the lifetime of the Arc. Since SyncPostgresPool contains only
-// Send + Sync fields (parking_lot::Mutex), it's safe to share across threads.
-unsafe impl Send for PoolRef {}
-unsafe impl Sync for PoolRef {}
 
 impl PoolRef {
     fn new(pool: &Arc<SyncPostgresPool>) -> Self {
         Self {
-            ptr: Arc::as_ptr(pool),
+            inner: Arc::clone(pool),
         }
     }
 
     fn put(&self, client: PgClient, created_at: Instant) {
-        // SAFETY: The pointer is valid for the lifetime of the pool,
-        // which is guaranteed to outlive PooledClient since Arc keeps it alive.
-        unsafe {
-            let pool = &*self.ptr;
-            pool.put(client, created_at);
-        }
+        self.inner.put(client, created_at);
     }
 }
 
@@ -109,7 +97,7 @@ impl SyncPostgresPool {
         }
     }
 
-    fn get(&self) -> Result<PooledClient, LockError> {
+    fn get(self: &Arc<Self>) -> Result<PooledClient, LockError> {
         {
             let mut idle = self.idle.lock();
 
@@ -132,9 +120,7 @@ impl SyncPostgresPool {
                     }
                 }
 
-                // SAFETY: self is valid for lifetime of PooledClient
-                let pool_ref =
-                    unsafe { PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool)) };
+                let pool_ref = PoolRef::new(self);
                 return Ok(PooledClient {
                     pool: pool_ref,
                     client: Some(pooled.client),
@@ -156,8 +142,7 @@ impl SyncPostgresPool {
 
         let client = self.connect_with_timeout()?;
 
-        // SAFETY: self is valid for lifetime of PooledClient
-        let pool_ref = unsafe { PoolRef::new(&Arc::from_raw(self as *const SyncPostgresPool)) };
+        let pool_ref = PoolRef::new(self);
 
         Ok(PooledClient {
             pool: pool_ref,
@@ -297,19 +282,20 @@ impl Lock for PostgresLock {
     fn release_lock(
         self: Pin<Box<Self>>,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), LockError>> + Send>> {
-        // ManuallyDrop prevents Drop from running on this
+        // ManuallyDrop prevents Drop from running so we can manually
+        // extract fields without double-freeing.
         let this = ManuallyDrop::new(*Pin::into_inner(self));
 
-        // SAFETY: We're consuming self and putting it in ManuallyDrop, so
-        // we take full ownership. We won't use this again after moving out.
-        let client = unsafe { std::ptr::read(&this.client) };
+        // Extract fields without moving out of the Drop type:
+        // - client: take via Mutex::lock() (leaves None behind)
+        // - pool/created_at: clone/copy (cheap)
+        let client = this.client.lock().take();
         let pool = this.pool.clone();
         let created_at = this.created_at;
 
         // Spawn thread to do ROLLBACK and return the client
         let handle = std::thread::spawn(move || {
-            let mut guard = client.lock();
-            let mut client = guard.take();
+            let mut client = client;
             if let Some(ref mut c) = client {
                 let _ = c.simple_query("ROLLBACK");
             }

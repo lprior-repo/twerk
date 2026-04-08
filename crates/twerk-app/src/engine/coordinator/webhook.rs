@@ -43,7 +43,7 @@ async fn call_webhook_async(
     let client = Client::builder()
         .timeout(Duration::from_secs(WEBHOOK_DEFAULT_TIMEOUT_SECS))
         .build()
-        .map_err(|_| webhook::WebhookError::SerializationError)?;
+        .map_err(|_| webhook::WebhookError::ClientBuildError)?;
 
     for attempt in 0..WEBHOOK_DEFAULT_MAX_ATTEMPTS {
         let current_attempt = attempt + 1;

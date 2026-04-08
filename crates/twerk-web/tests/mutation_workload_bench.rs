@@ -288,7 +288,7 @@ mod realistic_mutation_benchmarks {
         let start = Instant::now();
         for i in 0..iterations {
             let parallelism = (i % 9) + 8; // 8-16 parallel tasks
-            let yaml = generate_parallel_yaml(i, parallelism as u64);
+            let yaml = generate_parallel_yaml(i, parallelism);
             from_slice::<Job>(yaml.as_bytes()).expect("parallel yaml should parse");
         }
         let duration = start.elapsed();
@@ -337,7 +337,7 @@ mod realistic_mutation_benchmarks {
         let start = Instant::now();
         for i in 0..iterations {
             let items = (i % 41) + 10; // 10-50 items per each job
-            let yaml = generate_each_yaml(i, items as u64);
+            let yaml = generate_each_yaml(i, items);
             from_slice::<Job>(yaml.as_bytes()).expect("each yaml should parse");
         }
         let duration = start.elapsed();

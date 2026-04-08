@@ -1,3 +1,6 @@
+//! Distributed E2E tests - require PostgreSQL and RabbitMQ containers.
+//! Run with: cargo test -p twerk-web --test distributed_e2e_test --features integration
+#![cfg(feature = "integration")]
 #![allow(
     clippy::expect_used,
     clippy::unwrap_used,
@@ -235,10 +238,7 @@ async fn start_pokemon_api() -> anyhow::Result<(String, tokio::task::JoinHandle<
     Ok((format!("http://{address}"), handle))
 }
 
-async fn count_jobs_by_state(
-    dsn: &str,
-    state: JobState,
-) -> anyhow::Result<i64> {
+async fn count_jobs_by_state(dsn: &str, state: JobState) -> anyhow::Result<i64> {
     let datastore = PostgresDatastore::new(dsn, Options::default()).await?;
     let jobs = datastore.get_jobs("", "", 1, 10_000).await?;
     let count = jobs.items.iter().filter(|job| job.state == state).count() as i64;
@@ -246,10 +246,7 @@ async fn count_jobs_by_state(
     Ok(count)
 }
 
-async fn count_tasks_by_state(
-    dsn: &str,
-    state: TaskState,
-) -> anyhow::Result<i64> {
+async fn count_tasks_by_state(dsn: &str, state: TaskState) -> anyhow::Result<i64> {
     let datastore = PostgresDatastore::new(dsn, Options::default()).await?;
     let jobs = datastore.get_jobs("", "", 1, 10_000).await?;
     let mut all_tasks = Vec::new();
@@ -418,8 +415,9 @@ async fn distributed_many_single_task_jobs_complete_without_stuck_pending_or_sch
     }
 
     assert!(
-        jobs.iter()
-            .all(|job| job["state"].as_str().is_some_and(|state| state == "COMPLETED")),
+        jobs.iter().all(|job| job["state"]
+            .as_str()
+            .is_some_and(|state| state == "COMPLETED")),
         "not all burst jobs completed: {jobs:?}"
     );
 
@@ -434,7 +432,10 @@ async fn distributed_many_single_task_jobs_complete_without_stuck_pending_or_sch
 
     assert_eq!(pending_jobs, 0, "pending jobs remained after burst drain");
     assert_eq!(pending_tasks, 0, "pending tasks remained after burst drain");
-    assert_eq!(scheduled_jobs, 0, "scheduled jobs remained after burst drain");
+    assert_eq!(
+        scheduled_jobs, 0,
+        "scheduled jobs remained after burst drain"
+    );
     assert_eq!(
         scheduled_tasks, 0,
         "scheduled tasks remained after burst drain"
@@ -879,11 +880,13 @@ tasks:
 }
 
 #[tokio::test]
-async fn distributed_submit_yaml_pokemon_curl_workload_completes_end_to_end() -> anyhow::Result<()> {
+async fn distributed_submit_yaml_pokemon_curl_workload_completes_end_to_end() -> anyhow::Result<()>
+{
     let env = DistributedEnv::new().await?;
     let (pokemon_base_url, pokemon_handle) = start_pokemon_api().await?;
 
-    let yaml_body = format!(r#"
+    let yaml_body = format!(
+        r#"
 name: pokemon-curl-e2e
 description: Distributed YAML curl workflow against Pokemon API
 tasks:
@@ -900,10 +903,16 @@ tasks:
           run: "curl -fsS {0}/api/pokemon/25 | grep -q pokemon-25"
         - name: fetch-7
           run: "curl -fsS {0}/api/pokemon/7 | grep -q pokemon-7"
-"#, pokemon_base_url);
+"#,
+        pokemon_base_url
+    );
 
     let (status, body) = submit_yaml_job(&env.client, &env.base_url, &yaml_body).await?;
-    assert_eq!(status, StatusCode::OK, "yaml pokemon submit response: {body}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "yaml pokemon submit response: {body}"
+    );
 
     let job_id = body["id"]
         .as_str()

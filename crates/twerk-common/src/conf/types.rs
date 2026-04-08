@@ -34,6 +34,9 @@ pub enum ConfigError {
 
     #[error("error unmarshaling config: {0}")]
     UnmarshalError(String),
+
+    #[error("config lock poisoned")]
+    Poisoned,
 }
 
 /// Helper struct for parsing TOML values with flexible accessors.

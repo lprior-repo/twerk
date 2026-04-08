@@ -16,7 +16,6 @@
 //!
 //! Run with: cargo test -p twerk-web --test monte_carlo_simulation -- --nocapture
 
-use rand::Rng;
 use rand::SeedableRng;
 use std::time::Instant;
 use twerk_core::job::Job;
@@ -102,7 +101,7 @@ impl WorkloadScenario {
 // ============================================================================
 
 fn generate_workload(scenario: WorkloadScenario, seed: u64, iteration: u64) -> String {
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed.wrapping_add(iteration));
+    let _rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed.wrapping_add(iteration));
 
     // Mutate based on iteration to create unique YAMLs
     let job_id = iteration;
@@ -331,8 +330,8 @@ fn generate_parallel_yaml(job_id: u64, count: usize) -> String {
         let cmd = match i % 4 {
             0 => format!(r#"["echo", "parallel-{}"]"#, i),
             1 => r#"["bash", "-c", "echo $RANDOM"]"#.to_string(),
-            2 => format!(r#"["date"]"#),
-            _ => format!(r#"["pwd"]"#),
+            2 => r#"["date"]"#.to_string(),
+            _ => r#"["pwd"]"#.to_string(),
         };
         tasks.push_str(&format!(
             r#"  - name: parallel-task-{}
@@ -399,6 +398,7 @@ tasks:
 // ============================================================================
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct MonteCarloResult {
     scenario: WorkloadScenario,
     samples: Vec<f64>,
@@ -585,8 +585,7 @@ mod monte_carlo_simulation {
         let failing_scenarios = SCENARIOS - passing_scenarios;
 
         // P-value calculation (proportion of samples below target)
-        let mut all_samples: Vec<f64> =
-            all_results.iter().flat_map(|r| r.samples.clone()).collect();
+        let all_samples: Vec<f64> = all_results.iter().flat_map(|r| r.samples.clone()).collect();
         let samples_below_target = all_samples.iter().filter(|&&x| x < 20_000.0).count();
         let p_value = samples_below_target as f64 / all_samples.len() as f64;
 

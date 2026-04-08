@@ -12,7 +12,7 @@ use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
-use tracing::{error, instrument};
+use tracing::{error, instrument, warn};
 use twerk_core::task::{TaskLogPart, TaskState};
 use twerk_infrastructure::broker::queue::QUEUE_FAILED;
 
@@ -86,7 +86,10 @@ pub async fn handle_redelivered(
         .as_deref()
         .ok_or_else(|| anyhow!("redelivered task has no id"))?;
     let persisted = ds.get_task_by_id(task_id).await?;
-    if matches!(persisted.state, TaskState::Completed | TaskState::Failed | TaskState::Cancelled) {
+    if matches!(
+        persisted.state,
+        TaskState::Completed | TaskState::Failed | TaskState::Cancelled
+    ) {
         return Ok(());
     }
     task.redelivered += 1;
@@ -128,7 +131,9 @@ pub async fn handle_started(
     )
     .await?;
 
-    let _ = fire_task_webhooks(ds, &task, "task.Started").await;
+    if let Err(e) = fire_task_webhooks(ds, &task, "task.Started").await {
+        warn!(error = %e, "failed to fire task.Started webhook");
+    }
     Ok(())
 }
 
@@ -174,7 +179,9 @@ pub async fn handle_task_completed(
     )
     .await?;
 
-    let _ = fire_task_webhooks(ds.clone(), &task, "task.Completed").await;
+    if let Err(e) = fire_task_webhooks(ds.clone(), &task, "task.Completed").await {
+        warn!(error = %e, "failed to fire task.Completed webhook");
+    }
 
     if let Some(pid) = task.parent_id.clone() {
         handle_subtask_completed(ds, broker, task, pid.as_str()).await
@@ -214,7 +221,9 @@ pub async fn handle_task_failed(
     )
     .await?;
 
-    let _ = fire_task_webhooks(ds.clone(), &task, "task.Failed").await;
+    if let Err(e) = fire_task_webhooks(ds.clone(), &task, "task.Failed").await {
+        warn!(error = %e, "failed to fire task.Failed webhook");
+    }
 
     if let Some(pid) = task.parent_id.clone() {
         handle_subtask_failed(ds, broker, task, pid.to_string()).await
@@ -269,7 +278,9 @@ pub async fn handle_error(
     let job = ds.get_job_by_id(job_id).await?;
 
     if !is_job_active(job.state) {
-        let _ = fire_task_webhooks(ds, &task, "task.Error").await;
+        if let Err(e) = fire_task_webhooks(ds, &task, "task.Error").await {
+            warn!(error = %e, "failed to fire task.Error webhook");
+        }
         return Ok(());
     }
 

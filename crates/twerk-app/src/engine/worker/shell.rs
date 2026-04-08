@@ -291,7 +291,12 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Wait for completion
             let status = child.wait().await?;
             if !status.success() {
-                return Err(anyhow!("failed with {:?}", status.code()));
+                return Err(anyhow!(
+                    "process exited with code {}",
+                    status
+                        .code()
+                        .map_or_else(|| "unknown (signal)".to_string(), |c| c.to_string())
+                ));
             }
 
             Ok(())

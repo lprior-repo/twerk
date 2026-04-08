@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn job_id_deref_trait() {
         let id = JobId::new("deref-test").unwrap();
-        let s: &str = &*id;
+        let s: &str = &id;
         assert_eq!(s, "deref-test");
     }
 

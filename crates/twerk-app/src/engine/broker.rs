@@ -26,9 +26,7 @@ use twerk_infrastructure::broker::{
 };
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
-use twerk_common::constants::{
-    DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL,
-};
+use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL};
 
 // ── Broker type enumeration ────────────────────────────────────
 

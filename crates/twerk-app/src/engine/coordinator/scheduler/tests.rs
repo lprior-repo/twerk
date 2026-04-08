@@ -7,7 +7,9 @@ use super::Scheduler;
 use std::collections::HashMap;
 use std::sync::Arc;
 use twerk_core::job::JobDefaults;
-use twerk_core::task::{EachTask, ParallelTask, SubJobTask, Task, TaskLimits, TaskState, TaskRetry};
+use twerk_core::task::{
+    EachTask, ParallelTask, SubJobTask, Task, TaskLimits, TaskRetry, TaskState,
+};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 
 #[tokio::test]
@@ -25,7 +27,9 @@ async fn test_schedule_regular_task_sets_scheduled_state() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_regular_task(task.clone()).await.unwrap();
 
-    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-1").unwrap());
+    let stored = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-regular-1").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Scheduled);
 }
@@ -46,7 +50,9 @@ async fn test_schedule_regular_task_sets_default_queue() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_regular_task(task.clone()).await.unwrap();
 
-    let stored = ds.tasks.get(&twerk_core::id::TaskId::new("task-regular-2").unwrap());
+    let stored = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-regular-2").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().queue, Some("default".to_string()));
 }
@@ -94,7 +100,10 @@ async fn test_schedule_regular_task_applies_job_defaults() {
     assert_eq!(stored.priority, 7);
     assert_eq!(stored.retry.as_ref().map(|r| r.limit), Some(3));
     assert_eq!(
-        stored.limits.as_ref().and_then(|limits| limits.cpus.clone()),
+        stored
+            .limits
+            .as_ref()
+            .and_then(|limits| limits.cpus.clone()),
         Some("2".to_string())
     );
     assert_eq!(
@@ -220,7 +229,9 @@ async fn test_schedule_each_task_creates_task_per_list_item() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_each_task(task.clone()).await.unwrap();
 
-    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-1").unwrap());
+    let parent = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-each-1").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -264,7 +275,9 @@ async fn test_schedule_each_task_sets_size() {
     let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
     scheduler.schedule_each_task(task.clone()).await.unwrap();
 
-    let parent_guard = ds.tasks.get(&twerk_core::id::TaskId::new("task-each-2").unwrap());
+    let parent_guard = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-each-2").unwrap());
     assert!(parent_guard.is_some());
     let parent = parent_guard.unwrap();
     let each = parent.each.as_ref().unwrap();
@@ -307,7 +320,9 @@ async fn test_schedule_subjob_task_creates_subjob() {
         .await
         .unwrap();
 
-    let parent = ds.tasks.get(&twerk_core::id::TaskId::new("task-subjob-1").unwrap());
+    let parent = ds
+        .tasks
+        .get(&twerk_core::id::TaskId::new("task-subjob-1").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 

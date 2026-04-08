@@ -60,12 +60,8 @@ impl PodmanRuntime {
     pub fn new(config: super::PodmanConfig) -> Self {
         let (tx, rx) = mpsc::channel::<PullRequest>(CHANNEL_BUFFER_SIZE);
         let mounter: Arc<dyn Mounter + Send + Sync> = if let Some(m) = config.mounter {
-            // SAFETY: Transmuting boxed trait object to Arc.
-            // The Box is created externally and we're converting to Arc for shared ownership.
-            unsafe {
-                let raw = Box::into_raw(m);
-                Arc::from_raw(raw as *const (dyn Mounter + Send + Sync))
-            }
+            // Convert Box<dyn Mounter> to Arc<dyn Mounter> via Arc::from(Box).
+            Arc::from(m)
         } else {
             Arc::new(super::super::volume::VolumeMounter::new())
         };

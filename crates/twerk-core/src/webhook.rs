@@ -71,6 +71,9 @@ pub enum WebhookError {
     #[error("[Webhook] error serializing body")]
     SerializationError,
 
+    #[error("[Webhook] failed to build HTTP client")]
+    ClientBuildError,
+
     #[error("[Webhook] request to {0} failed with non-retryable status {1}")]
     NonRetryableError(String, u16),
 

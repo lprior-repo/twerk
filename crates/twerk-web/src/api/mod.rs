@@ -46,7 +46,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            address: "0.0.0.0:8080".to_string(),
+            address: "0.0.0.0:8000".to_string(),
             enabled: HashMap::new(),
             cors_origins: vec![],
             basic_auth: None,

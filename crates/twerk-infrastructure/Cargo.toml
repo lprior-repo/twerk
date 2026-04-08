@@ -16,7 +16,7 @@ lapin.workspace = true
 bollard.workspace = true
 reqwest.workspace = true
 sysinfo.workspace = true
-tempfile = "3.14" # Not in workspace yet? Let's check
+tempfile.workspace = true
 hostname.workspace = true
 url.workspace = true
 tokio.workspace = true
@@ -53,7 +53,7 @@ rand.workspace = true
 # Configuration
 config.workspace = true
 toml.workspace = true
-dirs = "5.0"
+dirs.workspace = true
 time.workspace = true
 
 [dev-dependencies]

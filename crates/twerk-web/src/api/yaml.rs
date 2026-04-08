@@ -99,16 +99,17 @@ fn enforce_ast_limits(yaml: &yaml_rust2::Yaml) -> Result<(), ApiError> {
 /// Returns an `ApiError` if the YAML document cannot be parsed or violates size/complexity limits.
 pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     validate_yaml_input(bytes)?;
-    let s =
-        str::from_utf8(bytes).map_err(|_| ApiError::bad_request("invalid UTF-8 in YAML body"))?;
+    let s = str::from_utf8(bytes)
+        .map_err(|e| ApiError::bad_request(format!("invalid UTF-8 in YAML body: {e}")))?;
     let docs = yaml_rust2::YamlLoader::load_from_str(s)
-        .map_err(|_| ApiError::bad_request("YAML parse error"))?;
+        .map_err(|e| ApiError::bad_request(format!("YAML parse error: {e}")))?;
     let doc = docs
         .first()
-        .ok_or_else(|| ApiError::bad_request("YAML parse error"))?;
+        .ok_or_else(|| ApiError::bad_request("YAML document is empty"))?;
     enforce_ast_limits(doc)?;
     let json_value = yaml_to_json(doc);
-    serde_json::from_value(json_value).map_err(|_| ApiError::bad_request("YAML parse error"))
+    serde_json::from_value(json_value)
+        .map_err(|e| ApiError::bad_request(format!("YAML parse error: {e}")))
 }
 
 /// AST visitor state for depth and node counting.

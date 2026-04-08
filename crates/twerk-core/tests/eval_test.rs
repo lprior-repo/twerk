@@ -8,8 +8,8 @@ use twerk_core::eval::{
     transform_operators, valid_expr,
 };
 use twerk_core::id::{JobId, TaskId};
-use twerk_core::job::{JobState, JobSummary};
-use twerk_core::task::{TaskState, TaskSummary};
+use twerk_core::job::JobSummary;
+use twerk_core::task::TaskSummary;
 
 fn make_job_summary(state: &str) -> JobSummary {
     JobSummary {
@@ -661,7 +661,7 @@ fn test_evaluate_template_injection_with_function() {
     // Should be a number between 0 and 99
     let num_str = output.trim_start_matches("Random: ");
     let num: i64 = num_str.parse().unwrap();
-    assert!(num >= 0 && num < 100);
+    assert!((0..100).contains(&num));
 }
 
 #[test]

@@ -257,7 +257,13 @@ fn format_component_status(result: &Result<(), anyhow::Error>) -> String {
     if result.is_ok() {
         String::from("ok")
     } else {
-        format!("error: {:?}", result.as_ref().err())
+        format!(
+            "error: {}",
+            result
+                .as_ref()
+                .err()
+                .map_or_else(|| "unknown".to_string(), ToString::to_string)
+        )
     }
 }
 

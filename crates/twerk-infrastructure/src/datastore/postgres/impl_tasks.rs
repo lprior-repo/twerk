@@ -362,7 +362,10 @@ impl PostgresDatastore {
         records.into_iter().map(|r| r.to_task()).collect()
     }
 
-    pub(super) async fn get_all_tasks_for_job_impl(&self, job_id: &str) -> DatastoreResult<Vec<Task>> {
+    pub(super) async fn get_all_tasks_for_job_impl(
+        &self,
+        job_id: &str,
+    ) -> DatastoreResult<Vec<Task>> {
         let records: Vec<TaskRecord> = match &self.executor {
             Executor::Pool(p) => {
                 sqlx::query_as::<Postgres, TaskRecord>(SQL_GET_ALL_TASKS_FOR_JOB)

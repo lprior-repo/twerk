@@ -1,9 +1,12 @@
 //! E2E Load Test - Measures real coordinator + database throughput
 //!
-//! This test runs the full stack with `PostgreSQL` and `RabbitMQ` to find actual bottlenecks.
+//! These tests require a running PostgreSQL and RabbitMQ instance.
+//! They are ignored by default. Run with:
+//!   cargo test --test e2e_load_test -- --ignored --nocapture
 //!
-//! Usage:
-//!   cargo test --test `e2e_load_test` -- --nocapture
+//! Prerequisites:
+//!   docker compose up -d  (starts Postgres + RabbitMQ)
+//!   cargo run -- migration (runs DB migrations)
 
 #![allow(clippy::expect_used)]
 #![allow(clippy::doc_markdown)]
@@ -44,11 +47,13 @@ fn create_parallel_job(job_id: &str, num_tasks: usize) -> Job {
 
 /// E2E Load Test - Measures coordinator throughput with real `PostgreSQL`
 #[tokio::test]
+#[ignore = "requires running PostgreSQL and RabbitMQ"]
 async fn e2e_load_test_100_tasks() -> anyhow::Result<()> {
     e2e_load_test(100).await
 }
 
 #[tokio::test]
+#[ignore = "requires running PostgreSQL and RabbitMQ"]
 async fn e2e_load_test_1000_tasks() -> anyhow::Result<()> {
     e2e_load_test(1000).await
 }
@@ -99,6 +104,7 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
 /// Database Write Throughput Test
 /// Measures how fast PostgreSQL can handle sequential inserts
 #[tokio::test]
+#[ignore = "requires running PostgreSQL with migrated schema"]
 async fn db_write_throughput_test() -> anyhow::Result<()> {
     use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
@@ -114,8 +120,8 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
 
     for size in test_sizes {
         let start = Instant::now();
-        // Use short_uuid (22 chars) to fit in varchar(32)
         let job_id = new_short_uuid();
+
         for i in 0..size {
             let task = Task {
                 id: Some(format!("{}-{:04}", job_id, i).into()),
@@ -139,6 +145,7 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
 /// Database Query Under Load Test
 /// Measures get_active_tasks performance as data grows
 #[tokio::test]
+#[ignore = "requires running PostgreSQL with migrated schema"]
 async fn db_query_under_load_test() -> anyhow::Result<()> {
     use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
@@ -153,7 +160,6 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
     println!("\n=== Database Query Under Load ===");
 
     for size in sizes {
-        // Create test tasks with unique job ID (short_uuid is 22 chars, fits in varchar(32))
         let job_id = new_short_uuid();
         for i in 0..size {
             let task = Task {
@@ -184,6 +190,7 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
 /// Concurrent Database Writes Test
 /// Measures database performance under concurrent load
 #[tokio::test]
+#[ignore = "requires running PostgreSQL with migrated schema"]
 async fn db_concurrent_write_test() -> anyhow::Result<()> {
     use twerk_core::uuid::new_short_uuid;
     use twerk_infrastructure::datastore::postgres::PostgresDatastore;
@@ -210,7 +217,6 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
                     let ds = PostgresDatastore::new(&dsn, opts)
                         .await
                         .expect("failed to connect");
-                    // Each thread gets its own job_id (short_uuid is 22 chars, fits varchar(32))
                     let job_id = new_short_uuid();
                     for i in 0..tasks_per_thread {
                         let task = Task {

@@ -184,7 +184,9 @@ fn spawn_queue_worker(
                 let (b, r, a) = (qb.clone(), q_runtime.clone(), q_active_tasks.clone());
                 Box::pin(async move { execute_task(task, r, b, a).await })
             });
-        let _ = q_broker.subscribe_for_tasks(q_name, handler).await;
+        if let Err(e) = q_broker.subscribe_for_tasks(q_name, handler).await {
+            warn!(error = %e, "failed to subscribe for tasks on queue");
+        }
         let _ = q_terminate_rx.recv().await;
     });
 }
@@ -215,7 +217,9 @@ fn spawn_cancel_listener(
                     Ok(())
                 })
             });
-        let _ = broker.subscribe_for_tasks(cancel_q, handler).await;
+        if let Err(e) = broker.subscribe_for_tasks(cancel_q, handler).await {
+            warn!(error = %e, "failed to subscribe for cancel requests");
+        }
         let _ = terminate_rx.recv().await;
     });
 }
@@ -251,7 +255,9 @@ async fn send_heartbeat(
         status: Some(status),
         ..Default::default()
     };
-    let _ = broker.publish_heartbeat(node).await;
+    if let Err(e) = broker.publish_heartbeat(node).await {
+        warn!(error = %e, "failed to publish heartbeat");
+    }
 }
 
 #[instrument(skip_all, fields(task_id = %task.id.as_ref().map_or("unknown", |id| id.as_str())))]

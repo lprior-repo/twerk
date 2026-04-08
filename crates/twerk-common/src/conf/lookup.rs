@@ -9,9 +9,7 @@ use super::CONFIG;
 
 /// Global config state accessor.
 fn get_config() -> Result<ConfigState, ConfigError> {
-    let guard = CONFIG
-        .read()
-        .map_err(|_| ConfigError::KeyNotFound("config poisoned".to_string()))?;
+    let guard = CONFIG.read().map_err(|_| ConfigError::Poisoned)?;
     guard
         .as_ref()
         .cloned()

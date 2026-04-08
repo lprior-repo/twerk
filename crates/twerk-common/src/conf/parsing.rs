@@ -120,9 +120,7 @@ pub fn load_config() -> Result<(), ConfigError> {
     let all_values = merge_values(file_values, env_values);
     let state = ConfigState { values: all_values };
 
-    *CONFIG
-        .write()
-        .map_err(|_| ConfigError::KeyNotFound("config poisoned".to_string()))? = Some(state);
+    *CONFIG.write().map_err(|_| ConfigError::Poisoned)? = Some(state);
 
     Ok(())
 }

@@ -26,8 +26,8 @@ pub const DEFAULT_DATASTORE_TYPE: &str = "postgres";
 /// Twerk version string
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Git commit hash (placeholder - would be set by build script in production)
-pub const GIT_COMMIT: &str = "unknown";
+/// Git commit hash set at build time
+pub const GIT_COMMIT: &str = env!("GIT_COMMIT_HASH");
 
 /// Parsed top-level CLI action.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -218,7 +218,6 @@ mod tests {
     fn test_git_commit_not_empty() {
         let commit = GIT_COMMIT;
         assert!(!commit.is_empty());
-        assert_eq!(commit, "unknown"); // Default placeholder
     }
 
     #[test]

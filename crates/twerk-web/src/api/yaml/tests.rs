@@ -1,5 +1,11 @@
 #[cfg(test)]
-#[allow(clippy::panic, clippy::approx_constant, clippy::unwrap_used, dead_code)]
+#[allow(
+    clippy::panic,
+    clippy::approx_constant,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    dead_code
+)]
 #[allow(clippy::module_inception)]
 mod tests {
     use crate::api::yaml::{
@@ -752,17 +758,17 @@ mod tests {
 
     #[test]
     fn from_slice_deserializes_yaml_alias() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct Doc {
+            base: serde_json::Value,
+            derived: serde_json::Value,
+        }
         // YAML aliases are resolved by yaml-rust2 during parsing
         let yaml = b"
 base: &base_val
   name: original
 derived: *base_val
 ";
-        #[derive(Debug, serde::Deserialize, PartialEq)]
-        struct Doc {
-            base: serde_json::Value,
-            derived: serde_json::Value,
-        }
         let result: Doc = from_slice(yaml)?;
         assert_eq!(result.base, result.derived);
         Ok(())
@@ -855,10 +861,7 @@ derived: *base_val
         let job: Job = from_slice(yaml)?;
         let webhooks = job.webhooks.unwrap();
         assert_eq!(webhooks.len(), 1);
-        assert_eq!(
-            webhooks[0].url.as_ref().map(String::as_str),
-            Some("https://example.com/hook")
-        );
+        assert_eq!(webhooks[0].url.as_deref(), Some("https://example.com/hook"));
         Ok(())
     }
 
@@ -953,28 +956,38 @@ derived: *base_val
         use std::fs;
         use yaml_rust2::YamlLoader;
 
-        let examples = vec![
-            "/home/lewis/src/twerk/examples/hello.yaml",
-            "/home/lewis/src/twerk/examples/parallel.yaml",
-            "/home/lewis/src/twerk/examples/retry.yaml",
-            "/home/lewis/src/twerk/examples/each.yaml",
-            "/home/lewis/src/twerk/examples/subjob.yaml",
-            "/home/lewis/src/twerk/examples/timeout.yaml",
-            "/home/lewis/src/twerk/examples/bash-subjob.yaml",
-            "/home/lewis/src/twerk/examples/bash-retry.yaml",
-            "/home/lewis/src/twerk/examples/bash-quick.yaml",
-            "/home/lewis/src/twerk/examples/bash-pipeline.yaml",
-            "/home/lewis/src/twerk/examples/bash-each.yaml",
-            "/home/lewis/src/twerk/examples/bash-ci-pipeline.yaml",
-            "/home/lewis/src/twerk/examples/bash-ci-demo.yaml",
-            "/home/lewis/src/twerk/examples/split_and_stitch.yaml",
+        // Resolve examples directory relative to the workspace root
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let workspace_root = std::path::Path::new(manifest_dir)
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("could not resolve workspace root");
+        let examples_dir = workspace_root.join("examples");
+
+        let files = vec![
+            "hello.yaml",
+            "parallel.yaml",
+            "retry.yaml",
+            "each.yaml",
+            "subjob.yaml",
+            "timeout.yaml",
+            "bash-subjob.yaml",
+            "bash-retry.yaml",
+            "bash-quick.yaml",
+            "bash-pipeline.yaml",
+            "bash-each.yaml",
+            "bash-ci-pipeline.yaml",
+            "bash-ci-demo.yaml",
+            "split_and_stitch.yaml",
         ];
 
-        for file in examples {
-            let content = fs::read_to_string(file).expect(&format!("Failed to read {}", file));
-            let docs =
-                YamlLoader::load_from_str(&content).expect(&format!("Failed to parse {}", file));
-            assert!(!docs.is_empty(), "No YAML documents in {}", file);
+        for name in files {
+            let file = examples_dir.join(name);
+            let content = fs::read_to_string(&file)
+                .unwrap_or_else(|_| panic!("Failed to read {}", file.display()));
+            let docs = YamlLoader::load_from_str(&content)
+                .unwrap_or_else(|_| panic!("Failed to parse {}", file.display()));
+            assert!(!docs.is_empty(), "No YAML documents in {}", file.display());
         }
     }
 
@@ -1015,8 +1028,7 @@ derived: *base_val
         let result: Result<WithControl, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "quoted string should be accepted: {:?}",
-            result
+            "quoted string should be accepted: {result:?}"
         );
     }
 
@@ -1031,8 +1043,7 @@ derived: *base_val
         let result: Result<WithDel, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "DEL in quoted string should be accepted: {:?}",
-            result
+            "DEL in quoted string should be accepted: {result:?}"
         );
     }
 
@@ -1080,8 +1091,7 @@ derived: *base_val
         let result: Result<WithTab, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "tab in quoted string should be accepted: {:?}",
-            result
+            "tab in quoted string should be accepted: {result:?}"
         );
     }
 
@@ -1096,8 +1106,7 @@ derived: *base_val
         let result: Result<UnicodeVal, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "unicode in value should be accepted: {:?}",
-            result
+            "unicode in value should be accepted: {result:?}"
         );
     }
 
@@ -1117,8 +1126,7 @@ derived: *base_val
         let result: Result<PrintableAscii, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "printable ASCII in value should be accepted: {:?}",
-            result
+            "printable ASCII in value should be accepted: {result:?}"
         );
     }
 }

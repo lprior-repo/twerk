@@ -9,7 +9,7 @@ use twerk_core::id::NodeId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
-use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
+use twerk_infrastructure::broker::queue::QUEUE_FAILED;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 

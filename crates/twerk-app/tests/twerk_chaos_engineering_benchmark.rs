@@ -187,9 +187,13 @@ struct TaskInfo {
 }
 
 fn print_header(title: &str) {
-    println!("\n╔══════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔══════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║  {}", title);
-    println!("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    println!(
+        "╚══════════════════════════════════════════════════════════════════════════════════╝"
+    );
 }
 
 fn print_result(label: &str, value: impl std::fmt::Display) {
@@ -198,6 +202,7 @@ fn print_result(label: &str, value: impl std::fmt::Display) {
 
 /// Chaos Engineering Benchmark - Measures twerk under load
 #[tokio::test]
+#[ignore = "requires running twerk server on localhost:8000 and Pokemon API on port 8080"]
 async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::builder()
         .timeout(Duration::from_secs(300))
@@ -208,14 +213,17 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
     println!("║  ~35+ curl commands to Pokemon API");
     println!("║  Measures: scheduling, distribution, execution");
     println!("║  External dependency: Pokemon API on port 8080");
-    println!("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    println!(
+        "╚══════════════════════════════════════════════════════════════════════════════════╝"
+    );
 
     // Verify twerk is running
     print_header("VERIFYING TWERK");
-    let health = client.get(&format!("{}/health", TWERK_ENDPOINT))
+    let health = client
+        .get(format!("{}/health", TWERK_ENDPOINT))
         .send()
         .await?;
-    
+
     if !health.status().is_success() {
         return Err(format!("Twerk not available at {}", TWERK_ENDPOINT).into());
     }
@@ -240,32 +248,33 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
     println!("║  Total tasks: 22 (9 parallel + 4 parallel + 9 sequential)");
 
     let start = Instant::now();
-    
+
     let response = client
-        .post(&format!("{}/jobs?wait=blocking", TWERK_ENDPOINT))
+        .post(format!("{}/jobs?wait=blocking", TWERK_ENDPOINT))
         .header("Content-Type", "application/yaml")
         .body(CHAOS_YAML)
         .send()
         .await?;
 
     let submit_time = start.elapsed();
-    
+
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await?;
         return Err(format!("Job submission failed: {} - {}", status, body).into());
     }
-    
+
     let job: Job = response.json::<Job>().await?;
-    
+
     print_header("JOB SUBMITTED");
     print_result("Job ID", &job.id);
     print_result("Job Name", &job.name);
-    print_result("Initial State", &job.state);
-    print_result("Submit + Wait Time", &format!("{:?}", submit_time));
+    print_result("Initial State", job.state);
+    print_result("Submit + Wait Time", format!("{:?}", submit_time));
 
     // Check final state
-    let final_job = client.get(&format!("{}/jobs/{}", TWERK_ENDPOINT, job.id))
+    let final_job = client
+        .get(format!("{}/jobs/{}", TWERK_ENDPOINT, job.id))
         .send()
         .await?
         .json::<Job>()
@@ -275,28 +284,39 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
 
     // Use embedded tasks from job response
     let total_tasks = final_job.tasks.len();
-    let completed = final_job.tasks.iter().filter(|t| t.state == TaskState::Completed).count();
-    let failed = final_job.tasks.iter().filter(|t| t.state == TaskState::Failed).count();
+    let completed = final_job
+        .tasks
+        .iter()
+        .filter(|t| t.state == TaskState::Completed)
+        .count();
+    let failed = final_job
+        .tasks
+        .iter()
+        .filter(|t| t.state == TaskState::Failed)
+        .count();
 
     // Results
     print_header("CHAOS ENGINEERING RESULTS");
-    
+
     println!("\n║  TIMING:");
-    print_result("Total Duration", &format!("{:?}", total_time));
-    print_result("Submit + Wait", &format!("{:?}", submit_time));
-    
+    print_result("Total Duration", format!("{:?}", total_time));
+    print_result("Submit + Wait", format!("{:?}", submit_time));
+
     println!("\n║  TASK METRICS:");
-    print_result("Total Tasks", &total_tasks.to_string());
-    print_result("Completed", &completed.to_string());
-    print_result("Failed", &failed.to_string());
-    print_result("Success Rate", &format!("{:.1}%", (completed as f64 / total_tasks as f64) * 100.0));
-    
+    print_result("Total Tasks", total_tasks.to_string());
+    print_result("Completed", completed.to_string());
+    print_result("Failed", failed.to_string());
+    print_result(
+        "Success Rate",
+        format!("{:.1}%", (completed as f64 / total_tasks as f64) * 100.0),
+    );
+
     println!("\n║  TWERK THROUGHPUT:");
     let tasks_per_sec = total_tasks as f64 / total_time.as_secs_f64();
     let ms_per_task = total_time.as_millis() as f64 / total_tasks as f64;
-    print_result("Tasks/Second", &format!("{:.2}", tasks_per_sec));
-    print_result("Avg ms/task", &format!("{:.2}", ms_per_task));
-    
+    print_result("Tasks/Second", format!("{:.2}", tasks_per_sec));
+    print_result("Avg ms/task", format!("{:.2}", ms_per_task));
+
     println!("\n║  WORKFLOW BREAKDOWN:");
     for task in &final_job.tasks {
         // API may return "CREATED" even when job is COMPLETED - this is a twerk bug
@@ -311,7 +331,7 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
         };
         println!("║    {} {}", status, task.name);
     }
-    
+
     // Recursively count all tasks including parallel sub-tasks
     let mut all_task_names: Vec<String> = Vec::new();
     for task in &final_job.tasks {
@@ -319,11 +339,13 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
         // Note: Parallel sub-tasks are embedded within parent task's parallel field
         // For now, just count the top-level + verify DB has more
     }
-    
+
     println!("\n║  NOTE: Parallel sub-tasks are nested in API response.");
     println!("║  Database shows 26 total tasks for this workflow.");
 
-    println!("\n╚══════════════════════════════════════════════════════════════════════════════════╝");
+    println!(
+        "\n╚══════════════════════════════════════════════════════════════════════════════════╝"
+    );
 
     // Assertions
     // Note: API has a bug where task states show "CREATED" even when COMPLETED

@@ -21,9 +21,9 @@ use tokio::sync::RwLock;
 use tracing::{instrument, warn};
 
 use super::{
-    is_worker_queue, prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker,
-    EventHandler, HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler,
-    TaskLogPartHandler, TaskProgressHandler,
+    is_worker_queue, prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler,
+    HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler,
+    TaskProgressHandler,
 };
 use twerk_core::job::{Job, JobEvent};
 use twerk_core::node::Node;
@@ -208,14 +208,14 @@ impl RabbitMQBroker {
             .with_delivery_mode(2);
         let confirmation = ch
             .basic_publish(
-            exchange.into(),
-            routing_key.into(),
-            BasicPublishOptions::default(),
-            &data,
-            props,
-        )
-        .await?
-        .await?;
+                exchange.into(),
+                routing_key.into(),
+                BasicPublishOptions::default(),
+                &data,
+                props,
+            )
+            .await?
+            .await?;
         match confirmation {
             Confirmation::Ack(_) | Confirmation::NotRequested => Ok(()),
             Confirmation::Nack(_) => Err(anyhow!("RabbitMQ publish was negatively acknowledged")),
@@ -286,33 +286,43 @@ impl RabbitMQBroker {
                                 queue = %redelivery_queue,
                                 "failed to publish redelivery, requeuing via NACK"
                             );
-                            let _ = delivery
+                            if let Err(e) = delivery
                                 .nack(BasicNackOptions {
                                     multiple: false,
                                     requeue: true,
                                 })
-                                .await;
+                                .await
+                            {
+                                warn!(error = %e, "failed to nack message");
+                            }
                             continue;
                         }
-                        let _ = delivery.ack(BasicAckOptions::default()).await;
+                        if let Err(e) = delivery.ack(BasicAckOptions::default()).await {
+                            warn!(error = %e, "failed to ack message");
+                        }
                         continue;
                     }
                     match serde_json::from_slice(&delivery.data) {
                         Ok(val) => match handler(val).await {
                             Ok(()) => {
-                                let _ = delivery.ack(BasicAckOptions::default()).await;
+                                if let Err(e) = delivery.ack(BasicAckOptions::default()).await {
+                                    warn!(error = %e, "failed to ack message");
+                                }
                             }
                             Err(e) => {
                                 warn!(
                                     error = %e,
                                     "handler failed, requeuing message via NACK"
                                 );
-                                let _ = delivery
+                                if let Err(e) = delivery
                                     .nack(BasicNackOptions {
                                         multiple: false,
                                         requeue: true,
                                     })
-                                    .await;
+                                    .await
+                                {
+                                    warn!(error = %e, "failed to nack message");
+                                }
                             }
                         },
                         Err(e) => {
@@ -320,12 +330,15 @@ impl RabbitMQBroker {
                                 error = %e,
                                 "deserialization failed, discarding message"
                             );
-                            let _ = delivery
+                            if let Err(e) = delivery
                                 .nack(BasicNackOptions {
                                     multiple: false,
                                     requeue: false,
                                 })
-                                .await;
+                                .await
+                            {
+                                warn!(error = %e, "failed to nack message");
+                            }
                         }
                     }
                 }

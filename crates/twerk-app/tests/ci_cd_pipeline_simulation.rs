@@ -26,6 +26,7 @@ use twerk_core::job::Job;
 /// Atomic counter for unique IDs
 static TASK_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+#[allow(dead_code)]
 fn next_task_id() -> String {
     format!("task-{:010}", TASK_COUNTER.fetch_add(1, Ordering::Relaxed))
 }
@@ -35,6 +36,7 @@ fn next_task_id() -> String {
 // ============================================================================
 
 /// Step 1: Checkout - Clone repository
+#[allow(dead_code)]
 fn step_checkout(repo_url: &str, branch: &str) -> String {
     format!(
         r#"name: "checkout"
@@ -52,9 +54,9 @@ tasks:
 }
 
 /// Step 2: Setup - Install dependencies
+#[allow(dead_code)]
 fn step_setup() -> String {
-    format!(
-        r#"name: "setup"
+    r#"name: "setup"
 version: "1.0"
 tasks:
   - name: install-deps
@@ -64,13 +66,13 @@ tasks:
     image: node:20-alpine
     command: ["npm", "ci"]
 "#
-    )
+    .to_string()
 }
 
 /// Step 3: Lint - Code quality checks
+#[allow(dead_code)]
 fn step_lint() -> String {
-    format!(
-        r#"name: "lint"
+    r#"name: "lint"
 version: "1.0"
 tasks:
   - name: eslint
@@ -83,13 +85,13 @@ tasks:
     image: node:20-alpine
     command: ["npx", "markdownlint", "**/*.md"]
 "#
-    )
+    .to_string()
 }
 
 /// Step 4: Type Check - Type validation
+#[allow(dead_code)]
 fn step_typecheck() -> String {
-    format!(
-        r#"name: "typecheck"
+    r#"name: "typecheck"
 version: "1.0"
 tasks:
   - name: tsc
@@ -99,13 +101,13 @@ tasks:
     image: node:20-alpine
     command: ["npx", "flow", "check"]
 "#
-    )
+    .to_string()
 }
 
 /// Step 5: Unit Tests
+#[allow(dead_code)]
 fn step_unit_tests() -> String {
-    format!(
-        r#"name: "unit-tests"
+    r#"name: "unit-tests"
 version: "1.0"
 tasks:
   - name: jest-unit
@@ -115,10 +117,11 @@ tasks:
     image: node:20-alpine
     command: ["npx", "vitest", "run", "--dir", "src/tests/unit"]
 "#
-    )
+    .to_string()
 }
 
 /// Step 6: Integration Tests
+#[allow(dead_code)]
 fn step_integration_tests() -> String {
     r#"name: "integration-tests"
 version: "1.0"
@@ -137,6 +140,7 @@ tasks:
 }
 
 /// Step 7: Security Scan
+#[allow(dead_code)]
 fn step_security() -> String {
     r#"name: "security-scan"
 version: "1.0"
@@ -155,6 +159,7 @@ tasks:
 }
 
 /// Step 8: Build - Compile artifacts
+#[allow(dead_code)]
 fn step_build() -> String {
     r#"name: "build"
 version: "1.0"
@@ -173,6 +178,7 @@ tasks:
 }
 
 /// Step 9: Benchmark - Performance tests
+#[allow(dead_code)]
 fn step_benchmark() -> String {
     r#"name: "benchmark"
 version: "1.0"
@@ -191,6 +197,7 @@ tasks:
 }
 
 /// Step 10: Package - Create distribution
+#[allow(dead_code)]
 fn step_package() -> String {
     r#"name: "package"
 version: "1.0"
@@ -209,6 +216,7 @@ tasks:
 }
 
 /// Step 11: Deploy Staging
+#[allow(dead_code)]
 fn step_deploy_staging() -> String {
     r#"name: "deploy-staging"
 version: "1.0"
@@ -227,6 +235,7 @@ tasks:
 }
 
 /// Step 12: Deploy Production
+#[allow(dead_code)]
 fn step_deploy_production() -> String {
     r#"name: "deploy-production"
 version: "1.0"

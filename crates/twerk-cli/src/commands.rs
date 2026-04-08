@@ -11,11 +11,11 @@ const HELP_EXAMPLES: &str = "Examples:\n  twerk run standalone\n  twerk migratio
 #[command(bin_name = "twerk")]
 #[command(about = "A distributed workflow engine", long_about = None)]
 #[command(version = crate::cli::VERSION, propagate_version = true)]
-#[command(arg_required_else_help = true, after_help = HELP_EXAMPLES)]
+#[command(after_help = HELP_EXAMPLES)]
 pub struct Cli {
     /// Subcommand to execute.
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 /// Supported engine run modes.
@@ -121,9 +121,9 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
-                command: Commands::Run {
+                command: Some(Commands::Run {
                     mode: RunMode::Worker
-                }
+                })
             })
         ));
     }

@@ -2,7 +2,7 @@
 //!
 //! Orchestrates the CLI: parses arguments, displays banner, and dispatches commands.
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use std::ffi::OsString;
 use tracing::Level;
 use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
@@ -32,7 +32,7 @@ pub const GIT_COMMIT: &str = "unknown";
 /// Parsed top-level CLI action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CliAction {
-    Execute(Commands),
+    Execute(Option<Commands>),
 }
 
 /// Get the current git commit hash at runtime
@@ -148,6 +148,16 @@ pub async fn run() -> Result<(), CliError> {
 
     let CliAction::Execute(cmd) = action;
 
+    // If no subcommand was provided, display help and exit 0
+    let cmd = match cmd {
+        Some(cmd) => cmd,
+        None => {
+            // Display help and exit gracefully
+            Cli::command().print_help().map_err(CliError::Io)?;
+            std::process::exit(0);
+        }
+    };
+
     // Parse command line arguments before any output side effects.
 
     // Setup logging
@@ -228,17 +238,14 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cli_args_without_subcommand_shows_help() {
+    fn test_parse_cli_args_without_subcommand_returns_none() {
         let args = vec![OsString::from("twerk")];
 
         match parse_cli_args(&args) {
-            Ok(_) => {
-                unreachable!("expected clap to short-circuit with error when missing subcommand")
+            Ok(CliAction::Execute(None)) => {
+                // No subcommand provided - help will be shown and exit 0 in run()
             }
-            Err(error) => assert_eq!(
-                error.kind(),
-                ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
-            ),
+            other => unreachable!("expected Ok(CliAction::Execute(None)), got {:?}", other),
         }
     }
 
@@ -262,9 +269,9 @@ mod tests {
 
         assert!(matches!(
             parse_cli_args(&args),
-            Ok(CliAction::Execute(Commands::Run {
+            Ok(CliAction::Execute(Some(Commands::Run {
                 mode: crate::commands::RunMode::Coordinator
-            }))
+            })))
         ));
     }
 

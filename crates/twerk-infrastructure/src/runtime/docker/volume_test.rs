@@ -2,6 +2,9 @@
 //!
 //! Note: Integration tests requiring a running Docker daemon are marked with `#[ignore]`.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 use twerk_core::mount_type;
 use twerk_core::mount::Mount;
 use crate::runtime::docker::volume::VolumeMounter;
@@ -14,7 +17,7 @@ async fn test_create_volume() {
     let mnt = Mount::new(mount_type::VOLUME, "/somevol");
 
     let result = mounter.mount(&mnt).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let mounted = result.expect("should have mounted volume");
     assert!(mounted.source.is_some());
 }

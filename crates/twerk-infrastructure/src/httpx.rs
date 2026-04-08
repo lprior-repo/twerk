@@ -197,6 +197,7 @@ mod tests {
         assert!(result.is_ok(), "start_async failed: {:?}", result.err());
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[tokio::test]
     async fn test_start_async_connection_timeout() {
         let addr = "127.0.0.1:1"; // Nothing listening here
@@ -211,7 +212,7 @@ mod tests {
 
         // Start should fail because nothing is listening
         let result = start_async(addr, app, config).await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
 
         match result {
             Err(HttpxError::ConnectionTimeout(n)) => {

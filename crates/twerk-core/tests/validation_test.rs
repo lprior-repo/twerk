@@ -3,6 +3,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::manual_string_new)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use twerk_core::job::JobDefaults;
 use twerk_core::mount::Mount;
@@ -128,14 +129,14 @@ fn test_validate_job_valid() {
 fn test_validate_job_missing_name() {
     let task = Task::default();
     let result = validate_job(None, Some(&vec![task.clone()]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
         .any(|e| e.contains("name is required")));
 
     let result = validate_job(Some(&"".to_string()), Some(&vec![task]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -145,14 +146,14 @@ fn test_validate_job_missing_name() {
 #[test]
 fn test_validate_job_missing_tasks() {
     let result = validate_job(Some(&"test".to_string()), None, None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
         .any(|e| e.contains("at least one task")));
 
     let result = validate_job(Some(&"test".to_string()), Some(&vec![]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -170,7 +171,7 @@ fn test_validate_job_invalid_defaults() {
         Some(&defaults),
         None,
     );
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -184,7 +185,7 @@ fn test_validate_job_invalid_defaults() {
         Some(&defaults),
         None,
     );
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -198,7 +199,7 @@ fn test_validate_job_invalid_defaults() {
         Some(&defaults),
         None,
     );
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -229,7 +230,7 @@ fn test_validate_task_invalid_timeout() {
     let mut task = Task::default();
     task.timeout = Some("invalid".to_string());
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -241,7 +242,7 @@ fn test_validate_task_invalid_queue() {
     let mut task = Task::default();
     task.queue = Some("x-exclusive.myqueue".to_string());
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -256,7 +257,7 @@ fn test_validate_task_invalid_retry() {
         attempts: 0,
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -268,7 +269,7 @@ fn test_validate_task_invalid_priority() {
     let mut task = Task::default();
     task.priority = 15;
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -283,7 +284,7 @@ fn test_validate_task_parallel_empty() {
         completions: 0,
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -298,7 +299,7 @@ fn test_validate_task_each_empty() {
         ..Default::default()
     }));
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -328,13 +329,13 @@ fn validation_job_passes_when_minimal_valid() {
         ..Default::default()
     };
     let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]
 fn validation_job_fails_when_tasks_empty() {
     let result = validate_job(Some(&"test job".to_string()), Some(&vec![]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -348,7 +349,7 @@ fn validation_job_fails_when_name_missing() {
         ..Default::default()
     };
     let result = validate_job(None, Some(&vec![task]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -362,7 +363,7 @@ fn validation_job_fails_when_name_empty() {
         ..Default::default()
     };
     let result = validate_job(Some(&"".to_string()), Some(&vec![task]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -411,7 +412,7 @@ fn validation_task_fails_when_retry_limit_50() {
         attempts: 0,
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -432,7 +433,7 @@ fn validation_job_task_fails_when_name_missing() {
         ..Default::default()
     };
     let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -446,7 +447,7 @@ fn validation_job_task_passes_when_image_missing() {
         ..Default::default()
     };
     let result = validate_job(Some(&"test job".to_string()), Some(&vec![task]), None, None);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]
@@ -464,7 +465,7 @@ fn validation_job_defaults_fails_when_timeout_invalid() {
         Some(&defaults),
         None,
     );
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -477,7 +478,7 @@ fn validation_var_fails_when_too_long() {
     let mut task = Task::default();
     task.var = Some(long_var);
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -512,7 +513,7 @@ fn validation_expr_fails_when_invalid_syntax() {
         ..Default::default()
     }));
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -556,7 +557,7 @@ fn validation_webhook_fails_when_url_empty() {
         ..Default::default()
     }];
     let result = validate_webhooks(Some(&webhooks), None);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -570,7 +571,7 @@ fn validation_webhook_passes_when_url_valid() {
         ..Default::default()
     }];
     let result = validate_webhooks(Some(&webhooks), None);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]
@@ -634,7 +635,7 @@ fn validation_task_fails_when_parallel_and_each_both_set() {
         completions: 0,
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -677,7 +678,7 @@ fn validation_subjob_fails_when_webhook_url_empty() {
         ..Default::default()
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -705,7 +706,7 @@ fn validation_task_fails_when_parallel_and_subjob_both_set() {
         ..Default::default()
     });
     let result = validate_task(&task);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -720,7 +721,7 @@ fn validation_mount_fails_when_type_and_target_missing() {
         ..Default::default()
     }];
     let result = validate_mounts(&Some(mounts));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -746,7 +747,7 @@ fn validation_mount_fails_when_bind_type_missing_source() {
         ..Default::default()
     }];
     let result = validate_mounts(&Some(mounts));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -773,7 +774,7 @@ fn validation_mount_fails_when_source_contains_hash() {
         ..Default::default()
     }];
     let result = validate_mounts(&Some(mounts));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -789,7 +790,7 @@ fn validation_mount_fails_when_target_contains_colon() {
         ..Default::default()
     }];
     let result = validate_mounts(&Some(mounts));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()
@@ -805,7 +806,7 @@ fn validation_mount_fails_when_target_is_tork() {
         ..Default::default()
     }];
     let result = validate_mounts(&Some(mounts));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .iter()

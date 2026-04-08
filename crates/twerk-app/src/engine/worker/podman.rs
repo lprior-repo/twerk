@@ -325,6 +325,6 @@ mod tests {
         let task = create_test_task("task-1", TaskState::Running);
 
         let result = PodmanRuntimeAdapter::validate_task(&task);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(())));
     }
 }

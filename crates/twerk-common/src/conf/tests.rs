@@ -2,7 +2,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    clippy::get_first
+    clippy::get_first,
+    clippy::redundant_pattern_matching
 )]
 
 use std::collections::HashMap;
@@ -65,7 +66,7 @@ fn test_expand_path_absolute() {
 #[test]
 fn test_parse_toml_file_not_exist() {
     let result = parse_toml_file("/nonexistent/path.toml");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     if let Err(ConfigError::NotFound(p)) = result {
         assert_eq!(p, "/nonexistent/path.toml");
     } else {
@@ -80,7 +81,7 @@ fn test_parse_toml_file_bad_contents() {
     fs::write(&path, "xyz").expect("write");
 
     let result = parse_toml_file(path.to_str().unwrap());
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     if let Err(ConfigError::ParseError { .. }) = result {
     } else {
         panic!("expected ParseError");

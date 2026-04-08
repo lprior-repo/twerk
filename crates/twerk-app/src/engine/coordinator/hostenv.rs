@@ -147,7 +147,11 @@ mod tests {
     #[test]
     fn parse_var_spec_invalid_too_many_colons() {
         let result = parse_var_spec("a:b:c");
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err("invalid env var spec: a:b:c".to_string()),
+            "too many colons should produce specific error"
+        );
     }
 
     #[allow(clippy::expect_used)]

@@ -148,6 +148,7 @@ impl VolumeMounter {
 mod tests {
     #![allow(clippy::unwrap_used)]
     #![allow(clippy::expect_used)]
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
     use twerk_core::mount::mount_type;
 
@@ -161,7 +162,7 @@ mod tests {
         let mnt = Mount::new(mount_type::VOLUME, "/somevol");
 
         let result = mounter.mount(&mnt).await;
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         let mounted_vol = result.expect("should have mounted volume");
         assert!(mounted_vol.source.is_some());
     }

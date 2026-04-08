@@ -208,6 +208,7 @@ mod tests {
     #![allow(clippy::unwrap_used)]
     #![allow(clippy::expect_used)]
     #![allow(clippy::uninlined_format_args)]
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
 
     #[test]
@@ -269,14 +270,14 @@ mod tests {
     #[test]
     fn test_parse_empty_string() {
         let result = parse("");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(result.unwrap_err(), ReferenceError::NameEmpty));
     }
 
     #[test]
     fn test_parse_uppercase_rejected() {
         let result = parse("Ubuntu:latest");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(
             result.unwrap_err(),
             ReferenceError::ContainsUppercase
@@ -286,7 +287,7 @@ mod tests {
     #[test]
     fn test_parse_invalid_format() {
         let result = parse("!!!not-valid!!!");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(result.unwrap_err(), ReferenceError::InvalidFormat));
     }
 
@@ -295,7 +296,7 @@ mod tests {
         // digest after @ — Go stores only domain/path/tag, digest is not in the struct
         let result =
             parse("ubuntu@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         let ref_val = result.expect("should parse");
         assert_eq!("", ref_val.domain);
         assert_eq!("ubuntu", ref_val.path);
@@ -385,7 +386,7 @@ mod tests {
         // Generate a name > 255 characters
         let long_component = "a".repeat(256);
         let result = parse(&format!("{}:tag", long_component));
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(
             result.unwrap_err(),
             ReferenceError::NameTooLong(_)
@@ -397,14 +398,14 @@ mod tests {
         // A name exactly at the 255-char boundary should succeed
         let long_name = "a".repeat(255);
         let result = parse(&long_name);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
     fn test_parse_uppercase_in_domain_accepted() {
         // Domains allow uppercase per the regex ([a-zA-Z])
         let result = parse("MyRegistry/ubuntu:latest");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         let ref_val = result.expect("should parse");
         assert_eq!("MyRegistry", ref_val.domain);
         assert_eq!("ubuntu", ref_val.path);

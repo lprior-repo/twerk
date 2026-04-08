@@ -1,5 +1,8 @@
 //! Tests for docker::auth module.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 use std::collections::HashMap;
 
 use base64::Engine as _;
@@ -28,7 +31,7 @@ fn test_decode_base64_auth_happy() {
 fn test_decode_base64_auth_invalid() {
     // "not base64" is not valid base64
     let result = decode_base64_auth("not base64");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -36,7 +39,7 @@ fn test_decode_base64_auth_invalid_format() {
     // No colon separator
     let encoded = base64::engine::general_purpose::STANDARD.encode("invalidformat");
     let result = decode_base64_auth(&encoded);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -315,7 +318,7 @@ fn test_decode_base64_auth_non_utf8_payload() {
     let raw: Vec<u8> = vec![0xff, 0xfe, 0x3a, 0x62]; // \xff\xfe:b
     let encoded = base64::engine::general_purpose::STANDARD.encode(&raw);
     let result = decode_base64_auth(&encoded);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -383,14 +386,14 @@ fn test_config_load_from_path_invalid_json() {
     std::fs::write(&config_path, "not json at all").expect("should write");
 
     let result = Config::load_from_path(&config_path);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), AuthError::Json(_)));
 }
 
 #[test]
 fn test_config_load_from_path_missing_file() {
     let result = Config::load_from_path("/nonexistent/config.json");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), AuthError::Io(_)));
 }
 
@@ -401,7 +404,7 @@ fn test_config_load_from_path_empty_file() {
     std::fs::write(&config_path, "").expect("should write");
 
     let result = Config::load_from_path(&config_path);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -416,7 +419,7 @@ fn test_config_load_config_uses_default_path_when_empty() {
     let result = Config::load_config("");
     // Restore env
     std::env::remove_var("DOCKER_CONFIG");
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]
@@ -550,5 +553,5 @@ fn test_get_registry_credentials_with_invalid_config_file_returns_error() {
     std::fs::write(&config_path, "invalid json{{{").expect("should write");
 
     let result = get_registry_credentials(config_path.to_str().expect("path"), "some.host");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }

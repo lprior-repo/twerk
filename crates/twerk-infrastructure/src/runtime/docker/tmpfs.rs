@@ -75,24 +75,27 @@ mod tests {
     use super::*;
     use twerk_core::mount::mount_type;
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_mount_tmpfs() {
         let mounter = TmpfsMounter::new();
         let mnt = Mount::new(mount_type::TMPFS, "/target");
 
         let result = mounter.mount(&mnt);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_mount_tmpfs_with_source() {
         let mounter = TmpfsMounter::new();
         let mnt = Mount::new(mount_type::TMPFS, "/target").with_source("/source");
 
         let result = mounter.mount(&mnt);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_mount_tmpfs_no_target() {
         let mounter = TmpfsMounter::new();
@@ -103,18 +106,20 @@ mod tests {
         };
 
         let result = mounter.mount(&mnt);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_mount_tmpfs_empty_target() {
         let mounter = TmpfsMounter::new();
         let mnt = Mount::new(mount_type::TMPFS, "").with_source("");
 
         let result = mounter.mount(&mnt);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_mount_tmpfs_empty_source_allowed() {
         let mounter = TmpfsMounter::new();
@@ -122,15 +127,16 @@ mod tests {
 
         // source is None, which is fine
         let result = mounter.mount(&mnt);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_unmount_tmpfs() {
         let mounter = TmpfsMounter::new();
         let mnt = Mount::new(mount_type::TMPFS, "/target");
 
         let result = mounter.unmount(&mnt);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 }

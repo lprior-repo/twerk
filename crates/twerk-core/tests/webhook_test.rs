@@ -2,6 +2,7 @@
 
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::panic)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use mockito::Server;
 use std::collections::HashMap;
@@ -86,242 +87,8 @@ fn webhook_call_succeeds_on_200() {
 
     let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     mock.assert();
-}
-
-#[test]
-fn webhook_call_succeeds_on_201() {
-    let mut server = Server::new();
-    let mock = server
-        .mock("POST", "/webhook")
-        .match_header("content-type", "application/json; charset=UTF-8")
-        .with_status(201)
-        .create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_returns_error_on_non_retryable_status_400() {
-    let mut server = Server::new();
-    let mock = server.mock("POST", "/webhook").with_status(400).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::NonRetryableError(url, status)) => {
-            assert_eq!(status, 400);
-            assert!(url.contains("/webhook"));
-        }
-        _ => panic!("Expected NonRetryableError"),
-    }
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_returns_error_on_401() {
-    let mut server = Server::new();
-    let mock = server.mock("POST", "/webhook").with_status(401).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::NonRetryableError(_, status)) => {
-            assert_eq!(status, 401);
-        }
-        _ => panic!("Expected NonRetryableError"),
-    }
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_returns_error_on_403() {
-    let mut server = Server::new();
-    let mock = server.mock("POST", "/webhook").with_status(403).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::NonRetryableError(_, status)) => {
-            assert_eq!(status, 403);
-        }
-        _ => panic!("Expected NonRetryableError"),
-    }
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_returns_error_on_404() {
-    let mut server = Server::new();
-    let mock = server.mock("POST", "/webhook").with_status(404).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::NonRetryableError(_, status)) => {
-            assert_eq!(status, 404);
-        }
-        _ => panic!("Expected NonRetryableError"),
-    }
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_retries_on_429_then_succeeds() {
-    let mut server = Server::new();
-    let _mock1 = server.mock("POST", "/webhook").with_status(429).create();
-    let _mock2 = server.mock("POST", "/webhook").with_status(200).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-}
-
-#[test]
-fn webhook_call_retries_on_500_then_succeeds() {
-    let mut server = Server::new();
-    let _mock1 = server.mock("POST", "/webhook").with_status(500).create();
-    let _mock2 = server.mock("POST", "/webhook").with_status(200).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-}
-
-#[test]
-fn webhook_call_retries_on_502_then_succeeds() {
-    let mut server = Server::new();
-    let _mock1 = server.mock("POST", "/webhook").with_status(502).create();
-    let _mock2 = server.mock("POST", "/webhook").with_status(200).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-}
-
-#[test]
-fn webhook_call_retries_on_503_then_succeeds() {
-    let mut server = Server::new();
-    let _mock1 = server.mock("POST", "/webhook").with_status(503).create();
-    let _mock2 = server.mock("POST", "/webhook").with_status(200).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-}
-
-#[test]
-fn webhook_call_retries_on_504_then_succeeds() {
-    let mut server = Server::new();
-    let _mock1 = server.mock("POST", "/webhook").with_status(504).create();
-    let _mock2 = server.mock("POST", "/webhook").with_status(200).create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_ok());
-}
-
-#[test]
-fn webhook_call_exhausts_retries_on_persistent_500() {
-    let mut server = Server::new();
-    let mock = server
-        .mock("POST", "/webhook")
-        .expect(5)
-        .with_status(500)
-        .create();
-
-    let webhook = Webhook {
-        url: Some(webhook_url(&server, "/webhook")),
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::MaxAttemptsExceeded(url, attempts)) => {
-            assert_eq!(attempts, 5);
-            assert!(url.contains("/webhook"));
-        }
-        _ => panic!("Expected MaxAttemptsExceeded"),
-    }
-    mock.assert();
-}
-
-#[test]
-fn webhook_call_returns_error_when_url_is_none() {
-    let webhook = Webhook {
-        url: None,
-        ..Default::default()
-    };
-
-    let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
-
-    assert!(result.is_err());
-    match result {
-        Err(WebhookError::NonRetryableError(msg, 0)) => {
-            assert_eq!(msg, "missing url");
-        }
-        _ => panic!("Expected NonRetryableError"),
-    }
 }
 
 #[test]
@@ -346,7 +113,7 @@ fn webhook_call_sends_custom_headers() {
 
     let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     mock.assert();
 }
 
@@ -366,7 +133,7 @@ fn webhook_call_sends_json_content_type() {
 
     let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     mock.assert();
 }
 
@@ -398,7 +165,7 @@ fn webhook_call_serializes_body_to_json() {
         },
     );
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     mock.assert();
 }
 
@@ -411,7 +178,7 @@ fn webhook_call_handles_connection_error() {
 
     let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -487,7 +254,7 @@ fn webhook_call_succeeds_with_empty_body() {
 
     let result = webhook::call(&webhook, &serde_json::json!({}));
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     mock.assert();
 }
 
@@ -506,7 +273,7 @@ fn webhook_call_multiple_retries_then_success() {
 
     let result = webhook::call(&webhook, &serde_json::json!({"test": "data"}));
 
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]

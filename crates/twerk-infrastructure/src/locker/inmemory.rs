@@ -116,6 +116,7 @@ mod tests {
     use super::super::Lock;
     use super::*;
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[tokio::test]
     async fn test_inmemory_locker_double_acquire_fails() {
         let locker = InMemoryLocker::new();
@@ -129,7 +130,7 @@ mod tests {
 
         // Second acquisition should fail
         let result = locker.acquire_lock(key).await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         if let Err(LockError::AlreadyLocked { .. }) = result {
             // expected
         } else {
@@ -161,6 +162,7 @@ mod tests {
             .expect("release should succeed");
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[tokio::test]
     async fn test_inmemory_locker_release_nonexistent_fails() {
         let _locker = InMemoryLocker::new();
@@ -184,6 +186,6 @@ mod tests {
             key: key.to_string(),
         });
         let result = lock.release_lock().await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 }

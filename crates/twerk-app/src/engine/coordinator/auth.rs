@@ -13,6 +13,7 @@ use axum::response::Response;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 use tracing::error;
 pub use twerk_core::user::UsernameValue;
 
@@ -140,9 +141,14 @@ pub async fn key_auth_middleware(
             })
         });
 
-    match api_key {
-        Some(key) if key == config.key => Ok(next.run(request).await),
-        _ => Err(StatusCode::UNAUTHORIZED),
+    let key_valid = api_key
+        .as_ref()
+        .is_some_and(|key| key.as_bytes().ct_eq(config.key.as_bytes()).into());
+
+    if key_valid {
+        Ok(next.run(request).await)
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
     }
 }
 

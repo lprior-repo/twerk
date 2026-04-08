@@ -2,6 +2,8 @@
 //!
 //! Tests input validation, error cases, and configuration checks.
 
+#![allow(clippy::redundant_pattern_matching)]
+
 use super::*;
 
 fn create_test_task() -> Task {
@@ -49,7 +51,7 @@ async fn test_podman_run_not_supported_empty_id() {
     task.id = String::new();
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), PodmanError::TaskIdRequired));
 }
 
@@ -60,7 +62,7 @@ async fn test_podman_run_not_supported_empty_image() {
     task.image = String::new();
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), PodmanError::ImageRequired));
 }
 
@@ -71,7 +73,7 @@ async fn test_podman_run_not_supported_empty_name() {
     task.name = None;
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), PodmanError::NameRequired));
 }
 
@@ -82,7 +84,7 @@ async fn test_podman_run_not_supported_sidecars() {
     task.sidecars.push(create_test_task());
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(
         result.unwrap_err(),
         PodmanError::SidecarsNotSupported
@@ -96,7 +98,7 @@ async fn test_podman_host_network_disabled() {
     task.networks = vec!["host".to_string()];
 
     let result = rt.run(&mut task).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(
         result.unwrap_err(),
         PodmanError::HostNetworkingDisabled
@@ -116,7 +118,7 @@ async fn test_podman_runtime_returns_name_required_for_network_when_networks_spe
 
     let result = rt.run(&mut task).await;
 
-    assert!(result.is_err(), "should fail when networks specified but name is empty");
+    assert!(matches!(result, Err(_)), "should fail when networks specified but name is empty");
     let err = result.unwrap_err();
     
     match err {
@@ -141,7 +143,7 @@ async fn test_podman_runtime_returns_name_required_for_network_when_networks_spe
 
     let result = rt.run(&mut task).await;
 
-    assert!(result.is_err(), "should fail when networks specified but name is empty");
+    assert!(matches!(result, Err(_)), "should fail when networks specified but name is empty");
     let err = result.unwrap_err();
     
     match err {
@@ -188,7 +190,7 @@ async fn test_podman_runtime_returns_sidecars_not_supported_when_sidecars_specif
 
     let result = rt.run(&mut task).await;
 
-    assert!(result.is_err(), "should fail when sidecars specified");
+    assert!(matches!(result, Err(_)), "should fail when sidecars specified");
     let err = result.unwrap_err();
     assert!(
         matches!(err, PodmanError::SidecarsNotSupported),

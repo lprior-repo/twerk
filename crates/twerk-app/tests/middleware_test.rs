@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::used_underscore_binding)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -187,7 +188,7 @@ fn task_middleware_error_propagates() {
     let ctx = Arc::new(());
     let result = wrapped(ctx, TaskEventType::Started, &mut task);
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert_eq!(
         result.unwrap_err().to_string(),
         "task handler error: middleware error"
@@ -321,7 +322,7 @@ fn job_middleware_error_propagates() {
     let ctx = Arc::new(());
     let result = wrapped(ctx, JobEventType::StateChange, &mut job);
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert_eq!(
         result.unwrap_err().to_string(),
         "job handler error: job middleware error"
@@ -453,7 +454,7 @@ fn node_middleware_error_propagates() {
     let ctx = Arc::new(());
     let result = wrapped(ctx, &mut node);
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert_eq!(
         result.unwrap_err().to_string(),
         "node handler error: node middleware error"

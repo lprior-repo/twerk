@@ -230,10 +230,11 @@ mod tests {
         );
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_register_and_init_not_called() {
         let result = register("test_init", Box::new(|| {}));
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         // init() returns false because executable name won't match
         assert!(!init());
     }

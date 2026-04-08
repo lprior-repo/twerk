@@ -384,7 +384,7 @@ mod tests {
     fn validate_task_returns_ok_when_state_is_running() {
         let task = create_test_task("task-1", TaskState::Running);
         let result = ShellRuntimeAdapter::validate_task(&task);
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(())));
     }
 
     #[test]

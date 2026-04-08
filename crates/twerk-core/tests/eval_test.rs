@@ -1,6 +1,7 @@
 //! Tests for the eval module
 
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use std::collections::HashMap;
 use twerk_core::eval::{
@@ -161,14 +162,14 @@ fn test_job_error_with_error_present() {
 fn test_job_error_without_error() {
     let summary = make_job_summary("running");
     let result = evaluate_condition("job_error == \"\"", &summary);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
 fn test_evaluate_condition_non_boolean_result() {
     let summary = make_job_summary("running");
     let result = evaluate_condition("\"hello\"", &summary);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .contains("did not evaluate to a boolean"));
@@ -178,7 +179,7 @@ fn test_evaluate_condition_non_boolean_result() {
 fn test_evaluate_condition_invalid_expression() {
     let summary = make_job_summary("running");
     let result = evaluate_condition("job_state ===", &summary);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +287,7 @@ fn test_task_condition_invalid_expression() {
     let task_summary = make_task_summary("running");
     let job_summary = make_job_summary("running");
     let result = evaluate_task_condition("task_state ===", &task_summary, &job_summary);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[test]
@@ -294,12 +295,8 @@ fn test_task_condition_non_boolean() {
     let task_summary = make_task_summary("running");
     let job_summary = make_job_summary("running");
     let result = evaluate_task_condition("task_id", &task_summary, &job_summary);
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
-
-// ---------------------------------------------------------------------------
-// evaluate_expr tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_from_json_string() {
@@ -596,7 +593,7 @@ fn test_evaluate_expr_integer_division_by_zero() {
 fn test_evaluate_expr_string_concatenation() {
     let context = empty_context();
     let result = evaluate_expr(r#""hello" + " " + "world""#, &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!("hello world"));
 }
 
@@ -610,7 +607,7 @@ fn test_evaluate_expr_string_concatenation() {
 fn test_evaluate_expr_modulo() {
     let context = empty_context();
     let result = evaluate_expr("17 % 5", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(2));
 }
 
@@ -618,7 +615,7 @@ fn test_evaluate_expr_modulo() {
 fn test_evaluate_expr_complex_expression() {
     let context = empty_context();
     let result = evaluate_expr("(2 + 3) * 4 - 10 / 2", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(15)); // (5 * 4) - 5 = 15
 }
 
@@ -627,7 +624,7 @@ fn test_evaluate_template_injection_single_variable() {
     let mut context = empty_context();
     context.insert("name".to_string(), serde_json::json!("Alice"));
     let result = evaluate_template("Hello, {{ name }}!", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), "Hello, Alice!");
 }
 
@@ -637,7 +634,7 @@ fn test_evaluate_template_injection_multiple_variables() {
     context.insert("first".to_string(), serde_json::json!("Bob"));
     context.insert("last".to_string(), serde_json::json!("Smith"));
     let result = evaluate_template("{{ first }} {{ last }}", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), "Bob Smith");
 }
 
@@ -647,7 +644,7 @@ fn test_evaluate_template_injection_with_expression() {
     context.insert("x".to_string(), serde_json::json!(10));
     context.insert("y".to_string(), serde_json::json!(5));
     let result = evaluate_template("Result: {{ x + y }}", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), "Result: 15");
 }
 
@@ -655,7 +652,7 @@ fn test_evaluate_template_injection_with_expression() {
 fn test_evaluate_template_injection_with_function() {
     let context = empty_context();
     let result = evaluate_template("Random: {{ randomInt(100) }}", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let output = result.unwrap();
     assert!(output.starts_with("Random: "));
     // Should be a number between 0 and 99
@@ -668,7 +665,7 @@ fn test_evaluate_template_injection_with_function() {
 fn test_evaluate_template_injection_with_split() {
     let context = empty_context();
     let result = evaluate_template("Parts: {{ split(\"a,b,c\", \",\") }}", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let output = result.unwrap();
     assert!(output.contains("a"));
     assert!(output.contains("b"));
@@ -681,7 +678,7 @@ fn test_evaluate_template_multiple_expressions_same_line() {
     context.insert("a".to_string(), serde_json::json!(1));
     context.insert("b".to_string(), serde_json::json!(2));
     let result = evaluate_template("{{ a }} + {{ b }} = {{ a + b }}", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), "1 + 2 = 3");
 }
 
@@ -689,7 +686,7 @@ fn test_evaluate_template_multiple_expressions_same_line() {
 fn test_evaluate_template_with_mixed_text_and_expressions() {
     let context = empty_context();
     let result = evaluate_template("Start {{ 42 }} middle {{ true }} end", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), "Start 42 middle true end");
 }
 
@@ -712,7 +709,7 @@ fn test_evaluate_expr_undefined_variable() {
 fn test_evaluate_expr_string_equality() {
     let context = empty_context();
     let result = evaluate_expr(r#""foo" == "foo" && "bar" != "baz""#, &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(true));
 }
 
@@ -744,7 +741,7 @@ fn test_evaluate_expr_chained_comparisons() {
     let mut ctx = context.clone();
     ctx.insert("x".to_string(), serde_json::json!(5));
     let result = evaluate_expr("0 < x && x < 10", &ctx);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(true));
 }
 
@@ -764,7 +761,7 @@ fn test_evaluate_template_missing_variable_uses_empty() {
 fn test_evaluate_expr_sequence_function() {
     let context = empty_context();
     let result = evaluate_expr("sequence(1, 5)", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let val = result.unwrap();
     assert!(val.is_array());
 }
@@ -774,7 +771,7 @@ fn test_evaluate_expr_random_int_bounded() {
     let context = empty_context();
     // Test that randomInt with a bound returns values in [0, bound)
     let result = evaluate_expr("randomInt(10)", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let val = result.unwrap();
     assert!(val.is_number());
 }
@@ -784,6 +781,6 @@ fn test_evaluate_expr_boolean_implication() {
     let context = empty_context();
     // evalexpr doesn't support -> (implication), so test with &&
     let result = evaluate_expr("false && false", &context);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(false));
 }

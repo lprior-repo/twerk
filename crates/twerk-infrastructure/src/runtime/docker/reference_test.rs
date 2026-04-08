@@ -1,5 +1,8 @@
 //! Tests for docker::reference module.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 use crate::runtime::docker::reference::{
     parse, Reference, ReferenceError, ERR_NAME_CONTAINS_UPPERCASE, ERR_NAME_EMPTY,
     ERR_NAME_TOO_LONG, ERR_REFERENCE_INVALID_FORMAT,
@@ -64,14 +67,14 @@ fn test_parse_with_latest_tag() {
 #[test]
 fn test_parse_empty_string() {
     let result = parse("");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), ReferenceError::NameEmpty));
 }
 
 #[test]
 fn test_parse_uppercase_rejected() {
     let result = parse("Ubuntu:latest");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(
         result.unwrap_err(),
         ReferenceError::ContainsUppercase
@@ -81,7 +84,7 @@ fn test_parse_uppercase_rejected() {
 #[test]
 fn test_parse_invalid_format() {
     let result = parse("!!!not-valid!!!");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(result.unwrap_err(), ReferenceError::InvalidFormat));
 }
 
@@ -90,7 +93,7 @@ fn test_parse_with_digest() {
     // digest after @ — Go stores only domain/path/tag, digest is not in the struct
     let result =
         parse("ubuntu@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let ref_val = result.expect("should parse");
     assert_eq!("", ref_val.domain);
     assert_eq!("ubuntu", ref_val.path);
@@ -178,7 +181,7 @@ fn test_parse_name_too_long() {
     // Generate a name > 255 characters
     let long_component = "a".repeat(256);
     let result = parse(&format!("{}:tag", long_component));
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(matches!(
         result.unwrap_err(),
         ReferenceError::NameTooLong(_)
@@ -190,14 +193,14 @@ fn test_parse_name_at_max_length() {
     // A name exactly at the 255-char boundary should succeed
     let long_name = "a".repeat(255);
     let result = parse(&long_name);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test]
 fn test_parse_uppercase_in_domain_accepted() {
     // Domains allow uppercase per the regex ([a-zA-Z])
     let result = parse("MyRegistry/ubuntu:latest");
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let ref_val = result.expect("should parse");
     assert_eq!("MyRegistry", ref_val.domain);
     assert_eq!("ubuntu", ref_val.path);
@@ -277,6 +280,43 @@ fn test_parse_docker_hub_official() {
 
 #[test]
 fn test_parse_localhost_domain() {
+    let result = parse("localhost/ubuntu").expect("should parse");
+    assert_eq!("localhost", result.domain);
+    assert_eq!("ubuntu", result.path);
+}
+
+// ============================================================================
+// Error constant tests
+// ============================================================================
+
+#[test]
+fn test_err_reference_invalid_format_is_invalid_format() {
+    assert!(matches!(
+        ERR_REFERENCE_INVALID_FORMAT,
+        ReferenceError::InvalidFormat
+    ));
+}
+
+#[test]
+fn test_err_name_contains_uppercase() {
+    assert!(matches!(
+        ERR_NAME_CONTAINS_UPPERCASE,
+        ReferenceError::ContainsUppercase
+    ));
+}
+
+#[test]
+fn test_err_name_empty() {
+    assert!(matches!(ERR_NAME_EMPTY, ReferenceError::NameEmpty));
+}
+
+#[test]
+fn test_err_name_too_long() {
+    assert!(matches!(
+        ERR_NAME_TOO_LONG,
+        ReferenceError::NameTooLong(255)
+    ));
+}
     let result = parse("localhost/ubuntu").expect("should parse");
     assert_eq!("localhost", result.domain);
     assert_eq!("ubuntu", result.path);

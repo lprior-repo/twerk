@@ -3472,6 +3472,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-native-tls"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fef4de47bb81477e0c3deaf153a1b10ae176484713ff1640969f4cb96b653ebc"
+dependencies = [
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-postgres",
+]
+
+[[package]]
 name = "postgres-protocol"
 version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5518,6 +5530,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "subtle",
  "sysinfo",
  "tap",
  "tempfile",
@@ -5640,9 +5653,11 @@ dependencies = [
  "itertools 0.14.0",
  "lapin",
  "libc",
+ "native-tls",
  "once_cell",
  "parking_lot",
  "postgres",
+ "postgres-native-tls",
  "rand 0.9.2",
  "regex",
  "reqwest",

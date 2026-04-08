@@ -120,17 +120,19 @@ mod tests {
     // JobId validation tests
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn job_id_returns_ok_when_input_is_valid_alphanumeric() {
         let result = JobId::new("job-123");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         assert_eq!(result.unwrap().as_str(), "job-123");
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn job_id_returns_ok_with_underscore() {
         let result = JobId::new("job_456");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
         assert_eq!(result.unwrap().as_str(), "job_456");
     }
 
@@ -307,10 +309,11 @@ mod tests {
     // TaskId validation tests (verifies macro generates correct type)
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn task_id_new_valid() {
         let result = TaskId::new("task-abc-123");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
@@ -323,10 +326,11 @@ mod tests {
     // NodeId validation tests
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn node_id_new_valid() {
         let result = NodeId::new("node-xyz-789");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
@@ -340,10 +344,11 @@ mod tests {
     // UserId validation tests
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn user_id_new_valid() {
         let result = UserId::new("user-123");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
@@ -356,10 +361,11 @@ mod tests {
     // RoleId validation tests
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn role_id_new_valid() {
         let result = RoleId::new("role-admin");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
@@ -372,10 +378,11 @@ mod tests {
     // ScheduledJobId validation tests
     // =======================================================================
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn scheduled_job_id_new_valid() {
         let result = ScheduledJobId::new("scheduled-job-123");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     // =======================================================================

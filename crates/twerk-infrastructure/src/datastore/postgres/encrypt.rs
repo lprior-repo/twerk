@@ -169,27 +169,30 @@ mod tests {
         assert_eq!(dec_b, plaintext);
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_decrypt_with_wrong_key_fails() {
         let plaintext = "secret password";
         let enc = encrypt(plaintext, "correct-key").expect("encryption should succeed");
 
         let result = decrypt(&enc, "wrong-key");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_decrypt_invalid_base64_fails() {
         let result = decrypt("not-valid-base64!!!", "key");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_decrypt_short_ciphertext_fails() {
         // base64 of less than 12 bytes
         let short = base64::engine::general_purpose::STANDARD.encode([0u8; 8]);
         let result = decrypt(&short, "key");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]

@@ -210,6 +210,7 @@ impl Config {
 mod tests {
     #![allow(clippy::unwrap_used)]
     #![allow(clippy::expect_used)]
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
     use crate::runtime::docker::auth::decode_base64_auth;
     use base64::Engine;
@@ -399,7 +400,7 @@ mod tests {
     fn test_decode_base64_auth_invalid() {
         // "not base64" is not valid base64
         let result = decode_base64_auth("not base64");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
@@ -408,7 +409,7 @@ mod tests {
         // No colon separator
         let encoded = base64::engine::general_purpose::STANDARD.encode("invalidformat");
         let result = decode_base64_auth(&encoded);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]

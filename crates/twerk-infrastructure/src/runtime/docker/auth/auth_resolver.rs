@@ -100,6 +100,7 @@ pub fn get_registry_credentials(
 mod tests {
     #![allow(clippy::unwrap_used)]
     #![allow(clippy::expect_used)]
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
     use std::collections::HashMap;
     use std::io::Write;
@@ -143,14 +144,14 @@ mod tests {
         std::fs::write(&config_path, "not json at all").expect("should write");
 
         let result = Config::load_from_path(&config_path);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(result.unwrap_err(), AuthError::Json(_)));
     }
 
     #[test]
     fn test_config_load_from_path_missing_file() {
         let result = Config::load_from_path("/nonexistent/config.json");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         assert!(matches!(result.unwrap_err(), AuthError::Io(_)));
     }
 
@@ -161,7 +162,7 @@ mod tests {
         std::fs::write(&config_path, "").expect("should write");
 
         let result = Config::load_from_path(&config_path);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
@@ -176,7 +177,7 @@ mod tests {
         let result = Config::load_config("");
         // Restore env
         std::env::remove_var("DOCKER_CONFIG");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]
@@ -297,6 +298,6 @@ mod tests {
         std::fs::write(&config_path, "invalid json{{{").expect("should write");
 
         let result = get_registry_credentials(config_path.to_str().expect("path"), "some.host");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 }

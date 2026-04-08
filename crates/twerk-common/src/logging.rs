@@ -219,6 +219,7 @@ pub fn setup_logging() -> Result<(), LoggingError> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
 
     #[test]
@@ -252,10 +253,10 @@ mod tests {
 
         // Should implement Write trait
         let result = writer.write_all(b"test output\n");
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
 
         let result = writer.flush();
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     #[test]

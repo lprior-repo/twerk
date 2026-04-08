@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -55,7 +56,7 @@ async fn engine_start_fails_when_not_idle() {
     assert_eq!(engine.state(), State::Running);
 
     let result = engine.start().await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result.unwrap_err().to_string().contains("not idle"));
 
     let _ = engine.terminate().await;
@@ -65,7 +66,7 @@ async fn engine_start_fails_when_not_idle() {
 async fn engine_terminate_fails_when_not_running() {
     let mut engine = engine_with_mode(Mode::Standalone);
     let result = engine.terminate().await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
 }
 
 #[tokio::test]
@@ -125,7 +126,7 @@ async fn create_runtime_from_config_fails_clearly_when_runtime_is_invalid() {
         twerk_app::engine::worker::runtime_adapter::create_runtime_from_config(&config, broker)
             .await;
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .err()
         .map(|error| error.to_string())
@@ -168,7 +169,7 @@ async fn datastore_proxy_can_be_used_as_datastore_trait() -> Result<()> {
 async fn broker_proxy_check_init_returns_error_when_not_initialized() {
     let broker = BrokerProxy::new();
     let result = broker.check_init().await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result.unwrap_err().to_string().contains("not initialized"));
 }
 
@@ -189,7 +190,7 @@ async fn broker_proxy_init_accepts_rabbitmq_type() -> Result<()> {
     let broker = BrokerProxy::new();
     let result = broker.init("rabbitmq", Some("")).await;
     std::env::remove_var("TWERK_BROKER_RABBITMQ_URL");
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     Ok(())
 }
 
@@ -228,7 +229,7 @@ async fn engine_submit_job_returns_error_when_engine_not_running() -> Result<()>
     };
 
     let result = engine.submit_job(job, vec![]).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result.unwrap_err().to_string().contains("not running"));
     Ok(())
 }
@@ -247,7 +248,7 @@ async fn engine_submit_job_returns_error_when_not_coordinator_mode() -> Result<(
     };
 
     let result = engine.submit_job(job, vec![]).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(_)));
     assert!(result
         .unwrap_err()
         .to_string()
@@ -279,7 +280,7 @@ async fn engine_submit_job_submits_to_coordinator_in_standalone_mode() -> Result
     };
 
     let result = engine.submit_job(job.clone(), vec![]).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let submitted = result.unwrap();
     assert_eq!(submitted.id, job.id);

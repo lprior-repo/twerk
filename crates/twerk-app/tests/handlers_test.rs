@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::uninlined_format_args)]
+#![allow(clippy::redundant_pattern_matching)]
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -58,7 +59,7 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_redelivered(ds, b, task.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let queues = broker.clone_inner().queues().await?;
     let default_queue = queues.iter().find(|q| q.name == "default");
@@ -96,7 +97,7 @@ async fn handle_started_updates_task_state() -> Result<()> {
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_started(ds, b, task.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TaskState::Running);
@@ -131,7 +132,7 @@ async fn handle_error_updates_task_state() -> Result<()> {
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_error(ds, b, task.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TaskState::Failed);
@@ -167,7 +168,7 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     datastore.clone_inner().create_task(&task).await?;
 
     let result = handlers::handle_error(ds, b, task.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let queues = broker.clone_inner().queues().await?;
     let failed_queue = queues.iter().find(|q| q.name == QUEUE_FAILED);
@@ -195,7 +196,7 @@ async fn handle_heartbeat_updates_node_status() -> Result<()> {
     datastore.clone_inner().create_node(&node).await?;
 
     let result = handlers::handle_heartbeat(ds, b, node.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let updated_node = datastore.clone_inner().get_node_by_id("worker-1").await?;
     assert_eq!(updated_node.status, Some(NodeStatus::UP));
@@ -236,7 +237,7 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     };
 
     let result = handlers::handle_log_part(ds, b, log_part.clone()).await;
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
 
     let parts = datastore
         .clone_inner()
@@ -281,7 +282,7 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
             ..Default::default()
         };
         let result = handlers::handle_log_part(ds.clone(), b.clone(), log_part.clone()).await;
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
     }
 
     let parts = datastore

@@ -152,13 +152,14 @@ pub enum ReexecError {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_pattern_matching)]
     use super::*;
 
     #[test]
     fn test_register_and_init_not_matched() {
         // Register a handler
         let result = Register("test-handler", || {});
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
 
         // Init should return false since argv[0] doesn't match
         assert!(!Init());
@@ -188,7 +189,7 @@ mod tests {
         let initializer: fn() = || {};
         let _ = Register("duplicate-test", initializer);
         let result = Register("duplicate-test", initializer);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]

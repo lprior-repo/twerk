@@ -4,6 +4,9 @@
 //!   cargo test -p twerk-app --test benchmark_test -- --nocapture
 //!   cargo test -p twerk-web --test benchmark_test -- --nocapture
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 use std::time::{Duration, Instant};
 use twerk_core::id::TaskId;
 

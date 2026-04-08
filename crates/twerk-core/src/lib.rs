@@ -1,5 +1,4 @@
 pub mod domain_types;
-pub mod encrypt;
 pub mod env;
 pub mod eval;
 pub mod fns;

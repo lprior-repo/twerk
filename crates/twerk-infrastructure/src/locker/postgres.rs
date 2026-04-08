@@ -15,12 +15,49 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
+use native_tls::TlsConnector;
 use parking_lot::Mutex;
 use postgres::Client as PgClient;
+use postgres_native_tls::MakeTlsConnector;
 use sha2::{Digest, Sha256};
 
 use super::error::{InitError, LockError};
 use super::{Lock, Locker};
+
+/// SSL/TLS connection mode for PostgreSQL connections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SslMode {
+    /// No TLS
+    #[default]
+    Disable,
+    /// Require TLS if server supports it
+    Require,
+    /// Verify server certificate (CA)
+    VerifyCa,
+    /// Verify server certificate and match hostname
+    VerifyFull,
+}
+
+impl SslMode {
+    fn requires_tls(self) -> bool {
+        matches!(self, Self::Require | Self::VerifyCa | Self::VerifyFull)
+    }
+}
+
+/// Extracts sslmode from a PostgreSQL DSN string.
+fn extract_ssl_mode(dsn: &str) -> SslMode {
+    dsn.split_whitespace()
+        .find(|part| part.starts_with("sslmode="))
+        .and_then(|part| part.strip_prefix("sslmode="))
+        .map(|mode| match mode {
+            "disable" => SslMode::Disable,
+            "require" => SslMode::Require,
+            "verify-ca" => SslMode::VerifyCa,
+            "verify-full" => SslMode::VerifyFull,
+            _ => SslMode::Disable,
+        })
+        .unwrap_or(SslMode::Disable)
+}
 
 /// PostgreSQL-backed distributed locker.
 pub struct PostgresLocker {
@@ -66,6 +103,7 @@ pub fn hash_key(key: &str) -> i64 {
 
 struct SyncPostgresPool {
     dsn: String,
+    ssl_mode: SslMode,
     max_open: u32,
     max_idle: Option<u32>,
     conn_max_lifetime: Option<std::time::Duration>,
@@ -83,8 +121,10 @@ struct IdleConnection {
 
 impl SyncPostgresPool {
     fn new(dsn: &str, opts: &PostgresLockerOptions) -> Self {
+        let ssl_mode = opts.ssl_mode.unwrap_or_else(|| extract_ssl_mode(dsn));
         Self {
             dsn: dsn.to_string(),
+            ssl_mode,
             max_open: opts.max_open_conns.unwrap_or(100),
             max_idle: opts.max_idle_conns,
             conn_max_lifetime: opts.conn_max_lifetime,
@@ -95,6 +135,18 @@ impl SyncPostgresPool {
             idle: Mutex::new(Vec::new()),
             open_count: Mutex::new(0),
         }
+    }
+
+    fn make_tls_connector(&self) -> Option<MakeTlsConnector> {
+        if !self.ssl_mode.requires_tls() {
+            return None;
+        }
+        let accept_invalid = self.ssl_mode == SslMode::Require;
+        let connector = TlsConnector::builder()
+            .danger_accept_invalid_certs(accept_invalid)
+            .build()
+            .ok()?;
+        Some(MakeTlsConnector::new(connector))
     }
 
     fn get(self: &Arc<Self>) -> Result<PooledClient, LockError> {
@@ -155,7 +207,12 @@ impl SyncPostgresPool {
         let dsn = self.dsn.clone();
         let timeout = self.connect_timeout;
 
-        let handle = std::thread::spawn(move || PgClient::connect(&dsn, postgres::NoTls));
+        let tls_connector = self.make_tls_connector();
+
+        let handle = std::thread::spawn(move || match tls_connector {
+            Some(connector) => PgClient::connect(&dsn, connector),
+            None => PgClient::connect(&dsn, postgres::NoTls),
+        });
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -232,6 +289,7 @@ pub struct PostgresLockerOptions {
     conn_max_lifetime: Option<std::time::Duration>,
     conn_max_idle_time: Option<std::time::Duration>,
     connect_timeout: Option<std::time::Duration>,
+    ssl_mode: Option<SslMode>,
 }
 
 impl PostgresLockerOptions {
@@ -271,6 +329,14 @@ impl PostgresLockerOptions {
     pub fn connect_timeout(self, d: std::time::Duration) -> Self {
         Self {
             connect_timeout: Some(d),
+            ..self
+        }
+    }
+
+    #[must_use]
+    pub fn ssl_mode(self, mode: SslMode) -> Self {
+        Self {
+            ssl_mode: Some(mode),
             ..self
         }
     }
@@ -339,8 +405,11 @@ impl PostgresLocker {
             .unwrap_or(std::time::Duration::from_secs(30));
         let dsn_owned = dsn.to_string();
 
-        let handle = std::thread::spawn(move || {
-            PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ())
+        let tls_connector = pool.make_tls_connector();
+
+        let handle = std::thread::spawn(move || match tls_connector {
+            Some(connector) => PgClient::connect(&dsn_owned, connector).map(|_client| ()),
+            None => PgClient::connect(&dsn_owned, postgres::NoTls).map(|_client| ()),
         });
 
         let connect_result =
@@ -482,6 +551,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires postgres"]
     #[allow(clippy::expect_used)]
+    #[allow(clippy::redundant_pattern_matching)]
     async fn test_postgres_locker_acquire_lock_returns_error_when_locked() {
         let dsn = "postgres://twerk:twerk@localhost:5432/twerk";
         let locker = PostgresLocker::new(dsn)
@@ -495,7 +565,7 @@ mod tests {
             .expect("first acquire should succeed");
 
         let result = locker.acquire_lock(key).await;
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
 
         lock.release_lock().await.expect("release should succeed");
 

@@ -1,5 +1,8 @@
 }
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -150,7 +153,7 @@ mod tests {
     fn parse_limits_cpu_invalid_string() {
         let limits = TaskLimits::new(Some("abc"), None);
         let result = DockerRuntime::parse_limits(Some(&limits));
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         let err = result.unwrap_err().to_string();
         assert!(err.contains("CPUs"), "error should mention CPUs: {err}");
     }
@@ -191,7 +194,7 @@ mod tests {
     fn parse_limits_memory_invalid_string() {
         let limits = TaskLimits::new(None, Some("not-a-size"));
         let result = DockerRuntime::parse_limits(Some(&limits));
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
         let err = result.unwrap_err().to_string();
         assert!(err.contains("memory"), "error should mention memory: {err}");
     }
@@ -310,13 +313,13 @@ mod tests {
     #[test]
     fn parse_gpu_options_invalid_count() {
         let result = DockerRuntime::parse_gpu_options("count=notanumber");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
     fn parse_gpu_options_unknown_key() {
         let result = DockerRuntime::parse_gpu_options("foo=bar");
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     }
 
     #[test]
@@ -614,20 +617,20 @@ mod tests {
     #[tokio::test]
     async fn test_health_check() {
         let runtime = DockerRuntime::default_runtime().await.unwrap();
-        assert!(runtime.health_check().await.is_ok());
+        assert!(matches!(runtime.health_check().await, Ok(_)));
     }
 
     #[tokio::test]
     async fn test_default_runtime_creation() {
         let runtime = DockerRuntime::default_runtime().await;
-        assert!(runtime.is_ok(), "default_runtime should succeed with Docker daemon: {:?}", runtime.err());
+        assert!(matches!(runtime, Ok(_)), "default_runtime should succeed with Docker daemon: {:?}", runtime.err());
     }
 
     #[tokio::test]
     async fn test_health_check_failed_with_cancelled_context() {
         let runtime = DockerRuntime::default_runtime().await.unwrap();
         // We can't easily cancel the ping, but verify health_check is reachable
-        assert!(runtime.health_check().await.is_ok());
+        assert!(matches!(runtime.health_check().await, Ok(_)));
     }
 
     // =============================================================================
@@ -639,7 +642,7 @@ mod tests {
     async fn test_docker_runtime_creates_client_and_background_tasks() {
         let config = DockerConfig::default();
         let runtime = DockerRuntime::new(config).await;
-        assert!(runtime.is_ok(), "DockerRuntime::new should succeed with Docker daemon");
+        assert!(matches!(runtime, Ok(_)), "DockerRuntime::new should succeed with Docker daemon");
     }
 
     /// GAP1: DockerRuntime can be created with custom config
@@ -650,7 +653,7 @@ mod tests {
             .with_image_ttl(Duration::from_secs(300))
             .build();
         let runtime = DockerRuntime::new(config).await;
-        assert!(runtime.is_ok(), "DockerRuntime::new with custom config should succeed");
+        assert!(matches!(runtime, Ok(_)), "DockerRuntime::new with custom config should succeed");
     }
 
     // =============================================================================
@@ -664,7 +667,7 @@ mod tests {
         let runtime = DockerRuntime::default_runtime().await.unwrap();
 
         let network_id = runtime.create_network().await;
-        assert!(network_id.is_ok(), "create_network should succeed: {:?}", network_id.err());
+        assert!(matches!(network_id, Ok(_)), "create_network should succeed: {:?}", network_id.err());
 
         let id = network_id.unwrap();
         assert!(!id.is_empty(), "network id should not be empty");
@@ -752,7 +755,7 @@ mod tests {
 
         // If sidecars are not supported, this will fail
         // If fixed, sidecars will run and be cleaned up
-        assert!(result.is_ok(), "sidecars should be supported in Docker runtime: {:?}", result.err());
+        assert!(matches!(result, Ok(_)), "sidecars should be supported in Docker runtime: {:?}", result.err());
     }
 
     // =============================================================================

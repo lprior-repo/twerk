@@ -2,6 +2,9 @@
 //!
 //! Tests container lifecycle, health checks, privileged mode, mounters, parsers, and more.
 
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+
 use super::*;
 
 fn create_test_task() -> Task {
@@ -57,7 +60,7 @@ async fn test_podman_run_task_init_workdir() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "init workdir should succeed: {:?}",
         result.err()
     );
@@ -79,7 +82,7 @@ async fn test_podman_run_task_init_workdir_ls() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "init workdir ls should succeed: {:?}",
         result.err()
     );
@@ -94,7 +97,7 @@ async fn test_podman_health_check() {
     let rt = PodmanRuntime::new(create_test_config());
     let result = rt.health_check().await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "health check should succeed: {:?}",
         result.err()
     );
@@ -125,7 +128,7 @@ async fn test_run_task_privileged_on() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "privileged run should succeed: {:?}",
         result.err()
     );
@@ -142,7 +145,7 @@ async fn test_run_task_privileged_off() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "non-privileged run should succeed: {:?}",
         result.err()
     );
@@ -163,7 +166,7 @@ fn test_volume_mounter() {
     };
 
     let result = vm.mount(&mut mount);
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     assert!(
         !mount.source.is_empty(),
         "source should be populated after mount"
@@ -211,29 +214,29 @@ fn test_slug_make() {
 
 #[test]
 fn test_parse_cpus() {
-    assert!(PodmanRuntime::parse_cpus("2").is_ok());
-    assert!(PodmanRuntime::parse_cpus("1.5").is_ok());
-    assert!(PodmanRuntime::parse_cpus("0.5").is_ok());
-    assert!(PodmanRuntime::parse_cpus("-1").is_err());
-    assert!(PodmanRuntime::parse_cpus("abc").is_err());
+    assert!(matches!(PodmanRuntime::parse_cpus("2"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_cpus("1.5"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_cpus("0.5"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_cpus("-1"), Err(_)));
+    assert!(matches!(PodmanRuntime::parse_cpus("abc"), Err(_)));
 }
 
 #[test]
 fn test_parse_memory() {
-    assert!(PodmanRuntime::parse_memory("512m").is_ok());
-    assert!(PodmanRuntime::parse_memory("1g").is_ok());
-    assert!(PodmanRuntime::parse_memory("1024").is_ok());
-    assert!(PodmanRuntime::parse_memory("256MB").is_err());
-    assert!(PodmanRuntime::parse_memory("abc").is_err());
+    assert!(matches!(PodmanRuntime::parse_memory("512m"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_memory("1g"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_memory("1024"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_memory("256MB"), Err(_)));
+    assert!(matches!(PodmanRuntime::parse_memory("abc"), Err(_)));
 }
 
 #[test]
 fn test_parse_duration() {
-    assert!(PodmanRuntime::parse_duration("1m").is_ok());
-    assert!(PodmanRuntime::parse_duration("30s").is_ok());
-    assert!(PodmanRuntime::parse_duration("2h").is_ok());
-    assert!(PodmanRuntime::parse_duration("abc").is_err());
-    assert!(PodmanRuntime::parse_duration("").is_err());
+    assert!(matches!(PodmanRuntime::parse_duration("1m"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_duration("30s"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_duration("2h"), Ok(_)));
+    assert!(matches!(PodmanRuntime::parse_duration("abc"), Err(_)));
+    assert!(matches!(PodmanRuntime::parse_duration(""), Err(_)));
 }
 
 #[test]
@@ -281,7 +284,7 @@ async fn test_podman_container_lifecycle() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "container lifecycle should succeed: {:?}",
         result.err()
     );
@@ -298,7 +301,7 @@ async fn test_podman_container_remove() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "container remove should succeed: {:?}",
         result.err()
     );
@@ -316,7 +319,7 @@ async fn test_podman_env_vars() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "env vars should succeed: {:?}",
         result.err()
     );
@@ -333,7 +336,7 @@ async fn test_podman_networks() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "container with networks should succeed: {:?}",
         result.err()
     );
@@ -353,7 +356,7 @@ async fn test_podman_resource_limits() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "resource limits should succeed: {:?}",
         result.err()
     );
@@ -371,7 +374,7 @@ async fn test_podman_files() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "files injection should succeed: {:?}",
         result.err()
     );
@@ -393,7 +396,7 @@ async fn test_stop_container_helper() {
 
     let result = PodmanRuntime::stop_container_static(&container_id).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "stop_container should succeed: {:?}",
         result.err()
     );
@@ -446,7 +449,7 @@ async fn test_podman_task_result() {
 
     let result = rt.run(&mut task).await;
     assert!(
-        result.is_ok(),
+        matches!(result, Ok(_)),
         "task result should succeed: {:?}",
         result.err()
     );
@@ -466,7 +469,7 @@ async fn test_podman_runtime_creates_output_file_named_stdout_not_output() {
 
     let result = rt.run(&mut task).await;
 
-    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+    assert!(matches!(result, Ok(_)), "run should succeed: {:?}", result.err());
     assert_eq!(
         task.result, "hello\n",
         "output should be written to /twerk/stdout not /twerk/output. Got: {:?}",
@@ -485,7 +488,7 @@ async fn test_podman_runtime_twerk_output_env_is_twerk_stdout_not_twerk_output()
 
     let result = rt.run(&mut task).await;
 
-    assert!(result.is_ok(), "run should succeed: {:?}", result.err());
+    assert!(matches!(result, Ok(_)), "run should succeed: {:?}", result.err());
     assert!(
         task.result.contains("/twerk/stdout"),
         "TWERK_OUTPUT should be /twerk/stdout, got: {:?}",

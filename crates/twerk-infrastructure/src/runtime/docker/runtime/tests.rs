@@ -5,6 +5,7 @@
 #![allow(clippy::unchecked_time_subtraction)]
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::float_cmp)]
+#![allow(clippy::redundant_pattern_matching)]
 
 #[allow(unused_imports)]
 use dashmap::DashMap;
@@ -111,7 +112,7 @@ fn test_prune_images_skips_when_tasks_running() {
     );
 
     let result = tasks.try_read();
-    assert!(result.is_ok());
+    assert!(matches!(result, Ok(_)));
     let task_count = *result.unwrap();
     assert!(task_count > 0, "tasks should be running");
 

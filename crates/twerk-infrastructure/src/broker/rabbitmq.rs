@@ -9,7 +9,7 @@ use lapin::{
         BasicQosOptions, QueueDeclareOptions, QueueDeleteOptions,
     },
     types::FieldTable,
-    BasicProperties, Connection, ConnectionProperties,
+    BasicProperties, Confirmation, Connection, ConnectionProperties,
 };
 use serde_json::Value;
 use std::sync::{
@@ -21,8 +21,9 @@ use tokio::sync::RwLock;
 use tracing::{instrument, warn};
 
 use super::{
-    prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker, EventHandler, HeartbeatHandler,
-    JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
+    is_worker_queue, prefixed_queue, queue, BoxedFuture, BoxedHandlerFuture, Broker,
+    EventHandler, HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler,
+    TaskLogPartHandler, TaskProgressHandler,
 };
 use twerk_core::job::{Job, JobEvent};
 use twerk_core::node::Node;
@@ -91,7 +92,16 @@ impl RabbitMQBroker {
                 durable,
                 ..lapin::options::QueueDeclareOptions::default()
             },
-            FieldTable::default(),
+            {
+                let mut args = FieldTable::default();
+                if opts.queue_type == "quorum" {
+                    args.insert(
+                        "x-queue-type".into(),
+                        lapin::types::AMQPValue::LongString("quorum".into()),
+                    );
+                }
+                args
+            },
         )
         .await?;
 
@@ -139,7 +149,7 @@ impl RabbitMQBroker {
                 lapin::types::AMQPValue::LongString("quorum".into()),
             );
         }
-        if super::is_worker_queue(qname) {
+        if super::is_worker_queue(qname) && self.queue_type != "quorum" {
             args.insert(
                 "x-max-priority".into(),
                 lapin::types::AMQPValue::LongLongInt(10),
@@ -189,10 +199,15 @@ impl RabbitMQBroker {
     ) -> Result<()> {
         let conn = self.get_connection().await?;
         let ch = conn.create_channel().await?;
+        if exchange.is_empty() {
+            self.declare_queue(&ch, routing_key).await?;
+        }
         let props = BasicProperties::default()
             .with_type(msg_type.into())
-            .with_priority(priority);
-        ch.basic_publish(
+            .with_priority(priority)
+            .with_delivery_mode(2);
+        let confirmation = ch
+            .basic_publish(
             exchange.into(),
             routing_key.into(),
             BasicPublishOptions::default(),
@@ -201,6 +216,10 @@ impl RabbitMQBroker {
         )
         .await?
         .await?;
+        match confirmation {
+            Confirmation::Ack(_) | Confirmation::NotRequested => Ok(()),
+            Confirmation::Nack(_) => Err(anyhow!("RabbitMQ publish was negatively acknowledged")),
+        }?;
         Ok(())
     }
 
@@ -243,13 +262,14 @@ impl RabbitMQBroker {
             .await?;
         let b = self.clone();
         let engine_id = self.engine_id.clone();
+        let queue_name = qname.to_string();
         tokio::spawn(async move {
             while let Some(delivery) = futures_util::StreamExt::next(&mut consumer).await {
                 if b.is_shutting_down().await {
                     break;
                 }
                 if let Ok(delivery) = delivery {
-                    if delivery.redelivered {
+                    if delivery.redelivered && is_worker_queue(&queue_name) {
                         let msg_type = delivery
                             .properties
                             .kind()
@@ -347,17 +367,10 @@ impl Broker for RabbitMQBroker {
                 .collect::<Result<Vec<_>, serde_json::Error>>()
                 .map_err(|e| anyhow::anyhow!("serialization failed: {e}"))?;
 
-            // Publish all concurrently via try_join_all for batch-like throughput
-            let futures: Vec<_> = serialized
-                .into_iter()
-                .map(|(data, priority)| b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority))
-                .collect();
-
-            // NOTE: Batch publish is non-atomic. RabbitMQ has no transactional batch publish
-            // in the AMQP model. If some messages fail to publish, already-published messages
-            // remain in the queue. The coordinator's compensating rollback pattern handles this
-            // by marking orphaned tasks as FAILED when the publish call returns an error.
-            futures_util::future::try_join_all(futures).await?;
+            for (data, priority) in serialized {
+                b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority)
+                    .await?;
+            }
             Ok(())
         })
     }

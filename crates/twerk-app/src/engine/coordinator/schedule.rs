@@ -63,13 +63,14 @@ impl JobSchedulerHandler {
             })?
             .pipe(|handler| async move {
                 let active_jobs = handler.ds.get_active_scheduled_jobs().await?;
-                // Functional approach: collect results and propagate first error
-                active_jobs.into_iter().try_for_each(|sj| {
-                    // This is still a bit imperative but using functional try_for_each
-                    // In a real app we'd spawn these or handle errors individually
-                    let _ = sj;
-                    Ok::<(), anyhow::Error>(())
-                })?;
+                for sj in active_jobs {
+                    handler.handle_active(&sj).await?;
+                }
+                handler
+                    .scheduler
+                    .start()
+                    .await
+                    .map_err(|e| anyhow!("error starting scheduler: {e}"))?;
                 Ok(handler)
             })
             .await

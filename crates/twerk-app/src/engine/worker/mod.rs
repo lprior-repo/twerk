@@ -269,14 +269,7 @@ async fn execute_task(
     t.state = TaskState::Running;
     t.started_at = Some(time::OffsetDateTime::now_utc());
 
-    // Fire and forget progress update
-    let b1 = broker.clone();
-    let t1 = t.clone();
-    tokio::spawn(async move {
-        if let Err(e) = b1.publish_task_progress(&t1).await {
-            tracing::debug!(error = %e, "failed to publish task progress");
-        }
-    });
+    broker.publish_task_progress(&t).await?;
 
     match runtime.run(&t).await {
         Ok(()) => {
@@ -291,15 +284,7 @@ async fn execute_task(
     }
     active_tasks.remove(&tid);
 
-    // Fire and forget progress update
-    let b2 = broker.clone();
-    let t2 = t.clone();
-    tokio::spawn(async move {
-        if let Err(e) = b2.publish_task_progress(&t2).await {
-            tracing::debug!(error = %e, "failed to publish task progress");
-        }
-    });
-    Ok(())
+    broker.publish_task_progress(&t).await
 }
 
 // ---------------------------------------------------------------------------

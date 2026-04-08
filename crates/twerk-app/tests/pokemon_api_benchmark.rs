@@ -17,6 +17,8 @@
 use reqwest::Client;
 use serde::Deserialize;
 use std::time::{Duration, Instant};
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 
 const TWERK_ENDPOINT: &str = "http://localhost:8000";
 const POKEMON_API: &str = "http://127.0.0.1:8080";
@@ -104,7 +106,7 @@ tasks:
 struct Job {
     id: String,
     name: String,
-    state: String,
+    state: JobState,
     #[serde(default)]
     task_count: u32,
     #[serde(default)]
@@ -119,7 +121,7 @@ struct TasksResponse {
 #[derive(Debug, Deserialize)]
 struct TaskInfo {
     name: String,
-    state: String,
+    state: TaskState,
     #[serde(default)]
     error: Option<String>,
 }
@@ -130,7 +132,7 @@ fn print_header(title: &str) {
     println!("╚══════════════════════════════════════════════════════════════════════════════════════════╝");
 }
 
-fn print_result(label: &str, value: &str) {
+fn print_result(label: &str, value: impl std::fmt::Display) {
     println!("║  {:.<50} {:>15}", label, value);
 }
 
@@ -259,9 +261,9 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
         print_result("Progress", &format!("{:.1}%", response.progress * 100.0));
         print_result("Elapsed", &format!("{:?}", start_time.elapsed()));
         
-        if response.state == "COMPLETED" {
+        if response.state == JobState::Completed {
             break response;
-        } else if response.state == "FAILED" {
+        } else if response.state == JobState::Failed {
             // Get task details
             let task_response = client.get(&format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, job.id))
                 .send()
@@ -270,7 +272,7 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
                 .await?;
             
             for task in task_response.items {
-                if task.state == "FAILED" {
+                if task.state == TaskState::Failed {
                     println!("\n║  ✗ Task '{}' FAILED: {:?}", task.name, task.error);
                 }
             }
@@ -293,8 +295,8 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
         .await?;
 
     let total_tasks = task_response.items.len();
-    let completed_tasks = task_response.items.iter().filter(|t| t.state == "COMPLETED").count();
-    let failed_tasks = task_response.items.iter().filter(|t| t.state == "FAILED").count();
+    let completed_tasks = task_response.items.iter().filter(|t| t.state == TaskState::Completed).count();
+    let failed_tasks = task_response.items.iter().filter(|t| t.state == TaskState::Failed).count();
 
     // =========================================================================
     // Results Summary
@@ -322,11 +324,11 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
 
     println!("\n║  TASK BREAKDOWN:");
     for task in &task_response.items {
-        let status = match task.state.as_str() {
-            "COMPLETED" => "✓",
-            "FAILED" => "✗",
-            "PENDING" => "○",
-            "RUNNING" => "◐",
+        let status = match task.state {
+            TaskState::Completed => "✓",
+            TaskState::Failed => "✗",
+            TaskState::Pending => "○",
+            TaskState::Running => "◐",
             _ => "?",
         };
         println!("║    {} {} ({})", status, task.name, task.state);
@@ -338,7 +340,7 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
     println!("\n╚══════════════════════════════════════════════════════════════════════════════════════════╝");
 
     // Assert job completed successfully
-    assert_eq!(final_job.state, "COMPLETED", "Job should complete successfully");
+    assert_eq!(final_job.state, JobState::Completed, "Job should complete successfully");
     assert_eq!(failed_tasks, 0, "No tasks should fail");
     
     Ok(())

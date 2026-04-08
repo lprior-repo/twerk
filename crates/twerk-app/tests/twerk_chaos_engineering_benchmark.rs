@@ -18,6 +18,8 @@
 use reqwest::Client;
 use serde::Deserialize;
 use std::time::{Duration, Instant};
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 
 const TWERK_ENDPOINT: &str = "http://localhost:8000";
 
@@ -173,7 +175,7 @@ tasks:
 struct Job {
     id: String,
     name: String,
-    state: String,
+    state: JobState,
     #[serde(default)]
     tasks: Vec<TaskInfo>,
 }
@@ -181,7 +183,7 @@ struct Job {
 #[derive(Debug, Deserialize)]
 struct TaskInfo {
     name: String,
-    state: String,
+    state: TaskState,
 }
 
 fn print_header(title: &str) {
@@ -190,7 +192,7 @@ fn print_header(title: &str) {
     println!("╚══════════════════════════════════════════════════════════════════════════════════╝");
 }
 
-fn print_result(label: &str, value: &str) {
+fn print_result(label: &str, value: impl std::fmt::Display) {
     println!("║  {:.<50} {:>15}", label, value);
 }
 
@@ -273,8 +275,8 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
 
     // Use embedded tasks from job response
     let total_tasks = final_job.tasks.len();
-    let completed = final_job.tasks.iter().filter(|t| t.state == "COMPLETED").count();
-    let failed = final_job.tasks.iter().filter(|t| t.state == "FAILED").count();
+    let completed = final_job.tasks.iter().filter(|t| t.state == TaskState::Completed).count();
+    let failed = final_job.tasks.iter().filter(|t| t.state == TaskState::Failed).count();
 
     // Results
     print_header("CHAOS ENGINEERING RESULTS");
@@ -299,12 +301,12 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
     for task in &final_job.tasks {
         // API may return "CREATED" even when job is COMPLETED - this is a twerk bug
         // We treat CREATED as successful if job itself is COMPLETED
-        let status = match task.state.as_str() {
-            "COMPLETED" => "✓",
-            "CREATED" if final_job.state == "COMPLETED" => "✓", // API bug workaround
-            "FAILED" => "✗",
-            "PENDING" => "○",
-            "RUNNING" => "◐",
+        let status = match task.state {
+            TaskState::Completed => "✓",
+            TaskState::Created if final_job.state == JobState::Completed => "✓", // API bug workaround
+            TaskState::Failed => "✗",
+            TaskState::Pending => "○",
+            TaskState::Running => "◐",
             _ => "?",
         };
         println!("║    {} {}", status, task.name);
@@ -326,7 +328,7 @@ async fn twerk_chaos_engineering_benchmark() -> Result<(), Box<dyn std::error::E
     // Assertions
     // Note: API has a bug where task states show "CREATED" even when COMPLETED
     // Also, API only returns top-level tasks (13), not parallel sub-tasks (26 total)
-    assert_eq!(final_job.state, "COMPLETED", "Job should complete");
+    assert_eq!(final_job.state, JobState::Completed, "Job should complete");
     assert!(total_tasks >= 13, "Should have at least 13 top-level tasks");
     // The actual task count from DB is 26 (including parallel sub-tasks)
 

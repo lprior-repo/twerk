@@ -19,6 +19,8 @@ use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::rabbitmq::RabbitMq;
 use tokio::net::TcpListener;
 use twerk_app::engine::{Config as EngineConfig, Engine, Mode};
+use twerk_core::job::JobState;
+use twerk_core::task::TaskState;
 use twerk_infrastructure::datastore::postgres::{PostgresDatastore, SCHEMA};
 use twerk_infrastructure::datastore::{Datastore, Options};
 use twerk_web::api::{create_router, AppState, Config as ApiConfig};
@@ -233,31 +235,30 @@ async fn start_pokemon_api() -> anyhow::Result<(String, tokio::task::JoinHandle<
     Ok((format!("http://{address}"), handle))
 }
 
-async fn count_states(
+async fn count_jobs_by_state(
     dsn: &str,
-    state: &str,
-) -> anyhow::Result<(i64, i64)> {
+    state: JobState,
+) -> anyhow::Result<i64> {
     let datastore = PostgresDatastore::new(dsn, Options::default()).await?;
+    let jobs = datastore.get_jobs("", "", 1, 10_000).await?;
+    let count = jobs.items.iter().filter(|job| job.state == state).count() as i64;
+    datastore.close().await?;
+    Ok(count)
+}
 
+async fn count_tasks_by_state(
+    dsn: &str,
+    state: TaskState,
+) -> anyhow::Result<i64> {
+    let datastore = PostgresDatastore::new(dsn, Options::default()).await?;
     let jobs = datastore.get_jobs("", "", 1, 10_000).await?;
     let mut all_tasks = Vec::new();
     for job_id in jobs.items.iter().filter_map(|job| job.id.as_ref()) {
         all_tasks.extend(datastore.get_all_tasks_for_job(job_id.as_str()).await?);
     }
-
-    let jobs_count = jobs
-        .items
-        .iter()
-        .filter(|job| job.state.to_string() == state)
-        .count() as i64;
-
-    let tasks_count = all_tasks
-        .iter()
-        .filter(|task| task.state.to_string() == state)
-        .count() as i64;
-
+    let count = all_tasks.iter().filter(|task| task.state == state).count() as i64;
     datastore.close().await?;
-    Ok((jobs_count, tasks_count))
+    Ok(count)
 }
 
 /// Sets up the full distributed environment: Postgres, RabbitMQ, Coordinator, Worker, API.
@@ -422,8 +423,14 @@ async fn distributed_many_single_task_jobs_complete_without_stuck_pending_or_sch
         "not all burst jobs completed: {jobs:?}"
     );
 
-    let (pending_jobs, pending_tasks) = count_states(&env.postgres_dsn, "PENDING").await?;
-    let (scheduled_jobs, scheduled_tasks) = count_states(&env.postgres_dsn, "SCHEDULED").await?;
+    let (pending_jobs, pending_tasks) = (
+        count_jobs_by_state(&env.postgres_dsn, JobState::Pending).await?,
+        count_tasks_by_state(&env.postgres_dsn, TaskState::Pending).await?,
+    );
+    let (scheduled_jobs, scheduled_tasks) = (
+        count_jobs_by_state(&env.postgres_dsn, JobState::Scheduled).await?,
+        count_tasks_by_state(&env.postgres_dsn, TaskState::Scheduled).await?,
+    );
 
     assert_eq!(pending_jobs, 0, "pending jobs remained after burst drain");
     assert_eq!(pending_tasks, 0, "pending tasks remained after burst drain");

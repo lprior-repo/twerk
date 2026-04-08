@@ -50,7 +50,7 @@ pub mod queue {
 #[must_use]
 pub fn prefixed_queue(queue: &str, engine_id: &str) -> String {
     let trimmed = engine_id.trim();
-    if trimmed.is_empty() {
+    if trimmed.is_empty() || queue.ends_with(&format!(".{trimmed}")) {
         queue.to_string()
     } else {
         format!("{queue}.{trimmed}")
@@ -59,6 +59,7 @@ pub fn prefixed_queue(queue: &str, engine_id: &str) -> String {
 
 fn coordinator_queue_names() -> [&'static str; 8] {
     [
+        queue::QUEUE_PENDING,
         queue::QUEUE_COMPLETED,
         queue::QUEUE_FAILED,
         queue::QUEUE_STARTED,
@@ -66,16 +67,15 @@ fn coordinator_queue_names() -> [&'static str; 8] {
         queue::QUEUE_JOBS,
         queue::QUEUE_PROGRESS,
         queue::QUEUE_TASK_LOG_PART,
-        queue::QUEUE_REDELIVERIES,
     ]
 }
 
 fn base_queue_name(qname: &str) -> &str {
     coordinator_queue_names()
         .into_iter()
-        .find_map(|queue_name| {
+        .find(|queue_name| {
             let dotted = format!("{queue_name}.");
-            qname.starts_with(&dotted).then_some(queue_name)
+            qname.starts_with(&dotted)
         })
         .unwrap_or(qname)
 }
@@ -100,14 +100,14 @@ pub fn extract_engine_id(queue_name: &str) -> Option<String> {
 #[must_use]
 pub fn is_coordinator_queue(qname: &str) -> bool {
     matches!(base_queue_name(qname),
-        queue::QUEUE_COMPLETED
+        queue::QUEUE_PENDING
+            | queue::QUEUE_COMPLETED
             | queue::QUEUE_FAILED
             | queue::QUEUE_STARTED
             | queue::QUEUE_HEARTBEAT
             | queue::QUEUE_JOBS
             | queue::QUEUE_PROGRESS
-            | queue::QUEUE_TASK_LOG_PART
-            | queue::QUEUE_REDELIVERIES)
+            | queue::QUEUE_TASK_LOG_PART)
 }
 
 #[must_use]

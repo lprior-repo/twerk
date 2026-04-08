@@ -153,11 +153,6 @@ fn status_ok_response() -> Response {
     (StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response()
 }
 
-/// Build event publish value for scheduled job (pure).
-fn build_scheduled_job_event_value() -> Result<serde_json::Value, ApiError> {
-    serde_json::to_value(()).map_err(|e| ApiError::internal(e.to_string()))
-}
-
 /// Check if scheduled job was active (pure).
 fn was_active(sj: &ScheduledJob) -> bool {
     sj.state == ScheduledJobState::Active
@@ -201,6 +196,15 @@ pub async fn create_scheduled_job_handler(
         .create_scheduled_job(&sj)
         .await
         .map_err(ApiError::from)?;
+
+    state
+        .broker
+        .publish_event(
+            "scheduled.job".to_string(),
+            build_scheduled_job_event_value_from_sj(&sj)?,
+        )
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     let summary = new_scheduled_job_summary(&sj);
     Ok((StatusCode::OK, axum::Json(summary)).into_response())
@@ -268,11 +272,17 @@ pub async fn pause_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
+    let paused = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
     state
         .broker
         .publish_event(
             "scheduled.job".to_string(),
-            build_scheduled_job_event_value()?,
+            build_scheduled_job_event_value_from_sj(&paused)?,
         )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
@@ -302,11 +312,17 @@ pub async fn resume_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
+    let resumed = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
     state
         .broker
         .publish_event(
             "scheduled.job".to_string(),
-            build_scheduled_job_event_value()?,
+            build_scheduled_job_event_value_from_sj(&resumed)?,
         )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;

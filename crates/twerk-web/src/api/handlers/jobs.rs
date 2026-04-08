@@ -156,7 +156,7 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
             
             // Fetch actual task states from the tasks table
             if let Some(ref job_id) = finished_job.id {
-                if let Ok(actual_tasks) = state.ds.get_all_tasks_for_job(&job_id.to_string()).await {
+                if let Ok(actual_tasks) = state.ds.get_all_tasks_for_job(job_id.as_ref()).await {
                     if !actual_tasks.is_empty() {
                         finished_job.tasks = Some(actual_tasks);
                     }
@@ -198,7 +198,7 @@ pub async fn get_job_handler(
     if let Some(job_id) = &job.id {
         let actual_tasks = state
             .ds
-            .get_all_tasks_for_job(&job_id.to_string())
+            .get_all_tasks_for_job(job_id.as_ref())
             .await
             .map_err(ApiError::from)?;
         if !actual_tasks.is_empty() {

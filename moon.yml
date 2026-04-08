@@ -44,19 +44,19 @@ tasks:
       runInCI: false
 
   docs:
-    command: 'cd website && mdbook build'
+    script: 'cd website && mdbook build'
     options:
       runInCI: false
     description: 'Build mdBook documentation'
 
   docs-serve:
-    command: 'cd website && mdbook serve --open'
+    script: 'cd website && mdbook serve --open'
     options:
       runInCI: false
     description: 'Serve docs locally for development'
 
   docs-check:
-    command: 'cd website && mdbook build --dry-run'
+    script: 'cd website && mdbook build --dest-dir /tmp/twerk-docs-check'
     options:
       runInCI: true
     description: 'Validate docs without building'
@@ -90,7 +90,7 @@ tasks:
   docker-check:
     script: 'docker info > /dev/null 2>&1 || { echo "=============================================="; echo "ERROR: Docker is not running!"; echo "The distributed-e2e tests require Docker to spin up"; echo "real Postgres and RabbitMQ containers via testcontainers."; echo ""; echo "Please start Docker and retry."; echo "=============================================="; exit 1; }'
     options:
-      runInCI: false
+      runInCI: true
     description: 'Verifies Docker is running (prerequisite for distributed-e2e)'
 
   ci-standalone-e2e:
@@ -106,7 +106,7 @@ tasks:
     toolchains:
       - rust
     options:
-      runInCI: false
+      runInCI: true
     deps:
       - 'docker-check'
     description: '⚠️  DOCKER REQUIRED: E2E tests with real Postgres + RabbitMQ containers (single-threaded)'
@@ -127,12 +127,12 @@ tasks:
   # (requires Docker to be running)
 
   ci-source:
-    script: 'cargo fmt --all --check && cargo clippy --workspace --lib --bins --examples -- -D warnings && cargo test --workspace --exclude twerk-web && cargo build --workspace'
+    script: 'cargo fmt --all --check && cargo clippy --workspace --lib --bins --examples -- -D warnings && cargo test --workspace && cargo build --workspace'
     toolchains:
       - rust
     options:
       runInCI: true
-    description: 'Standard CI gate (excludes distributed-e2e which requires Docker)'
+    description: 'Standard CI gate for the full workspace'
 
   ci:
     command: 'moon run :ci-source'

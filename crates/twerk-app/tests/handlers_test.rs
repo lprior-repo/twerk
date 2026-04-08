@@ -52,6 +52,7 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
         job_id: Some(job_id.into()),
         state: TaskState::Running,
         redelivered: 1,
+        queue: Some("default".to_string()),
         ..Default::default()
     };
     datastore.clone_inner().create_task(&task).await?;
@@ -60,9 +61,12 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     assert!(result.is_ok());
 
     let queues = broker.clone_inner().queues().await?;
-    let pending_queue = queues.iter().find(|q| q.name == QUEUE_PENDING);
-    assert!(pending_queue.is_some());
-    assert_eq!(pending_queue.unwrap().size, 1);
+    let default_queue = queues.iter().find(|q| q.name == "default");
+    assert!(default_queue.is_some());
+    assert_eq!(default_queue.unwrap().size, 1);
+
+    let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
+    assert_eq!(updated_task.redelivered, 2);
 
     Ok(())
 }

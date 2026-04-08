@@ -14,7 +14,7 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tracing::{error, instrument};
 use twerk_core::task::{TaskLogPart, TaskState};
-use twerk_infrastructure::broker::queue::{QUEUE_FAILED, QUEUE_PENDING};
+use twerk_infrastructure::broker::queue::QUEUE_FAILED;
 
 // ── Public Task Handlers ────────────────────────────────────────
 
@@ -77,12 +77,30 @@ pub async fn handle_pending_task(
 /// # Errors
 /// Returns error if task publishing fails.
 pub async fn handle_redelivered(
-    _ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     mut task: twerk_core::task::Task,
 ) -> Result<()> {
+    let task_id = task
+        .id
+        .as_deref()
+        .ok_or_else(|| anyhow!("redelivered task has no id"))?;
+    let persisted = ds.get_task_by_id(task_id).await?;
+    if matches!(persisted.state, TaskState::Completed | TaskState::Failed | TaskState::Cancelled) {
+        return Ok(());
+    }
     task.redelivered += 1;
-    broker.publish_task(QUEUE_PENDING.to_string(), &task).await
+    ds.update_task(
+        task_id,
+        Box::new(move |mut current| {
+            current.redelivered = task.redelivered;
+            Ok(current)
+        }),
+    )
+    .await?;
+
+    let queue = persisted.queue.unwrap_or_else(|| "default".to_string());
+    broker.publish_task(queue, &task).await
 }
 
 /// Handles task started event.

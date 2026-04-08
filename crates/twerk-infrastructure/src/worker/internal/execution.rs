@@ -50,10 +50,7 @@ pub async fn execute_task(
     t.state = TaskState::Running;
     t.started_at = Some(OffsetDateTime::now_utc());
 
-    // Publish task started
-    if let Err(e) = broker.publish_task_progress(&t).await {
-        tracing::debug!(task_id = ?t.id, error = %e, "failed to publish task progress");
-    }
+    broker.publish_task_progress(&t).await?;
 
     // Run the task with cancellation support
     let result = run_task_with_cancel(&t, runtime.clone(), &mut cancel_rx).await;
@@ -77,12 +74,7 @@ pub async fn execute_task(
         tasks_notify.notify_waiters();
     }
 
-    // Publish final state
-    if let Err(e) = broker.publish_task_progress(&t).await {
-        tracing::debug!(task_id = ?t.id, error = %e, "failed to publish task progress");
-    }
-
-    Ok(())
+    broker.publish_task_progress(&t).await
 }
 
 /// Run a task with support for cancellation

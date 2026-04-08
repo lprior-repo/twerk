@@ -165,7 +165,7 @@ impl Coordinator for DefaultCoordinator {
                     if st.is_cancelled() {
                         Ok(())
                     } else {
-                        handlers::handle_job_event(ds, b, job).await
+                        Box::pin(handlers::handle_job_event(ds, b, job)).await
                     }
                 })
             }))

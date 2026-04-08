@@ -27,7 +27,7 @@ use twerk_infrastructure::broker::{
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{
-    DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL, QUEUE_TYPE_CLASSIC,
+    DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL,
 };
 
 // ── Broker type enumeration ────────────────────────────────────
@@ -279,8 +279,8 @@ pub async fn create_broker(
                 "broker.rabbitmq.consumer.timeout",
                 DEFAULT_CONSUMER_TIMEOUT_MS,
             );
-            let durable = env_bool("broker.rabbitmq.durable.queues", false);
-            let queue_type = env_string_default("broker.rabbitmq.queue.type", QUEUE_TYPE_CLASSIC);
+            let durable = env_bool("broker.rabbitmq.durable.queues", true);
+            let queue_type = env_string_default("broker.rabbitmq.queue.type", "quorum");
 
             let broker = RabbitMQBroker::new(
                 &url,

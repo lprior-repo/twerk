@@ -13,6 +13,24 @@ const REDACTED_STR: &str = "[REDACTED]";
 /// Default sensitive keys that trigger redaction when found in variable names.
 const DEFAULT_KEYS: &[&str] = &["SECRET", "PASSWORD", "ACCESS_KEY"];
 
+/// Replaces all case-insensitive occurrences of `key` in `input` with `[REDACTED]`
+/// using recursion to iterate until no more matches exist (fixed-point iteration).
+fn replace_key_until_fixed_point(input: String, upper_key: &str, key_len: usize) -> String {
+    match input.to_uppercase().find(upper_key) {
+        Some(pos) => replace_key_until_fixed_point(
+            format!(
+                "{}{}{}",
+                &input[..pos],
+                REDACTED_STR,
+                &input[pos + key_len..]
+            ),
+            upper_key,
+            key_len,
+        ),
+        None => input,
+    }
+}
+
 /// Redacter masks sensitive data in jobs and tasks.
 #[derive(Debug, Clone)]
 pub struct Redacter {
@@ -62,23 +80,8 @@ impl Redacter {
                 return acc;
             }
             let upper_key = key.to_uppercase();
-            // Fold over the string, replacing each case-insensitive match.
-            let mut result = acc;
-            loop {
-                let upper_result = result.to_uppercase();
-                match upper_result.find(&upper_key) {
-                    Some(pos) => {
-                        result = format!(
-                            "{}{}{}",
-                            &result[..pos],
-                            REDACTED_STR,
-                            &result[pos + key.len()..]
-                        );
-                    }
-                    None => break,
-                }
-            }
-            result
+            let key_len = key.len();
+            replace_key_until_fixed_point(acc, &upper_key, key_len)
         })
     }
 

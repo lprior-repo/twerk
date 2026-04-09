@@ -13,6 +13,11 @@ const HELP_EXAMPLES: &str = "Examples:\n  twerk run standalone\n  twerk migratio
 #[command(version = crate::cli::VERSION, propagate_version = true)]
 #[command(after_help = HELP_EXAMPLES)]
 pub struct Cli {
+    /// Enable JSON output for automation and scripting.
+    /// When enabled, commands output structured JSON instead of human-readable text.
+    #[arg(long, global = true)]
+    pub json: bool,
+
     /// Subcommand to execute.
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -121,6 +126,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                json: false,
                 command: Some(Commands::Run {
                     mode: RunMode::Worker
                 })

@@ -18,20 +18,40 @@ pub struct HealthResponse {
 /// # Arguments
 ///
 /// * `endpoint` - The base URL of the Twerk service
+/// * `json_mode` - If true, output JSON instead of human-readable text
 ///
 /// # Errors
 ///
 /// Returns [`CliError::Http`] if the request fails.
 /// Returns [`CliError::HealthFailed`] if the status code is not 200.
 /// Returns [`CliError::InvalidBody`] if the response body cannot be parsed.
-pub async fn health_check(endpoint: &str) -> Result<String, CliError> {
+pub async fn health_check(endpoint: &str, json_mode: bool) -> Result<String, CliError> {
     let url = format!("{}/health", endpoint.trim_end_matches('/'));
 
-    let response = reqwest::get(&url).await?;
+    let response = match reqwest::get(&url).await {
+        Ok(resp) => resp,
+        Err(e) => {
+            if json_mode {
+                println!(
+                    r#"{{"type":"health","endpoint":"{}","error":"{}","ok":false}}"#,
+                    endpoint,
+                    e
+                );
+            }
+            return Err(CliError::Http(e));
+        }
+    };
 
     let status = response.status();
 
     if status != reqwest::StatusCode::OK {
+        if json_mode {
+            println!(
+                r#"{{"type":"health","endpoint":"{}","status":{},"ok":false}}"#,
+                endpoint,
+                status.as_u16()
+            );
+        }
         return Err(CliError::HealthFailed {
             status: status.as_u16(),
         });
@@ -45,7 +65,14 @@ pub async fn health_check(endpoint: &str) -> Result<String, CliError> {
     let health_response: HealthResponse =
         serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
-    println!("Status: {}", health_response.status);
+    if json_mode {
+        println!(
+            r#"{{"type":"health","endpoint":"{}","status":"{}","ok":true}}"#,
+            endpoint, health_response.status
+        );
+    } else {
+        println!("Status: {}", health_response.status);
+    }
 
     Ok(health_response.status)
 }
@@ -71,5 +98,14 @@ mod tests {
         let response: HealthResponse = serde_json::from_str(json)?;
         assert_eq!(response.status, "ok");
         Ok(())
+    }
+
+    #[test]
+    fn test_health_response_debug() {
+        let response = HealthResponse {
+            status: "ok".to_string(),
+        };
+        let debug_str = format!("{:?}", response);
+        assert!(debug_str.contains("ok"));
     }
 }

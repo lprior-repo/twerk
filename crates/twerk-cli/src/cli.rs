@@ -32,7 +32,7 @@ pub const GIT_COMMIT: &str = env!("GIT_COMMIT_HASH");
 /// Parsed top-level CLI action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CliAction {
-    Execute(Option<Commands>),
+    Execute(Option<Commands>, bool), // (command, json_mode)
 }
 
 /// Get the current git commit hash at runtime
@@ -121,7 +121,7 @@ fn collect_args() -> Vec<OsString> {
 }
 
 fn parse_cli_args(args: &[OsString]) -> Result<CliAction, clap::Error> {
-    Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command))
+    Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command, cli.json))
 }
 
 fn exit_for_parse_error(error: clap::Error) -> ! {
@@ -146,26 +146,36 @@ pub async fn run() -> Result<(), CliError> {
         Err(error) => exit_for_parse_error(error),
     };
 
-    let CliAction::Execute(cmd) = action;
+    let (cmd, json_mode) = match action {
+        CliAction::Execute(cmd, json) => (cmd, json),
+    };
 
     // If no subcommand was provided, display help and exit 0
     let cmd = match cmd {
         Some(cmd) => cmd,
         None => {
-            // Display help and exit gracefully
-            Cli::command().print_help().map_err(CliError::Io)?;
+            if json_mode {
+                println!(
+                    r#"{{"type":"help","version":"{}","commit":"{}"}}"#,
+                    VERSION, GIT_COMMIT
+                );
+            } else {
+                Cli::command().print_help().map_err(CliError::Io)?;
+            }
             std::process::exit(0);
         }
     };
 
-    // Parse command line arguments before any output side effects.
+    // Setup logging (suppress in json mode for cleaner output)
+    if !json_mode {
+        setup_logging()?;
+    }
 
-    // Setup logging
-    setup_logging()?;
-
-    // Display banner
-    let banner_mode = get_banner_mode();
-    display_banner(banner_mode, VERSION, GIT_COMMIT);
+    // Display banner only in non-json mode
+    if !json_mode {
+        let banner_mode = get_banner_mode();
+        display_banner(banner_mode, VERSION, GIT_COMMIT);
+    }
 
     match cmd {
         Commands::Run { mode } => {
@@ -178,7 +188,7 @@ pub async fn run() -> Result<(), CliError> {
         }
         Commands::Health { endpoint } => {
             let ep = endpoint.unwrap_or_else(get_endpoint);
-            health_check(&ep).await?;
+            health_check(&ep, json_mode).await?;
         }
     }
 
@@ -241,10 +251,10 @@ mod tests {
         let args = vec![OsString::from("twerk")];
 
         match parse_cli_args(&args) {
-            Ok(CliAction::Execute(None)) => {
+            Ok(CliAction::Execute(None, false)) => {
                 // No subcommand provided - help will be shown and exit 0 in run()
             }
-            other => unreachable!("expected Ok(CliAction::Execute(None)), got {:?}", other),
+            other => unreachable!("expected Ok(CliAction::Execute(None, false)), got {:?}", other),
         }
     }
 
@@ -270,8 +280,26 @@ mod tests {
             parse_cli_args(&args),
             Ok(CliAction::Execute(Some(Commands::Run {
                 mode: crate::commands::RunMode::Coordinator
-            })))
+            }), false))
         ));
+    }
+
+    #[test]
+    fn test_parse_cli_args_json_flag() {
+        let args = vec![
+            OsString::from("twerk"),
+            OsString::from("--json"),
+            OsString::from("health"),
+            OsString::from("--endpoint"),
+            OsString::from("http://localhost:8080"),
+        ];
+
+        match parse_cli_args(&args) {
+            Ok(CliAction::Execute(Some(Commands::Health { endpoint }), true)) => {
+                assert_eq!(endpoint, Some("http://localhost:8080".to_string()));
+            }
+            other => unreachable!("expected json mode health command, got {:?}", other),
+        }
     }
 
     #[test]

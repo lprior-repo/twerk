@@ -254,7 +254,10 @@ mod tests {
             Ok(CliAction::Execute(None, false)) => {
                 // No subcommand provided - help will be shown and exit 0 in run()
             }
-            other => unreachable!("expected Ok(CliAction::Execute(None, false)), got {:?}", other),
+            other => unreachable!(
+                "expected Ok(CliAction::Execute(None, false)), got {:?}",
+                other
+            ),
         }
     }
 
@@ -278,9 +281,12 @@ mod tests {
 
         assert!(matches!(
             parse_cli_args(&args),
-            Ok(CliAction::Execute(Some(Commands::Run {
-                mode: crate::commands::RunMode::Coordinator
-            }), false))
+            Ok(CliAction::Execute(
+                Some(Commands::Run {
+                    mode: crate::commands::RunMode::Coordinator
+                }),
+                false
+            ))
         ));
     }
 

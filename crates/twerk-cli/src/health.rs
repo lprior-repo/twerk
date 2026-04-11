@@ -34,8 +34,7 @@ pub async fn health_check(endpoint: &str, json_mode: bool) -> Result<String, Cli
             if json_mode {
                 println!(
                     r#"{{"type":"health","endpoint":"{}","error":"{}","ok":false}}"#,
-                    endpoint,
-                    e
+                    endpoint, e
                 );
             }
             return Err(CliError::Http(e));

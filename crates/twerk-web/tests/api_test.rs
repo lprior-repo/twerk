@@ -134,8 +134,7 @@ impl twerk_infrastructure::broker::Broker for SignalingBroker {
     fn queue_info(
         &self,
         qname: String,
-    ) -> twerk_infrastructure::broker::BoxedFuture<twerk_infrastructure::broker::QueueInfo>
-    {
+    ) -> twerk_infrastructure::broker::BoxedFuture<twerk_infrastructure::broker::QueueInfo> {
         self.inner.queue_info(qname)
     }
     fn delete_queue(&self, qname: String) -> twerk_infrastructure::broker::BoxedFuture<()> {
@@ -535,9 +534,18 @@ async fn job_wait_truthy_string_values_return_completed() {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK, "wait={} should be blocking", wait_value);
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "wait={} should be blocking",
+            wait_value
+        );
         let body = body_to_json(response).await;
-        assert_eq!(body["state"], "COMPLETED", "wait={} should wait for completion", wait_value);
+        assert_eq!(
+            body["state"], "COMPLETED",
+            "wait={} should wait for completion",
+            wait_value
+        );
     }
 }
 
@@ -576,10 +584,16 @@ async fn job_wait_detached_returns_pending_immediately() {
         .unwrap();
     let elapsed = start.elapsed();
 
-    assert!(elapsed < std::time::Duration::from_secs(1), "detached mode should return immediately");
+    assert!(
+        elapsed < std::time::Duration::from_secs(1),
+        "detached mode should return immediately"
+    );
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "PENDING", "detached mode should return PENDING state");
+    assert_eq!(
+        body["state"], "PENDING",
+        "detached mode should return PENDING state"
+    );
 }
 
 #[tokio::test]
@@ -617,10 +631,16 @@ async fn job_wait_false_returns_pending_immediately() {
         .unwrap();
     let elapsed = start.elapsed();
 
-    assert!(elapsed < std::time::Duration::from_secs(1), "wait=false should return immediately");
+    assert!(
+        elapsed < std::time::Duration::from_secs(1),
+        "wait=false should return immediately"
+    );
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "PENDING", "wait=false should return PENDING state");
+    assert_eq!(
+        body["state"], "PENDING",
+        "wait=false should return PENDING state"
+    );
 }
 
 #[tokio::test]
@@ -658,10 +678,16 @@ async fn job_wait_invalid_value_returns_pending_immediately() {
         .unwrap();
     let elapsed = start.elapsed();
 
-    assert!(elapsed < std::time::Duration::from_secs(1), "invalid wait value should return immediately");
+    assert!(
+        elapsed < std::time::Duration::from_secs(1),
+        "invalid wait value should return immediately"
+    );
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "PENDING", "invalid wait value should return PENDING state");
+    assert_eq!(
+        body["state"], "PENDING",
+        "invalid wait value should return PENDING state"
+    );
 }
 
 #[tokio::test]
@@ -699,10 +725,16 @@ async fn job_wait_default_returns_pending_immediately() {
         .unwrap();
     let elapsed = start.elapsed();
 
-    assert!(elapsed < std::time::Duration::from_secs(1), "default (no wait) should return immediately");
+    assert!(
+        elapsed < std::time::Duration::from_secs(1),
+        "default (no wait) should return immediately"
+    );
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "PENDING", "default should return PENDING state");
+    assert_eq!(
+        body["state"], "PENDING",
+        "default should return PENDING state"
+    );
 }
 
 #[tokio::test]
@@ -758,8 +790,14 @@ async fn job_wait_blocking_returns_failed_when_job_fails() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "FAILED", "blocking wait should return FAILED state when job fails");
-    assert!(body["error"].is_string(), "failed job should have error message");
+    assert_eq!(
+        body["state"], "FAILED",
+        "blocking wait should return FAILED state when job fails"
+    );
+    assert!(
+        body["error"].is_string(),
+        "failed job should have error message"
+    );
 }
 
 #[tokio::test]
@@ -814,7 +852,10 @@ async fn job_wait_blocking_returns_cancelled_when_job_cancelled() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert_eq!(body["state"], "CANCELLED", "blocking wait should return CANCELLED state when job cancelled");
+    assert_eq!(
+        body["state"], "CANCELLED",
+        "blocking wait should return CANCELLED state when job cancelled"
+    );
 }
 
 #[tokio::test]

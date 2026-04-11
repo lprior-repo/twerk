@@ -1,112 +1,55 @@
-    Checking twerk-infrastructure v0.1.0 (/home/lewis/src/twerk/crates/twerk-infrastructure)
-    Checking twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
-    Checking twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
-    Checking twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.84s
-warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-   Compiling zerocopy v0.8.47
-   Compiling ahash v0.8.12
-   Compiling ppv-lite86 v0.2.21
-   Compiling plotters-backend v0.3.7
-   Compiling ciborium-io v0.2.2
-   Compiling itertools v0.10.5
-   Compiling cast v0.3.0
-   Compiling same-file v1.0.6
-   Compiling tinytemplate v1.2.1
-   Compiling is-terminal v0.4.17
-   Compiling anes v0.1.6
-   Compiling oorandom v11.1.5
-   Compiling walkdir v2.5.0
-   Compiling plotters-svg v0.3.7
-   Compiling plotters v0.3.7
-   Compiling hashbrown v0.14.5
-   Compiling rand_chacha v0.3.1
-   Compiling rand v0.8.5
-   Compiling hashlink v0.8.4
-   Compiling sqlx-core v0.7.4
-   Compiling criterion-plot v0.5.0
-   Compiling sqlx-postgres v0.7.4
-   Compiling half v2.7.1
-   Compiling rand_chacha v0.9.0
-   Compiling ciborium-ll v0.2.2
-   Compiling ciborium v0.2.2
-   Compiling rand v0.9.2
-   Compiling ordered-multimap v0.7.3
-   Compiling dashmap v6.1.0
-   Compiling criterion v0.5.1
-   Compiling rust-ini v0.20.0
-   Compiling yaml-rust2 v0.8.1
-   Compiling p12-keystore v0.1.5
-   Compiling postgres-protocol v0.6.10
-   Compiling bollard v0.20.2
-   Compiling governor v0.8.1
-   Compiling ferroid v0.8.9
-   Compiling mockito v1.7.2
-   Compiling postgres-types v0.2.12
-   Compiling config v0.14.1
-   Compiling tcp-stream v0.28.0
-   Compiling tokio-postgres v0.7.16
-   Compiling amq-protocol-tcp v7.2.3
-   Compiling amq-protocol v7.2.3
-   Compiling twerk-common v0.1.0 (/home/lewis/src/twerk/crates/twerk-common)
-   Compiling sqlx-macros-core v0.7.4
-   Compiling twerk-core v0.1.0 (/home/lewis/src/twerk/crates/twerk-core)
-   Compiling lapin v2.5.5
-   Compiling sqlx-macros v0.7.4
-   Compiling postgres v0.19.12
-   Compiling testcontainers v0.27.2
-   Compiling sqlx v0.7.4
-   Compiling twerk-infrastructure v0.1.0 (/home/lewis/src/twerk/crates/twerk-infrastructure)
-   Compiling testcontainers-modules v0.15.0
-   Compiling twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
-   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
-   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.41s
-warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (target/debug/deps/twerk_app-5f671861e47a6683)
-     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-92df54c8b7168a14)
-     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-eb7d3434d94ceb71)
-     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-76ddd9dda83648d8)
-     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-20544ec51f836b9f)
-     Running tests/handlers_test.rs (target/debug/deps/handlers_test-5669111b060c372d)
-     Running tests/middleware_test.rs (target/debug/deps/middleware_test-4d1ba96d097487e2)
-     Running tests/standalone_e2e_test.rs (target/debug/deps/standalone_e2e_test-d5e860ebabd291f4)
-     Running unittests src/lib.rs (target/debug/deps/twerk_cli-72c6fe89b37d9882)
-     Running unittests src/main.rs (target/debug/deps/twerk_cli-e995977e8f6849b9)
-     Running unittests src/lib.rs (target/debug/deps/twerk_common-f146ef2284acba5a)
-     Running unittests src/lib.rs (target/debug/deps/twerk_core-cf3cb0d673653bd0)
-     Running tests/eval_test.rs (target/debug/deps/eval_test-9b5cde194fac4901)
-     Running tests/validation_test.rs (target/debug/deps/validation_test-fe5b709f533c090c)
-     Running tests/webhook_test.rs (target/debug/deps/webhook_test-6c195a31ef237300)
-     Running unittests src/lib.rs (target/debug/deps/twerk_infrastructure-b5ae00f548b1619b)
-     Running tests/cache_test.rs (target/debug/deps/cache_test-76c0806c4668d9ce)
-     Running tests/postgres_test.rs (target/debug/deps/postgres_test-f0c99ecc2e284da1)
-     Running tests/rabbitmq_isolation_test.rs (target/debug/deps/rabbitmq_isolation_test-0fd3e1d13c2fac9a)
-     Running tests/rabbitmq_test.rs (target/debug/deps/rabbitmq_test-eb0e8a68a055d516)
-     Running tests/runtime_test.rs (target/debug/deps/runtime_test-6a6f631050a9cf2e)
+   Compiling twerk-cli v0.1.0 (/home/lewis/gt/twerk/polecats/rust/twerk/crates/twerk-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.45s
+   Compiling twerk-cli v0.1.0 (/home/lewis/gt/twerk/polecats/rust/twerk/crates/twerk-cli)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.08s
+     Running unittests src/lib.rs (target/debug/deps/twerk_app-6b6220cdf68ccd3d)
+     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-3c89203783f82a2b)
+     Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-f8ee2ae928daebbb)
+     Running tests/ci_cd_pipeline_simulation.rs (target/debug/deps/ci_cd_pipeline_simulation-ba445b6f5dbb5cad)
+     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-2b5bd4743684b002)
+     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-582b04a1a25e3a73)
+     Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-888dc05426da9c82)
+     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-04a9ba97ca9bc83b)
+     Running tests/handlers_test.rs (target/debug/deps/handlers_test-390333ffc3a0e5be)
+     Running tests/middleware_test.rs (target/debug/deps/middleware_test-6dfd4194c1cf3f27)
+     Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-4a2b06b72b92a213)
+     Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-b0ea0ac2f00f0521)
+     Running tests/realistic_profiling.rs (target/debug/deps/realistic_profiling-9b9046f46b7f50fc)
+     Running tests/standalone_e2e_test.rs (target/debug/deps/standalone_e2e_test-9e47196bd91909ef)
+     Running tests/twerk_chaos_engineering_benchmark.rs (target/debug/deps/twerk_chaos_engineering_benchmark-63cae7cd145c4399)
+     Running tests/twerk_yaml_workflow_benchmark.rs (target/debug/deps/twerk_yaml_workflow_benchmark-f51ed889fba06847)
+     Running unittests src/lib.rs (target/debug/deps/twerk_cli-a0d5eff50385330f)
+     Running unittests src/main.rs (target/debug/deps/twerk_cli-e32c38e649cd1de6)
+     Running unittests src/lib.rs (target/debug/deps/twerk_common-1980b5f1234da0f8)
+     Running unittests src/lib.rs (target/debug/deps/twerk_core-5a5a1d7e0b8fee66)
+     Running tests/eval_test.rs (target/debug/deps/eval_test-59629766ef033ec7)
+     Running tests/validation_test.rs (target/debug/deps/validation_test-ac1e6c9484ef8b8e)
+     Running tests/webhook_test.rs (target/debug/deps/webhook_test-3f920fbc56ad170e)
+     Running unittests src/lib.rs (target/debug/deps/twerk_infrastructure-5d0357af4377411f)
+     Running tests/cache_test.rs (target/debug/deps/cache_test-1dbc65156b2215c9)
+     Running tests/postgres_test.rs (target/debug/deps/postgres_test-8d317c0ba27833fa)
+     Running tests/rabbitmq_isolation_test.rs (target/debug/deps/rabbitmq_isolation_test-6731d45f83c3ccb6)
+     Running tests/rabbitmq_test.rs (target/debug/deps/rabbitmq_test-547562eba72c555a)
+     Running tests/runtime_test.rs (target/debug/deps/runtime_test-a6c2dcc92e035b42)
+     Running unittests src/lib.rs (target/debug/deps/twerk_web-942ca32b4d6177ba)
+     Running tests/api_endpoints_test.rs (target/debug/deps/api_endpoints_test-f02d78779155c3f8)
+     Running tests/api_test.rs (target/debug/deps/api_test-7cea4bcea51204e4)
+     Running tests/comprehensive_api_test.rs (target/debug/deps/comprehensive_api_test-2b384a0526106b3a)
+     Running tests/concurrent_isolation_test.rs (target/debug/deps/concurrent_isolation_test-2da2dda42df3bd90)
+     Running tests/distributed_e2e_test.rs (target/debug/deps/distributed_e2e_test-da4a9e0ffb4490df)
+     Running tests/monte_carlo_simulation.rs (target/debug/deps/monte_carlo_simulation-0b1db2db93e19cc9)
+     Running tests/mutation_workload_bench.rs (target/debug/deps/mutation_workload_bench-1f6feea9a4674fb3)
+     Running tests/redact_test.rs (target/debug/deps/redact_test-3c60cdffb9d185d7)
+     Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-b26b9ce387658e7e)
    Doc-tests twerk_app
    Doc-tests twerk_cli
    Doc-tests twerk_common
    Doc-tests twerk_core
    Doc-tests twerk_infrastructure
-   Compiling hyper-util v0.1.20
-   Compiling tower v0.5.3
-   Compiling sqlx-core v0.7.4
-   Compiling twerk-core v0.1.0 (/home/lewis/src/twerk/crates/twerk-core)
-   Compiling tower-http v0.6.8
-   Compiling hyperlocal v0.9.1
-   Compiling hyper-tls v0.6.0
-   Compiling axum v0.8.8
-   Compiling reqwest v0.12.28
-   Compiling bollard v0.20.2
-   Compiling sqlx-postgres v0.7.4
-   Compiling sqlx v0.7.4
-   Compiling twerk-infrastructure v0.1.0 (/home/lewis/src/twerk/crates/twerk-infrastructure)
-   Compiling twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
-   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
-   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.66s
-warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+   Doc-tests twerk_web
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling twerk-cli v0.1.0 (/home/lewis/gt/twerk/polecats/rust/twerk/crates/twerk-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.04s

@@ -19,9 +19,9 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
-use twerk_core::id::JobId;
+use twerk_core::id::{JobId, TaskId};
 use twerk_core::job::{Job, JobState};
-use twerk_core::task::{Task, TaskState};
+use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
@@ -86,6 +86,27 @@ async fn setup_state_with_tasks() -> (AppState, Arc<InMemoryDatastore>, JobId) {
     (state, ds, job_id)
 }
 
+async fn setup_state_with_direct_task() -> (AppState, Arc<InMemoryDatastore>, TaskId) {
+    let ds = Arc::new(InMemoryDatastore::new());
+    let broker = Arc::new(InMemoryBroker::new());
+    let state = AppState::new(broker, ds.clone(), Config::default());
+
+    let job_id = JobId::new("test-job-for-task").unwrap();
+    let task_id = TaskId::new("direct-task-1").unwrap();
+
+    // Create a task directly in the datastore (not via job)
+    let task = Task {
+        id: Some(task_id.clone()),
+        job_id: Some(job_id),
+        name: Some("Direct Task".to_string()),
+        state: TaskState::Running,
+        ..Default::default()
+    };
+    ds.create_task(&task).await.unwrap();
+
+    (state, ds, task_id)
+}
+
 async fn body_to_json(response: Response) -> Value {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     serde_json::from_slice(&body).unwrap()
@@ -139,6 +160,127 @@ async fn get_task_log_returns_404_when_task_not_found() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn get_task_returns_task_when_exists() {
+    let (state, _ds, task_id) = setup_state_with_direct_task().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/tasks/{}", task_id))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert_eq!(body["id"], task_id.to_string());
+    assert_eq!(body["name"], "Direct Task");
+    assert_eq!(body["state"], "RUNNING");
+}
+
+#[tokio::test]
+async fn get_task_log_returns_empty_when_no_logs() {
+    let (state, _ds, task_id) = setup_state_with_direct_task().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/tasks/{}/log", task_id))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert!(body["items"].is_array());
+    assert!(body["items"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn get_task_log_returns_logs_when_exist() {
+    let (state, ds, task_id) = setup_state_with_direct_task().await;
+    let app = create_router(state);
+
+    // Create task log parts directly
+    let log_part1 = TaskLogPart {
+        id: Some("log-1".to_string()),
+        number: 1,
+        task_id: Some(task_id.clone()),
+        contents: Some("First log line".to_string()),
+        ..Default::default()
+    };
+    let log_part2 = TaskLogPart {
+        id: Some("log-2".to_string()),
+        number: 2,
+        task_id: Some(task_id.clone()),
+        contents: Some("Second log line".to_string()),
+        ..Default::default()
+    };
+    ds.create_task_log_part(&log_part1).await.unwrap();
+    ds.create_task_log_part(&log_part2).await.unwrap();
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/tasks/{}/log", task_id))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert!(body["items"].is_array());
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["contents"], "First log line");
+    assert_eq!(items[1]["contents"], "Second log line");
+}
+
+#[tokio::test]
+async fn get_task_log_respects_pagination() {
+    let (state, ds, task_id) = setup_state_with_direct_task().await;
+    let app = create_router(state);
+
+    // Create multiple log parts
+    for i in 1..=5 {
+        let log_part = TaskLogPart {
+            id: Some(format!("log-{}", i)),
+            number: i as i64,
+            task_id: Some(task_id.clone()),
+            contents: Some(format!("Log line {}", i)),
+            ..Default::default()
+        };
+        ds.create_task_log_part(&log_part).await.unwrap();
+    }
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/tasks/{}/log?page=1&size=2", task_id))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert!(body["items"].is_array());
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(body["total_items"], 5);
+    assert_eq!(body["total_pages"], 3);
 }
 
 // ============================================================================

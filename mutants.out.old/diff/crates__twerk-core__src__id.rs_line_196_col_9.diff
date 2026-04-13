@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/id.rs
++++ replace <impl fmt::Display for TriggerId>::fmt -> fmt::Result with Ok(Default::default())
+@@ -188,17 +188,17 @@
+ impl From<&str> for TriggerId {
+     fn from(s: &str) -> Self {
+         Self(s.to_string())
+     }
+ }
+ 
+ impl fmt::Display for TriggerId {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        write!(f, "{}", self.0)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl AsRef<str> for TriggerId {
+     fn as_ref(&self) -> &str {
+         &self.0
+     }
+ }

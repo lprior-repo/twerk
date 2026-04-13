@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/trigger.rs
++++ delete match arm "ACTIVE" in <impl FromStr for TriggerState>::from_str
+@@ -40,17 +40,17 @@
+     }
+ }
+ 
+ impl FromStr for TriggerState {
+     type Err = ParseTriggerStateError;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+         match s.to_uppercase().as_str() {
+-            "ACTIVE" => Ok(Self::Active),
++             /* ~ changed by cargo-mutants ~ */
+             "PAUSED" => Ok(Self::Paused),
+             "DISABLED" => Ok(Self::Disabled),
+             "ERROR" => Ok(Self::Error),
+             _ => Err(ParseTriggerStateError(s.to_string())),
+         }
+     }
+ }
+ 

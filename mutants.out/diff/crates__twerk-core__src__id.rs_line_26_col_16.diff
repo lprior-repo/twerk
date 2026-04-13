@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/id.rs
++++ replace > with == in validate_id
+@@ -18,17 +18,17 @@
+     #[error("ID contains invalid characters: only alphanumeric, dash, and underscore allowed")]
+     InvalidCharacters,
+ }
+ 
+ fn validate_id(s: &str) -> Result<(), IdError> {
+     if s.is_empty() {
+         return Err(IdError::Empty);
+     }
+-    if s.len() > MAX_ID_LENGTH {
++    if s.len() == /* ~ changed by cargo-mutants ~ */ MAX_ID_LENGTH {
+         return Err(IdError::TooLong(s.len()));
+     }
+     if !s
+         .chars()
+         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+     {
+         return Err(IdError::InvalidCharacters);
+     }

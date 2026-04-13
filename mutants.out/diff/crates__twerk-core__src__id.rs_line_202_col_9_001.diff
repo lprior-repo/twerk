@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/id.rs
++++ replace <impl AsRef<str> for TriggerId>::as_ref -> &str with "xyzzy"
+@@ -194,17 +194,17 @@
+ impl fmt::Display for TriggerId {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         write!(f, "{}", self.0)
+     }
+ }
+ 
+ impl AsRef<str> for TriggerId {
+     fn as_ref(&self) -> &str {
+-        &self.0
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Deref for TriggerId {
+     type Target = str;
+ 
+     fn deref(&self) -> &Self::Target {
+         &self.0

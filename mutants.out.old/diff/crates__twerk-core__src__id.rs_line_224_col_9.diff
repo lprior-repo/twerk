@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/id.rs
++++ replace <impl FromStr for TriggerId>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -216,17 +216,17 @@
+         &self.0
+     }
+ }
+ 
+ impl FromStr for TriggerId {
+     type Err = IdError;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+-        Self::new(s)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use proptest::prelude::*;
+ 

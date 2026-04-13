@@ -1,0 +1,27 @@
+--- crates/twerk-core/src/trigger.rs
++++ replace <impl FromStr for TriggerState>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -39,23 +39,17 @@
+         f.write_str(name)
+     }
+ }
+ 
+ impl FromStr for TriggerState {
+     type Err = ParseTriggerStateError;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+-        match s.to_uppercase().as_str() {
+-            "ACTIVE" => Ok(Self::Active),
+-            "PAUSED" => Ok(Self::Paused),
+-            "DISABLED" => Ok(Self::Disabled),
+-            "ERROR" => Ok(Self::Error),
+-            _ => Err(ParseTriggerStateError(s.to_string())),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ // =========================================================================
+ // TESTS — RED PHASE
+ // =========================================================================
+ 
+ #[cfg(test)]

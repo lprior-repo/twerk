@@ -5623,6 +5623,7 @@ dependencies = [
  "md5",
  "mockito",
  "once_cell",
+ "proptest",
  "rand 0.9.2",
  "regex",
  "rpds",

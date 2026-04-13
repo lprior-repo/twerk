@@ -13,6 +13,7 @@ pub mod repository;
 pub mod role;
 pub mod stats;
 pub mod task;
+pub mod trigger;
 pub mod user;
 pub mod uuid;
 pub mod validation;
@@ -23,3 +24,5 @@ pub use domain_types::{
     PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
 };
 pub use repository::{Repository, Result as RepoResult};
+pub use id::TriggerId;
+pub use trigger::{ParseTriggerStateError, TriggerState};

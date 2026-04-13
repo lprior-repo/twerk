@@ -11,7 +11,9 @@ const MAX_ID_LENGTH: usize = 1000;
 pub enum IdError {
     #[error("ID cannot be empty")]
     Empty,
-    #[error("ID exceeds maximum length of {MAX_ID_LENGTH} characters: {0} characters")]
+    #[error("ID is too short: {0} characters (minimum 3)")]
+    TooShort(usize),
+    #[error("ID is too long: {0} characters (maximum {MAX_ID_LENGTH})")]
     TooLong(usize),
     #[error("ID contains invalid characters: only alphanumeric, dash, and underscore allowed")]
     InvalidCharacters,
@@ -112,9 +114,121 @@ define_id!(ScheduledJobId);
 define_id!(UserId);
 define_id!(RoleId);
 
+// =========================================================================
+// TriggerId — hand-written (NOT using define_id!) to enforce 3-64 length
+// =========================================================================
+
+/// Validated identifier for a trigger instance.
+///
+/// Construction via [`TriggerId::new`] enforces:
+/// - Length 3..=64 characters (inclusive)
+/// - Characters: `[a-zA-Z0-9_-]` (plus Unicode alphanumeric per Rust's `is_alphanumeric()`)
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
+#[serde(transparent)]
+pub struct TriggerId(String);
+
+impl<'de> Deserialize<'de> for TriggerId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = String::deserialize(deserializer)?;
+        Self::new(s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl TriggerId {
+    /// Minimum length for a valid `TriggerId`.
+    const MIN_LENGTH: usize = 3;
+
+    /// Maximum length for a valid `TriggerId`.
+    const MAX_LENGTH: usize = 64;
+
+    /// Creates a new `TriggerId` from a string.
+    ///
+    /// # Errors
+    ///
+    /// Returns `IdError::Empty` if the string is empty.
+    /// Returns `IdError::TooShort(len)` if `len < 3`.
+    /// Returns `IdError::TooLong(len)` if `len > 64`.
+    /// Returns `IdError::InvalidCharacters` if any character is not
+    /// alphanumeric, `-`, or `_`.
+    pub fn new(id: impl Into<String>) -> Result<Self, IdError> {
+        let s = id.into();
+        if s.is_empty() {
+            return Err(IdError::Empty);
+        }
+        if s.len() < Self::MIN_LENGTH {
+            return Err(IdError::TooShort(s.len()));
+        }
+        if s.len() > Self::MAX_LENGTH {
+            return Err(IdError::TooLong(s.len()));
+        }
+        if !s
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(IdError::InvalidCharacters);
+        }
+        Ok(Self(s))
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for TriggerId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for TriggerId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl fmt::Display for TriggerId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for TriggerId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for TriggerId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Borrow<str> for TriggerId {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for TriggerId {
+    type Err = IdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     // =======================================================================
     // JobId validation tests
@@ -447,5 +561,383 @@ mod tests {
 
         let invalid_err = validate_id("bad@char").unwrap_err();
         assert!(invalid_err.to_string().contains("invalid"));
+    }
+
+    // =======================================================================
+    // TriggerId construction — happy paths (Behaviors 33-36)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_new_returns_ok_when_input_is_3_chars() {
+        let result = TriggerId::new("abc");
+        assert_eq!(result.unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn trigger_id_new_accepts_exactly_64_chars() {
+        let max_valid = "a".repeat(64);
+        let id = TriggerId::new(&max_valid).unwrap();
+        assert_eq!(id.as_str().len(), 64);
+    }
+
+    #[test]
+    fn trigger_id_new_accepts_dash_and_underscore() {
+        let result = TriggerId::new("a_b-c");
+        assert_eq!(result.unwrap().as_str(), "a_b-c");
+    }
+
+    #[test]
+    fn trigger_id_new_accepts_cjk_characters() {
+        let result = TriggerId::new("日本語");
+        assert_eq!(result.unwrap().as_str(), "日本語");
+    }
+
+    // =======================================================================
+    // TriggerId validation — error paths (Behaviors 37-45)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_new_returns_err_empty_when_input_is_empty() {
+        let result = TriggerId::new("");
+        assert_eq!(result, Err(IdError::Empty));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_short_when_input_is_2_chars() {
+        let result = TriggerId::new("ab");
+        assert_eq!(result, Err(IdError::TooShort(2)));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_short_when_input_is_1_char() {
+        let result = TriggerId::new("a");
+        assert_eq!(result, Err(IdError::TooShort(1)));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_long_when_input_is_65_chars() {
+        let long = "a".repeat(65);
+        let result = TriggerId::new(&long);
+        assert_eq!(result, Err(IdError::TooLong(65)));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_long_when_input_is_100_chars() {
+        let long = "a".repeat(100);
+        let result = TriggerId::new(&long);
+        assert_eq!(result, Err(IdError::TooLong(100)));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_invalid_characters_when_input_has_at_sign() {
+        let result = TriggerId::new("abc@def");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_invalid_characters_when_input_has_space() {
+        let result = TriggerId::new("abc def");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_invalid_characters_when_input_has_emoji() {
+        let result = TriggerId::new("abc-\u{1F525}def");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_invalid_characters_when_input_has_null_byte() {
+        let result = TriggerId::new("abc\x00def");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    // =======================================================================
+    // TriggerId — preservation and whitespace (Behaviors 46-49)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_preserves_input_string_exactly() {
+        let result = TriggerId::new("my-trigger_01");
+        assert_eq!(result.unwrap().to_string(), "my-trigger_01");
+    }
+
+    #[test]
+    fn trigger_id_new_rejects_leading_whitespace() {
+        let result = TriggerId::new(" abc");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    #[test]
+    fn trigger_id_new_rejects_trailing_whitespace() {
+        let result = TriggerId::new("abc ");
+        assert_eq!(result, Err(IdError::InvalidCharacters));
+    }
+
+    #[test]
+    fn trigger_id_new_preserves_mixed_case() {
+        let result = TriggerId::new("MyTrigger_01");
+        let id = result.unwrap();
+        assert_eq!(id.as_str(), "MyTrigger_01");
+        assert!(id.as_str().contains('M'));
+    }
+
+    // =======================================================================
+    // TriggerId — accessors (Behaviors 50-51)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_as_str_returns_original() {
+        let id = TriggerId::new("valid-id").unwrap();
+        assert_eq!(id.as_str(), "valid-id");
+    }
+
+    #[test]
+    fn trigger_id_display_returns_original_string() {
+        let id = TriggerId::new("my-trigger").unwrap();
+        assert_eq!(format!("{id}"), "my-trigger");
+    }
+
+    // =======================================================================
+    // TriggerId — serde roundtrip valid (Behaviors 52-53)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_serializes_as_plain_json_string() {
+        let id = TriggerId::new("trigger-abc").unwrap();
+        assert_eq!(serde_json::to_string(&id).unwrap(), "\"trigger-abc\"");
+    }
+
+    #[test]
+    fn trigger_id_deserializes_from_valid_json_string() {
+        let id: TriggerId = serde_json::from_str("\"my-trigger\"").unwrap();
+        assert_eq!(id.as_str(), "my-trigger");
+    }
+
+    // =======================================================================
+    // TriggerId — serde rejection (Behaviors 54-57)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_deserialize_rejects_2_char_string() {
+        let result: Result<TriggerId, _> = serde_json::from_str("\"ab\"");
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("too short"));
+    }
+
+    #[test]
+    fn trigger_id_deserialize_rejects_1_char_string() {
+        let result: Result<TriggerId, _> = serde_json::from_str("\"x\"");
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("too short"));
+    }
+
+    #[test]
+    fn trigger_id_deserialize_rejects_empty_string() {
+        let result: Result<TriggerId, _> = serde_json::from_str("\"\"");
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("empty"));
+    }
+
+    #[test]
+    fn trigger_id_deserialize_rejects_65_char_string() {
+        let json = format!("\"{}\"", "a".repeat(65));
+        let result: Result<TriggerId, _> = serde_json::from_str(&json);
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("too long"));
+    }
+
+    // =======================================================================
+    // TriggerId — Default (Behavior 58)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_default_returns_empty_string() {
+        let id = TriggerId::default();
+        assert_eq!(id.as_str(), "");
+    }
+
+    // =======================================================================
+    // TriggerId — FromStr (Behaviors 59-60)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_from_str_parses_valid_string() {
+        let id: TriggerId = "valid-id".parse().unwrap();
+        assert_eq!(id.as_str(), "valid-id");
+    }
+
+    #[test]
+    fn trigger_id_from_str_rejects_short_string() {
+        let result: Result<TriggerId, _> = "x".parse();
+        assert_eq!(result, Err(IdError::TooShort(1)));
+    }
+
+    // =======================================================================
+    // TriggerId — From<String> and From<&str> bypass validation (Behaviors 61-62)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_from_string_bypasses_validation() {
+        let id = TriggerId::from(String::from("x"));
+        assert_eq!(id.as_str(), "x");
+        assert_eq!(id.as_str().len(), 1);
+    }
+
+    #[test]
+    fn trigger_id_from_str_bypasses_validation() {
+        let id = TriggerId::from("y");
+        assert_eq!(id.as_str(), "y");
+        assert_eq!(id.as_str().len(), 1);
+    }
+
+    // =======================================================================
+    // TriggerId — trait impls (Behaviors 63-68)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_as_ref_returns_inner_string() {
+        let id = TriggerId::new("ref-test").unwrap();
+        let s: &str = id.as_ref();
+        assert_eq!(s, "ref-test");
+    }
+
+    #[test]
+    fn trigger_id_deref_returns_inner_string() {
+        let id = TriggerId::new("deref-test").unwrap();
+        let s: &str = &id;
+        assert_eq!(s, "deref-test");
+    }
+
+    #[test]
+    fn trigger_id_borrow_returns_inner_string() {
+        let id = TriggerId::new("borrow-test").unwrap();
+        let s: &str = id.borrow();
+        assert_eq!(s, "borrow-test");
+    }
+
+    #[test]
+    fn trigger_id_clone_produces_equal_copy() {
+        let id = TriggerId::new("clone-test").unwrap();
+        let cloned = id.clone();
+        assert_eq!(cloned, id);
+        assert_eq!(cloned.as_str(), "clone-test");
+    }
+
+    #[test]
+    fn trigger_id_partial_eq_reflexive() {
+        let id = TriggerId::new("eq-test").unwrap();
+        assert_eq!(id, id);
+    }
+
+    #[test]
+    fn trigger_id_eq_and_hash_works_in_hashset() {
+        let id1 = TriggerId::new("same").unwrap();
+        let id2 = TriggerId::new("same").unwrap();
+        let id3 = TriggerId::new("different").unwrap();
+
+        let mut set = std::collections::HashSet::new();
+        set.insert(id1);
+        set.insert(id2);
+        set.insert(id3);
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&TriggerId::new("same").unwrap()));
+    }
+
+    // =======================================================================
+    // IdError Display through TriggerId::new() path (Behaviors 69-72)
+    // =======================================================================
+
+    #[test]
+    fn trigger_id_new_returns_err_empty_displays_correct_message() {
+        let err = TriggerId::new("").unwrap_err();
+        assert!(matches!(err, IdError::Empty));
+        assert!(format!("{err}").to_lowercase().contains("empty"));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_long_displays_correct_message() {
+        let err = TriggerId::new("a".repeat(65)).unwrap_err();
+        assert!(matches!(err, IdError::TooLong(65)));
+        assert!(format!("{err}").contains("65"));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_too_short_displays_correct_message() {
+        let err = TriggerId::new("ab").unwrap_err();
+        assert!(matches!(err, IdError::TooShort(2)));
+        let msg = format!("{err}");
+        assert!(msg.to_lowercase().contains("too short"));
+        assert!(msg.contains('2'));
+    }
+
+    #[test]
+    fn trigger_id_new_returns_err_invalid_chars_displays_correct_message() {
+        let err = TriggerId::new("bad@id").unwrap_err();
+        assert!(matches!(err, IdError::InvalidCharacters));
+        assert!(format!("{err}").to_lowercase().contains("invalid"));
+    }
+
+    // =======================================================================
+    // TriggerId — Proptest invariants
+    // =======================================================================
+
+    proptest::proptest! {
+        /// TriggerId::new() rejects lengths outside 3..=64 and accepts valid ones.
+        #[test]
+        fn proptest_trigger_id_rejects_lengths_outside_3_to_64(
+            len in 0usize..=70
+        ) {
+            let s = "a".repeat(len);
+            let result = TriggerId::new(&s);
+            if len < 3 {
+                prop_assert!(result.is_err());
+            } else if len > 64 {
+                prop_assert!(matches!(result, Err(IdError::TooLong(n)) if n == len));
+            } else {
+                prop_assert!(result.is_ok());
+                let id = result.unwrap();
+                prop_assert_eq!(id.as_str(), s);
+            }
+        }
+
+        /// TriggerId::new() rejects invalid characters in strings of valid length.
+        #[test]
+        fn proptest_trigger_id_rejects_invalid_chars(
+            base_len in 3usize..=64,
+            special_char in proptest::sample::select(vec![
+                '\t', '@', '#', '$', '%', '^', '&', '*', '(', ')', ' ', '=', '+',
+                '[', ']', '{', '}', '|', '\\', ':', ';', '\'', '"', '<', '>', ',',
+                '.', '/', '?', '`', '~',
+            ])
+        ) {
+            let safe_part = "a".repeat(base_len.saturating_sub(1).max(1));
+            let s = format!("{safe_part}{special_char}");
+            // Ensure total length is in valid range so only char check fires
+            if s.len() >= 3 && s.len() <= 64 {
+                let result = TriggerId::new(&s);
+                prop_assert!(matches!(result, Err(IdError::InvalidCharacters)));
+            }
+        }
+
+        /// TriggerId serde roundtrip: valid IDs survive serialize then deserialize.
+        #[test]
+        fn proptest_trigger_id_serde_roundtrip_preserves_string(
+            s in "[a-zA-Z0-9_-]{3,64}"
+        ) {
+            let id = TriggerId::new(&s).unwrap();
+            let json = serde_json::to_string(&id).unwrap();
+            let recovered: TriggerId = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(recovered.as_str(), s);
+        }
+
+        /// TriggerId input preservation: as_str() returns byte-for-byte identical input.
+        #[test]
+        fn proptest_trigger_id_preserves_input_without_mutation(
+            s in "[a-zA-Z0-9_-]{3,64}"
+        ) {
+            let id = TriggerId::new(&s).unwrap();
+            prop_assert_eq!(id.as_str(), s);
+        }
     }
 }

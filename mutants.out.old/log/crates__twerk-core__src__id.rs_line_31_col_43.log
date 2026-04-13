@@ -1,0 +1,966 @@
+
+*** crates/twerk-core/src/id.rs:31:43: replace == with != in validate_id
+
+*** mutation diff:
+--- crates/twerk-core/src/id.rs
++++ replace == with != in validate_id
+@@ -23,17 +23,17 @@
+     if s.is_empty() {
+         return Err(IdError::Empty);
+     }
+     if s.len() > MAX_ID_LENGTH {
+         return Err(IdError::TooLong(s.len()));
+     }
+     if !s
+         .chars()
+-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
++        .all(|c| c.is_alphanumeric() || c != /* ~ changed by cargo-mutants ~ */ '-' || c == '_')
+     {
+         return Err(IdError::InvalidCharacters);
+     }
+     Ok(())
+ }
+ 
+ macro_rules! define_id {
+     ($name:ident) => {
+
+
+*** /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=twerk-core@0.1.0
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh version_check v0.9.5
+       Fresh memchr v2.8.0
+       Fresh smallvec v1.15.1
+       Fresh itoa v1.0.18
+       Fresh stable_deref_trait v1.2.1
+       Fresh hashbrown v0.16.1
+       Fresh equivalent v1.0.2
+       Fresh pin-project-lite v0.2.17
+       Fresh regex-syntax v0.8.10
+       Fresh scopeguard v1.2.0
+       Fresh bytes v1.11.1
+       Fresh futures-core v0.3.32
+       Fresh shlex v1.3.0
+       Fresh litemap v0.8.2
+       Fresh allocator-api2 v0.2.21
+       Fresh proc-macro2 v1.0.106
+       Fresh indexmap v2.13.0
+       Fresh aho-corasick v1.1.4
+       Fresh tracing-core v0.1.36
+       Fresh lock_api v0.4.14
+       Fresh writeable v0.6.2
+       Fresh find-msvc-tools v0.1.9
+       Fresh subtle v2.6.1
+       Fresh utf8_iter v1.0.4
+       Fresh ucd-trie v0.1.7
+       Fresh zeroize v1.8.2
+       Fresh once_cell v1.21.4
+       Fresh autocfg v1.5.0
+       Fresh slab v0.4.12
+       Fresh quote v1.0.45
+       Fresh serde_core v1.0.228
+       Fresh typenum v1.19.0
+       Fresh zerocopy v0.8.48
+       Fresh crunchy v0.2.4
+       Fresh libc v0.2.184
+       Fresh crossbeam-utils v0.8.21
+       Fresh cc v1.2.58
+       Fresh zmij v1.0.21
+       Fresh pest v2.8.6
+       Fresh log v0.4.29
+       Fresh rustls-pki-types v1.14.0
+       Fresh http v1.4.0
+       Fresh percent-encoding v2.3.2
+       Fresh cpufeatures v0.2.17
+       Fresh fnv v1.0.7
+       Fresh semver v1.0.27
+       Fresh futures-sink v0.3.32
+       Fresh minimal-lexical v0.2.1
+       Fresh winnow v0.7.15
+       Fresh winnow v1.0.1
+       Fresh toml_write v0.1.2
+       Fresh syn v2.0.117
+       Fresh generic-array v0.14.7
+       Fresh parking_lot_core v0.9.12
+       Fresh ahash v0.8.12
+       Fresh getrandom v0.3.4
+       Fresh bitflags v2.11.0
+       Fresh tiny-keccak v2.0.2
+       Fresh errno v0.3.14
+       Fresh getrandom v0.2.17
+       Fresh socket2 v0.6.3
+       Fresh serde_json v1.0.149
+       Fresh mio v1.2.0
+       Fresh icu_properties_data v2.2.0
+       Fresh icu_normalizer_data v2.2.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh getrandom v0.4.2
+       Fresh pest_meta v2.8.6
+       Fresh form_urlencoded v1.2.2
+       Fresh crossbeam-epoch v0.9.18
+       Fresh untrusted v0.9.0
+       Fresh either v1.15.0
+       Fresh http-body v1.0.1
+       Fresh rustc_version v0.4.1
+       Fresh toml_parser v1.1.2+spec-1.1.0
+       Fresh nom v7.1.3
+       Fresh encoding_rs v0.8.35
+       Fresh serde_derive v1.0.228
+       Fresh synstructure v0.13.2
+       Fresh rand_core v0.6.4
+       Fresh zerovec-derive v0.11.3
+       Fresh displaydoc v0.2.5
+       Fresh tracing-attributes v0.1.31
+       Fresh hashbrown v0.14.5
+       Fresh signal-hook-registry v1.4.8
+       Fresh tokio-macros v2.6.1
+       Fresh inout v0.1.4
+       Fresh const-random-macro v0.1.16
+       Fresh parking_lot v0.12.5
+       Fresh rand_core v0.9.5
+       Fresh num-traits v0.2.19
+       Fresh pest_generator v2.8.6
+       Fresh crossbeam-deque v0.8.6
+       Fresh lazy_static v1.5.0
+       Fresh unicode-segmentation v1.13.2
+       Fresh arraydeque v0.5.1
+       Fresh adler2 v2.0.1
+       Fresh toml_datetime v1.1.1+spec-1.1.0
+       Fresh iana-time-zone v0.1.65
+       Fresh atomic-waker v1.1.2
+       Fresh simd-adler32 v0.3.9
+       Fresh base64 v0.21.7
+       Fresh powerfmt v0.2.0
+       Fresh opaque-debug v0.3.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh serde v1.0.228
+       Fresh zerofrom-derive v0.1.7
+       Fresh yoke-derive v0.8.2
+       Fresh crypto-common v0.1.7
+       Fresh tracing v0.1.44
+       Fresh tokio v1.50.0
+       Fresh const-random v0.1.18
+       Fresh rand_chacha v0.9.0
+       Fresh ring v0.17.14
+       Fresh hashlink v0.8.4
+       Fresh pest_derive v2.8.6
+       Fresh option-ext v0.2.0
+       Fresh miniz_oxide v0.8.9
+       Fresh convert_case v0.6.0
+       Fresh sharded-slab v0.1.7
+       Fresh rayon-core v1.13.0
+       Fresh rustix v1.1.4
+       Fresh deranged v0.5.8
+       Fresh toml_edit v0.25.10+spec-1.1.0
+       Fresh block-buffer v0.10.4
+       Fresh futures-macro v0.3.32
+       Fresh thiserror-impl v2.0.18
+       Fresh httparse v1.10.1
+       Fresh crc32fast v1.5.0
+       Fresh async-trait v0.1.89
+       Fresh matchers v0.2.0
+       Fresh tracing-log v0.2.0
+       Fresh webpki-roots v1.0.6
+       Fresh zerofrom v0.1.7
+       Fresh cipher v0.4.4
+       Fresh serde_spanned v0.6.9
+       Fresh dlv-list v0.5.2
+       Fresh toml_datetime v0.6.11
+       Fresh rand v0.9.2
+       Fresh tokio-util v0.7.18
+       Fresh universal-hash v0.5.1
+       Fresh yaml-rust2 v0.8.1
+       Fresh ron v0.8.1
+       Fresh rustls-webpki v0.103.10
+       Fresh dirs-sys v0.5.0
+       Fresh chrono v0.4.44
+       Fresh json5 v0.4.1
+       Fresh tracing-serde v0.2.0
+       Fresh regex-automata v0.4.14
+       Fresh thread_local v1.1.9
+       Fresh futures-channel v0.3.32
+       Fresh time-core v0.1.8
+       Fresh futures-task v0.3.32
+       Fresh pathdiff v0.2.3
+       Fresh num-conv v0.2.1
+       Fresh httpdate v1.0.3
+       Fresh byteorder v1.5.0
+       Fresh base64 v0.22.1
+       Fresh triomphe v0.1.15
+       Fresh nu-ansi-term v0.50.3
+       Fresh fastrand v2.3.0
+       Fresh anyhow v1.0.102
+       Fresh thiserror v2.0.18
+       Fresh digest v0.10.7
+       Fresh webpki-roots v0.26.11
+       Fresh aead v0.5.2
+       Fresh yoke v0.8.2
+       Fresh ordered-multimap v0.7.3
+       Fresh toml_edit v0.22.27
+       Fresh h2 v0.4.13
+       Fresh polyval v0.6.2
+       Fresh tracing-subscriber v0.3.23
+       Fresh time v0.3.47
+       Fresh dirs v6.0.0
+       Fresh tempfile v3.27.0
+       Fresh archery v1.2.2
+       Fresh futures-util v0.3.32
+       Fresh blowfish v0.9.1
+       Fresh rustls v0.23.37
+       Fresh ctr v0.9.2
+       Fresh regex v1.12.3
+       Fresh aes v0.8.4
+       Fresh flate2 v1.1.9
+       Fresh proc-macro-crate v3.5.0
+       Fresh rayon v1.11.0
+       Fresh dashmap v6.1.0
+       Fresh itertools v0.14.0
+       Fresh uuid v1.23.0
+       Fresh wait-timeout v0.2.1
+       Fresh hostname v0.4.2
+       Fresh tap v1.0.1
+       Fresh relative-path v1.9.3
+       Fresh ryu v1.0.23
+       Fresh bit-vec v0.8.0
+       Fresh quick-error v1.2.3
+       Fresh glob v0.3.3
+       Fresh cron v0.12.1
+       Fresh sha2 v0.10.9
+       Fresh zerovec v0.11.6
+       Fresh zerotrie v0.2.4
+       Fresh rust-ini v0.20.0
+       Fresh toml v0.8.23
+       Fresh hyper v1.9.0
+       Fresh ghash v0.5.1
+       Fresh serde_urlencoded v0.7.1
+       Fresh sysinfo v0.33.1
+       Fresh rpds v1.2.0
+       Fresh bit-set v0.8.0
+       Fresh rusty-fork v0.3.1
+       Fresh rstest_macros v0.26.1
+       Fresh bcrypt v0.17.1
+       Fresh assert-json-diff v2.0.2
+       Fresh rand_xorshift v0.4.0
+       Fresh http-body-util v0.1.3
+       Fresh futures-timer v3.0.3
+       Fresh similar v2.7.0
+       Fresh colored v3.1.1
+       Fresh evalexpr v13.1.0
+       Fresh unarray v0.1.4
+       Fresh tinystr v0.8.3
+       Fresh potential_utf v0.1.5
+       Fresh config v0.14.1
+       Fresh aes-gcm v0.10.3
+       Fresh hyper-util v0.1.20
+       Fresh proptest v1.11.0
+       Fresh rstest v0.26.1
+       Fresh icu_locale_core v2.2.0
+       Fresh icu_collections v2.2.0
+       Fresh twerk-common v0.1.0 (/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/crates/twerk-common)
+       Fresh mockito v1.7.2
+       Fresh icu_provider v2.2.0
+       Fresh icu_normalizer v2.2.0
+       Fresh icu_properties v2.2.0
+       Fresh idna_adapter v1.2.1
+       Fresh idna v1.1.0
+       Fresh url v2.5.8
+       Fresh ureq v2.12.1
+       Dirty twerk-core v0.1.0 (/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/crates/twerk-core): the file `crates/twerk-core/src/id.rs` has changed (1776109248.485524354s, 3s after last build at 1776109245.998188796s)
+   Compiling twerk-core v0.1.0 (/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/crates/twerk-core)
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f7db2e589238ae8e -C extra-filename=-5515b311a8bf0750 --out-dir /tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern cron=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libcron-9be8c2db658df331.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern itertools=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern mockito=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libmockito-a2b154977fb6cddc.rlib --extern once_cell=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern proptest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libproptest-3d5d3b87c45ab2e1.rlib --extern rand=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librand-3039e047771c6559.rlib --extern regex=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librstest-3f4690d1f4c10fde.rlib --extern serde=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde-8922e5e2c19f49ff.rlib --extern serde_json=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde_json-b593ec33bf7956ae.rlib --extern sha2=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtime-584208e32037b0cc.rlib --extern tokio=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_common-293d0e7657f1b008.rlib --extern ureq=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libureq-33c1b9c73cc202d0.rlib --extern uuid=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libuuid-3c759f40646eb944.rlib -L native=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=b93941830bd12623 -C extra-filename=-4508288bc3492683 --out-dir /tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rmeta --extern async_trait=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rmeta --extern bcrypt=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rmeta --extern cron=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libcron-9be8c2db658df331.rmeta --extern evalexpr=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rmeta --extern futures_util=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rmeta --extern itertools=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libitertools-9616422d2d47965e.rmeta --extern once_cell=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rmeta --extern rand=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librand-3039e047771c6559.rmeta --extern regex=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rmeta --extern rpds=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rmeta --extern serde=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde-8922e5e2c19f49ff.rmeta --extern serde_json=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde_json-b593ec33bf7956ae.rmeta --extern sha2=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsha2-74092b36f341e847.rmeta --extern sysinfo=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rmeta --extern tap=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rmeta --extern thiserror=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rmeta --extern time=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtime-584208e32037b0cc.rmeta --extern tokio=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rmeta --extern tracing=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rmeta --extern twerk_common=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_common-293d0e7657f1b008.rmeta --extern ureq=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libureq-33c1b9c73cc202d0.rmeta --extern uuid=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libuuid-3c759f40646eb944.rmeta -L native=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name webhook_test --edition=2021 crates/twerk-core/tests/webhook_test.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=c7ed8ba5ef3377ea -C extra-filename=-ed97d04143f3b728 --out-dir /tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern cron=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libcron-9be8c2db658df331.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern itertools=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern mockito=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libmockito-a2b154977fb6cddc.rlib --extern once_cell=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern proptest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libproptest-3d5d3b87c45ab2e1.rlib --extern rand=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librand-3039e047771c6559.rlib --extern regex=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librstest-3f4690d1f4c10fde.rlib --extern serde=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde-8922e5e2c19f49ff.rlib --extern serde_json=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde_json-b593ec33bf7956ae.rlib --extern sha2=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtime-584208e32037b0cc.rlib --extern tokio=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_common-293d0e7657f1b008.rlib --extern twerk_core=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_core-4508288bc3492683.rlib --extern ureq=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libureq-33c1b9c73cc202d0.rlib --extern uuid=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libuuid-3c759f40646eb944.rlib -L native=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name validation_test --edition=2021 crates/twerk-core/tests/validation_test.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3f718288ccc73a94 -C extra-filename=-0378b7a8c93f274f --out-dir /tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern cron=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libcron-9be8c2db658df331.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern itertools=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern mockito=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libmockito-a2b154977fb6cddc.rlib --extern once_cell=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern proptest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libproptest-3d5d3b87c45ab2e1.rlib --extern rand=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librand-3039e047771c6559.rlib --extern regex=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librstest-3f4690d1f4c10fde.rlib --extern serde=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde-8922e5e2c19f49ff.rlib --extern serde_json=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde_json-b593ec33bf7956ae.rlib --extern sha2=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtime-584208e32037b0cc.rlib --extern tokio=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_common-293d0e7657f1b008.rlib --extern twerk_core=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_core-4508288bc3492683.rlib --extern ureq=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libureq-33c1b9c73cc202d0.rlib --extern uuid=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libuuid-3c759f40646eb944.rlib -L native=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name eval_test --edition=2021 crates/twerk-core/tests/eval_test.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a324c9151c4f9798 -C extra-filename=-303402a383cd2f6c --out-dir /tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern cron=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libcron-9be8c2db658df331.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern itertools=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern mockito=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libmockito-a2b154977fb6cddc.rlib --extern once_cell=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern proptest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libproptest-3d5d3b87c45ab2e1.rlib --extern rand=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librand-3039e047771c6559.rlib --extern regex=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/librstest-3f4690d1f4c10fde.rlib --extern serde=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde-8922e5e2c19f49ff.rlib --extern serde_json=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libserde_json-b593ec33bf7956ae.rlib --extern sha2=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtime-584208e32037b0cc.rlib --extern tokio=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_common-293d0e7657f1b008.rlib --extern twerk_core=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libtwerk_core-4508288bc3492683.rlib --extern ureq=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libureq-33c1b9c73cc202d0.rlib --extern uuid=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/libuuid-3c759f40646eb944.rlib -L native=/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.19s
+  Executable `/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/twerk_core-5515b311a8bf0750`
+  Executable `/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/eval_test-303402a383cd2f6c`
+  Executable `/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/validation_test-0378b7a8c93f274f`
+  Executable `/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/webhook_test-ed97d04143f3b728`
+
+*** result: Success
+
+*** /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=twerk-core@0.1.0
+       Fresh cfg-if v1.0.4
+       Fresh unicode-ident v1.0.24
+       Fresh version_check v0.9.5
+       Fresh memchr v2.8.0
+       Fresh smallvec v1.15.1
+       Fresh itoa v1.0.18
+       Fresh stable_deref_trait v1.2.1
+       Fresh equivalent v1.0.2
+       Fresh hashbrown v0.16.1
+       Fresh pin-project-lite v0.2.17
+       Fresh regex-syntax v0.8.10
+       Fresh scopeguard v1.2.0
+       Fresh bytes v1.11.1
+       Fresh proc-macro2 v1.0.106
+       Fresh indexmap v2.13.0
+       Fresh aho-corasick v1.1.4
+       Fresh lock_api v0.4.14
+       Fresh tracing-core v0.1.36
+       Fresh futures-core v0.3.32
+       Fresh allocator-api2 v0.2.21
+       Fresh find-msvc-tools v0.1.9
+       Fresh shlex v1.3.0
+       Fresh litemap v0.8.2
+       Fresh writeable v0.6.2
+       Fresh ucd-trie v0.1.7
+       Fresh quote v1.0.45
+       Fresh serde_core v1.0.228
+       Fresh typenum v1.19.0
+       Fresh zerocopy v0.8.48
+       Fresh libc v0.2.184
+       Fresh crunchy v0.2.4
+       Fresh cc v1.2.58
+       Fresh zmij v1.0.21
+       Fresh crossbeam-utils v0.8.21
+       Fresh once_cell v1.21.4
+       Fresh autocfg v1.5.0
+       Fresh zeroize v1.8.2
+       Fresh utf8_iter v1.0.4
+       Fresh subtle v2.6.1
+       Fresh pest v2.8.6
+       Fresh log v0.4.29
+       Fresh slab v0.4.12
+       Fresh http v1.4.0
+       Fresh fnv v1.0.7
+       Fresh cpufeatures v0.2.17
+       Fresh syn v2.0.117
+       Fresh generic-array v0.14.7
+       Fresh parking_lot_core v0.9.12
+       Fresh ahash v0.8.12
+       Fresh getrandom v0.3.4
+       Fresh tiny-keccak v2.0.2
+       Fresh bitflags v2.11.0
+       Fresh errno v0.3.14
+       Fresh getrandom v0.2.17
+       Fresh socket2 v0.6.3
+       Fresh serde_json v1.0.149
+       Fresh mio v1.2.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh rustls-pki-types v1.14.0
+       Fresh pest_meta v2.8.6
+       Fresh percent-encoding v2.3.2
+       Fresh crossbeam-epoch v0.9.18
+       Fresh futures-sink v0.3.32
+       Fresh semver v1.0.27
+       Fresh serde_derive v1.0.228
+       Fresh synstructure v0.13.2
+       Fresh rand_core v0.6.4
+       Fresh zerovec-derive v0.11.3
+       Fresh displaydoc v0.2.5
+       Fresh tracing-attributes v0.1.31
+       Fresh hashbrown v0.14.5
+       Fresh parking_lot v0.12.5
+       Fresh const-random-macro v0.1.16
+       Fresh signal-hook-registry v1.4.8
+       Fresh inout v0.1.4
+       Fresh rand_core v0.9.5
+       Fresh tokio-macros v2.6.1
+       Fresh icu_normalizer_data v2.2.0
+       Fresh getrandom v0.4.2
+       Fresh icu_properties_data v2.2.0
+       Fresh form_urlencoded v1.2.2
+       Fresh pest_generator v2.8.6
+       Fresh winnow v0.7.15
+       Fresh toml_write v0.1.2
+       Fresh either v1.15.0
+       Fresh untrusted v0.9.0
+       Fresh minimal-lexical v0.2.1
+       Fresh winnow v1.0.1
+       Fresh serde v1.0.228
+       Fresh zerofrom-derive v0.1.7
+       Fresh yoke-derive v0.8.2
+       Fresh crypto-common v0.1.7
+       Fresh tracing v0.1.44
+       Fresh const-random v0.1.18
+       Fresh tokio v1.50.0
+       Fresh rand_chacha v0.9.0
+       Fresh num-traits v0.2.19
+       Fresh nom v7.1.3
+       Fresh pest_derive v2.8.6
+       Fresh hashlink v0.8.4
+       Fresh toml_parser v1.1.2+spec-1.1.0
+       Fresh ring v0.17.14
+       Fresh crossbeam-deque v0.8.6
+       Fresh rustc_version v0.4.1
+       Fresh http-body v1.0.1
+       Fresh encoding_rs v0.8.35
+       Fresh atomic-waker v1.1.2
+       Fresh adler2 v2.0.1
+       Fresh base64 v0.21.7
+       Fresh unicode-segmentation v1.13.2
+       Fresh option-ext v0.2.0
+       Fresh zerofrom v0.1.7
+       Fresh cipher v0.4.4
+       Fresh serde_spanned v0.6.9
+       Fresh dlv-list v0.5.2
+       Fresh toml_datetime v0.6.11
+       Fresh rand v0.9.2
+       Fresh universal-hash v0.5.1
+       Fresh tokio-util v0.7.18
+       Fresh lazy_static v1.5.0
+       Fresh linux-raw-sys v0.12.1
+       Fresh opaque-debug v0.3.1
+       Fresh powerfmt v0.2.0
+       Fresh iana-time-zone v0.1.65
+       Fresh toml_datetime v1.1.1+spec-1.1.0
+       Fresh simd-adler32 v0.3.9
+       Fresh arraydeque v0.5.1
+       Fresh json5 v0.4.1
+       Fresh convert_case v0.6.0
+       Fresh ron v0.8.1
+       Fresh crc32fast v1.5.0
+       Fresh tracing-serde v0.2.0
+       Fresh rayon-core v1.13.0
+       Fresh dirs-sys v0.5.0
+       Fresh rustls-webpki v0.103.10
+       Fresh yoke v0.8.2
+       Fresh toml_edit v0.22.27
+       Fresh ordered-multimap v0.7.3
+       Fresh h2 v0.4.13
+       Fresh deranged v0.5.8
+       Fresh miniz_oxide v0.8.9
+       Fresh toml_edit v0.25.10+spec-1.1.0
+       Fresh rustix v1.1.4
+       Fresh chrono v0.4.44
+       Fresh sharded-slab v0.1.7
+       Fresh yaml-rust2 v0.8.1
+       Fresh polyval v0.6.2
+       Fresh httparse v1.10.1
+       Fresh thiserror-impl v2.0.18
+       Fresh futures-macro v0.3.32
+       Fresh block-buffer v0.10.4
+       Fresh webpki-roots v1.0.6
+       Fresh async-trait v0.1.89
+       Fresh matchers v0.2.0
+       Fresh tracing-log v0.2.0
+       Fresh futures-channel v0.3.32
+       Fresh regex-automata v0.4.14
+       Fresh thread_local v1.1.9
+       Fresh byteorder v1.5.0
+       Fresh pathdiff v0.2.3
+       Fresh time-core v0.1.8
+       Fresh zerovec v0.11.6
+       Fresh zerotrie v0.2.4
+       Fresh rust-ini v0.20.0
+       Fresh toml v0.8.23
+       Fresh base64 v0.22.1
+       Fresh futures-task v0.3.32
+       Fresh fastrand v2.3.0
+       Fresh httpdate v1.0.3
+       Fresh num-conv v0.2.1
+       Fresh nu-ansi-term v0.50.3
+       Fresh triomphe v0.1.15
+       Fresh digest v0.10.7
+       Fresh blowfish v0.9.1
+       Fresh thiserror v2.0.18
+       Fresh rustls v0.23.37
+       Fresh proc-macro-crate v3.5.0
+       Fresh ghash v0.5.1
+       Fresh webpki-roots v0.26.11
+       Fresh regex v1.12.3
+       Fresh flate2 v1.1.9
+       Fresh aes v0.8.4
+       Fresh ctr v0.9.2
+       Fresh dirs v6.0.0
+       Fresh rayon v1.11.0
+       Fresh anyhow v1.0.102
+       Fresh aead v0.5.2
+       Fresh dashmap v6.1.0
+       Fresh tinystr v0.8.3
+       Fresh potential_utf v0.1.5
+       Fresh config v0.14.1
+       Fresh time v0.3.47
+       Fresh futures-util v0.3.32
+       Fresh tracing-subscriber v0.3.23
+       Fresh tempfile v3.27.0
+       Fresh archery v1.2.2
+       Fresh hyper v1.9.0
+       Fresh uuid v1.23.0
+       Fresh itertools v0.14.0
+       Fresh hostname v0.4.2
+       Fresh wait-timeout v0.2.1
+       Fresh bit-vec v0.8.0
+       Fresh quick-error v1.2.3
+       Fresh glob v0.3.3
+       Fresh tap v1.0.1
+       Fresh ryu v1.0.23
+       Fresh relative-path v1.9.3
+       Fresh bcrypt v0.17.1
+       Fresh sysinfo v0.33.1
+       Fresh sha2 v0.10.9
+       Fresh aes-gcm v0.10.3
+       Fresh cron v0.12.1
+       Fresh assert-json-diff v2.0.2
+       Fresh http-body-util v0.1.3
+       Fresh rand_xorshift v0.4.0
+       Fresh unarray v0.1.4
+       Fresh icu_locale_core v2.2.0
+       Fresh icu_collections v2.2.0
+       Fresh serde_urlencoded v0.7.1
+       Fresh rstest_macros v0.26.1
+       Fresh twerk-common v0.1.0 (/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/crates/twerk-common)
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh hyper-util v0.1.20
+       Fresh rpds v1.2.0
+       Fresh similar v2.7.0
+       Fresh colored v3.1.1
+       Fresh evalexpr v13.1.0
+       Fresh futures-timer v3.0.3
+       Fresh icu_provider v2.2.0
+       Fresh rstest v0.26.1
+       Fresh mockito v1.7.2
+       Fresh proptest v1.11.0
+       Fresh icu_properties v2.2.0
+       Fresh icu_normalizer v2.2.0
+       Fresh idna_adapter v1.2.1
+       Fresh idna v1.1.0
+       Fresh url v2.5.8
+       Fresh ureq v2.12.1
+       Fresh twerk-core v0.1.0 (/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/crates/twerk-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running `/tmp/cargo-mutants-twerk-p4m-YhxBi1.tmp/target/debug/deps/twerk_core-5515b311a8bf0750`
+
+running 235 tests
+test domain_types::tests::cron_invalid ... ok
+test domain_types::tests::cron_valid ... ok
+test domain_types::tests::go_duration_combo ... ok
+test domain_types::tests::cron_from_str_roundtrip ... ok
+test domain_types::tests::go_duration_empty_rejected ... ok
+test domain_types::tests::go_duration_micros ... ok
+test domain_types::tests::go_duration_millis ... ok
+test domain_types::tests::go_duration_nanos ... ok
+test domain_types::tests::go_duration_seconds ... ok
+test domain_types::tests::queue_name_deref ... ok
+test domain_types::tests::queue_name_from_str_roundtrip ... ok
+test domain_types::tests::queue_name_rejects_too_long ... ok
+test domain_types::tests::queue_name_rejects_uppercase ... ok
+test domain_types::tests::go_duration_days ... ok
+test domain_types::tests::queue_name_rejects_empty ... ok
+test domain_types::tests::go_duration_from_str_roundtrip ... ok
+test domain_types::tests::go_duration_complex ... ok
+test domain_types::tests::queue_name_valid ... ok
+test id::tests::job_id_deref_trait ... FAILED
+test id::tests::job_id_as_ref_trait ... FAILED
+test id::tests::job_id_clone ... FAILED
+test id::tests::job_id_default ... ok
+test id::tests::job_id_from_str_borrowing ... ok
+test id::tests::job_id_from_str_trait_error ... ok
+test id::tests::job_id_from_str_trait ... FAILED
+test id::tests::job_id_returns_err_empty_string ... ok
+test id::tests::job_id_from_string_ownership ... ok
+test id::tests::job_id_returns_err_with_emoji ... ok
+test id::tests::job_id_returns_err_with_null_byte ... FAILED
+test id::tests::job_id_returns_err_with_newline ... FAILED
+test id::tests::job_id_returns_err_with_slash ... FAILED
+test id::tests::job_id_returns_err_with_space ... FAILED
+test id::tests::job_id_returns_err_with_special_chars ... FAILED
+test id::tests::job_id_returns_err_with_tab ... FAILED
+test id::tests::job_id_returns_ok_at_max_length ... ok
+test id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric ... FAILED
+test id::tests::job_id_returns_ok_with_underscore ... ok
+test id::tests::job_id_with_only_cjk_characters_is_accepted ... ok
+test id::tests::job_id_with_cjk_characters_is_accepted ... FAILED
+test id::tests::node_id_new_too_long_rejected ... ok
+test id::tests::node_id_new_valid ... FAILED
+test id::tests::role_id_new_valid ... FAILED
+test id::tests::scheduled_job_id_new_valid ... FAILED
+test id::tests::task_id_new_valid ... FAILED
+test id::tests::trigger_id_as_str_returns_original ... ok
+test id::tests::trigger_id_as_ref_returns_inner_string ... ok
+test id::tests::job_id_eq_and_hash ... FAILED
+test id::tests::job_id_display_trait ... FAILED
+test id::tests::role_id_new_empty_rejected ... ok
+test id::tests::trigger_id_borrow_returns_inner_string ... ok
+test id::tests::trigger_id_clone_produces_equal_copy ... ok
+test id::tests::trigger_id_deref_returns_inner_string ... ok
+test id::tests::trigger_id_deserialize_rejects_1_char_string ... ok
+test id::tests::trigger_id_deserialize_rejects_65_char_string ... ok
+test id::tests::trigger_id_deserializes_from_valid_json_string ... ok
+test id::tests::trigger_id_display_returns_original_string ... ok
+test id::tests::trigger_id_deserialize_rejects_empty_string ... ok
+test id::tests::trigger_id_eq_and_hash_works_in_hashset ... ok
+test id::tests::trigger_id_from_str_bypasses_validation ... ok
+test id::tests::trigger_id_from_str_parses_valid_string ... ok
+test id::tests::trigger_id_from_str_rejects_short_string ... ok
+test id::tests::trigger_id_from_string_bypasses_validation ... ok
+test id::tests::trigger_id_new_rejects_trailing_whitespace ... ok
+test id::tests::trigger_id_new_returns_err_empty_displays_correct_message ... ok
+test id::tests::trigger_id_new_returns_err_empty_when_input_is_empty ... ok
+test id::tests::trigger_id_new_returns_err_invalid_characters_when_input_has_at_sign ... ok
+test id::tests::trigger_id_new_accepts_cjk_characters ... ok
+test id::tests::trigger_id_new_returns_err_invalid_characters_when_input_has_emoji ... ok
+test id::tests::trigger_id_new_returns_err_invalid_characters_when_input_has_null_byte ... ok
+test id::tests::trigger_id_deserialize_rejects_2_char_string ... ok
+test id::tests::trigger_id_new_returns_err_invalid_characters_when_input_has_space ... ok
+test id::tests::trigger_id_new_returns_err_invalid_chars_displays_correct_message ... ok
+test id::tests::trigger_id_new_returns_err_too_long_displays_correct_message ... ok
+test id::tests::trigger_id_new_returns_err_too_long_when_input_is_100_chars ... ok
+test id::tests::trigger_id_new_returns_err_too_long_when_input_is_65_chars ... ok
+test id::tests::trigger_id_new_returns_err_too_short_displays_correct_message ... ok
+test id::tests::trigger_id_new_returns_err_too_short_when_input_is_1_char ... ok
+test id::tests::trigger_id_new_returns_err_too_short_when_input_is_2_chars ... ok
+test id::tests::trigger_id_new_returns_ok_when_input_is_3_chars ... ok
+test id::tests::trigger_id_partial_eq_reflexive ... ok
+test id::tests::trigger_id_default_returns_empty_string ... ok
+test id::tests::trigger_id_serializes_as_plain_json_string ... ok
+test id::tests::user_id_new_valid ... FAILED
+test id::tests::user_id_new_with_invalid_chars_rejected ... FAILED
+test id::tests::trigger_id_preserves_input_string_exactly ... ok
+test id::tests::validate_id_accepts_dash_and_underscore ... FAILED
+test id::tests::validate_id_accepts_single_alphanumeric ... ok
+test id::tests::validate_id_error_messages_are_descriptive ... FAILED
+test id::tests::validate_id_max_length_boundary ... ok
+test id::tests::validate_id_rejects_dots ... FAILED
+test id::tests::validate_id_rejects_empty ... ok
+test id::tests::validate_id_rejects_only_whitespace ... FAILED
+test node::tests::test_node_status_from_str ... ok
+test node::tests::test_node_clone ... FAILED
+test redact::tests::tests::test_is_secret_key ... ok
+test redact::tests::tests::test_redact_job ... ok
+test redact::tests::tests::test_redact_task_log_parts ... ok
+test redact::tests::tests::test_redact_vars_no_match ... ok
+test redact::tests::tests::test_redact_task_registry_password ... ok
+test redact::tests::tests::test_redacter_contains_case_insensitive ... ok
+test redact::tests::tests::test_redact_vars_handles_empty_secrets ... ok
+test redact::tests::tests::test_redacter_wildcard_no_match ... ok
+test redact::tests::tests::test_redact_vars_key_match ... ok
+test role::tests::clone_preserves_all_fields ... FAILED
+test redact::tests::tests::test_redact_vars_value_match ... ok
+test redact::tests::tests::test_redacter_wildcard_empty_key ... ok
+test role::tests::default_role_is_not_public ... ok
+test redact::tests::tests::test_redacter_wildcard_replaces_all_occurrences ... ok
+test role::tests::debug_format_contains_fields ... ok
+test role::tests::id_newtype_from_string ... ok
+test role::tests::is_public_only_checks_slug_not_name ... ok
+test role::tests::debug_format_on_default_shows_none_fields ... ok
+test role::tests::id_display_matches_inner ... FAILED
+test role::tests::is_public_returns_expected_value::case_2 ... ok
+test role::tests::id_newtype_preserves_value ... ok
+test role::tests::is_public_returns_expected_value::case_1 ... ok
+test role::tests::is_public_returns_false_when_slug_is_empty_string ... ok
+test role::tests::is_public_returns_expected_value::case_3 ... ok
+test role::tests::is_public_returns_false_when_slug_is_public_with_spaces ... ok
+test role::tests::is_public_returns_false_when_slug_is_public_uppercase ... ok
+test role::tests::is_public_returns_true_when_slug_is_exact_public ... ok
+test role::tests::partial_eq_matches_for_identical_roles ... ok
+test role::tests::partial_eq_returns_false_for_different_ids ... ok
+test role::tests::partial_eq_returns_false_for_different_slugs ... ok
+test role::tests::role_clone_preserves_created_at ... ok
+test role::tests::role_public_constant_is_public ... ok
+test role::tests::role_with_all_none_fields_is_default ... ok
+test role::tests::role_with_unicode_name_roundtrips ... ok
+test role::tests::serialization_includes_slug_when_some ... ok
+test role::tests::serialization_roundtrip_preserves_all_fields ... FAILED
+test stats::tests::test_deserialize_from_json ... ok
+test stats::tests::test_job_metrics_json ... ok
+test stats::tests::test_node_metrics_deserialize ... ok
+test stats::tests::test_metrics_roundtrip ... ok
+test stats::tests::test_node_metrics_json ... ok
+test stats::tests::test_task_metrics_json ... ok
+test trigger::tests::parse_trigger_state_error_clone_produces_identical_copy ... ok
+test trigger::tests::parse_trigger_state_error_displays_message ... ok
+test trigger::tests::parse_trigger_state_error_implements_std_error ... ok
+test trigger::tests::parse_trigger_state_error_partial_eq_compares_inner ... ok
+test id::tests::task_id_new_empty_rejected ... ok
+test trigger::tests::trigger_state_default_returns_active ... ok
+test id::tests::trigger_id_new_accepts_dash_and_underscore ... ok
+test trigger::tests::trigger_state_deserializes_active_from_json ... ok
+test trigger::tests::trigger_state_eq_reflexive_for_all_variants::case_3 ... ok
+test id::tests::trigger_id_new_preserves_mixed_case ... ok
+test role::tests::serialization_omits_none_fields ... ok
+test id::tests::job_id_returns_err_when_exceeds_max_length ... ok
+test id::tests::validate_id_rejects_control_characters ... FAILED
+test id::tests::trigger_id_new_rejects_leading_whitespace ... ok
+test trigger::tests::trigger_state_parse_rejects_empty_string ... ok
+test trigger::tests::trigger_state_deserializes_disabled_from_json ... ok
+test trigger::tests::trigger_state_deserialize_rejects_unknown_value ... ok
+test trigger::tests::trigger_state_deserializes_error_from_json ... ok
+test trigger::tests::trigger_state_parse_rejects_prefix_of_valid_name ... ok
+test trigger::tests::trigger_state_display_equals_serde_for_all_variants::case_1 ... ok
+test redact::tests::tests::test_redact_task_env ... ok
+test trigger::tests::trigger_state_display_equals_serde_for_all_variants::case_2 ... ok
+test trigger::tests::trigger_state_display_equals_serde_for_all_variants::case_3 ... ok
+test trigger::tests::trigger_state_display_equals_serde_for_all_variants::case_4 ... ok
+test trigger::tests::trigger_state_display_formats_active ... ok
+test id::tests::trigger_id_new_accepts_exactly_64_chars ... ok
+test trigger::tests::trigger_state_display_formats_disabled ... ok
+test trigger::tests::trigger_state_display_formats_error ... ok
+test id::tests::proptest_trigger_id_rejects_invalid_chars ... ok
+test trigger::tests::trigger_state_display_formats_paused ... ok
+test trigger::tests::trigger_state_eq_reflexive_for_all_variants::case_4 ... ok
+test trigger::tests::trigger_state_hash_works_in_hashset ... ok
+test trigger::tests::trigger_state_eq_reflexive_for_all_variants::case_1 ... ok
+test trigger::tests::trigger_state_ne_distinguishes_distinct_variants ... ok
+test trigger::tests::trigger_state_parse_rejects_trailing_whitespace ... ok
+test trigger::tests::trigger_state_parse_rejects_unknown_string ... ok
+test trigger::tests::trigger_state_parse_rejects_whitespace_only ... ok
+test trigger::tests::trigger_state_parses_lowercase_active ... ok
+test trigger::tests::trigger_state_parses_lowercase_error ... ok
+test trigger::tests::trigger_state_parses_mixed_case_paused ... ok
+test id::tests::proptest_trigger_id_rejects_lengths_outside_3_to_64 ... ok
+test trigger::tests::trigger_state_is_copy_and_zero_sized_heap ... ok
+test trigger::tests::trigger_state_eq_reflexive_for_all_variants::case_2 ... ok
+test trigger::tests::trigger_state_deserializes_paused_from_json ... ok
+test trigger::tests::trigger_state_parses_uppercase_active ... ok
+test trigger::tests::trigger_state_partial_eq_reflexive ... ok
+test trigger::tests::trigger_state_serializes_active_to_uppercase ... ok
+test trigger::tests::trigger_state_serializes_disabled_to_uppercase ... ok
+test trigger::tests::trigger_state_serializes_error_to_uppercase ... ok
+test trigger::tests::trigger_state_serializes_paused_to_uppercase ... ok
+test user::tests::clone_preserves_password ... ok
+test user::tests::debug_format_contains_fields ... ok
+test user::tests::debug_format_on_default_shows_none_fields ... ok
+test user::tests::deep_clone_on_default_user_produces_default_except_password ... ok
+test user::tests::deep_clone_preserves_disabled_false ... ok
+test user::tests::deep_clone_preserves_all_fields_except_password ... FAILED
+test user::tests::deep_clone_preserves_empty_strings ... ok
+test user::tests::deep_clone_preserves_disabled_true ... ok
+test user::tests::deep_clone_removes_password_when_password_is_some ... ok
+test user::tests::deep_clone_returns_none_password_when_password_is_none ... ok
+test user::tests::default_user_is_enabled ... ok
+test user::tests::id_display_matches_inner ... FAILED
+test user::tests::id_newtype_from_str_ref ... ok
+test user::tests::id_newtype_from_string ... ok
+test user::tests::id_newtype_preserves_value ... ok
+test user::tests::is_enabled_returns_expected_value::case_1 ... ok
+test user::tests::is_enabled_returns_expected_value::case_2 ... ok
+test user::tests::is_guest_and_is_enabled_are_independent ... ok
+test user::tests::is_guest_returns_expected_value::case_1 ... ok
+test user::tests::is_guest_returns_expected_value::case_2 ... ok
+test user::tests::is_guest_returns_expected_value::case_3 ... ok
+test user::tests::is_guest_returns_false_when_username_is_empty_string ... ok
+test user::tests::is_guest_returns_false_when_username_is_guest_uppercase ... ok
+test user::tests::is_guest_returns_false_when_username_is_guest_with_spaces ... ok
+test user::tests::is_guest_returns_true_when_username_is_exact_guest ... ok
+test user::tests::partial_eq_matches_for_identical_users ... ok
+test user::tests::partial_eq_returns_false_for_different_ids ... ok
+test user::tests::password_hash_is_skipped_in_serialization ... ok
+test user::tests::password_is_skipped_in_serialization ... ok
+test user::tests::serialization_includes_disabled_when_true ... ok
+test user::tests::serialization_omits_none_fields ... ok
+test user::tests::serialization_roundtrip_preserves_all_public_fields ... ok
+test user::tests::user_guest_constant_is_guest ... ok
+test user::tests::serialization_roundtrip_with_all_fields_populated ... FAILED
+test user::tests::user_with_special_characters_in_fields ... ok
+test user::tests::user_with_unicode_name_roundtrips ... ok
+test user::tests::username_constant_is_username ... ok
+test user::tests::user_with_very_long_username ... ok
+test uuid::tests::test_base57_alphabet_is_57_chars ... ok
+test uuid::tests::test_encode_base57_deterministic ... ok
+test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
+test uuid::tests::test_new_uuid_length ... ok
+test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
+test id::tests::proptest_trigger_id_preserves_input_without_mutation ... ok
+test id::tests::proptest_trigger_id_serde_roundtrip_preserves_string ... ok
+test trigger::tests::proptest_trigger_state_serde_roundtrip_preserves_value ... ok
+test trigger::tests::proptest_trigger_state_from_str_ignores_case ... ok
+test host::tests::test_get_cpu_percent_returns_valid_range ... ok
+test host::tests::test_get_cpu_percent_twice_is_callable ... ok
+
+failures:
+
+---- id::tests::job_id_deref_trait stdout ----
+
+thread 'id::tests::job_id_deref_trait' (736462) panicked at crates/twerk-core/src/id.rs:375:43:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::job_id_as_ref_trait stdout ----
+
+thread 'id::tests::job_id_as_ref_trait' (736459) panicked at crates/twerk-core/src/id.rs:368:41:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- id::tests::job_id_clone stdout ----
+
+thread 'id::tests::job_id_clone' (736460) panicked at crates/twerk-core/src/id.rs:411:44:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::job_id_from_str_trait stdout ----
+
+thread 'id::tests::job_id_from_str_trait' (736507) panicked at crates/twerk-core/src/id.rs:382:50:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::job_id_returns_err_with_null_byte stdout ----
+
+thread 'id::tests::job_id_returns_err_with_null_byte' (736514) panicked at crates/twerk-core/src/id.rs:268:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::job_id_returns_err_with_newline stdout ----
+
+thread 'id::tests::job_id_returns_err_with_newline' (736513) panicked at crates/twerk-core/src/id.rs:262:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::job_id_returns_err_with_slash stdout ----
+
+thread 'id::tests::job_id_returns_err_with_slash' (736515) panicked at crates/twerk-core/src/id.rs:274:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::job_id_returns_err_with_space stdout ----
+
+thread 'id::tests::job_id_returns_err_with_space' (736516) panicked at crates/twerk-core/src/id.rs:280:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::job_id_returns_err_with_special_chars stdout ----
+
+thread 'id::tests::job_id_returns_err_with_special_chars' (736517) panicked at crates/twerk-core/src/id.rs:338:13:
+expected InvalidCharacters for 'job!123'
+
+---- id::tests::job_id_returns_err_with_tab stdout ----
+
+thread 'id::tests::job_id_returns_err_with_tab' (736518) panicked at crates/twerk-core/src/id.rs:286:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric stdout ----
+
+thread 'id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric' (736520) panicked at crates/twerk-core/src/id.rs:241:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::job_id_with_cjk_characters_is_accepted stdout ----
+
+thread 'id::tests::job_id_with_cjk_characters_is_accepted' (736522) panicked at crates/twerk-core/src/id.rs:309:9:
+CJK characters are alphanumeric in Rust: Err(InvalidCharacters)
+
+---- id::tests::node_id_new_valid stdout ----
+
+thread 'id::tests::node_id_new_valid' (736525) panicked at crates/twerk-core/src/id.rs:447:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::role_id_new_valid stdout ----
+
+thread 'id::tests::role_id_new_valid' (736531) panicked at crates/twerk-core/src/id.rs:482:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::scheduled_job_id_new_valid stdout ----
+
+thread 'id::tests::scheduled_job_id_new_valid' (736533) panicked at crates/twerk-core/src/id.rs:499:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::task_id_new_valid stdout ----
+
+thread 'id::tests::task_id_new_valid' (736535) panicked at crates/twerk-core/src/id.rs:430:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::job_id_eq_and_hash stdout ----
+
+thread 'id::tests::job_id_eq_and_hash' (736505) panicked at crates/twerk-core/src/id.rs:394:43:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::job_id_display_trait stdout ----
+
+thread 'id::tests::job_id_display_trait' (736474) panicked at crates/twerk-core/src/id.rs:361:45:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::user_id_new_valid stdout ----
+
+thread 'id::tests::user_id_new_valid' (736577) panicked at crates/twerk-core/src/id.rs:465:9:
+assertion failed: matches!(result, Ok(_))
+
+---- id::tests::user_id_new_with_invalid_chars_rejected stdout ----
+
+thread 'id::tests::user_id_new_with_invalid_chars_rejected' (736579) panicked at crates/twerk-core/src/id.rs:471:9:
+assertion failed: matches!(result, Err(IdError::InvalidCharacters))
+
+---- id::tests::validate_id_accepts_dash_and_underscore stdout ----
+
+thread 'id::tests::validate_id_accepts_dash_and_underscore' (736580) panicked at crates/twerk-core/src/id.rs:527:9:
+assertion failed: validate_id("a-b").is_ok()
+
+---- id::tests::validate_id_error_messages_are_descriptive stdout ----
+
+thread 'id::tests::validate_id_error_messages_are_descriptive' (736582) panicked at crates/twerk-core/src/id.rs:562:51:
+called `Result::unwrap_err()` on an `Ok` value: ()
+
+---- id::tests::validate_id_rejects_dots stdout ----
+
+thread 'id::tests::validate_id_rejects_dots' (736585) panicked at crates/twerk-core/src/id.rs:534:9:
+assertion failed: validate_id("file.txt").is_err()
+
+---- id::tests::validate_id_rejects_only_whitespace stdout ----
+
+thread 'id::tests::validate_id_rejects_only_whitespace' (736587) panicked at crates/twerk-core/src/id.rs:514:9:
+assertion failed: validate_id(" ").is_err()
+
+---- node::tests::test_node_clone stdout ----
+
+thread 'node::tests::test_node_clone' (736588) panicked at crates/twerk-core/src/node.rs:78:44:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- role::tests::clone_preserves_all_fields stdout ----
+
+thread 'role::tests::clone_preserves_all_fields' (736603) panicked at crates/twerk-core/src/role.rs:87:46:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- role::tests::id_display_matches_inner stdout ----
+
+thread 'role::tests::id_display_matches_inner' (736607) panicked at crates/twerk-core/src/role.rs:209:46:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- role::tests::serialization_roundtrip_preserves_all_fields stdout ----
+
+thread 'role::tests::serialization_roundtrip_preserves_all_fields' (736627) panicked at crates/twerk-core/src/role.rs:164:44:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- id::tests::validate_id_rejects_control_characters stdout ----
+
+thread 'id::tests::validate_id_rejects_control_characters' (736584) panicked at crates/twerk-core/src/id.rs:549:9:
+assertion failed: validate_id("test\x00value").is_err()
+
+---- user::tests::deep_clone_preserves_all_fields_except_password stdout ----
+
+thread 'user::tests::deep_clone_preserves_all_fields_except_password' (736683) panicked at crates/twerk-core/src/user.rs:99:42:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- user::tests::id_display_matches_inner stdout ----
+
+thread 'user::tests::id_display_matches_inner' (736690) panicked at crates/twerk-core/src/user.rs:392:46:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+---- user::tests::serialization_roundtrip_with_all_fields_populated stdout ----
+
+thread 'user::tests::serialization_roundtrip_with_all_fields_populated' (736711) panicked at crates/twerk-core/src/user.rs:295:43:
+called `Result::unwrap()` on an `Err` value: InvalidCharacters
+
+
+failures:
+    id::tests::job_id_as_ref_trait
+    id::tests::job_id_clone
+    id::tests::job_id_deref_trait
+    id::tests::job_id_display_trait
+    id::tests::job_id_eq_and_hash
+    id::tests::job_id_from_str_trait
+    id::tests::job_id_returns_err_with_newline
+    id::tests::job_id_returns_err_with_null_byte
+    id::tests::job_id_returns_err_with_slash
+    id::tests::job_id_returns_err_with_space
+    id::tests::job_id_returns_err_with_special_chars
+    id::tests::job_id_returns_err_with_tab
+    id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric
+    id::tests::job_id_with_cjk_characters_is_accepted
+    id::tests::node_id_new_valid
+    id::tests::role_id_new_valid
+    id::tests::scheduled_job_id_new_valid
+    id::tests::task_id_new_valid
+    id::tests::user_id_new_valid
+    id::tests::user_id_new_with_invalid_chars_rejected
+    id::tests::validate_id_accepts_dash_and_underscore
+    id::tests::validate_id_error_messages_are_descriptive
+    id::tests::validate_id_rejects_control_characters
+    id::tests::validate_id_rejects_dots
+    id::tests::validate_id_rejects_only_whitespace
+    node::tests::test_node_clone
+    role::tests::clone_preserves_all_fields
+    role::tests::id_display_matches_inner
+    role::tests::serialization_roundtrip_preserves_all_fields
+    user::tests::deep_clone_preserves_all_fields_except_password
+    user::tests::id_display_matches_inner
+    user::tests::serialization_roundtrip_with_all_fields_populated
+
+test result: FAILED. 203 passed; 32 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+error: test failed, to rerun pass `-p twerk-core --lib`
+
+*** result: Failure(101)

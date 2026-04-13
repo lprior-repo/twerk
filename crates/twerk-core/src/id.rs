@@ -17,6 +17,8 @@ pub enum IdError {
     TooLong(usize),
     #[error("ID contains invalid characters: only alphanumeric, dash, and underscore allowed")]
     InvalidCharacters,
+    #[error("invalid UUID format: expected RFC 4122 compliant UUID")]
+    InvalidUuid,
 }
 
 fn validate_id(s: &str) -> Result<(), IdError> {
@@ -107,7 +109,83 @@ macro_rules! define_id {
     };
 }
 
-define_id!(JobId);
+// =========================================================================
+// JobId — hand-written to enforce UUID format validation
+// =========================================================================
+
+/// Validated identifier for a job, must be a valid RFC 4122 UUID.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct JobId(String);
+
+impl JobId {
+    /// Creates a new JobId from a UUID string.
+    ///
+    /// # Errors
+    ///
+    /// Returns `IdError::InvalidUuid` if the string is not a valid RFC 4122 UUID.
+    #[must_use]
+    pub fn new(uuid: impl Into<String>) -> Result<Self, IdError> {
+        let s = uuid.into();
+        if uuid::Uuid::parse_str(&s).is_ok() {
+            Ok(JobId(s))
+        } else {
+            Err(IdError::InvalidUuid)
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for JobId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for JobId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl fmt::Display for JobId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for JobId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for JobId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Borrow<str> for JobId {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for JobId {
+    type Err = IdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s)
+    }
+}
+
 define_id!(TaskId);
 define_id!(NodeId);
 define_id!(ScheduledJobId);

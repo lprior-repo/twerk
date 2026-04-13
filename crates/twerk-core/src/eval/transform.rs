@@ -4,8 +4,6 @@
 //! - Removing template braces
 //! - Transforming `and`/`or` to `&&`/`||`
 
-use super::get_template_regex;
-
 /// Sanitizes an expression by removing template braces and transforming operators.
 ///
 /// # Example
@@ -14,10 +12,13 @@ use super::get_template_regex;
 #[must_use]
 pub fn sanitize_expr(expr: &str) -> String {
     let trimmed = expr.trim();
-    let re = get_template_regex();
-    let without_braces = re
-        .captures(trimmed)
-        .map_or_else(|| trimmed.to_string(), |caps| caps[1].trim().to_string());
+    let without_braces = trimmed
+        .strip_prefix("{{")
+        .and_then(|value| value.strip_suffix("}}"))
+        .map_or_else(
+            || trimmed.to_string(),
+            |contents| contents.trim().to_string(),
+        );
     transform_operators(&without_braces)
 }
 

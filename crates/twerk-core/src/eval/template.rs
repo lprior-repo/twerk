@@ -4,6 +4,7 @@
 //! and individual expressions within string contexts.
 
 use evalexpr::eval_with_context;
+use regex::{Match, Regex};
 use std::collections::HashMap;
 
 use super::context::{create_context, eval_value_to_json};
@@ -35,51 +36,96 @@ pub fn evaluate_template(
         return Ok(String::new());
     }
 
-    let re = get_template_regex();
-    let matches = re.find_iter(template).collect::<Vec<_>>();
-
+    let re = get_template_regex()?;
+    let matches = collect_template_matches(&re, template);
     if matches.is_empty() {
         return Ok(template.to_string());
     }
 
-    let result = matches
-        .iter()
-        .try_fold((String::new(), 0usize), |(buf, loc), m| {
-            let start_tag = m.start();
-            let end_tag = m.end();
-            // Copy text before this match
-            let prefix = if loc < start_tag {
-                template[loc..start_tag].to_string()
-            } else {
-                String::new()
-            };
+    render_template(template, &re, context, &matches).map(|progress| {
+        let tail = matches
+            .last()
+            .map_or("", |last_match| &template[last_match.end()..]);
+        progress.buffer + tail
+    })
+}
 
-            // Extract the expression from the capture group
-            let caps = re.captures(m.as_str()).ok_or_else(|| {
-                EvalError::InvalidExpression(format!("no capture in match: {}", m.as_str()))
-            })?;
-            let expr_str = &caps[1];
+#[derive(Default)]
+struct RenderProgress {
+    buffer: String,
+    offset: usize,
+}
 
-            // Evaluate the expression
-            let val = evaluate_expr(expr_str, context)?;
-            let replacement = match &val {
-                serde_json::Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
+struct TemplateRenderer<'a> {
+    template: &'a str,
+    re: &'a Regex,
+    context: &'a HashMap<String, serde_json::Value>,
+}
 
-            Ok((buf + &prefix + &replacement, end_tag))
-        })?;
+fn collect_template_matches<'a>(re: &'a Regex, template: &'a str) -> Vec<Match<'a>> {
+    re.find_iter(template).collect()
+}
 
-    // Append any trailing text after the last match
-    let output = match matches.last() {
-        Some(last_match) => {
-            let tail = &template[last_match.end()..];
-            result.0 + tail
-        }
-        None => result.0,
+fn render_template(
+    template: &str,
+    re: &Regex,
+    context: &HashMap<String, serde_json::Value>,
+    matches: &[Match<'_>],
+) -> Result<RenderProgress, EvalError> {
+    let renderer = TemplateRenderer {
+        template,
+        re,
+        context,
     };
+    matches
+        .iter()
+        .try_fold(RenderProgress::default(), |progress, matched| {
+            renderer.render_match(progress, matched)
+        })
+}
 
-    Ok(output)
+impl TemplateRenderer<'_> {
+    fn render_match(
+        &self,
+        progress: RenderProgress,
+        matched: &Match<'_>,
+    ) -> Result<RenderProgress, EvalError> {
+        let prefix = template_prefix(self.template, progress.offset, matched.start());
+        let replacement = template_replacement(self.re, matched.as_str(), self.context)?;
+
+        Ok(RenderProgress {
+            buffer: progress.buffer + &prefix + &replacement,
+            offset: matched.end(),
+        })
+    }
+}
+
+fn template_prefix(template: &str, offset: usize, start: usize) -> String {
+    if offset < start {
+        template[offset..start].to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn template_replacement(
+    re: &Regex,
+    matched: &str,
+    context: &HashMap<String, serde_json::Value>,
+) -> Result<String, EvalError> {
+    let expr_str = extract_match_expression(re, matched)?;
+
+    evaluate_expr(expr_str, context).map(|value| match value {
+        serde_json::Value::String(text) => text,
+        other => other.to_string(),
+    })
+}
+
+fn extract_match_expression<'a>(re: &Regex, matched: &'a str) -> Result<&'a str, EvalError> {
+    re.captures(matched)
+        .and_then(|captures| captures.get(1))
+        .map(|capture| capture.as_str())
+        .ok_or_else(|| EvalError::InvalidExpression(format!("no capture in match: {matched}")))
 }
 
 /// Evaluates a single expression string.

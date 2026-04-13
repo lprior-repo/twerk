@@ -5,8 +5,8 @@
 
 use time::OffsetDateTime;
 use twerk_core::trigger::{
-    InMemoryTriggerRegistry, Trigger, TriggerContext, TriggerId, TriggerRegistry,
-    TriggerState, TriggerVariant,
+    InMemoryTriggerRegistry, Trigger, TriggerContext, TriggerId, TriggerRegistry, TriggerState,
+    TriggerVariant,
 };
 
 // =============================================================================
@@ -359,7 +359,10 @@ async fn trigger_registry_fire_creates_job_for_active_trigger() {
     };
 
     let result = registry.fire(ctx).await;
-    assert!(result.is_ok(), "fire should succeed for active trigger with broker available");
+    assert!(
+        result.is_ok(),
+        "fire should succeed for active trigger with broker available"
+    );
     let job_id = result.unwrap();
     assert_eq!(job_id.0.len(), 36); // UUID v4 format
 }
@@ -552,7 +555,10 @@ async fn trigger_registry_fire_fails_when_concurrency_limit_reached() {
     // Second fire also succeeds because first fire released the permit
     // The semaphore limits concurrent fires, not sequential fires
     let result2 = registry.fire(ctx).await;
-    assert!(result2.is_ok(), "Second fire succeeds because permit was released by first fire");
+    assert!(
+        result2.is_ok(),
+        "Second fire succeeds because permit was released by first fire"
+    );
 }
 
 // =============================================================================

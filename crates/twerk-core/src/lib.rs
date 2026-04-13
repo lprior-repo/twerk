@@ -23,6 +23,6 @@ pub use domain_types::{
     CronError, CronExpression, DomainParseError, GoDuration, GoDurationError, Priority,
     PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
 };
-pub use repository::{Repository, Result as RepoResult};
 pub use id::TriggerId;
+pub use repository::{Repository, Result as RepoResult};
 pub use trigger::{ParseTriggerStateError, TriggerState};

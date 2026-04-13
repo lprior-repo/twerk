@@ -55,3 +55,45 @@ Split oversized files (>300 lines) into logical modules to comply with the 300-l
 ## Verification
 
 All splits compile successfully with `cargo check -p tork`.
+
+---
+
+## trigger/types.rs Refactor (2026-04-13)
+
+### Changes
+
+**File**: `crates/twerk-core/src/trigger/types.rs`
+**Before**: 272 lines
+**After**: 195 lines (77 lines removed, 28% reduction)
+
+### Issue: Duplicate Identifier Types
+
+The file defined its own `TriggerId` and `JobId` types with different validation rules than the canonical versions in `id.rs`:
+
+| Type | trigger/types.rs | id.rs |
+|------|------------------|-------|
+| `TriggerId` | Custom validation (3-64 chars, alphanumeric/-/_) | `define_id!` macro (1-1000 chars, same charset) |
+| `JobId` | No validation (`JobId(String)`) | `define_id!` macro (validated) |
+
+### Fix Applied
+
+1. **Removed duplicate `TriggerId`** - Now re-exported from `crate::id::TriggerId`
+2. **Removed duplicate `JobId`** - Now re-exported from `crate::id::JobId`  
+3. **Created `TriggerIdError` alias** - `pub use crate::id::IdError as TriggerIdError;`
+4. **Fixed `in_memory.rs`** - Updated `JobId::new()` call to handle `Result` return
+
+### Breaking Change Note
+
+The `TriggerId` in `trigger` module now uses `id::TriggerId` validation rules (length 1-1000) instead of the trigger-specific rules (length 3-64). Callers that relied on the 3-64 character validation will now accept shorter/longer IDs. This is semantically correct since both are validated identifiers.
+
+### Files Modified
+
+- `crates/twerk-core/src/trigger/types.rs` - Removed duplicate types, added re-exports
+- `crates/twerk-core/src/trigger/in_memory.rs` - Fixed `JobId::new()` to handle `Result`
+
+### Verification
+
+```
+cargo check -p twerk-core  # Passes
+cargo check                # Full workspace compiles
+```

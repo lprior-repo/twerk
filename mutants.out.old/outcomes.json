@@ -8,7 +8,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 9.753415103,
+          "duration": 12.344054416,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -20,7 +20,7 @@
         },
         {
           "phase": "Test",
-          "duration": 13.27707612,
+          "duration": 14.482297175,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -71,7 +71,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 2.522534212,
+          "duration": 2.673763019,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -83,7 +83,7 @@
         },
         {
           "phase": "Test",
-          "duration": 2.069554234,
+          "duration": 6.777707909,
           "process_status": {
             "Failure": 101
           },
@@ -136,7 +136,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 6.828186867,
+          "duration": 7.156257613,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -148,7 +148,7 @@
         },
         {
           "phase": "Test",
-          "duration": 2.687955263,
+          "duration": 2.68470408,
           "process_status": {
             "Failure": 101
           },
@@ -201,7 +201,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.878283738,
+          "duration": 2.121531073,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -213,202 +213,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.215622213,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:31:38: replace || with && in validate_id",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/id.rs",
-          "function": {
-            "function_name": "validate_id",
-            "return_type": "-> Result<(), IdError>",
-            "span": {
-              "start": {
-                "line": 22,
-                "column": 1
-              },
-              "end": {
-                "line": 36,
-                "column": 2
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 31,
-              "column": 38
-            },
-            "end": {
-              "line": 31,
-              "column": 40
-            }
-          },
-          "replacement": "&&",
-          "genre": "BinaryOperator"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_31_col_38.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_31_col_38.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 1.56641544,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.156302773,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:26:16: replace > with >= in validate_id",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/id.rs",
-          "function": {
-            "function_name": "validate_id",
-            "return_type": "-> Result<(), IdError>",
-            "span": {
-              "start": {
-                "line": 22,
-                "column": 1
-              },
-              "end": {
-                "line": 36,
-                "column": 2
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 26,
-              "column": 16
-            },
-            "end": {
-              "line": 26,
-              "column": 17
-            }
-          },
-          "replacement": ">=",
-          "genre": "BinaryOperator"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_26_col_16_002.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_26_col_16_002.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 18.873089721,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 0.956173323,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:26:16: replace > with < in validate_id",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/id.rs",
-          "function": {
-            "function_name": "validate_id",
-            "return_type": "-> Result<(), IdError>",
-            "span": {
-              "start": {
-                "line": 22,
-                "column": 1
-              },
-              "end": {
-                "line": 36,
-                "column": 2
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 26,
-              "column": 16
-            },
-            "end": {
-              "line": 26,
-              "column": 17
-            }
-          },
-          "replacement": "<",
-          "genre": "BinaryOperator"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_26_col_16_001.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_26_col_16_001.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 19.564507290999998,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 0.956040524,
+          "duration": 3.860012049,
           "process_status": {
             "Failure": 101
           },
@@ -461,7 +266,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 19.274424821,
+          "duration": 22.105130373,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -473,7 +278,202 @@
         },
         {
           "phase": "Test",
-          "duration": 1.414282523,
+          "duration": 1.848207605,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/id.rs:26:16: replace > with < in validate_id",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/id.rs",
+          "function": {
+            "function_name": "validate_id",
+            "return_type": "-> Result<(), IdError>",
+            "span": {
+              "start": {
+                "line": 22,
+                "column": 1
+              },
+              "end": {
+                "line": 36,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 26,
+              "column": 16
+            },
+            "end": {
+              "line": 26,
+              "column": 17
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_26_col_16_002.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_26_col_16_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.448671739,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.5242647520000001,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/id.rs:31:38: replace || with && in validate_id",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/id.rs",
+          "function": {
+            "function_name": "validate_id",
+            "return_type": "-> Result<(), IdError>",
+            "span": {
+              "start": {
+                "line": 22,
+                "column": 1
+              },
+              "end": {
+                "line": 36,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 31,
+              "column": 38
+            },
+            "end": {
+              "line": 31,
+              "column": 40
+            }
+          },
+          "replacement": "&&",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_31_col_38.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_31_col_38.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.435204737,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.438938414,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/id.rs:26:16: replace > with >= in validate_id",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/id.rs",
+          "function": {
+            "function_name": "validate_id",
+            "return_type": "-> Result<(), IdError>",
+            "span": {
+              "start": {
+                "line": 22,
+                "column": 1
+              },
+              "end": {
+                "line": 36,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 26,
+              "column": 16
+            },
+            "end": {
+              "line": 26,
+              "column": 17
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_26_col_16_001.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_26_col_16_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.922281461,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.808811998,
           "process_status": {
             "Failure": 101
           },
@@ -526,7 +526,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.260372003,
+          "duration": 1.414425163,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -538,7 +538,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.457501598,
+          "duration": 1.723375731,
           "process_status": {
             "Failure": 101
           },
@@ -591,7 +591,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.404902222,
+          "duration": 1.584006414,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -603,7 +603,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.319347674,
+          "duration": 1.726152218,
           "process_status": {
             "Failure": 101
           },
@@ -656,7 +656,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.671863456,
+          "duration": 1.674593846,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -668,7 +668,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.406461498,
+          "duration": 1.923341834,
           "process_status": {
             "Failure": 101
           },
@@ -721,7 +721,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.574166592,
+          "duration": 1.480178354,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -733,72 +733,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.356937597,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:178:9: replace TriggerId::as_str -> &str with \"xyzzy\"",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/id.rs",
-          "function": {
-            "function_name": "TriggerId::as_str",
-            "return_type": "-> &str",
-            "span": {
-              "start": {
-                "line": 176,
-                "column": 5
-              },
-              "end": {
-                "line": 179,
-                "column": 6
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 178,
-              "column": 9
-            },
-            "end": {
-              "line": 178,
-              "column": 16
-            }
-          },
-          "replacement": "\"xyzzy\"",
-          "genre": "FnValue"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_178_col_9_001.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_178_col_9_001.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 1.20860545,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.41791805,
+          "duration": 2.213675071,
           "process_status": {
             "Failure": 101
           },
@@ -851,7 +786,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.361636036,
+          "duration": 1.866411356,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -863,7 +798,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.462785051,
+          "duration": 3.058123725,
           "process_status": {
             "Failure": 101
           },
@@ -879,44 +814,44 @@
     {
       "scenario": {
         "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:190:9: replace <impl From<&str> for TriggerId>::from -> Self with Default::default()",
+          "name": "crates/twerk-core/src/id.rs:178:9: replace TriggerId::as_str -> &str with \"xyzzy\"",
           "package": "twerk-core",
           "file": "crates/twerk-core/src/id.rs",
           "function": {
-            "function_name": "<impl From<&str> for TriggerId>::from",
-            "return_type": "-> Self",
+            "function_name": "TriggerId::as_str",
+            "return_type": "-> &str",
             "span": {
               "start": {
-                "line": 189,
+                "line": 176,
                 "column": 5
               },
               "end": {
-                "line": 191,
+                "line": 179,
                 "column": 6
               }
             }
           },
           "span": {
             "start": {
-              "line": 190,
+              "line": 178,
               "column": 9
             },
             "end": {
-              "line": 190,
-              "column": 28
+              "line": 178,
+              "column": 16
             }
           },
-          "replacement": "Default::default()",
+          "replacement": "\"xyzzy\"",
           "genre": "FnValue"
         }
       },
       "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_190_col_9.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_190_col_9.diff",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_178_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_178_col_9_001.diff",
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.7687446549999999,
+          "duration": 2.093051925,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -928,7 +863,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.313470792,
+          "duration": 3.547537412,
           "process_status": {
             "Failure": 101
           },
@@ -981,7 +916,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.520309474,
+          "duration": 2.372764059,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -993,7 +928,72 @@
         },
         {
           "phase": "Test",
-          "duration": 1.412160308,
+          "duration": 3.245924118,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/id.rs:190:9: replace <impl From<&str> for TriggerId>::from -> Self with Default::default()",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/id.rs",
+          "function": {
+            "function_name": "<impl From<&str> for TriggerId>::from",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 189,
+                "column": 5
+              },
+              "end": {
+                "line": 191,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 190,
+              "column": 9
+            },
+            "end": {
+              "line": 190,
+              "column": 28
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_190_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_190_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.856704094,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.433789764,
           "process_status": {
             "Failure": 101
           },
@@ -1046,7 +1046,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 0.756086671,
+          "duration": 1.416243892,
           "process_status": {
             "Failure": 101
           },
@@ -1100,7 +1100,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.3142047350000001,
+          "duration": 2.181912087,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1112,7 +1112,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.16448317,
+          "duration": 2.287782677,
           "process_status": {
             "Failure": 101
           },
@@ -1165,7 +1165,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.42133441,
+          "duration": 2.3487732,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1177,7 +1177,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.1596956999999999,
+          "duration": 2.873063769,
           "process_status": {
             "Failure": 101
           },
@@ -1230,7 +1230,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.258796393,
+          "duration": 2.545683308,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1242,72 +1242,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.7629540719999999,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/id.rs:216:9: replace <impl Borrow<str> for TriggerId>::borrow -> &str with \"xyzzy\"",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/id.rs",
-          "function": {
-            "function_name": "<impl Borrow<str> for TriggerId>::borrow",
-            "return_type": "-> &str",
-            "span": {
-              "start": {
-                "line": 215,
-                "column": 5
-              },
-              "end": {
-                "line": 217,
-                "column": 6
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 216,
-              "column": 9
-            },
-            "end": {
-              "line": 216,
-              "column": 16
-            }
-          },
-          "replacement": "\"xyzzy\"",
-          "genre": "FnValue"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__id.rs_line_216_col_9_001.log",
-      "diff_path": "diff/crates__twerk-core__src__id.rs_line_216_col_9_001.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 1.467930835,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.30750649,
+          "duration": 2.469066456,
           "process_status": {
             "Failure": 101
           },
@@ -1360,7 +1295,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.506932826,
+          "duration": 1.933349603,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1372,7 +1307,72 @@
         },
         {
           "phase": "Test",
-          "duration": 1.208327189,
+          "duration": 2.613820855,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/id.rs:216:9: replace <impl Borrow<str> for TriggerId>::borrow -> &str with \"xyzzy\"",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/id.rs",
+          "function": {
+            "function_name": "<impl Borrow<str> for TriggerId>::borrow",
+            "return_type": "-> &str",
+            "span": {
+              "start": {
+                "line": 215,
+                "column": 5
+              },
+              "end": {
+                "line": 217,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 216,
+              "column": 9
+            },
+            "end": {
+              "line": 216,
+              "column": 16
+            }
+          },
+          "replacement": "\"xyzzy\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__id.rs_line_216_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__id.rs_line_216_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.31668438,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.785644167,
           "process_status": {
             "Failure": 101
           },
@@ -1425,7 +1425,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.708245273,
+          "duration": 1.980090285,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1437,7 +1437,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.00926792,
+          "duration": 2.073854688,
           "process_status": {
             "Failure": 101
           },
@@ -1490,7 +1490,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.319022282,
+          "duration": 1.8273036999999999,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1502,137 +1502,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.41510081,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/trigger.rs:48:13: delete match arm \"ACTIVE\" in <impl FromStr for TriggerState>::from_str",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/trigger.rs",
-          "function": {
-            "function_name": "<impl FromStr for TriggerState>::from_str",
-            "return_type": "-> Result<Self, Self::Err>",
-            "span": {
-              "start": {
-                "line": 46,
-                "column": 5
-              },
-              "end": {
-                "line": 54,
-                "column": 6
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 48,
-              "column": 13
-            },
-            "end": {
-              "line": 48,
-              "column": 42
-            }
-          },
-          "replacement": "",
-          "genre": "MatchArm"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__trigger.rs_line_48_col_13.log",
-      "diff_path": "diff/crates__twerk-core__src__trigger.rs_line_48_col_13.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 1.458573713,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.50839795,
-          "process_status": {
-            "Failure": 101
-          },
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        }
-      ]
-    },
-    {
-      "scenario": {
-        "Mutant": {
-          "name": "crates/twerk-core/src/trigger.rs:47:9: replace <impl FromStr for TriggerState>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
-          "package": "twerk-core",
-          "file": "crates/twerk-core/src/trigger.rs",
-          "function": {
-            "function_name": "<impl FromStr for TriggerState>::from_str",
-            "return_type": "-> Result<Self, Self::Err>",
-            "span": {
-              "start": {
-                "line": 46,
-                "column": 5
-              },
-              "end": {
-                "line": 54,
-                "column": 6
-              }
-            }
-          },
-          "span": {
-            "start": {
-              "line": 47,
-              "column": 9
-            },
-            "end": {
-              "line": 53,
-              "column": 10
-            }
-          },
-          "replacement": "Ok(Default::default())",
-          "genre": "FnValue"
-        }
-      },
-      "summary": "CaughtMutant",
-      "log_path": "log/crates__twerk-core__src__trigger.rs_line_47_col_9.log",
-      "diff_path": "diff/crates__twerk-core__src__trigger.rs_line_47_col_9.diff",
-      "phase_results": [
-        {
-          "phase": "Build",
-          "duration": 1.463842678,
-          "process_status": "Success",
-          "argv": [
-            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
-            "test",
-            "--no-run",
-            "--verbose",
-            "--package=twerk-core@0.1.0"
-          ]
-        },
-        {
-          "phase": "Test",
-          "duration": 1.6651466959999999,
+          "duration": 2.011813183,
           "process_status": {
             "Failure": 101
           },
@@ -1685,7 +1555,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.4640141770000001,
+          "duration": 1.725807451,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1697,7 +1567,137 @@
         },
         {
           "phase": "Test",
-          "duration": 1.817472558,
+          "duration": 2.976412543,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/trigger.rs:48:13: delete match arm \"ACTIVE\" in <impl FromStr for TriggerState>::from_str",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/trigger.rs",
+          "function": {
+            "function_name": "<impl FromStr for TriggerState>::from_str",
+            "return_type": "-> Result<Self, Self::Err>",
+            "span": {
+              "start": {
+                "line": 46,
+                "column": 5
+              },
+              "end": {
+                "line": 54,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 48,
+              "column": 13
+            },
+            "end": {
+              "line": 48,
+              "column": 42
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__trigger.rs_line_48_col_13.log",
+      "diff_path": "diff/crates__twerk-core__src__trigger.rs_line_48_col_13.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.966378269,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.185786606,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/trigger.rs:47:9: replace <impl FromStr for TriggerState>::from_str -> Result<Self, Self::Err> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/trigger.rs",
+          "function": {
+            "function_name": "<impl FromStr for TriggerState>::from_str",
+            "return_type": "-> Result<Self, Self::Err>",
+            "span": {
+              "start": {
+                "line": 46,
+                "column": 5
+              },
+              "end": {
+                "line": 54,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 47,
+              "column": 9
+            },
+            "end": {
+              "line": 53,
+              "column": 10
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__trigger.rs_line_47_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__trigger.rs_line_47_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.023108808,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.281127327,
           "process_status": {
             "Failure": 101
           },
@@ -1750,7 +1750,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 2.115438739,
+          "duration": 2.632581413,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1762,7 +1762,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.4664264839999999,
+          "duration": 3.030993018,
           "process_status": {
             "Failure": 101
           },
@@ -1815,7 +1815,7 @@
       "phase_results": [
         {
           "phase": "Build",
-          "duration": 1.811971743,
+          "duration": 2.972566583,
           "process_status": "Success",
           "argv": [
             "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
@@ -1827,7 +1827,7 @@
         },
         {
           "phase": "Test",
-          "duration": 1.965393385,
+          "duration": 3.598140368,
           "process_status": {
             "Failure": 101
           },
@@ -1847,7 +1847,7 @@
   "timeout": 0,
   "unviable": 1,
   "success": 0,
-  "start_time": "2026-04-13T19:40:05.362329807Z",
-  "end_time": "2026-04-13T19:41:05.972672796Z",
+  "start_time": "2026-04-13T19:41:22.253344117Z",
+  "end_time": "2026-04-13T19:42:48.850807946Z",
   "cargo_mutants_version": "27.0.0"
 }

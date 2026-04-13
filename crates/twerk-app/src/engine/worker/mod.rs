@@ -449,17 +449,17 @@ mod tests {
     use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
 
     #[derive(Debug, Clone)]
-    struct MockRuntime {
+    struct FakeRuntime {
         health_check_ok: bool,
     }
 
-    impl MockRuntime {
+    impl FakeRuntime {
         fn new(health_check_ok: bool) -> Self {
             Self { health_check_ok }
         }
     }
 
-    impl RuntimeTrait for MockRuntime {
+    impl RuntimeTrait for FakeRuntime {
         fn run(&self, _task: &Task) -> BoxedFuture<()> {
             Box::pin(async { Ok(()) })
         }
@@ -588,7 +588,7 @@ mod tests {
 
     #[tokio::test]
     async fn send_heartbeat_when_health_check_succeeds_returns_up_status() {
-        let runtime = MockRuntime::new(true);
+        let runtime = FakeRuntime::new(true);
         let spy = SpyBroker::new();
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();
@@ -602,7 +602,7 @@ mod tests {
 
     #[tokio::test]
     async fn send_heartbeat_when_health_check_fails_returns_down_status() {
-        let runtime = MockRuntime::new(false);
+        let runtime = FakeRuntime::new(false);
         let spy = SpyBroker::new();
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();

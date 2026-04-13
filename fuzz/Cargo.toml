@@ -1,0 +1,49 @@
+[package]
+name = "twerk-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+twerk-web = { path = "../crates/twerk-web" }
+serde_json = "1"
+
+[[bin]]
+name = "fuzz_trigger_id_parser"
+path = "fuzz_targets/fuzz_trigger_id_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_trigger_update_request_deserialize"
+path = "fuzz_targets/fuzz_trigger_update_request_deserialize.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_metadata_key_validation"
+path = "fuzz_targets/fuzz_metadata_key_validation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_trigger_update_handler_envelope"
+path = "fuzz_targets/fuzz_trigger_update_handler_envelope.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_trigger_update_error_serialization"
+path = "fuzz_targets/fuzz_trigger_update_error_serialization.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_trigger_update_idempotent_replay"
+path = "fuzz_targets/fuzz_trigger_update_idempotent_replay.rs"
+test = false
+doc = false

@@ -2,6 +2,7 @@
 
 #![allow(clippy::unwrap_used)]
 
+use futures_util::future::join_all;
 use std::sync::Arc;
 use std::time::Duration;
 use twerk_infrastructure::cache::Cache;
@@ -21,11 +22,11 @@ async fn cache_get_returns_value_when_key_present() {
     assert_eq!(result, Some("value"));
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cache_get_returns_none_when_key_expired() {
     let cache = Cache::new();
     cache.insert("key", "value", Some(Duration::from_millis(1)));
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    tokio::time::advance(Duration::from_millis(10)).await;
     let result = cache.get(&"key");
     assert!(result.is_none());
 }
@@ -47,7 +48,7 @@ async fn cache_set_overwrites_existing_value() {
     assert_eq!(cache.len(), 1);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cache_set_with_expiration_expires_correctly() {
     let cache = Cache::new();
     cache.insert("short", "value", Some(Duration::from_millis(10)));
@@ -56,7 +57,7 @@ async fn cache_set_with_expiration_expires_correctly() {
     assert!(cache.contains(&"short"));
     assert!(cache.contains(&"long"));
 
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    tokio::time::advance(Duration::from_millis(20)).await;
 
     assert!(
         !cache.contains(&"short"),
@@ -123,35 +124,38 @@ async fn cache_concurrent_gets_are_safe() {
     let cache: Arc<Cache<&str, &str>> = Arc::new(Cache::new());
     cache.insert("shared", "value", None);
 
-    let mut handles = Vec::new();
-    for _ in 0..100 {
-        let cache_clone = Arc::clone(&cache);
-        let handle = tokio::spawn(async move { cache_clone.get(&"shared") });
-        handles.push(handle);
-    }
+    let handles: Vec<_> = (0..100)
+        .map(|_| {
+            let cache_clone = Arc::clone(&cache);
+            tokio::spawn(async move { cache_clone.get(&"shared") })
+        })
+        .collect();
 
-    for handle in handles {
-        let result = handle.await.unwrap();
-        assert_eq!(result, Some("value"));
-    }
+    let results = join_all(handles).await;
+    results
+        .into_iter()
+        .for_each(|result| assert_eq!(result.expect("join should succeed"), Some("value")));
 }
 
 #[tokio::test]
 async fn cache_concurrent_inserts_are_safe() {
     let cache: Arc<Cache<i32, i32>> = Arc::new(Cache::new());
 
-    let mut handles = Vec::new();
-    for i in 0..100 {
-        let cache_clone = Arc::clone(&cache);
-        let handle = tokio::spawn(async move {
-            cache_clone.insert(i, i * 2, None);
-        });
-        handles.push(handle);
-    }
+    let handles: Vec<_> = (0..100)
+        .map(|i| {
+            let cache_clone = Arc::clone(&cache);
+            tokio::spawn(async move {
+                cache_clone.insert(i, i * 2, None);
+            })
+        })
+        .collect();
 
-    for handle in handles {
-        handle.await.unwrap();
-    }
+    join_all(handles)
+        .await
+        .into_iter()
+        .for_each(|handle_result| {
+            handle_result.expect("insert task join should succeed");
+        });
 
     assert_eq!(cache.len(), 100);
 }
@@ -161,20 +165,23 @@ async fn cache_concurrent_mixed_operations_are_safe() {
     let cache: Arc<Cache<&str, i32>> = Arc::new(Cache::new());
     cache.insert("counter", 0i32, None);
 
-    let mut handles = Vec::new();
-    for _ in 0..50 {
-        let cache_clone = Arc::clone(&cache);
-        let handle = tokio::spawn(async move {
-            for _ in 0..10 {
-                cache_clone.insert("counter", 1i32, None);
-            }
-        });
-        handles.push(handle);
-    }
+    let handles: Vec<_> = (0..50)
+        .map(|_| {
+            let cache_clone = Arc::clone(&cache);
+            tokio::spawn(async move {
+                (0..10).for_each(|_| {
+                    cache_clone.insert("counter", 1i32, None);
+                });
+            })
+        })
+        .collect();
 
-    for handle in handles {
-        handle.await.unwrap();
-    }
+    join_all(handles)
+        .await
+        .into_iter()
+        .for_each(|handle_result| {
+            handle_result.expect("mixed operation join should succeed");
+        });
 
     assert_eq!(cache.len(), 1);
 }
@@ -184,38 +191,44 @@ async fn cache_concurrent_get_insert_remove_are_safe() {
     let cache: Arc<Cache<String, &str>> = Arc::new(Cache::new());
     cache.insert("key".to_string(), "initial", None);
 
-    let mut handles = Vec::new();
-
-    for _ in 0..30 {
+    let get_handles = (0..30).map(|_| {
         let cache_clone = Arc::clone(&cache);
-        handles.push(tokio::spawn(async move {
-            for _ in 0..10 {
-                let _ = cache_clone.get(&"key".to_string());
-            }
-        }));
-    }
+        tokio::spawn(async move {
+            (0..10).for_each(|_| {
+                cache_clone.get(&"key".to_string());
+            });
+        })
+    });
 
-    for _ in 0..20 {
+    let insert_handles = (0..20).map(|_| {
         let cache_clone = Arc::clone(&cache);
-        handles.push(tokio::spawn(async move {
-            for i in 0..10 {
+        tokio::spawn(async move {
+            (0..10).for_each(|i| {
                 cache_clone.insert(format!("key_{i}"), "value", None);
-            }
-        }));
-    }
+            });
+        })
+    });
 
-    for _ in 0..10 {
+    let remove_handles = (0..10).map(|_| {
         let cache_clone = Arc::clone(&cache);
-        handles.push(tokio::spawn(async move {
-            for i in 0..10 {
-                let _ = cache_clone.remove(&format!("key_{i}"));
-            }
-        }));
-    }
+        tokio::spawn(async move {
+            (0..10).for_each(|i| {
+                cache_clone.remove(&format!("key_{i}"));
+            });
+        })
+    });
 
-    for handle in handles {
-        let _ = handle.await;
-    }
+    let handles: Vec<_> = get_handles
+        .chain(insert_handles)
+        .chain(remove_handles)
+        .collect();
+
+    join_all(handles)
+        .await
+        .into_iter()
+        .for_each(|handle_result| {
+            handle_result.expect("cache concurrent operation join should succeed");
+        });
 
     assert!(cache.len() <= 210);
 }
@@ -225,14 +238,14 @@ async fn cache_modify_updates_value_atomically() {
     let cache: Cache<&str, i32> = Cache::new();
     cache.insert("counter", 0i32, None);
 
-    for _ in 0..10 {
+    (0..10).for_each(|_| {
         let result: Option<Result<(), String>> = cache.modify(&"counter", |v: &mut i32| {
             *v += 1;
             Ok(())
         });
         assert!(result.is_some());
         assert!(result.unwrap().is_ok());
-    }
+    });
 
     assert_eq!(cache.get(&"counter"), Some(10));
 }
@@ -301,24 +314,28 @@ async fn cache_on_evicted_callback_is_invoked() {
     assert_eq!(*evicted_val.lock(), 42);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cache_concurrent_delete_expired_is_safe() {
     let cache: Arc<Cache<&str, i32>> = Arc::new(Cache::new());
 
     cache.insert("expired", 1, Some(Duration::from_millis(1)));
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    tokio::time::advance(Duration::from_millis(10)).await;
 
-    let mut handles = Vec::new();
-    for _ in 0..100 {
-        let cache_clone = Arc::clone(&cache);
-        handles.push(tokio::spawn(async move {
-            cache_clone.delete_expired();
-        }));
-    }
+    let handles: Vec<_> = (0..100)
+        .map(|_| {
+            let cache_clone = Arc::clone(&cache);
+            tokio::spawn(async move {
+                cache_clone.delete_expired();
+            })
+        })
+        .collect();
 
-    for handle in handles {
-        handle.await.unwrap();
-    }
+    join_all(handles)
+        .await
+        .into_iter()
+        .for_each(|handle_result| {
+            handle_result.expect("delete_expired join should succeed");
+        });
 
     assert!(cache.is_empty());
 }

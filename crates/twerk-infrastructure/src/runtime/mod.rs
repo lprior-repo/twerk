@@ -166,3 +166,85 @@ impl Mounter for MultiMounter {
 
 pub mod docker;
 pub mod podman;
+
+#[cfg(test)]
+mod tests {
+    use super::ShutdownError;
+
+    #[test]
+    fn shutdown_error_task_not_running_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::TaskNotRunning("task-1".to_string()),
+            ShutdownError::TaskNotRunning("task-1".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_process_not_found_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::ProcessNotFound("task-1".to_string()),
+            ShutdownError::ProcessNotFound("task-1".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_invalid_task_id_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::InvalidTaskId("bad$id".to_string()),
+            ShutdownError::InvalidTaskId("bad$id".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_shutdown_timeout_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::ShutdownTimeout(30),
+            ShutdownError::ShutdownTimeout(30)
+        );
+    }
+
+    #[test]
+    fn shutdown_error_signal_error_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::SignalError("TERM failed".to_string()),
+            ShutdownError::SignalError("TERM failed".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_termination_failed_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::TerminationFailed("kill failed".to_string()),
+            ShutdownError::TerminationFailed("kill failed".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_cleanup_failed_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::CleanupFailed("rm failed".to_string()),
+            ShutdownError::CleanupFailed("rm failed".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_resource_unavailable_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::ResourceUnavailable("docker socket".to_string()),
+            ShutdownError::ResourceUnavailable("docker socket".to_string())
+        );
+    }
+
+    #[test]
+    fn shutdown_error_exit_code_equality_is_exact() {
+        assert_eq!(ShutdownError::ExitCode(137), ShutdownError::ExitCode(137));
+    }
+
+    #[test]
+    fn shutdown_error_runtime_error_equality_is_exact() {
+        assert_eq!(
+            ShutdownError::RuntimeError("runtime exploded".to_string()),
+            ShutdownError::RuntimeError("runtime exploded".to_string())
+        );
+    }
+}

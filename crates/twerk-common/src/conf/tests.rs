@@ -10,12 +10,15 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 
 use tempfile::TempDir;
 
 use crate::conf::env::extract_env_vars;
 use crate::conf::parsing::{expand_path, flatten_table, merge_values, parse_toml_file};
 use crate::conf::types::{ConfigError, ConfigState};
+
+static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn reset_env() {
     let keys: Vec<String> = env::vars()
@@ -242,6 +245,7 @@ fn test_merge_values_override_wins() {
 
 #[test]
 fn test_extract_env_vars_empty() {
+    let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     let vars = extract_env_vars();
     assert!(vars.is_empty());
@@ -249,6 +253,7 @@ fn test_extract_env_vars_empty() {
 
 #[test]
 fn test_extract_env_vars_with_twerk_prefix() {
+    let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     env::set_var("TWERK_HELLO", "world");
     env::set_var("TWERK_MAIN_KEY1", "value1");
@@ -274,6 +279,7 @@ fn test_extract_env_vars_with_twerk_prefix() {
 
 #[test]
 fn test_extract_env_vars_underscore_to_dot() {
+    let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     env::set_var("TWERK_NESTED_DEEP_VALUE", "test");
 

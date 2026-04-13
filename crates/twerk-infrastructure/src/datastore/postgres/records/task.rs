@@ -271,11 +271,11 @@ mod tests {
         let mut env_map = HashMap::new();
         env_map.insert("RUST_LOG".to_string(), "debug".to_string());
         env_map.insert("HOME".to_string(), "/root".to_string());
-        let env = serde_json::to_vec(&env_map).ok();
+        let env = Some(serde_json::to_vec(&env_map).expect("env json should serialize"));
 
         let mut files_map = HashMap::new();
         files_map.insert("config.yml".to_string(), "key: val".to_string());
-        let files = serde_json::to_vec(&files_map).ok();
+        let files = Some(serde_json::to_vec(&files_map).expect("files json should serialize"));
 
         let record = TaskRecord {
             env,
@@ -304,7 +304,8 @@ mod tests {
             username: Some("admin".to_string()),
             password: Some("s3cret".to_string()),
         };
-        let registry_bytes = serde_json::to_vec(&registry).ok();
+        let registry_bytes =
+            Some(serde_json::to_vec(&registry).expect("registry json should serialize"));
 
         let record = TaskRecord {
             registry: registry_bytes,

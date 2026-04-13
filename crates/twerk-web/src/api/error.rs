@@ -144,29 +144,30 @@ mod tests {
     fn from_datastore_error_maps_user_not_found() {
         let err = twerk_infrastructure::datastore::Error::UserNotFound;
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::NotFound(ref msg) if msg.contains("user not found")));
+        assert_eq!(api_err, ApiError::NotFound("user not found".to_string()));
     }
 
     #[test]
     fn from_datastore_error_maps_job_not_found() {
         let err = twerk_infrastructure::datastore::Error::JobNotFound;
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::NotFound(ref msg) if msg.contains("job not found")));
+        assert_eq!(api_err, ApiError::NotFound("job not found".to_string()));
     }
 
     #[test]
     fn from_datastore_error_maps_task_not_found() {
         let err = twerk_infrastructure::datastore::Error::TaskNotFound;
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::NotFound(ref msg) if msg.contains("task not found")));
+        assert_eq!(api_err, ApiError::NotFound("task not found".to_string()));
     }
 
     #[test]
     fn from_datastore_error_maps_scheduled_job_not_found() {
         let err = twerk_infrastructure::datastore::Error::ScheduledJobNotFound;
         let api_err: ApiError = err.into();
-        assert!(
-            matches!(api_err, ApiError::NotFound(ref msg) if msg.contains("scheduled job not found"))
+        assert_eq!(
+            api_err,
+            ApiError::NotFound("scheduled job not found".to_string())
         );
     }
 
@@ -174,20 +175,39 @@ mod tests {
     fn from_datastore_error_maps_node_not_found() {
         let err = twerk_infrastructure::datastore::Error::NodeNotFound;
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::NotFound(ref msg) if msg.contains("node not found")));
+        assert_eq!(api_err, ApiError::NotFound("node not found".to_string()));
     }
 
     #[test]
     fn from_datastore_error_maps_unknown_to_internal() {
         let err = twerk_infrastructure::datastore::Error::Database("table not found".to_string());
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::Internal(_)));
+        assert_eq!(
+            api_err,
+            ApiError::Internal("database error: table not found".to_string())
+        );
     }
 
     #[test]
     fn from_anyhow_error_maps_to_internal() {
         let err = anyhow::anyhow!("something broke");
         let api_err: ApiError = err.into();
-        assert!(matches!(api_err, ApiError::Internal(_)));
+        assert_eq!(api_err, ApiError::Internal("something broke".to_string()));
+    }
+
+    #[tokio::test]
+    async fn into_response_not_found_preserves_exact_message_payload() {
+        let response = ApiError::NotFound("missing trigger".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = extract_response_body(response).await;
+        assert_eq!(body, r#"{"message":"missing trigger"}"#);
+    }
+
+    #[tokio::test]
+    async fn into_response_internal_returns_sanitized_exact_payload() {
+        let response = ApiError::Internal("leaky detail".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let body = extract_response_body(response).await;
+        assert_eq!(body, r#"{"message":"Internal Server Error"}"#);
     }
 }

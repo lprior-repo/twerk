@@ -16,6 +16,7 @@ use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashMap;
 use std::sync::Arc;
+use trigger_api::{InMemoryTriggerDatastore, TriggerAppState};
 use twerk_app::engine::coordinator::auth::{
     basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig,
 };
@@ -26,9 +27,12 @@ use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 
+pub mod domain;
 pub mod error;
 pub mod handlers;
 pub mod redact;
+pub mod trigger_api;
+pub mod types;
 pub mod yaml;
 
 #[derive(Clone)]
@@ -66,13 +70,21 @@ fn is_enabled(enabled: &HashMap<String, bool>, key: &str) -> bool {
 pub struct AppState {
     pub broker: Arc<dyn Broker>,
     pub ds: Arc<dyn Datastore>,
+    pub trigger_state: TriggerAppState,
     pub config: Config,
 }
 
 impl AppState {
     #[must_use]
     pub fn new(broker: Arc<dyn Broker>, ds: Arc<dyn Datastore>, config: Config) -> Self {
-        Self { broker, ds, config }
+        Self {
+            broker,
+            ds,
+            trigger_state: TriggerAppState {
+                trigger_ds: Arc::new(InMemoryTriggerDatastore::new()),
+            },
+            config,
+        }
     }
 }
 
@@ -200,5 +212,317 @@ pub fn create_router(state: AppState) -> Router {
         router = router.route("/users", post(handlers::create_user_handler));
     }
 
+    router = router.route(
+        "/api/v1/triggers/{id}",
+        put(trigger_api::update_trigger_handler),
+    );
+
     router.with_state(state)
+}
+
+#[cfg(test)]
+mod trigger_update_unit_red_tests {
+    use std::collections::HashMap;
+
+    use crate::api::trigger_api::{
+        apply_trigger_update, validate_trigger_update, Trigger, TriggerId, TriggerUpdateError,
+        TriggerUpdateRequest, ACTION_REQUIRED_MSG, EVENT_REQUIRED_MSG, METADATA_KEY_MSG,
+        NAME_REQUIRED_MSG, TRIGGER_FIELD_MAX_LEN,
+    };
+    use time::OffsetDateTime;
+
+    fn valid_request() -> TriggerUpdateRequest {
+        TriggerUpdateRequest {
+            name: "trigger-name".to_string(),
+            enabled: true,
+            event: "event.created".to_string(),
+            condition: Some("x > 1".to_string()),
+            action: "notify".to_string(),
+            metadata: Some(HashMap::from([("k".to_string(), "v".to_string())])),
+            id: None,
+            version: Some(1),
+        }
+    }
+
+    fn base_trigger() -> Trigger {
+        let now = OffsetDateTime::UNIX_EPOCH;
+        Trigger {
+            id: TriggerId::parse("trg_1").expect("valid id"),
+            name: "old".to_string(),
+            enabled: false,
+            event: "old.event".to_string(),
+            condition: None,
+            action: "old_action".to_string(),
+            metadata: HashMap::from([("old".to_string(), "value".to_string())]),
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_ok_trigger_id_when_inputs_are_valid() {
+        let req = valid_request();
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Ok(TriggerId::from("trg_1"))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_invalid_id_format_when_path_id_is_invalid() {
+        let req = valid_request();
+        assert_eq!(
+            validate_trigger_update("bad$id", &req),
+            Err(TriggerUpdateError::InvalidIdFormat("bad$id".to_string()))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_exact_name_validation_error_when_name_is_blank() {
+        let mut req = valid_request();
+        req.name = "  ".to_string();
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::ValidationFailed(
+                NAME_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_exact_event_validation_error_when_event_is_blank() {
+        let mut req = valid_request();
+        req.event = "\n\t".to_string();
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::ValidationFailed(
+                EVENT_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_exact_action_validation_error_when_action_is_blank() {
+        let mut req = valid_request();
+        req.action = " ".to_string();
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::ValidationFailed(
+                ACTION_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_exact_metadata_validation_error_when_metadata_key_is_non_ascii_or_empty(
+    ) {
+        let mut req = valid_request();
+        req.metadata = Some(HashMap::from([("ключ".to_string(), "v".to_string())]));
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::ValidationFailed(
+                METADATA_KEY_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_id_mismatch_when_body_id_differs() {
+        let mut req = valid_request();
+        req.id = Some("trg_2".to_string());
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::IdMismatch {
+                path_id: "trg_1".to_string(),
+                body_id: "trg_2".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_accepts_required_fields_when_length_equals_min_one() {
+        let req = TriggerUpdateRequest {
+            name: "n".to_string(),
+            enabled: true,
+            event: "e".to_string(),
+            condition: None,
+            action: "a".to_string(),
+            metadata: None,
+            id: None,
+            version: Some(1),
+        };
+        assert_eq!(validate_trigger_update("x", &req), Ok(TriggerId::from("x")));
+    }
+
+    #[test]
+    fn validate_trigger_update_accepts_required_fields_when_length_equals_max() {
+        let max = "x".repeat(TRIGGER_FIELD_MAX_LEN);
+        let req = TriggerUpdateRequest {
+            name: max.clone(),
+            enabled: true,
+            event: max.clone(),
+            condition: None,
+            action: max,
+            metadata: None,
+            id: None,
+            version: Some(1),
+        };
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Ok(TriggerId::from("trg_1"))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_rejects_required_field_when_length_exceeds_max_by_one() {
+        let mut req = valid_request();
+        req.name = "x".repeat(TRIGGER_FIELD_MAX_LEN + 1);
+        assert_eq!(
+            validate_trigger_update("trg_1", &req),
+            Err(TriggerUpdateError::ValidationFailed(
+                "name exceeds max length".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn validate_trigger_update_returns_invalid_id_format_when_id_length_exceeds_max() {
+        let req = valid_request();
+        let overlong = "a".repeat(crate::api::trigger_api::TRIGGER_ID_MAX_LEN + 1);
+        assert_eq!(
+            validate_trigger_update(&overlong, &req),
+            Err(TriggerUpdateError::InvalidIdFormat(overlong))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_trigger_with_exact_mutable_projection_from_request() {
+        let req = valid_request();
+        let current = base_trigger();
+        let now = current.updated_at + time::Duration::seconds(1);
+        let result = apply_trigger_update(current, req.clone(), now).expect("valid apply");
+        assert_eq!(result.name, req.name);
+        assert_eq!(result.enabled, req.enabled);
+        assert_eq!(result.event, req.event);
+        assert_eq!(result.condition, req.condition);
+        assert_eq!(result.action, req.action);
+        assert_eq!(result.metadata, req.metadata.unwrap_or_default());
+    }
+
+    #[test]
+    fn apply_trigger_update_preserves_id_and_created_at_when_request_valid() {
+        let req = valid_request();
+        let current = base_trigger();
+        let id = current.id.clone();
+        let created_at = current.created_at;
+        let now = current.updated_at + time::Duration::seconds(1);
+        let result = apply_trigger_update(current, req, now).expect("valid apply");
+        assert_eq!(result.id, id);
+        assert_eq!(result.created_at, created_at);
+    }
+
+    #[test]
+    fn apply_trigger_update_sets_updated_at_when_now_equals_previous_updated_at() {
+        let req = valid_request();
+        let current = base_trigger();
+        let now = current.updated_at;
+        let result = apply_trigger_update(current, req, now).expect("valid apply");
+        assert_eq!(result.updated_at, now);
+    }
+
+    #[test]
+    fn apply_trigger_update_sets_updated_at_to_now_when_now_is_after_previous_updated_at() {
+        let req = valid_request();
+        let current = base_trigger();
+        let now = current.updated_at + time::Duration::seconds(1);
+        let result = apply_trigger_update(current, req, now).expect("valid apply");
+        assert_eq!(result.updated_at, now);
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_exact_updated_at_validation_error_when_now_is_before_previous()
+    {
+        let req = valid_request();
+        let current = base_trigger();
+        let now = current.updated_at - time::Duration::nanoseconds(1);
+        assert_eq!(
+            apply_trigger_update(current, req, now),
+            Err(TriggerUpdateError::ValidationFailed(
+                crate::api::trigger_api::UPDATED_AT_BACKWARDS_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_exact_name_validation_error_when_name_blank_after_trim() {
+        let mut req = valid_request();
+        req.name = "   ".to_string();
+        let current = base_trigger();
+        assert_eq!(
+            apply_trigger_update(current.clone(), req, current.updated_at),
+            Err(TriggerUpdateError::ValidationFailed(
+                NAME_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_exact_event_validation_error_when_event_blank_after_trim() {
+        let mut req = valid_request();
+        req.event = "\t".to_string();
+        let current = base_trigger();
+        assert_eq!(
+            apply_trigger_update(current.clone(), req, current.updated_at),
+            Err(TriggerUpdateError::ValidationFailed(
+                EVENT_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_exact_action_validation_error_when_action_blank_after_trim() {
+        let mut req = valid_request();
+        req.action = " ".to_string();
+        let current = base_trigger();
+        assert_eq!(
+            apply_trigger_update(current.clone(), req, current.updated_at),
+            Err(TriggerUpdateError::ValidationFailed(
+                ACTION_REQUIRED_MSG.to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_accepts_required_fields_when_lengths_equal_max() {
+        let max = "x".repeat(TRIGGER_FIELD_MAX_LEN);
+        let req = TriggerUpdateRequest {
+            name: max.clone(),
+            enabled: true,
+            event: max.clone(),
+            condition: None,
+            action: max,
+            metadata: None,
+            id: None,
+            version: Some(1),
+        };
+        let current = base_trigger();
+        let result = apply_trigger_update(current.clone(), req, current.updated_at);
+        assert_eq!(
+            result.map(|trigger| trigger.name),
+            Ok("x".repeat(TRIGGER_FIELD_MAX_LEN))
+        );
+    }
+
+    #[test]
+    fn apply_trigger_update_returns_validation_failed_when_required_field_exceeds_max_by_one() {
+        let mut req = valid_request();
+        req.event = "x".repeat(TRIGGER_FIELD_MAX_LEN + 1);
+        let current = base_trigger();
+        assert_eq!(
+            apply_trigger_update(current.clone(), req, current.updated_at),
+            Err(TriggerUpdateError::ValidationFailed(
+                "event exceeds max length".to_string()
+            ))
+        );
+    }
 }

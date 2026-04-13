@@ -98,7 +98,9 @@ async fn start_api(engine: &Engine) -> anyhow::Result<(String, tokio::task::Join
     ));
 
     let handle = tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
+        axum::serve(listener, app)
+            .await
+            .expect("api server should run without serve errors");
     });
 
     Ok((format!("http://{address}"), handle))
@@ -109,17 +111,26 @@ async fn wait_for_health(base_url: &str) -> anyhow::Result<()> {
         .timeout(Duration::from_secs(2))
         .build()?;
 
-    let mut attempts = 0;
-    while attempts < 50 {
-        let response = client.get(format!("{base_url}/health")).send().await;
-        if matches!(response, Ok(ref resp) if resp.status() == StatusCode::OK) {
-            return Ok(());
+    async fn attempt_health(
+        client: &reqwest::Client,
+        health_url: &str,
+        attempts_left: usize,
+    ) -> anyhow::Result<()> {
+        if attempts_left == 0 {
+            return Err(anyhow::anyhow!("api health check did not become ready"));
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        attempts += 1;
+
+        let response = client.get(health_url).send().await;
+        if matches!(response, Ok(ref resp) if resp.status() == StatusCode::OK) {
+            Ok(())
+        } else {
+            tokio::task::yield_now().await;
+            Box::pin(attempt_health(client, health_url, attempts_left - 1)).await
+        }
     }
 
-    Err(anyhow::anyhow!("api health check did not become ready"))
+    let health_url = format!("{base_url}/health");
+    attempt_health(&client, &health_url, 50).await
 }
 
 /// Polls a job's state until it reaches a terminal state or times out.
@@ -145,7 +156,7 @@ async fn poll_job_until_terminal(
             if start.elapsed() > timeout {
                 anyhow::bail!("GET /jobs/{} kept returning {}: {}", job_id, status, body);
             }
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            tokio::task::yield_now().await;
             continue;
         }
         let job: serde_json::Value = serde_json::from_str(&body)?;
@@ -161,7 +172,7 @@ async fn poll_job_until_terminal(
                 state
             );
         }
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::task::yield_now().await;
     }
 }
 
@@ -232,7 +243,9 @@ async fn start_pokemon_api() -> anyhow::Result<(String, tokio::task::JoinHandle<
         .route("/api/pokemon/{id}", get(pokemon_by_id));
 
     let handle = tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
+        axum::serve(listener, app)
+            .await
+            .expect("pokemon api server should run without serve errors");
     });
 
     Ok((format!("http://{address}"), handle))
@@ -300,8 +313,8 @@ impl DistributedEnv {
         });
         worker.start().await?;
 
-        // Give subscriptions time to establish
-        tokio::time::sleep(Duration::from_millis(1000)).await;
+        // Yield to give spawned tasks a scheduling point
+        tokio::task::yield_now().await;
 
         let (base_url, api_handle) = start_api(&coordinator).await?;
         wait_for_health(&base_url).await?;
@@ -327,14 +340,32 @@ impl DistributedEnv {
 
     async fn teardown(mut self) {
         self.api_handle.abort();
-        let _ = self.worker.terminate().await;
-        let _ = self.coordinator.terminate().await;
+        self.worker
+            .terminate()
+            .await
+            .expect("worker terminate should succeed");
+        self.coordinator
+            .terminate()
+            .await
+            .expect("coordinator terminate should succeed");
         clear_distributed_env();
 
-        let _ = self.postgres.stop().await;
-        let _ = self.postgres.rm().await;
-        let _ = self.rabbitmq.stop().await;
-        let _ = self.rabbitmq.rm().await;
+        self.postgres
+            .stop()
+            .await
+            .expect("postgres stop should succeed");
+        self.postgres
+            .rm()
+            .await
+            .expect("postgres rm should succeed");
+        self.rabbitmq
+            .stop()
+            .await
+            .expect("rabbitmq stop should succeed");
+        self.rabbitmq
+            .rm()
+            .await
+            .expect("rabbitmq rm should succeed");
     }
 }
 
@@ -1079,8 +1110,7 @@ async fn distributed_list_jobs_returns_submitted_jobs() -> anyhow::Result<()> {
     let job_id = body["id"].as_str().unwrap();
 
     // Wait for it to complete so the list is stable
-    let _ = poll_job_until_terminal(&env.client, &env.base_url, job_id, Duration::from_secs(30))
-        .await?;
+    poll_job_until_terminal(&env.client, &env.base_url, job_id, Duration::from_secs(30)).await?;
 
     // List jobs
     let resp = env

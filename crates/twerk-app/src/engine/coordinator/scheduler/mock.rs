@@ -20,6 +20,8 @@ pub(crate) struct MockDatastore {
     pub jobs: Arc<DashMap<twerk_core::id::JobId, Job>>,
 }
 
+pub(crate) type FakeDatastore = MockDatastore;
+
 impl MockDatastore {
     #[must_use]
     pub fn new() -> Self {

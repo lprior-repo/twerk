@@ -203,41 +203,41 @@ mod tests {
     use clap::error::ErrorKind;
 
     #[test]
-    fn test_default_endpoint() {
+    fn default_endpoint_is_localhost_http() {
         assert_eq!(DEFAULT_ENDPOINT, "http://localhost:8000");
         assert!(DEFAULT_ENDPOINT.starts_with("http://"));
         assert!(DEFAULT_ENDPOINT.contains("localhost"));
     }
 
     #[test]
-    fn test_default_datastore_type() {
+    fn default_datastore_type_is_postgres() {
         assert_eq!(DEFAULT_DATASTORE_TYPE, "postgres");
     }
 
     #[test]
-    fn test_default_postgres_dsn() {
+    fn default_postgres_dsn_contains_localhost() {
         assert!(DEFAULT_POSTGRES_DSN.contains("localhost"));
     }
 
     #[test]
-    fn test_version_not_empty() {
+    fn version_constant_is_not_empty() {
         assert!(!VERSION.is_empty());
     }
 
     #[test]
-    fn test_git_commit_not_empty() {
+    fn git_commit_constant_is_not_empty() {
         let commit = GIT_COMMIT;
         assert!(!commit.is_empty());
     }
 
     #[test]
-    fn test_get_git_commit_returns_string() {
+    fn get_git_commit_returns_non_empty_string() {
         let commit = get_git_commit();
         assert!(!commit.is_empty());
     }
 
     #[test]
-    fn test_constants_are_static() {
+    fn constants_are_accessible_without_mutation() {
         // Verify constants are accessible without mutation
         let _ep = DEFAULT_ENDPOINT;
         let _dst = DEFAULT_DATASTORE_TYPE;
@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cli_args_without_subcommand_returns_none() {
+    fn parse_cli_args_returns_execute_none_when_subcommand_missing() {
         let args = vec![OsString::from("twerk")];
 
         match parse_cli_args(&args) {
@@ -262,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cli_args_for_version_short_circuits() {
+    fn parse_cli_args_returns_display_version_error_when_version_flag_present() {
         let args = vec![OsString::from("twerk"), OsString::from("--version")];
 
         match parse_cli_args(&args) {
@@ -272,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cli_args_for_run_command_executes() {
+    fn parse_cli_args_returns_run_command_for_coordinator_mode() {
         let args = vec![
             OsString::from("twerk"),
             OsString::from("run"),
@@ -291,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cli_args_json_flag() {
+    fn parse_cli_args_enables_json_mode_for_health_command() {
         let args = vec![
             OsString::from("twerk"),
             OsString::from("--json"),
@@ -309,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_banner_mode_prefers_environment_override() {
+    fn get_banner_mode_prefers_environment_override_when_set() {
         std::env::set_var("TWERK_CLI_BANNER_MODE", "off");
 
         let result = get_banner_mode();
@@ -319,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_endpoint_reads_client_endpoint_env_override() {
+    fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
 
         let endpoint = get_endpoint();

@@ -12,7 +12,7 @@
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::cast_precision_loss)]
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::{Task, TaskState};
@@ -83,8 +83,8 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     engine.submit_job(job, vec![]).await?;
     let schedule_time = schedule_start.elapsed();
 
-    // Wait for coordinator to process all tasks
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Yield to let coordinator process queued tasks
+    tokio::task::yield_now().await;
 
     engine.terminate().await?;
     let total_time = start.elapsed();

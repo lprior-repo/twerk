@@ -79,6 +79,29 @@ struct EngineEnv {
 }
 
 impl EngineEnv {
+    async fn wait_for_health_ready(
+        client: &reqwest::Client,
+        address: &str,
+        attempts_left: usize,
+    ) -> anyhow::Result<()> {
+        if attempts_left == 0 {
+            anyhow::bail!("engine health check timed out");
+        }
+
+        let response = client.get(format!("http://{address}/health")).send().await;
+        if response.is_ok() {
+            Ok(())
+        } else {
+            tokio::task::yield_now().await;
+            Box::pin(Self::wait_for_health_ready(
+                client,
+                address,
+                attempts_left - 1,
+            ))
+            .await
+        }
+    }
+
     async fn new(infra: &SharedInfra, engine_id: &str, port: u16) -> anyhow::Result<Self> {
         // Set env vars for THIS engine only
         std::env::set_var("TWERK_DATASTORE_TYPE", "postgres");
@@ -110,11 +133,14 @@ impl EngineEnv {
         worker.start().await?;
         let worker_handle = tokio::spawn(async move {
             // Worker runs in background - owned by this task forever
-            let _ = worker.run().await;
+            worker
+                .run()
+                .await
+                .expect("worker run loop should not error");
         });
 
-        // Give subscriptions time to establish
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        // Yield once to allow worker task scheduling
+        tokio::task::yield_now().await;
 
         // Start API server
         let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await?;
@@ -128,38 +154,33 @@ impl EngineEnv {
             },
         ));
         let api_handle = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
+            axum::serve(listener, app)
+                .await
+                .expect("api server should run without serve errors");
         });
 
         // Wait for health
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(2))
             .build()?;
-        for _ in 0..50 {
-            if client
-                .get(format!("http://{address}/health"))
-                .send()
-                .await
-                .is_ok()
-            {
-                return Ok(Self {
-                    _engine_id: engine_id.to_string(),
-                    engine,
-                    base_url: format!("http://{address}"),
-                    api_handle,
-                    client,
-                    worker_handle,
-                });
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        anyhow::bail!("engine health check timed out")
+        Self::wait_for_health_ready(&client, &address, 50).await?;
+        Ok(Self {
+            _engine_id: engine_id.to_string(),
+            engine,
+            base_url: format!("http://{address}"),
+            api_handle,
+            client,
+            worker_handle,
+        })
     }
 
     async fn teardown(mut self) {
         self.api_handle.abort();
         self.worker_handle.abort();
-        let _ = self.engine.terminate().await;
+        self.engine
+            .terminate()
+            .await
+            .expect("engine terminate should succeed");
         clear_env();
     }
 }
@@ -173,7 +194,7 @@ impl Drop for SharedInfra {
 // ── Environment Cleanup ───────────────────────────────────────────────────────
 
 fn clear_env() {
-    for key in [
+    [
         "TWERK_DATASTORE_TYPE",
         "TWERK_DATASTORE_POSTGRES_DSN",
         "TWERK_LOCKER_TYPE",
@@ -185,9 +206,12 @@ fn clear_env() {
         "TWERK_RUNTIME_SHELL_CMD",
         "TWERK_WORKER_QUEUES",
         "TWERK_ENGINE_ID",
-    ] {
-        std::env::remove_var(key);
-    }
+    ]
+    .into_iter()
+    .for_each(|key| {
+        // SAFETY: test-only process environment cleanup for known static keys.
+        unsafe { std::env::remove_var(key) }
+    });
 }
 
 // ── Test Helpers ─────────────────────────────────────────────────────────────
@@ -221,7 +245,17 @@ async fn poll_job_until_terminal(
     timeout: Duration,
 ) -> anyhow::Result<serde_json::Value> {
     let start = std::time::Instant::now();
-    loop {
+    async fn poll_once(
+        client: &reqwest::Client,
+        base_url: &str,
+        job_id: &str,
+        timeout: Duration,
+        started_at: std::time::Instant,
+    ) -> anyhow::Result<serde_json::Value> {
+        if started_at.elapsed() > timeout {
+            anyhow::bail!("job {} did not reach terminal within {:?}", job_id, timeout);
+        }
+
         let resp = client
             .get(format!("{base_url}/jobs/{job_id}"))
             .send()
@@ -229,18 +263,14 @@ async fn poll_job_until_terminal(
         let job: serde_json::Value = resp.json().await?;
         let state = job["state"].as_str().unwrap_or("UNKNOWN");
         if matches!(state, "COMPLETED" | "FAILED" | "CANCELLED") {
-            return Ok(job);
+            Ok(job)
+        } else {
+            tokio::task::yield_now().await;
+            Box::pin(poll_once(client, base_url, job_id, timeout, started_at)).await
         }
-        if start.elapsed() > timeout {
-            anyhow::bail!(
-                "job {} did not reach terminal within {:?}, last state: {}",
-                job_id,
-                timeout,
-                state
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(200)).await;
     }
+
+    poll_once(client, base_url, job_id, timeout, start).await
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -258,53 +288,97 @@ async fn four_engines_on_shared_rabbitmq_complete_independent_jobs() -> anyhow::
     let infra = SharedInfra::new().await?;
 
     // Create 4 engines on different ports, all sharing the SAME infra
-    let mut envs = Vec::new();
-    for i in 0..4 {
-        let port = 9000 + i;
-        let env = EngineEnv::new(&infra, &format!("test-{}", i), port).await?;
-        envs.push(env);
-    }
+    let env0 = EngineEnv::new(&infra, "test-0", 9000).await?;
+    let env1 = EngineEnv::new(&infra, "test-1", 9001).await?;
+    let env2 = EngineEnv::new(&infra, "test-2", 9002).await?;
+    let env3 = EngineEnv::new(&infra, "test-3", 9003).await?;
 
-    // Give all engines time to establish subscriptions
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    // Yield to give spawned tasks a scheduling point
+    tokio::task::yield_now().await;
 
-    // Submit jobs to each engine
-    let mut job_ids = Vec::new();
-    for (i, env) in envs.iter().enumerate() {
-        let (status, body) = submit_job(&env.client, &env.base_url, &format!("job-{}", i)).await?;
-        assert_eq!(
-            status,
-            StatusCode::OK,
-            "submit to engine {} failed: {:?}",
-            i,
-            body
-        );
-        job_ids.push((i, body["id"].as_str().unwrap().to_string()));
-    }
+    let (status0, body0) = submit_job(&env0.client, &env0.base_url, "job-0").await?;
+    assert_eq!(
+        status0,
+        StatusCode::OK,
+        "submit to engine 0 failed: {:?}",
+        body0
+    );
+    let (status1, body1) = submit_job(&env1.client, &env1.base_url, "job-1").await?;
+    assert_eq!(
+        status1,
+        StatusCode::OK,
+        "submit to engine 1 failed: {:?}",
+        body1
+    );
+    let (status2, body2) = submit_job(&env2.client, &env2.base_url, "job-2").await?;
+    assert_eq!(
+        status2,
+        StatusCode::OK,
+        "submit to engine 2 failed: {:?}",
+        body2
+    );
+    let (status3, body3) = submit_job(&env3.client, &env3.base_url, "job-3").await?;
+    assert_eq!(
+        status3,
+        StatusCode::OK,
+        "submit to engine 3 failed: {:?}",
+        body3
+    );
 
-    // Poll all jobs to completion
-    let mut results = Vec::new();
-    for (i, job_id) in job_ids {
-        let env = &envs[i];
-        let job =
-            poll_job_until_terminal(&env.client, &env.base_url, &job_id, Duration::from_secs(60))
-                .await?;
-        results.push((i, job["state"].as_str().unwrap().to_string()));
-    }
+    let job0 = poll_job_until_terminal(
+        &env0.client,
+        &env0.base_url,
+        body0["id"].as_str().expect("engine 0 should return id"),
+        Duration::from_secs(60),
+    )
+    .await?;
+    let job1 = poll_job_until_terminal(
+        &env1.client,
+        &env1.base_url,
+        body1["id"].as_str().expect("engine 1 should return id"),
+        Duration::from_secs(60),
+    )
+    .await?;
+    let job2 = poll_job_until_terminal(
+        &env2.client,
+        &env2.base_url,
+        body2["id"].as_str().expect("engine 2 should return id"),
+        Duration::from_secs(60),
+    )
+    .await?;
+    let job3 = poll_job_until_terminal(
+        &env3.client,
+        &env3.base_url,
+        body3["id"].as_str().expect("engine 3 should return id"),
+        Duration::from_secs(60),
+    )
+    .await?;
 
-    // Verify all completed
-    for (i, state) in results {
-        assert_eq!(
-            state, "COMPLETED",
-            "engine {} job state: {} (should be COMPLETED, indicating no cross-talk)",
-            i, state
-        );
-    }
+    assert_eq!(
+        job0["state"].as_str().unwrap_or("UNKNOWN"),
+        "COMPLETED",
+        "engine 0 job should complete"
+    );
+    assert_eq!(
+        job1["state"].as_str().unwrap_or("UNKNOWN"),
+        "COMPLETED",
+        "engine 1 job should complete"
+    );
+    assert_eq!(
+        job2["state"].as_str().unwrap_or("UNKNOWN"),
+        "COMPLETED",
+        "engine 2 job should complete"
+    );
+    assert_eq!(
+        job3["state"].as_str().unwrap_or("UNKNOWN"),
+        "COMPLETED",
+        "engine 3 job should complete"
+    );
 
-    // Cleanup
-    for env in envs {
-        env.teardown().await;
-    }
+    env0.teardown().await;
+    env1.teardown().await;
+    env2.teardown().await;
+    env3.teardown().await;
 
     Ok(())
 }
@@ -319,7 +393,7 @@ async fn two_engines_same_id_do_not_conflict() -> anyhow::Result<()> {
     let env1 = EngineEnv::new(&infra, "shared-id", 9100).await?;
     let env2 = EngineEnv::new(&infra, "shared-id", 9101).await?;
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::task::yield_now().await;
 
     // Submit job to first engine
     let (status, body) = submit_job(&env1.client, &env1.base_url, "shared-job").await?;

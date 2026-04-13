@@ -1,0 +1,44 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Timeout",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 38.73132518,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-web@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 30.022898867,
+          "process_status": "Timeout",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-web@0.1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 0,
+  "missed": 0,
+  "caught": 0,
+  "timeout": 0,
+  "unviable": 0,
+  "success": 0,
+  "start_time": "2026-04-14T23:07:00.524691615Z",
+  "end_time": "2026-04-14T23:08:09.387037334Z",
+  "cargo_mutants_version": "27.0.0"
+}

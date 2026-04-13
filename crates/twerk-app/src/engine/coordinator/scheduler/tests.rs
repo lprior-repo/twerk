@@ -2,7 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use super::mock::{create_test_job, create_test_task, MockDatastore};
+use super::mock::{create_test_job, create_test_task, FakeDatastore};
 use super::Scheduler;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,8 +13,8 @@ use twerk_core::task::{
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 
 #[tokio::test]
-async fn test_schedule_regular_task_sets_scheduled_state() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_regular_task_sets_scheduled_state_when_task_is_regular() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
     let job = create_test_job();
     ds.jobs.insert(job.id.clone().unwrap(), job);
@@ -35,8 +35,8 @@ async fn test_schedule_regular_task_sets_scheduled_state() {
 }
 
 #[tokio::test]
-async fn test_schedule_regular_task_sets_default_queue() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_regular_task_sets_default_queue_when_queue_is_missing() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
     let job = create_test_job();
     ds.jobs.insert(job.id.clone().unwrap(), job);
@@ -58,8 +58,8 @@ async fn test_schedule_regular_task_sets_default_queue() {
 }
 
 #[tokio::test]
-async fn test_schedule_regular_task_applies_job_defaults() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_regular_task_applies_job_defaults_when_task_omits_overrides() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let mut job = create_test_job();
@@ -116,8 +116,8 @@ async fn test_schedule_regular_task_applies_job_defaults() {
 }
 
 #[tokio::test]
-async fn test_schedule_parallel_task_creates_child_tasks() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_parallel_task_creates_child_tasks_when_children_are_defined() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -160,8 +160,8 @@ async fn test_schedule_parallel_task_creates_child_tasks() {
 }
 
 #[tokio::test]
-async fn test_schedule_parallel_task_sets_parent_id_on_children() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_parallel_task_sets_parent_id_on_children_when_scheduled() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -198,8 +198,8 @@ async fn test_schedule_parallel_task_sets_parent_id_on_children() {
 }
 
 #[tokio::test]
-async fn test_schedule_each_task_creates_task_per_list_item() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_each_task_creates_one_child_task_per_list_item() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -244,8 +244,8 @@ async fn test_schedule_each_task_creates_task_per_list_item() {
 }
 
 #[tokio::test]
-async fn test_schedule_each_task_sets_size() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_each_task_sets_parent_size_to_expanded_item_count() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -285,8 +285,8 @@ async fn test_schedule_each_task_sets_size() {
 }
 
 #[tokio::test]
-async fn test_schedule_subjob_task_creates_subjob() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_subjob_task_creates_subjob_and_marks_parent_running() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -331,8 +331,8 @@ async fn test_schedule_subjob_task_creates_subjob() {
 }
 
 #[tokio::test]
-async fn test_schedule_task_dispatches_to_parallel() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_task_dispatches_to_parallel_scheduler_when_parallel_block_present() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -363,8 +363,8 @@ async fn test_schedule_task_dispatches_to_parallel() {
 }
 
 #[tokio::test]
-async fn test_schedule_task_dispatches_to_each() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_task_dispatches_to_each_scheduler_when_each_block_present() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -400,8 +400,8 @@ async fn test_schedule_task_dispatches_to_each() {
 }
 
 #[tokio::test]
-async fn test_schedule_task_dispatches_to_subjob() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_task_dispatches_to_subjob_scheduler_when_subjob_block_present() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -428,8 +428,8 @@ async fn test_schedule_task_dispatches_to_subjob() {
 }
 
 #[tokio::test]
-async fn test_schedule_task_dispatches_to_regular() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_task_dispatches_to_regular_scheduler_when_no_special_block_present() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
     let job = create_test_job();
     ds.jobs.insert(job.id.clone().unwrap(), job);
@@ -450,8 +450,8 @@ async fn test_schedule_task_dispatches_to_regular() {
 }
 
 #[tokio::test]
-async fn test_schedule_each_task_with_sequence_expression() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_each_task_expands_sequence_expression_into_children() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();
@@ -500,8 +500,8 @@ async fn test_schedule_each_task_with_sequence_expression() {
 
 /// Reproduces the exact YAML template from examples/each.yaml
 #[tokio::test]
-async fn test_schedule_each_task_with_real_yaml_template() {
-    let ds = Arc::new(MockDatastore::new());
+async fn schedule_each_task_handles_real_yaml_template_from_examples() {
+    let ds = Arc::new(FakeDatastore::new());
     let broker = InMemoryBroker::new();
 
     let job = create_test_job();

@@ -51,15 +51,17 @@ async fn engine_debug_shows_state_and_mode() {
 #[tokio::test]
 async fn engine_start_fails_when_not_idle() {
     let mut engine = engine_with_mode(Mode::Standalone);
-    engine.register_runtime(Box::new(twerk_app::engine::MockRuntime));
-    let _ = engine.start().await;
+    engine.start().await.expect("first start should succeed");
     assert_eq!(engine.state(), State::Running);
 
     let result = engine.start().await;
     assert!(matches!(result, Err(_)));
     assert!(result.unwrap_err().to_string().contains("not idle"));
 
-    let _ = engine.terminate().await;
+    engine
+        .terminate()
+        .await
+        .expect("terminate after start should succeed");
 }
 
 #[tokio::test]
@@ -553,7 +555,10 @@ async fn datastore_proxy_clone_inner_creates_independent_copy() -> Result<()> {
     original.init().await?;
 
     let cloned = original.clone_inner();
-    let _ = cloned.get_jobs("test", "", 1, 10).await;
+    cloned
+        .get_jobs("test", "", 1, 10)
+        .await
+        .expect("cloned datastore proxy should serve get_jobs");
 
     Ok(())
 }

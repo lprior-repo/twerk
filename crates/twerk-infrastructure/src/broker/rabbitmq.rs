@@ -231,6 +231,7 @@ impl RabbitMQBroker {
         self.subscribe_with_binding("", "", qname, handler).await
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn subscribe_with_binding(
         &self,
         exchange: &str,

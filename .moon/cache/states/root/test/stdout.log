@@ -1,150 +1,186 @@
 
-running 46 tests
-test engine::coordinator::utils::tests::test_wildcard_match_exact ... ok
-test engine::coordinator::utils::tests::test_wildcard_match_empty ... ok
+running 49 tests
+test engine::coordinator::hostenv::tests::parse_var_spec_with_task_mapping ... ok
 test engine::coordinator::hostenv::tests::parse_var_spec_invalid_too_many_colons ... ok
-test engine::worker::mounter::tests::test_bind_mounter_is_source_allowed_empty_sources ... ok
-test engine::worker::mounter::tests::test_bind_config_default ... ok
-test engine::coordinator::utils::tests::test_parse_body_limit ... ok
-test engine::coordinator::utils::tests::test_parse_body_limit_edge_cases ... ok
+test engine::coordinator::hostenv::tests::parse_var_spec_single_host_var ... ok
 test engine::coordinator::hostenv::tests::parse_var_specs_multiple ... ok
-test engine::locker::tests::env_string_default_returns_env_value_when_set ... ok
-test engine::locker::tests::env_string_default_returns_default_when_unset ... ok
+test engine::coordinator::utils::tests::parse_body_limit_returns_none_when_invalid_input ... ok
+test engine::coordinator::utils::tests::parse_body_limit_returns_parsed_bytes_when_valid_input ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_empty ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_exact_match ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_multiple_stars ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_star_used ... ok
+test engine::coordinator::scheduler::tests::test_schedule_regular_task_applies_job_defaults ... ok
+test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_subjob ... ok
+test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_regular ... ok
+test engine::coordinator::webhook::tests::should_fire_webhook_with_matching_event ... ok
+test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_scheduled_state ... ok
+test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_default_queue ... ok
+test engine::coordinator::scheduler::tests::test_schedule_subjob_task_creates_subjob ... ok
+test engine::locker::tests::create_locker_unknown_type_returns_err ... ok
+test engine::locker::tests::create_locker_inmemory_returns_ok ... ok
 test engine::locker::tests::env_duration_default_falls_back_on_invalid_value ... ok
 test engine::locker::tests::env_duration_default_parses_seconds_from_env ... ok
 test engine::locker::tests::env_duration_default_returns_default_when_unset ... ok
-test engine::coordinator::utils::tests::test_wildcard_match_multiple_stars ... ok
-test engine::coordinator::utils::tests::test_wildcard_match_star ... ok
-test engine::coordinator::hostenv::tests::parse_var_spec_single_host_var ... ok
-test engine::coordinator::hostenv::tests::parse_var_spec_with_task_mapping ... ok
-test engine::locker::tests::env_int_default_returns_default_when_unset ... ok
-test engine::locker::tests::env_int_default_parses_valid_integer_from_env ... ok
 test engine::locker::tests::env_int_default_falls_back_on_invalid_value ... ok
-test engine::locker::tests::create_locker_unknown_type_returns_err ... ok
-test engine::worker::shell::tests::test_validate_task_stopped_state ... ok
-test engine::worker::shell::tests::test_validate_task_completed_state ... ok
-test engine::worker::podman::tests::test_validate_task_running_state ... ok
-test engine::worker::podman::tests::test_validate_task_completed_state ... ok
-test engine::worker::shell::tests::test_validate_task_running_state ... ok
-test engine::worker::shell::tests::test_validate_task_empty_id ... ok
-test engine::worker::podman::tests::test_validate_task_empty_id ... ok
+test engine::locker::tests::env_int_default_parses_valid_integer_from_env ... ok
+test engine::locker::tests::env_int_default_returns_default_when_unset ... ok
+test engine::locker::tests::env_string_default_returns_default_when_unset ... ok
+test engine::worker::mounter::tests::test_bind_config_default ... ok
+test engine::worker::mounter::tests::test_bind_mounter_is_source_allowed_empty_sources ... ok
+test engine::locker::tests::env_string_default_returns_env_value_when_set ... ok
+test engine::worker::mounter::tests::test_bind_mounter_mount_disallowed ... ok
 test engine::worker::mounter::tests::test_volume_mounter_mount ... ok
-test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_subjob ... ok
-test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_default_queue ... ok
-test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_scheduled_state ... ok
-test engine::default::tests::test_default_run_standalone ... ok
-test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_parallel ... ok
+test engine::worker::podman::tests::test_validate_task_completed_state ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_id_is_empty ... ok
+test engine::worker::podman::tests::test_validate_task_running_state ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_state_is_completed ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_state_is_stopped ... ok
+test engine::worker::shell::tests::validate_task_returns_ok_when_state_is_running ... ok
 test engine::coordinator::scheduler::tests::test_schedule_parallel_task_sets_parent_id_on_children ... ok
+test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_parallel ... ok
 test engine::coordinator::scheduler::tests::test_schedule_parallel_task_creates_child_tasks ... ok
 test engine::coordinator::scheduler::tests::test_schedule_each_task_sets_size ... ok
-test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_each ... ok
 test engine::coordinator::scheduler::tests::test_schedule_each_task_creates_task_per_list_item ... ok
-test engine::worker::mounter::tests::test_bind_mounter_mount_disallowed ... ok
-test engine::locker::tests::create_locker_inmemory_returns_ok ... ok
-test engine::coordinator::scheduler::tests::test_schedule_subjob_task_creates_subjob ... ok
-test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_regular ... ok
-test engine::worker::tests::send_heartbeat_when_health_check_succeeds_returns_up_status ... ok
+test engine::worker::podman::tests::test_validate_task_empty_id ... ok
+test engine::coordinator::scheduler::tests::test_schedule_each_task_with_sequence_expression ... ok
+test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_each ... ok
+test engine::coordinator::scheduler::tests::test_schedule_each_task_with_real_yaml_template ... ok
+test engine::default::tests::test_default_run_standalone ... ok
 test engine::worker::tests::send_heartbeat_when_health_check_fails_returns_down_status ... ok
-test engine::coordinator::webhook::tests::should_fire_webhook_with_matching_event ... ok
+test engine::worker::tests::send_heartbeat_when_health_check_succeeds_returns_up_status ... ok
 
-test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.01s
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
 
 
 running 4 tests
+test key_auth_layer_creates_proper_layer ... ok
 test basic_auth_layer_creates_proper_layer ... ok
 test key_auth_config_with_empty_key_allowed ... ok
 test key_auth_config_with_custom_skip_paths ... ok
-test key_auth_layer_creates_proper_layer ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
+running 4 tests
+test id_benchmarks::benchmark_id_creation_100k ... ignored
+test id_benchmarks::latency_single_id_operation ... ok
+test id_benchmarks::throughput_batch_id_creation ... ok
+test id_benchmarks::stress_id_creation_1m ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+running 6 tests
+test ci_cd_pipeline_simulation::generate_all_pipeline_variants ... ok
+test ci_cd_pipeline_simulation::simulate_simple_pipeline_throughput ... ok
+test ci_cd_pipeline_simulation::simulate_full_pipeline_throughput ... ok
+test ci_cd_pipeline_simulation::simulate_medium_pipeline_throughput ... ok
+test ci_cd_pipeline_simulation::burst_load_test ... ok
+test ci_cd_pipeline_simulation::sustained_load_60_seconds has been running for over 60 seconds
+test ci_cd_pipeline_simulation::sustained_load_60_seconds ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.00s
+
+
 running 3 tests
-test submit_job_returns_error_when_datastore_create_fails ... ok
 test submit_job_returns_error_when_broker_publish_fails ... ok
+test submit_job_returns_error_when_datastore_create_fails ... ok
 test start_job_returns_scheduled_state_when_broker_fails_to_publish_task ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-running 4 tests
-test job_completes_when_tasks_are_finished ... ok
+running 5 tests
 test subjob_scheduled_when_parent_job_running ... ok
+test first_top_level_task_is_scheduled_immediately_when_job_submitted ... ok
+test job_completes_when_tasks_are_finished ... ok
 test parallel_tasks_scheduled_when_job_submitted ... ok
 test each_tasks_scheduled_when_job_submitted ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-running 42 tests
+running 5 tests
+test db_concurrent_write_test ... ignored, requires running PostgreSQL with migrated schema
+test db_query_under_load_test ... ignored, requires running PostgreSQL with migrated schema
+test db_write_throughput_test ... ignored, requires running PostgreSQL with migrated schema
+test e2e_load_test_1000_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+test e2e_load_test_100_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+
+test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 43 tests
 test broker_proxy_check_init_returns_error_when_not_initialized ... ok
-test engine_new_creates_idle_engine ... ok
-test engine_register_middleware_allowed_when_idle ... ok
-test engine_set_mode_only_allowed_when_idle ... ok
-test engine_register_runtime_allowed_when_idle ... ok
-test engine_register_runtime_ignored_when_already_set ... ok
-test engine_register_endpoint_allowed_when_idle ... ok
-test engine_terminate_fails_when_not_running ... ok
+test create_runtime_from_config_fails_clearly_when_runtime_is_invalid ... ok
+test broker_proxy_set_broker_allows_custom_implementation ... ok
+test broker_proxy_init_creates_inmemory_broker ... ok
+test broker_proxy_can_be_used_as_broker_trait ... ok
+test cors_layer_creation_succeeds ... ok
+test broker_proxy_clone_inner_creates_independent_copy ... ok
+test create_broker_inmemory_creates_broker ... ok
+test datastore_proxy_set_datastore_allows_custom_implementation ... ok
+test create_datastore_inmemory_creates_datastore ... ok
+test datastore_proxy_can_be_used_as_datastore_trait ... ok
 test state_can_transition_to_terminating_from_running ... ok
 test state_idle_can_transition_to_any_state ... ok
 test state_is_terminal_for_terminated ... ok
 test http_log_config_default_creates_successfully ... ok
-test engine_submit_job_returns_error_when_engine_not_running ... ok
 test http_log_config_debug_shows_level ... ok
-test cors_layer_creation_succeeds ... ok
+test engine_register_middleware_allowed_when_idle ... ok
+test engine_register_runtime_ignored_when_already_set ... ok
+test engine_submit_job_returns_error_when_engine_not_running ... ok
 test engine_debug_shows_state_and_mode ... ok
-test broker_proxy_set_broker_allows_custom_implementation ... ok
-test engine_register_broker_provider_allowed_when_idle ... ok
-test broker_proxy_init_creates_inmemory_broker ... ok
-test broker_proxy_can_be_used_as_broker_trait ... ok
-test datastore_proxy_init_creates_inmemory_datastore ... ok
-test datastore_proxy_can_be_used_as_datastore_trait ... ok
-test create_datastore_inmemory_creates_datastore ... ok
+test engine_terminate_fails_when_not_running ... ok
+test engine_register_endpoint_allowed_when_idle ... ok
 test engine_register_datastore_provider_allowed_when_idle ... ok
+test engine_register_broker_provider_allowed_when_idle ... ok
+test datastore_proxy_init_creates_inmemory_datastore ... ok
+test engine_register_runtime_allowed_when_idle ... ok
+test engine_set_mode_only_allowed_when_idle ... ok
+test engine_new_creates_idle_engine ... ok
 test datastore_proxy_clone_inner_creates_independent_copy ... ok
-test broker_proxy_clone_inner_creates_independent_copy ... ok
-test datastore_proxy_set_datastore_allows_custom_implementation ... ok
-test engine_submit_job_returns_error_when_not_coordinator_mode ... ok
-test start_worker_initializes_broker ... ok
-test create_broker_inmemory_creates_broker ... ok
 test coordinator_stop_cancels_tasks ... ok
-test start_standalone_initializes_broker_and_datastore ... ok
-test start_coordinator_initializes_broker_and_datastore ... ok
-test engine_register_endpoint_ignored_when_running ... ok
-test engine_register_middleware_ignored_when_running ... ok
-test engine_run_starts_without_panic ... ok
-test engine_start_fails_when_not_idle ... ok
 test coordinator_submit_job_sets_created_at ... ok
 test coordinator_submit_job_creates_job_in_datastore ... ok
-test engine_submit_job_submits_to_coordinator_in_standalone_mode ... ok
+test start_coordinator_initializes_broker_and_datastore ... ok
+test engine_submit_job_returns_error_when_not_coordinator_mode ... ok
+test start_worker_initializes_broker ... ok
 test coordinator_submit_job_generates_id_when_missing ... ok
+test start_standalone_initializes_broker_and_datastore ... ok
+test engine_register_middleware_ignored_when_running ... ok
+test engine_run_starts_without_panic ... ok
+test engine_register_endpoint_ignored_when_running ... ok
+test engine_start_fails_when_not_idle ... ok
+test engine_submit_job_submits_to_coordinator_in_standalone_mode ... ok
 test broker_proxy_init_accepts_rabbitmq_type ... ok
 
-test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
 running 7 tests
-test handle_log_part_stores_log_parts ... ok
-test handle_redelivered_requeues_task ... ok
-test handle_log_part_multiple_parts_for_same_task ... ok
 test handle_started_updates_task_state ... ok
+test handle_log_part_multiple_parts_for_same_task ... ok
+test handle_log_part_stores_log_parts ... ok
 test handle_heartbeat_updates_node_status ... ok
+test handle_redelivered_requeues_task ... ok
 test handle_error_updates_task_state ... ok
 test handle_error_publishes_to_failed_queue ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
 running 20 tests
 test hostenv_middleware_does_not_inject_on_other_events ... ok
 test hostenv_middleware_empty_does_nothing ... ok
-test hostenv_middleware_injects_env_vars_on_state_change ... ok
 test hostenv_middleware_multiple_vars_injected ... ok
-test job_middleware_after_runs_after_handler ... ok
-test hostenv_middleware_preserves_existing_env ... ok
-test job_middleware_error_propagates ... ok
+test hostenv_middleware_injects_env_vars_on_state_change ... ok
 test job_middleware_before_runs_before_handler ... ok
+test hostenv_middleware_preserves_existing_env ... ok
+test job_middleware_after_runs_after_handler ... ok
 test job_no_middleware_calls_handler_directly ... ok
+test job_middleware_error_propagates ... ok
 test log_middleware_redact_on_read ... ok
 test log_no_middleware_calls_handler_with_original_logs ... ok
 test node_middleware_after_runs_after_handler ... ok
@@ -153,73 +189,117 @@ test node_middleware_before_runs_before_handler ... ok
 test node_middleware_error_propagates ... ok
 test node_no_middleware_calls_handler_directly ... ok
 test task_middleware_after_runs_after_handler ... ok
-test task_middleware_before_runs_before_handler ... ok
 test task_middleware_error_propagates ... ok
+test task_middleware_before_runs_before_handler ... ok
 test task_no_middleware_calls_handler_directly ... ok
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
+running 2 tests
+test pokemon_api_benchmark_through_twerk ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+test verify_pokemon_api_direct ... ignored, requires Pokemon API running on port 8080
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test profiling_benchmarks::service_time_distribution ... ok
+test profiling_benchmarks::latency_id_creation_p50_p90_p99 ... ok
+test profiling_benchmarks::throughput_batch_operations ... ok
+test profiling_benchmarks::throughput_sustained_10k_ops ... ok
+test profiling_benchmarks::comparison_with_targets ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+
 running 6 tests
-test standalone_engine_completes_job_naturally ... ok
-test standalone_engine_completes_each_job_naturally ... ok
+test realistic_profiling::throughput_mixed_workload ... ok
+test realistic_profiling::latency_io_workload ... ok
+test realistic_profiling::latency_compute_workload ... ok
+test realistic_profiling::latency_echo_workload ... ok
+test realistic_profiling::comparison_summary ... ok
+test realistic_profiling::throughput_id_creation_sustained ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+
+running 6 tests
 test standalone_engine_marks_job_as_failed_when_task_fails ... ok
-test standalone_engine_marks_parallel_job_as_failed_when_subtask_fails ... ok
+test standalone_engine_completes_each_job_naturally ... ok
 test standalone_engine_completes_parallel_job_naturally ... ok
+test standalone_engine_marks_parallel_job_as_failed_when_subtask_fails ... ok
 test standalone_engine_retries_failed_task ... ok
+test standalone_engine_completes_job_naturally ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
 
 
-running 46 tests
+running 1 test
+test twerk_chaos_engineering_benchmark ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test twerk_pokemon_api_workflow ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+test twerk_simple_curl_workflow ... ignored, requires running twerk server on localhost:8000
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 49 tests
 test banner::tests::test_banner_contains_twerk_name ... ok
 test banner::tests::test_banner_mode_clone ... ok
-test banner::tests::test_banner_mode_from_str_case_insensitive ... ok
-test banner::tests::test_banner_mode_from_str ... ok
 test banner::tests::test_banner_mode_default ... ok
-test banner::tests::test_banner_mode_copy ... ok
 test banner::tests::test_banner_mode_equality ... ok
+test banner::tests::test_banner_mode_copy ... ok
+test banner::tests::test_banner_mode_from_str_case_insensitive ... ok
+test banner::tests::test_banner_mode_from_str_with_whitespace_not_trimmed ... ok
+test banner::tests::test_banner_not_empty ... ok
+test banner::tests::test_banner_mode_from_str ... ok
 test cli::tests::test_constants_are_static ... ok
 test cli::tests::test_default_datastore_type ... ok
-test cli::tests::test_default_postgres_dsn ... ok
 test cli::tests::test_default_endpoint ... ok
-test banner::tests::test_banner_mode_from_str_with_whitespace_not_trimmed ... ok
+test cli::tests::test_default_postgres_dsn ... ok
 test cli::tests::test_get_banner_mode_prefers_environment_override ... ok
-test banner::tests::test_banner_not_empty ... ok
 test cli::tests::test_git_commit_not_empty ... ok
-test cli::tests::test_get_git_commit_returns_string ... ok
-test cli::tests::test_parse_cli_args_without_subcommand_shows_help ... ok
 test cli::tests::test_version_not_empty ... ok
 test commands::tests::test_commands_default ... ok
 test commands::tests::test_commands_derive ... ok
 test cli::tests::test_parse_cli_args_for_version_short_circuits ... ok
 test error::tests::test_cli_error_config ... ok
-test error::tests::test_cli_error_engine ... ok
-test error::tests::test_cli_error_debug ... ok
+test cli::tests::test_parse_cli_args_without_subcommand_returns_none ... ok
+test commands::tests::test_version_flag_is_supported ... ok
 test cli::tests::test_parse_cli_args_for_run_command_executes ... ok
+test cli::tests::test_parse_cli_args_json_flag ... ok
 test commands::tests::test_run_mode_value_parser_accepts_known_modes ... ok
-test commands::tests::test_commands_help ... ok
-test commands::tests::test_help_contains_examples ... ok
 test error::tests::test_cli_error_health_failed ... ok
+test error::tests::test_cli_error_debug ... ok
+test error::tests::test_cli_error_engine ... ok
 test error::tests::test_cli_error_io ... ok
-test error::tests::test_cli_error_invalid_body ... ok
+test commands::tests::test_help_contains_examples ... ok
 test error::tests::test_cli_error_logging ... ok
+test commands::tests::test_commands_help ... ok
 test error::tests::test_cli_error_migration ... ok
-test error::tests::test_cli_error_missing_argument ... ok
+test error::tests::test_cli_error_invalid_body ... ok
 test error::tests::test_cli_error_unknown_datastore ... ok
+test health::tests::test_health_response_deserialize ... ok
 test health::tests::test_health_response_deserialize_with_extra_fields ... ok
 test migrate::tests::test_default_postgres_dsn ... ok
-test health::tests::test_health_response_deserialize ... ok
 test migrate::tests::test_default_postgres_dsn_format ... ok
-test migrate::tests::test_postgres_variant_matching ... ok
 test migrate::tests::test_postgres_variants_both_accepted ... ok
-test migrate::tests::test_unknown_datastore_rejected ... ok
 test run::tests::test_run_mode_maps_coordinator ... ok
 test run::tests::test_run_mode_maps_standalone ... ok
 test run::tests::test_run_mode_maps_worker ... ok
-test commands::tests::test_version_flag_is_supported ... ok
+test health::tests::test_health_response_debug ... ok
+test migrate::tests::test_postgres_variant_matching ... ok
+test error::tests::test_cli_error_missing_argument ... ok
+test migrate::tests::test_unknown_datastore_rejected ... ok
+test cli::tests::test_get_git_commit_returns_string ... ok
+test cli::tests::test_get_endpoint_reads_client_endpoint_env_override ... ok
 
-test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
 running 0 tests
@@ -227,63 +307,59 @@ running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-running 79 tests
-test conf::tests::test_config_state_bool_map_for_key_with_string_values ... ok
+running 81 tests
 test conf::tests::test_config_state_bool_map_for_key ... ok
-test conf::tests::test_config_state_get_bool ... ok
-test conf::tests::test_config_state_get_int ... ok
+test conf::tests::test_config_state_bool_map_for_key_with_string_values ... ok
 test conf::tests::test_config_state_build_table_from_flat ... ok
 test conf::tests::test_config_state_build_table_from_flat_nested ... ok
-test conf::tests::test_config_state_contains_key ... ok
 test conf::tests::test_config_state_get_array ... ok
+test conf::tests::test_config_state_get_bool ... ok
+test conf::tests::test_config_state_contains_key ... ok
+test conf::tests::test_config_state_get_int ... ok
 test conf::tests::test_config_state_get_str ... ok
 test conf::tests::test_config_state_get_table ... ok
 test conf::tests::test_config_state_int_map_for_key ... ok
 test conf::tests::test_config_state_int_map_for_key_with_string_values ... ok
 test conf::tests::test_config_state_string_map_for_key ... ok
-test conf::tests::test_config_state_strings_for_key ... ok
 test conf::tests::test_config_state_string_map_for_key_with_table ... ok
+test conf::tests::test_config_state_strings_for_key ... ok
+test conf::tests::test_config_state_strings_for_key_or_string_falls_back_to_string ... ok
 test conf::tests::test_config_state_strings_for_key_or_string_prefers_array ... ok
 test conf::tests::test_config_state_strings_from_string_comma_separated ... ok
-test conf::tests::test_config_state_strings_for_key_or_string_falls_back_to_string ... ok
 test conf::tests::test_expand_path_absolute ... ok
 test conf::tests::test_expand_path_tilde ... ok
-test conf::tests::test_flatten_table ... ok
-test conf::tests::test_flatten_table_with_prefix ... ok
 test conf::tests::test_extract_env_vars_empty ... ok
+test conf::tests::test_flatten_table ... ok
 test conf::tests::test_flatten_table_nested_nested ... ok
+test conf::tests::test_flatten_table_with_prefix ... ok
 test conf::tests::test_merge_values ... ok
-test conf::tests::test_extract_env_vars_underscore_to_dot ... ok
-test conf::tests::test_extract_env_vars_with_twerk_prefix ... ok
 test conf::tests::test_merge_values_override_wins ... ok
+test conf::tests::test_extract_env_vars_with_twerk_prefix ... ok
+test conf::tests::test_extract_env_vars_underscore_to_dot ... ok
 test conf::tests::test_parse_toml_file_not_exist ... ok
+test env::tests::test_key_transformation ... ok
 test logging::tests::test_level_to_tracing_level ... ok
-test logging::tests::test_normalize_level_preserves_valid ... ok
-test logging::tests::test_normalize_level_warning ... ok
-test logging::tests::test_tracing_writer_as_trait ... ok
-test logging::tests::test_tracing_writer_write ... ok
-test reexec::tests::test_command_creation ... ok
-test conf::tests::test_parse_toml_file_bad_contents ... ok
+test env::tests::test_var_with_twerk_prefix ... ok
 test reexec::tests::test_naive_self_returns_path ... ok
 test reexec::tests::test_register_and_init_not_matched ... ok
-test conf::tests::test_parse_toml_file_duration_string ... ok
-test reexec::tests::test_register_duplicate_name_fails ... ok
-test conf::tests::test_parse_toml_file_valid ... ok
-test conf::tests::test_parse_toml_file_with_array ... ok
 test reexec::tests::test_self_path_returns_path ... ok
-test conf::tests::test_parse_toml_file_with_bool ... ok
+test logging::tests::test_normalize_level_preserves_valid ... ok
 test slices::tests::intersect::returns_false_on_empty_a ... ok
-test conf::tests::test_parse_and_flatten_integration ... ok
-test slices::tests::intersect::returns_false_on_empty_b ... ok
-test conf::tests::test_parse_toml_file_with_integer ... ok
-test conf::tests::test_parse_toml_file_with_nested_tables ... ok
+test conf::tests::test_parse_toml_file_bad_contents ... ok
 test slices::tests::intersect::returns_false_when_both_empty ... ok
+test conf::tests::test_parse_toml_file_with_array ... ok
+test conf::tests::test_parse_toml_file_with_bool ... ok
+test conf::tests::test_parse_toml_file_valid ... ok
 test slices::tests::intersect::returns_false_when_no_elements_match ... ok
+test conf::tests::test_parse_toml_file_duration_string ... ok
 test slices::tests::intersect::returns_true_when_element_exists_in_both ... ok
 test slices::tests::intersect::returns_true_when_first_element_matches ... ok
-test slices::tests::intersect::returns_true_when_last_element_matches ... ok
+test conf::tests::test_parse_toml_file_with_integer ... ok
 test slices::tests::intersect::works_with_duplicates_in_a ... ok
+test slices::tests::intersect::returns_true_when_last_element_matches ... ok
+test conf::tests::test_parse_and_flatten_integration ... ok
 test slices::tests::intersect::works_with_duplicates_in_b ... ok
+test conf::tests::test_parse_toml_file_with_nested_tables ... ok
 test slices::tests::intersect::works_with_strings ... ok
 test slices::tests::map_slice::handles_single_element ... ok
 test slices::tests::map_slice::identity_mapping ... ok
@@ -294,611 +370,1318 @@ test slices::tests::map_slice::transforms_to_different_type ... ok
 test slices::tests::map_slice::works_with_strings ... ok
 test syncx::map::tests::test_get_non_existent ... ok
 test syncx::map::tests::test_clone_is_independent ... ok
+test syncx::map::tests::test_iterate ... ok
+test wildcard::tests::test_wildcard_match_exact ... ok
+test uuid::tests::test_new_uuid_length ... ok
 test syncx::map::tests::test_set_and_delete ... ok
 test syncx::map::tests::test_set_and_get ... ok
-test syncx::map::tests::test_iterate ... ok
-test uuid::tests::test_base57_alphabet_is_57_chars ... ok
-test uuid::tests::test_encode_base57_deterministic ... ok
-test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
-test uuid::tests::test_new_uuid_length ... ok
-test wildcard::tests::test_wildcard_match_empty ... ok
-test wildcard::tests::test_wildcard_match_exact ... ok
+test logging::tests::test_normalize_level_warning ... ok
 test wildcard::tests::test_wildcard_match_star ... ok
 test wildcard::tests::test_wildcard_match_multiple_stars ... ok
+test logging::tests::test_tracing_writer_write ... ok
+test logging::tests::test_tracing_writer_as_trait ... ok
+test slices::tests::intersect::returns_false_on_empty_b ... ok
+test reexec::tests::test_register_duplicate_name_fails ... ok
+test uuid::tests::test_base57_alphabet_is_57_chars ... ok
+test reexec::tests::test_command_creation ... ok
+test uuid::tests::test_encode_base57_deterministic ... ok
+test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
+test wildcard::tests::test_wildcard_match_empty ... ok
 test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
 test syncx::map::tests::test_concurrent_set_and_get ... ok
 
-test result: ok. 79 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-running 216 tests
-test encrypt::tests::test_derive_key_produces_32_bytes ... ok
-test encrypt::tests::test_same_password_produces_same_key ... ok
-test encrypt::tests::test_decrypt_with_wrong_password_fails ... ok
-test encrypt::tests::test_encrypt_decrypt_roundtrip ... ok
-test encrypt::tests::test_different_passwords_produce_different_ciphertext ... ok
-test eval::tests::evaluate_condition_tests::test_job_error_without_error ... ok
-test eval::tests::evaluate_condition_tests::test_empty_expression_returns_true ... ok
-test eval::tests::evaluate_condition_tests::test_evaluate_condition_non_boolean_result ... ok
-test eval::tests::evaluate_expr_tests::test_evaluate_expr_logical_operators ... ok
-test eval::tests::evaluate_expr_tests::test_evaluate_expr_simple_arithmetic ... ok
-test eval::tests::evaluate_condition_tests::test_parenthesized_expression ... ok
-test eval::tests::evaluate_condition_tests::test_evaluate_condition_invalid_expression ... ok
-test eval::tests::evaluate_condition_tests::test_complex_logical_expression ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_and_to_json_chained ... ok
-test eval::tests::evaluate_condition_tests::test_boolean_literals ... ok
-test eval::tests::evaluate_expr_tests::test_evaluate_expr_string_comparison ... ok
-test eval::tests::evaluate_expr_tests::test_evaluate_expr_with_variables ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_array ... ok
-test eval::tests::evaluate_condition_tests::test_job_id_comparison ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_number ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_boolean ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_object ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_null ... ok
-test eval::tests::evaluate_condition_tests::test_simple_state_comparison ... ok
-test eval::tests::evaluate_expr_tests::test_from_json_string ... ok
-test eval::tests::evaluate_condition_tests::test_job_error_with_error_present ... ok
-test eval::tests::evaluate_condition_tests::test_logical_and_operator ... ok
-test eval::tests::evaluate_condition_tests::test_job_state_inequality ... ok
-test eval::tests::transform_operators_tests::test_transform_and ... ok
-test eval::tests::transform_operators_tests::test_transform_or ... ok
-test eval::tests::transform_operators_tests::test_transform_preserves_standard_operators ... ok
-test eval::tests::evaluate_condition_tests::test_job_name_comparison ... ok
-test eval::tests::evaluate_condition_tests::test_logical_or_operator ... ok
-test eval::tests::evaluate_expr_tests::test_split_basic ... ok
-test eval::tests::evaluate_expr_tests::test_to_json_string ... ok
-test eval::tests::evaluate_expr_tests::test_to_json_number ... ok
-test eval::tests::evaluate_task_condition_tests::test_empty_expression_returns_true ... ok
-test eval::tests::evaluate_expr_tests::test_split_multiple_delimiters ... ok
-test eval::tests::evaluate_expr_tests::test_to_json_boolean ... ok
-test eval::tests::evaluate_expr_tests::test_to_json_array ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_condition_non_boolean ... ok
-test eval::tests::evaluate_expr_tests::test_split_with_empty_result ... ok
-test eval::tests::evaluate_template_tests::test_template_no_expression ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_condition_invalid_expression ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_condition_logical_or ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_and_job_different_states ... ok
-test eval::tests::evaluate_task_condition_tests::test_combined_task_and_job_context ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_condition_with_failure ... ok
-test eval::tests::sanitize_expr_tests::test_sanitize_trims_whitespace ... ok
-test eval::tests::valid_expr_tests::test_valid_expr_empty ... ok
+running 152 tests
+test asl::transition::tests::end_variant_has_no_target ... ok
+test asl::transition::tests::next_variant_stores_name ... ok
+test domain_types::tests::go_duration_complex ... ok
+test domain_types::tests::go_duration_combo ... ok
+test domain_types::tests::cron_valid ... ok
+test domain_types::tests::cron_from_str_roundtrip ... ok
+test domain_types::tests::cron_invalid ... ok
+test domain_types::tests::go_duration_micros ... ok
+test domain_types::tests::go_duration_millis ... ok
+test domain_types::tests::go_duration_nanos ... ok
+test domain_types::tests::go_duration_seconds ... ok
+test domain_types::tests::go_duration_empty_rejected ... ok
+test domain_types::tests::queue_name_deref ... ok
+test domain_types::tests::go_duration_from_str_roundtrip ... ok
+test domain_types::tests::go_duration_days ... ok
+test domain_types::tests::queue_name_from_str_roundtrip ... ok
+test domain_types::tests::queue_name_rejects_empty ... ok
+test domain_types::tests::queue_name_rejects_too_long ... ok
+test domain_types::tests::queue_name_rejects_uppercase ... ok
+test domain_types::tests::queue_name_valid ... ok
+test id::tests::job_id_as_ref_trait ... ok
+test id::tests::job_id_clone ... ok
+test id::tests::job_id_default ... ok
+test id::tests::job_id_deref_trait ... ok
+test id::tests::job_id_display_trait ... ok
+test id::tests::job_id_from_str_borrowing ... ok
+test id::tests::job_id_eq_and_hash ... ok
+test id::tests::job_id_from_str_trait ... ok
+test id::tests::job_id_from_str_trait_error ... ok
+test id::tests::job_id_from_string_ownership ... ok
+test id::tests::job_id_returns_err_empty_string ... ok
+test id::tests::job_id_returns_err_when_exceeds_max_length ... ok
+test id::tests::job_id_returns_err_with_newline ... ok
+test id::tests::job_id_returns_err_with_emoji ... ok
+test id::tests::job_id_returns_err_with_null_byte ... ok
+test id::tests::job_id_returns_err_with_slash ... ok
+test id::tests::job_id_returns_err_with_space ... ok
+test id::tests::job_id_returns_err_with_special_chars ... ok
+test id::tests::job_id_returns_err_with_tab ... ok
+test id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric ... ok
+test id::tests::job_id_returns_ok_at_max_length ... ok
+test id::tests::job_id_returns_ok_with_underscore ... ok
+test id::tests::job_id_with_cjk_characters_is_accepted ... ok
+test id::tests::job_id_with_only_cjk_characters_is_accepted ... ok
+test id::tests::node_id_new_too_long_rejected ... ok
+test id::tests::node_id_new_valid ... ok
+test id::tests::role_id_new_empty_rejected ... ok
+test id::tests::role_id_new_valid ... ok
+test id::tests::scheduled_job_id_new_valid ... ok
+test id::tests::task_id_new_empty_rejected ... ok
+test id::tests::task_id_new_valid ... ok
+test id::tests::user_id_new_valid ... ok
+test id::tests::user_id_new_with_invalid_chars_rejected ... ok
+test id::tests::validate_id_accepts_dash_and_underscore ... ok
+test id::tests::validate_id_accepts_single_alphanumeric ... ok
+test id::tests::validate_id_error_messages_are_descriptive ... ok
+test id::tests::validate_id_max_length_boundary ... ok
+test id::tests::validate_id_rejects_control_characters ... ok
+test id::tests::validate_id_rejects_dots ... ok
+test id::tests::validate_id_rejects_empty ... ok
+test id::tests::validate_id_rejects_only_whitespace ... ok
 test node::tests::test_node_clone ... ok
 test node::tests::test_node_status_from_str ... ok
-test eval::tests::sanitize_expr_tests::test_sanitize_preserves_plain_expr ... ok
-test redact::tests::test_is_secret_key ... ok
-test redact::tests::test_redact_job ... ok
-test eval::tests::evaluate_template_tests::test_template_with_json_functions ... ok
-test redact::tests::test_redact_task_env ... ok
-test redact::tests::test_redact_task_registry_password ... ok
-test redact::tests::test_redact_task_log_parts ... ok
-test redact::tests::test_redact_vars_handles_empty_secrets ... ok
-test redact::tests::test_redact_vars_key_match ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_state_comparison ... ok
-test redact::tests::test_redact_vars_no_match ... ok
-test redact::tests::test_redacter_contains_case_insensitive ... ok
-test redact::tests::test_redact_vars_value_match ... ok
-test role::tests::clone_preserves_all_fields ... ok
-test redact::tests::test_redacter_wildcard_no_match ... ok
+test redact::tests::tests::test_is_secret_key ... ok
+test redact::tests::tests::test_redact_job ... ok
+test redact::tests::tests::test_redact_task_env ... ok
+test redact::tests::tests::test_redact_task_log_parts ... ok
+test redact::tests::tests::test_redact_task_registry_password ... ok
+test redact::tests::tests::test_redact_vars_handles_empty_secrets ... ok
+test redact::tests::tests::test_redact_vars_key_match ... ok
+test redact::tests::tests::test_redact_vars_no_match ... ok
+test redact::tests::tests::test_redacter_contains_case_insensitive ... ok
+test redact::tests::tests::test_redact_vars_value_match ... ok
+test redact::tests::tests::test_redacter_wildcard_empty_key ... ok
+test redact::tests::tests::test_redacter_wildcard_no_match ... ok
 test role::tests::debug_format_contains_fields ... ok
-test redact::tests::test_redacter_wildcard_empty_key ... ok
-test role::tests::debug_format_on_default_shows_none_fields ... ok
-test eval::tests::evaluate_template_tests::test_template_empty_expression ... ok
-test redact::tests::test_redacter_wildcard_replaces_all_occurrences ... ok
-test role::tests::id_newtype_preserves_value ... ok
-test role::tests::default_role_is_not_public ... ok
 test role::tests::is_public_only_checks_slug_not_name ... ok
-test role::tests::is_public_returns_expected_value::case_1 ... ok
-test eval::tests::evaluate_template_tests::test_template_leading_text ... ok
-test eval::tests::evaluate_task_condition_tests::test_task_id_comparison ... ok
-test role::tests::is_public_returns_expected_value::case_2 ... ok
-test eval::tests::evaluate_task_condition_tests::test_job_state_in_task_condition ... ok
-test role::tests::is_public_returns_expected_value::case_3 ... ok
-test role::tests::is_public_returns_false_when_slug_is_empty_string ... ok
-test role::tests::is_public_returns_false_when_slug_is_public_uppercase ... ok
-test role::tests::is_public_returns_false_when_slug_is_public_with_spaces ... ok
-test eval::tests::sanitize_expr_tests::test_sanitize_removes_braces ... ok
-test role::tests::is_public_returns_true_when_slug_is_exact_public ... ok
-test role::tests::partial_eq_matches_for_identical_roles ... ok
-test role::tests::partial_eq_returns_false_for_different_ids ... ok
-test role::tests::partial_eq_returns_false_for_different_slugs ... ok
-test eval::tests::evaluate_template_tests::test_template_multiple_expressions ... ok
-test role::tests::role_clone_preserves_created_at ... ok
-test role::tests::id_display_matches_inner ... ok
 test role::tests::id_newtype_from_string ... ok
-test eval::tests::evaluate_template_tests::test_template_with_variable ... ok
-test role::tests::role_public_constant_is_public ... ok
-test role::tests::role_with_all_none_fields_is_default ... ok
-test role::tests::role_with_unicode_name_roundtrips ... ok
-test role::tests::serialization_includes_slug_when_some ... ok
-test role::tests::serialization_omits_none_fields ... ok
+test role::tests::is_public_returns_false_when_slug_is_public_with_spaces ... ok
+test role::tests::partial_eq_matches_for_identical_roles ... ok
 test stats::tests::test_deserialize_from_json ... ok
-test role::tests::serialization_roundtrip_preserves_all_fields ... ok
-test stats::tests::test_job_metrics_json ... ok
-test stats::tests::test_node_metrics_deserialize ... ok
-test stats::tests::test_metrics_roundtrip ... ok
-test stats::tests::test_node_metrics_json ... ok
-test stats::tests::test_task_metrics_json ... ok
-test user::tests::clone_preserves_password ... ok
-test user::tests::debug_format_contains_fields ... ok
-test user::tests::debug_format_on_default_shows_none_fields ... ok
-test user::tests::deep_clone_on_default_user_produces_default_except_password ... ok
+test role::tests::serialization_omits_none_fields ... ok
 test user::tests::deep_clone_preserves_all_fields_except_password ... ok
+test redact::tests::tests::test_redacter_wildcard_replaces_all_occurrences ... ok
+test role::tests::default_role_is_not_public ... ok
+test role::tests::id_display_matches_inner ... ok
+test role::tests::debug_format_on_default_shows_none_fields ... ok
+test role::tests::is_public_returns_expected_value::case_1 ... ok
+test role::tests::id_newtype_preserves_value ... ok
+test role::tests::is_public_returns_expected_value::case_2 ... ok
+test role::tests::is_public_returns_false_when_slug_is_empty_string ... ok
+test role::tests::is_public_returns_true_when_slug_is_exact_public ... ok
+test role::tests::role_public_constant_is_public ... ok
+test role::tests::role_clone_preserves_created_at ... ok
+test role::tests::role_with_all_none_fields_is_default ... ok
+test role::tests::partial_eq_returns_false_for_different_ids ... ok
+test role::tests::is_public_returns_false_when_slug_is_public_uppercase ... ok
+test role::tests::role_with_unicode_name_roundtrips ... ok
+test role::tests::is_public_returns_expected_value::case_3 ... ok
 test user::tests::deep_clone_preserves_disabled_false ... ok
+test stats::tests::test_metrics_roundtrip ... ok
 test user::tests::deep_clone_preserves_disabled_true ... ok
-test user::tests::deep_clone_removes_password_when_password_is_some ... ok
+test stats::tests::test_node_metrics_deserialize ... ok
 test user::tests::deep_clone_preserves_empty_strings ... ok
+test role::tests::serialization_includes_slug_when_some ... ok
+test user::tests::deep_clone_removes_password_when_password_is_some ... ok
 test user::tests::deep_clone_returns_none_password_when_password_is_none ... ok
+test user::tests::clone_preserves_password ... ok
 test user::tests::default_user_is_enabled ... ok
 test user::tests::id_display_matches_inner ... ok
 test user::tests::id_newtype_from_str_ref ... ok
+test user::tests::debug_format_contains_fields ... ok
 test user::tests::id_newtype_from_string ... ok
-test eval::tests::evaluate_template_tests::test_template_with_number_variable ... ok
 test user::tests::id_newtype_preserves_value ... ok
 test user::tests::is_enabled_returns_expected_value::case_1 ... ok
 test user::tests::is_enabled_returns_expected_value::case_2 ... ok
-test user::tests::is_guest_and_is_enabled_are_independent ... ok
 test user::tests::is_guest_returns_expected_value::case_1 ... ok
+test user::tests::is_guest_and_is_enabled_are_independent ... ok
+test role::tests::clone_preserves_all_fields ... ok
 test user::tests::is_guest_returns_expected_value::case_2 ... ok
 test user::tests::is_guest_returns_expected_value::case_3 ... ok
 test user::tests::is_guest_returns_false_when_username_is_empty_string ... ok
 test user::tests::is_guest_returns_false_when_username_is_guest_uppercase ... ok
 test user::tests::is_guest_returns_false_when_username_is_guest_with_spaces ... ok
 test user::tests::is_guest_returns_true_when_username_is_exact_guest ... ok
-test user::tests::partial_eq_matches_for_identical_users ... ok
-test user::tests::partial_eq_returns_false_for_different_ids ... ok
-test user::tests::password_hash_is_skipped_in_serialization ... ok
-test user::tests::password_is_skipped_in_serialization ... ok
-test user::tests::user_guest_constant_is_guest ... ok
-test user::tests::serialization_includes_disabled_when_true ... ok
-test user::tests::user_with_unicode_name_roundtrips ... ok
-test user::tests::user_with_very_long_username ... ok
-test user::tests::username_constant_is_username ... ok
-test uuid::tests::test_base57_alphabet_is_57_chars ... ok
-test uuid::tests::test_encode_base57_deterministic ... ok
-test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
-test uuid::tests::test_new_uuid_length ... ok
-test user::tests::serialization_roundtrip_preserves_all_public_fields ... ok
-test validation::tests::test_validate_duration_invalid ... ok
-test user::tests::serialization_roundtrip_with_all_fields_populated ... ok
-test validation::tests::test_validate_duration_valid ... ok
-test validation::tests::test_validate_cron_invalid ... ok
-test validation::tests::test_validate_job_invalid_defaults ... ok
-test eval::tests::evaluate_template_tests::test_template_trailing_text ... ok
-test validation::tests::test_validate_job_missing_name ... ok
-test validation::tests::test_validate_job_missing_tasks ... ok
-test validation::tests::test_validate_job_valid ... ok
-test validation::tests::test_validate_priority_invalid ... ok
-test validation::tests::test_validate_cron_valid ... ok
-test validation::tests::test_validate_priority_valid ... ok
+test role::tests::partial_eq_returns_false_for_different_slugs ... ok
+test role::tests::serialization_roundtrip_preserves_all_fields ... ok
+test user::tests::deep_clone_on_default_user_produces_default_except_password ... ok
+test stats::tests::test_node_metrics_json ... ok
 test user::tests::serialization_omits_none_fields ... ok
-test eval::tests::valid_expr_tests::test_valid_expr_with_whitespace ... ok
-test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
-test validation::tests::test_validate_queue_name_valid ... ok
-test validation::tests::test_validate_retry_invalid ... ok
-test validation::tests::test_validate_retry_valid ... ok
-test validation::tests::test_validate_task_each_empty ... ok
-test validation::tests::test_validate_queue_name_invalid ... ok
-test validation::tests::test_validate_task_invalid_priority ... ok
-test validation::tests::test_validate_task_invalid_queue ... ok
-test validation::tests::test_validate_task_invalid_retry ... ok
-test validation::tests::test_validate_task_invalid_timeout ... ok
-test validation::tests::test_validate_task_parallel_empty ... ok
+test user::tests::partial_eq_returns_false_for_different_ids ... ok
+test user::tests::user_guest_constant_is_guest ... ok
+test user::tests::serialization_roundtrip_preserves_all_public_fields ... ok
+test stats::tests::test_task_metrics_json ... ok
+test user::tests::serialization_roundtrip_with_all_fields_populated ... ok
+test stats::tests::test_job_metrics_json ... ok
+test user::tests::user_with_unicode_name_roundtrips ... ok
+test user::tests::partial_eq_matches_for_identical_users ... ok
+test user::tests::user_with_very_long_username ... ok
+test user::tests::password_is_skipped_in_serialization ... ok
+test user::tests::username_constant_is_username ... ok
+test user::tests::debug_format_on_default_shows_none_fields ... ok
+test uuid::tests::test_base57_alphabet_is_57_chars ... ok
+test user::tests::password_hash_is_skipped_in_serialization ... ok
 test user::tests::user_with_special_characters_in_fields ... ok
-test validation::tests::test_validate_task_multiple_errors ... ok
-test validation::tests::test_validate_task_valid ... ok
-test validation::tests::validation_cron_fails_when_too_many_fields ... ok
-test validation::tests::validation_cron_fails_when_invalid_expression ... ok
-test validation::tests::validation_job_fails_when_name_empty ... ok
-test validation::tests::validation_job_fails_when_name_missing ... ok
-test validation::tests::validation_job_passes_when_minimal_valid ... ok
-test validation::tests::validation_job_task_fails_when_name_missing ... ok
-test validation::tests::validation_mount_fails_when_bind_type_missing_source ... ok
-test validation::tests::validation_job_task_passes_when_image_missing ... ok
-test validation::tests::validation_mount_fails_when_target_is_tork ... ok
-test validation::tests::validation_parallel_passes_when_single_task ... ok
-test validation::tests::validation_subjob_passes_when_webhook_valid ... ok
-test validation::tests::validation_var_passes_when_shorter ... ok
-test validation::tests::validation_webhook_fails_when_url_empty ... ok
-test validation::tests::validation_job_defaults_fails_when_timeout_invalid ... ok
-test eval::tests::valid_expr_tests::test_valid_expr_with_operators ... ok
-test validation::tests::validation_task_fails_when_parallel_and_subjob_both_set ... ok
-test validation::tests::validation_job_fails_when_tasks_empty ... ok
-test eval::tests::valid_expr_tests::test_valid_expr_simple ... ok
-test validation::tests::validation_webhook_passes_when_url_valid ... ok
-test eval::tests::valid_expr_tests::test_valid_expr_with_comparison ... ok
-test validation::tests::validation_mount_fails_when_source_contains_hash ... ok
-test validation::tests::validation_mount_passes_when_bind_has_source_and_target ... ok
-test validation::tests::validation_mount_passes_when_bind_with_options ... ok
-test validation::tests::validation_mount_fails_when_type_and_target_missing ... ok
-test validation::tests::validation_queue_passes_when_valid_name ... ok
-test validation::tests::validation_queue_fails_when_x_jobs ... ok
-test validation::tests::validation_subjob_fails_when_webhook_url_empty ... ok
-test validation::tests::validation_task_passes_when_timeout_6h ... ok
-test validation::tests::validation_task_passes_when_retry_limit_1 ... ok
-test validation::tests::validation_var_passes_when_64_chars ... ok
-test validation::tests::validation_task_passes_when_retry_limit_10 ... ok
-test validation::tests::validation_mount_fails_when_target_contains_colon ... ok
-test validation::tests::validation_var_fails_when_too_long ... ok
-test validation::tests::validation_task_fails_when_retry_limit_50 ... ok
-test validation::tests::validation_mount_passes_when_type_custom ... ok
-test validation::tests::validation_expr_passes_when_valid_arithmetic ... ok
-test validation::tests::validation_expr_fails_when_invalid_syntax ... ok
-test validation::tests::validation_each_passes_when_expression_valid ... ok
-test validation::tests::validation_expr_passes_when_valid_template ... ok
-test validation::tests::validation_task_fails_when_parallel_and_each_both_set ... ok
+test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
+test user::tests::serialization_includes_disabled_when_true ... ok
+test uuid::tests::test_new_uuid_length ... ok
+test uuid::tests::test_encode_base57_deterministic ... ok
+test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
 test host::tests::test_get_cpu_percent_returns_valid_range ... ok
 test host::tests::test_get_cpu_percent_twice_is_callable ... ok
 
-test result: ok. 216 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+test result: ok. 152 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
 
 
-running 37 tests
-test event_constants_match_expected_values ... ok
+running 183 tests
+test boundary_attacks::error_code_specific_does_not_match_other ... ok
+test boundary_attacks::state_machine_max_u64_timeout ... ok
+test boundary_attacks::state_machine_no_terminal_state ... ok
+test boundary_attacks::state_machine_multiple_errors_returned ... ok
+test boundary_attacks::error_code_all_matches_everything ... ok
+test boundary_attacks::state_machine_validate_empty_states ... ok
+test boundary_attacks::state_machine_start_at_not_in_states ... ok
+test boundary_attacks::state_machine_choice_default_not_found ... ok
+test boundary_attacks::state_machine_choice_target_not_found ... ok
+test boundary_attacks::state_machine_roundtrip_serialization ... ok
+test contract_violations::backoff_rate_epsilon_accepted ... ok
+test contract_violations::backoff_rate_negative_infinity_rejected ... ok
+test contract_violations::backoff_rate_negative_one_rejected ... ok
+test contract_violations::backoff_rate_nan_rejected ... ok
+test contract_violations::backoff_rate_negative_zero_rejected ... ok
+test contract_violations::backoff_rate_max_accepted ... ok
+test boundary_attacks::state_machine_transition_to_nonexistent_state ... ok
+test contract_violations::backoff_rate_positive_infinity_rejected ... ok
+test contract_violations::backoff_rate_subnormal_positive_accepted ... ok
+test contract_violations::backoff_rate_zero_rejected ... ok
+test contract_violations::catcher_empty_error_equals_rejected ... ok
+test contract_violations::choice_state_empty_choices_rejected ... ok
+test contract_violations::error_code_case_insensitive_all ... ok
+test contract_violations::error_code_empty_string_becomes_custom ... ok
+test boundary_attacks::deeply_nested_parallel_state ... ok
+test contract_violations::image_ref_empty_rejected ... ok
+test contract_violations::image_ref_newline_rejected ... ok
+test contract_violations::image_ref_tab_rejected ... ok
+test contract_violations::image_ref_whitespace_rejected ... ok
+test contract_violations::json_path_empty_rejected ... ok
+test contract_violations::json_path_just_dollar_accepted ... ok
+test contract_violations::json_path_no_dollar_prefix_rejected ... ok
+test contract_violations::map_state_tolerance_0_accepted ... ok
+test contract_violations::map_state_tolerance_100_accepted ... ok
+test contract_violations::map_state_tolerance_101_rejected ... ok
+test contract_violations::map_state_tolerance_infinity_rejected ... ok
+test contract_violations::map_state_tolerance_nan_rejected ... ok
+test contract_violations::parallel_state_empty_branches_rejected ... ok
+test contract_violations::map_state_tolerance_negative_rejected ... ok
+test contract_violations::retrier_empty_error_equals_rejected ... ok
+test contract_violations::retrier_interval_zero_rejected ... ok
+test contract_violations::retrier_max_attempts_zero_rejected ... ok
+test contract_violations::retrier_max_delay_equal_to_interval_rejected ... ok
+test contract_violations::retrier_max_delay_less_than_interval_rejected ... ok
+test contract_violations::retrier_max_u64_interval_accepted ... ok
+test contract_violations::state_name_1000_chars_rejected ... ok
+test contract_violations::state_name_256_multibyte_chars_boundary ... ok
+test contract_violations::state_name_257_chars_rejected ... ok
+test contract_violations::state_name_emoji ... ok
+test contract_violations::state_name_empty_string_rejected ... ok
+test contract_violations::error_code_extremely_long_custom_string ... ok
+test contract_violations::state_name_exactly_256_chars_accepted ... ok
+test contract_violations::state_name_null_byte_accepted_by_type_system ... ok
+test contract_violations::state_name_rtl_markers ... ok
+test contract_violations::state_name_unicode_zero_width_accepted ... ok
+test contract_violations::task_state_heartbeat_exceeds_timeout_rejected ... ok
+test contract_violations::task_state_empty_env_key_rejected ... ok
+test contract_violations::task_state_heartbeat_greater_than_timeout_rejected ... ok
+test contract_violations::task_state_heartbeat_zero_rejected ... ok
+test contract_violations::task_state_timeout_zero_rejected ... ok
+test contract_violations::variable_name_128_chars_accepted ... ok
+test contract_violations::variable_name_129_chars_rejected ... ok
+test contract_violations::variable_name_contains_dash_rejected ... ok
+test contract_violations::variable_name_empty_rejected ... ok
+test contract_violations::variable_name_starts_with_digit_rejected ... ok
+test contract_violations::variable_name_unicode_start_rejected ... ok
+test data_flow_attacks::array_index_on_non_array ... ok
+test data_flow_attacks::array_index_access ... ok
+test data_flow_attacks::array_index_out_of_bounds ... ok
+test data_flow_attacks::deeply_nested_path ... ok
+test data_flow_attacks::full_data_flow_pipeline ... ok
+test data_flow_attacks::input_path_none_returns_input ... ok
+test data_flow_attacks::input_path_on_null_value ... ok
+test data_flow_attacks::input_path_on_number ... ok
+test data_flow_attacks::input_path_on_primitive_string ... ok
+test data_flow_attacks::input_path_on_array ... ok
+test data_flow_attacks::input_path_root_only ... ok
+test data_flow_attacks::output_path_on_null ... ok
+test data_flow_attacks::non_integer_array_index_in_path ... ok
+test data_flow_attacks::path_injection_attempt ... ok
+test data_flow_attacks::path_with_empty_field_segment ... ok
+test data_flow_attacks::path_with_missing_intermediate_field ... ok
+test data_flow_attacks::path_with_special_chars_in_field ... ok
+test data_flow_attacks::result_path_creates_intermediate_objects ... ok
+test data_flow_attacks::result_path_none_returns_result ... ok
+test data_flow_attacks::result_path_on_non_object_root ... ok
+test data_flow_attacks::result_path_root_returns_result ... ok
+test data_flow_attacks::unclosed_bracket_in_path ... ok
+test data_flow_attacks::result_path_rejects_array_index ... ok
+test intrinsic_attacks::array_contains_finds_element ... ok
+test intrinsic_attacks::array_contains_missing_element ... ok
+test intrinsic_attacks::array_contains_non_array_rejected ... ok
+test intrinsic_attacks::array_length_empty_value ... ok
+test intrinsic_attacks::array_length_non_array_rejected ... ok
+test intrinsic_attacks::array_partition_negative_chunk_rejected ... ok
+test intrinsic_attacks::array_partition_non_array_first_arg_rejected ... ok
+test intrinsic_attacks::array_partition_zero_chunk_rejected ... ok
+test intrinsic_attacks::array_range_negative_step ... ok
+test intrinsic_attacks::array_range_non_integer_rejected ... ok
+test intrinsic_attacks::array_range_start_equals_end_empty ... ok
+test intrinsic_attacks::array_range_step_zero_rejected ... ok
+test intrinsic_attacks::array_range_wrong_direction_empty ... ok
+test intrinsic_attacks::array_unique_empty_value ... ok
+test intrinsic_attacks::array_unique_non_array_rejected ... ok
+test intrinsic_attacks::array_unique_removes_duplicates ... ok
+test intrinsic_attacks::base64_decode_invalid_base64_rejected ... ok
+test intrinsic_attacks::base64_decode_invalid_utf8_rejected ... ok
+test intrinsic_attacks::base64_decode_non_string_rejected ... ok
+test intrinsic_attacks::base64_encode_non_string_rejected ... ok
+test intrinsic_attacks::base64_roundtrip ... ok
+test intrinsic_attacks::format_empty_template ... ok
+test intrinsic_attacks::format_no_args_errors ... ok
+test intrinsic_attacks::format_more_placeholders_than_args ... ok
+test intrinsic_attacks::format_no_placeholders ... ok
+test intrinsic_attacks::format_non_string_template_rejected ... ok
+test intrinsic_attacks::format_single_string_no_tuple ... ok
+test intrinsic_attacks::hash_empty_algorithm_rejected ... ok
+test intrinsic_attacks::hash_non_string_input_rejected ... ok
+test intrinsic_attacks::hash_too_few_args_rejected ... ok
+test intrinsic_attacks::hash_too_many_args_rejected ... ok
+test intrinsic_attacks::hash_unknown_algorithm_rejected ... ok
+test intrinsic_attacks::json_to_string_handles_any_value ... ok
+test intrinsic_attacks::math_add_int_overflow_saturates ... ok
+test intrinsic_attacks::math_add_mixed_int_float ... ok
+test intrinsic_attacks::math_add_non_numeric_rejected ... ok
+test intrinsic_attacks::math_add_wrong_arg_count_rejected ... ok
+test intrinsic_attacks::math_random_float_rejected ... ok
+test intrinsic_attacks::math_random_start_equals_end_rejected ... ok
+test intrinsic_attacks::math_random_start_greater_than_end_rejected ... ok
+test intrinsic_attacks::math_sub_int_underflow_saturates ... ok
+test intrinsic_attacks::string_to_json_invalid_json_rejected ... ok
+test intrinsic_attacks::string_to_json_non_string_rejected ... ok
+test intrinsic_attacks::uuid_empty_accepted ... ok
+test intrinsic_attacks::math_random_valid_range ... ok
+test intrinsic_attacks::uuid_with_args_rejected ... ok
+test intrinsic_attacks::uuid_empty_tuple_accepted ... ok
+test serde_exploits::backoff_rate_zero_via_json_rejected ... ok
+test serde_exploits::catcher_empty_error_equals_via_json_rejected ... ok
+test serde_exploits::choice_state_empty_choices_via_json_rejected ... ok
+test serde_exploits::expression_empty_via_json_rejected ... ok
+test serde_exploits::image_ref_whitespace_via_json_rejected ... ok
+test serde_exploits::jitter_strategy_unknown_value_rejected ... ok
+test serde_exploits::json_path_no_dollar_via_json_rejected ... ok
+test serde_exploits::parallel_state_empty_branches_via_json_rejected ... ok
+test serde_exploits::map_state_nan_tolerance_via_json ... ok
+test serde_exploits::retrier_empty_error_equals_via_json_rejected ... ok
+test serde_exploits::retrier_nan_backoff_via_json_rejected ... ok
+test serde_exploits::retrier_negative_backoff_via_json_rejected ... ok
+test serde_exploits::shell_script_empty_via_json_rejected ... ok
+test serde_exploits::retrier_zero_max_attempts_via_json_rejected ... ok
+test serde_exploits::state_kind_empty_type_rejected ... ok
+test serde_exploits::state_machine_empty_states_deserializes_but_validate_catches ... ok
+test serde_exploits::state_kind_unknown_type_rejected ... ok
+test serde_exploits::retrier_zero_interval_via_json_rejected ... ok
+test serde_exploits::state_name_empty_via_json_rejected ... ok
+test serde_exploits::task_state_heartbeat_exceeds_timeout_via_json_rejected ... ok
+test serde_exploits::task_state_timeout_zero_via_json_rejected ... ok
+test serde_exploits::transition_both_next_and_end_rejected ... ok
+test serde_exploits::transition_neither_next_nor_end_rejected ... ok
+test serde_exploits::transition_next_empty_string_rejected ... ok
+test serde_exploits::transition_end_false_rejected ... ok
+test serde_exploits::transition_next_too_long_rejected ... ok
+test serde_exploits::variable_name_digit_start_via_json_rejected ... ok
+test serde_exploits::wait_duration_empty_timestamp_rejected ... ok
+test serde_exploits::wait_duration_all_four_fields_rejected ... ok
+test serde_exploits::wait_duration_multiple_fields_rejected ... ok
+test serde_exploits::wait_duration_no_fields_rejected ... ok
+test serde_exploits::wait_state_seconds_path_invalid_path_rejected ... ok
+test serde_exploits::wait_state_with_both_transition_fields_rejected ... ok
+test serde_roundtrip::backoff_rate_roundtrip ... ok
+test serde_roundtrip::error_code_custom_roundtrip ... ok
+test serde_roundtrip::transition_end_roundtrip ... ok
+test serde_roundtrip::retrier_roundtrip ... ok
+test serde_roundtrip::transition_next_roundtrip ... ok
+test validation_attacks::valid_machine_with_fail_state ... ok
+test validation_attacks::validate_self_referencing_loop_detected ... ok
+test validation_attacks::valid_linear_machine ... ok
+test validation_attacks::validate_two_state_cycle ... ok
+test serde_roundtrip::full_machine_roundtrip ... ok
+test serde_roundtrip::wait_duration_seconds_roundtrip ... ok
+test serde_roundtrip::wait_duration_timestamp_roundtrip ... ok
+test validation_attacks::valid_machine_with_end_transition ... ok
+test intrinsic_attacks::array_range_huge_range_bounded_by_saturating_add ... ok
+
+test result: ok. 183 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 36 tests
+test map_state_reject_infinity_tolerance ... ok
+test map_state_reject_neg_infinity_tolerance ... ok
+test map_state_reject_nan_tolerance ... ok
+test map_state_max_concurrency_zero ... ok
+test map_state_reject_over_hundred_tolerance ... ok
+test map_state_reject_negative_tolerance ... ok
+test map_state_tolerance_zero ... ok
+test map_state_valid_all_fields ... ok
+test map_state_valid_minimal ... ok
+test map_state_tolerance_hundred ... ok
+test parallel_state_reject_empty_branches ... ok
+test parallel_state_fail_fast_false ... ok
+test map_state_serde_omits_defaults ... ok
+test parallel_state_serde_reject_empty_branches ... ok
+test map_state_serde_reject_invalid_tolerance ... ok
+test parallel_state_serde_omits_none_fail_fast ... ok
+test parallel_state_valid_multiple_branches ... ok
+test map_state_serde_json_roundtrip ... ok
+test parallel_state_valid_single_branch ... ok
+test task_state_heartbeat_just_below_timeout ... ok
+test task_state_heartbeat_without_timeout ... ok
+test task_state_reject_empty_env_key ... ok
+test parallel_state_serde_json_roundtrip ... ok
+test task_state_reject_heartbeat_equals_timeout ... ok
+test task_state_reject_heartbeat_exceeds_timeout ... ok
+test task_state_reject_heartbeat_zero ... ok
+test task_state_reject_timeout_zero ... ok
+test task_state_serde_deserialize_defaults ... ok
+test task_state_serde_env_multiple ... ok
+test task_state_serde_reject_heartbeat_exceeds_timeout ... ok
+test task_state_timeout_minimum ... ok
+test task_state_valid_all_fields ... ok
+test task_state_serde_omits_defaults ... ok
+test task_state_serde_json_roundtrip_full ... ok
+test task_state_valid_minimal ... ok
+test task_state_yaml_deserialize ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 25 tests
+test display_impl_for_data_flow_error ... ok
+test full_pipeline_all_none ... ok
+test full_pipeline_all_paths ... ok
+test full_pipeline_input_and_result_path ... ok
+test input_path_array_index_out_of_bounds ... ok
+test input_path_dollar_returns_entire_input ... ok
+test input_path_extracts_nested_field ... ok
+test input_path_array_index ... ok
+test input_path_extracts_nested_object ... ok
+test input_path_extracts_top_level_field ... ok
+test input_path_field_on_non_object_returns_error ... ok
+test input_path_none_passes_through ... ok
+test input_path_not_found_returns_error ... ok
+test input_path_with_unclosed_bracket_returns_invalid_path_error ... ok
+test input_path_on_array_root ... ok
+test nested_array_index_access ... ok
+test output_path_none_passes_through ... ok
+test output_path_extracts_field ... ok
+test result_path_dollar_replaces_input ... ok
+test result_path_creates_intermediate_objects ... ok
+test result_path_merges_into_nested_field ... ok
+test result_path_none_replaces_input ... ok
+test result_path_merges_into_field ... ok
+test result_path_on_non_object_returns_error ... ok
+test result_path_overwrites_existing_field ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 38 tests
+test array_creates_tuple ... ok
+test array_contains_not_found ... ok
+test array_range_basic ... ok
+test array_partition_even ... ok
+test array_length_empty ... ok
+test math_add_ints ... ok
+test array_unique_dedup ... ok
+test array_empty ... ok
+test array_contains_found ... ok
+test json_to_string_int ... ok
+test base64_decode_invalid ... ok
+test array_contains_string ... ok
+test array_length_basic ... ok
+test array_range_step_2 ... ok
+test array_unique_already_unique ... ok
+test array_partition_zero_chunk ... ok
+test array_unique_strings ... ok
+test array_partition_uneven ... ok
+test format_multiple_args ... ok
+test hash_sha256 ... ok
+test math_add_floats ... ok
+test array_range_zero_step ... ok
+test base64_encode_decode_roundtrip ... ok
+test math_sub_ints ... ok
+test math_random_invalid_range ... ok
+test format_no_placeholders ... ok
+test hash_unsupported_algo ... ok
+test format_too_few_args_leaves_placeholder ... ok
+test hash_md5 ... ok
+test json_to_string_string ... ok
+test math_random_single_value_range ... ok
+test format_basic_positional ... ok
+test math_sub_negative_result ... ok
+test string_to_json_invalid ... ok
+test uuid_returns_valid_v4 ... ok
+test uuid_unique ... ok
+test string_to_json_object ... ok
+test math_random_in_range ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 35 tests
+test get_state_not_found ... ok
+test start_state_returns_first ... ok
+test get_state_found ... ok
+test state_serde_roundtrip_pass_with_comment ... ok
+test state_serde_roundtrip_fail ... ok
+test state_serde_unknown_type_rejected ... ok
+test statekind_choice_has_no_transition ... ok
+test statekind_fail_has_no_transition ... ok
+test statekind_fail_is_terminal ... ok
+test state_serde_roundtrip_succeed ... ok
+test statekind_map_is_not_terminal_and_has_transition ... ok
+test statekind_parallel_is_not_terminal_and_has_transition ... ok
+test state_with_all_shared_fields ... ok
+test statekind_choice_is_not_terminal ... ok
+test state_with_minimal_fields ... ok
+test statekind_pass_is_not_terminal_and_has_transition ... ok
+test statekind_succeed_has_no_transition ... ok
+test statekind_succeed_is_terminal ... ok
+test statekind_task_has_transition ... ok
+test statekind_task_is_not_terminal ... ok
+test statekind_wait_is_not_terminal_and_has_transition ... ok
+test validate_choice_target_not_found ... ok
+test statemachine_serde_with_timeout ... ok
+test statemachine_serde_with_map_item_processor ... ok
+test statemachine_serde_roundtrip_preserves_order ... ok
+test validate_default_target_not_found ... ok
+test validate_empty_states ... ok
+test statemachine_serde_with_parallel_branches ... ok
+test validate_fail_state_is_terminal ... ok
+test validate_no_terminal_state ... ok
+test validate_multiple_errors_collected ... ok
+test validate_start_at_not_found ... ok
+test validate_transition_end_counts_as_terminal ... ok
+test validate_transition_target_not_found ... ok
+test validate_valid_machine_ok ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 53 tests
+test choice_rule_new_without_assign ... ok
+test choice_rule_new_with_assign ... ok
+test choice_state_multiple_rules_with_default ... ok
+test choice_rule_serde_roundtrip_no_assign ... ok
+test choice_state_deserialize_rejects_empty_choices ... ok
+test choice_rule_serde_roundtrip_with_assign ... ok
+test choice_state_one_rule_no_default ... ok
+test choice_state_rejects_empty_choices ... ok
+test choice_state_deserialize_valid ... ok
+test fail_state_both_fields ... ok
+test choice_state_serde_roundtrip ... ok
+test fail_state_deser_both ... ok
+test fail_state_deser_empty ... ok
+test fail_state_empty ... ok
+test fail_state_display ... ok
+test fail_state_equality ... ok
+test fail_state_only_cause ... ok
+test fail_state_only_error ... ok
+test fail_state_serialize_skips_none ... ok
+test fail_state_serde_roundtrip ... ok
+test pass_state_deser_without_result ... ok
+test pass_state_deser_with_result ... ok
+test pass_state_no_result_end ... ok
+test pass_state_serde_roundtrip_with_result ... ok
+test pass_state_serde_roundtrip_without_result ... ok
+test pass_state_with_result_and_next ... ok
+test succeed_state_construct ... ok
+test succeed_state_deserialize ... ok
+test succeed_state_equality ... ok
+test succeed_state_is_copy ... ok
+test succeed_state_serialize ... ok
+test wait_duration_deser_seconds ... ok
+test wait_duration_deser_seconds_path ... ok
+test wait_duration_deser_timestamp ... ok
+test wait_duration_deser_timestamp_path ... ok
+test wait_duration_display ... ok
+test wait_duration_rejects_empty_timestamp ... ok
+test wait_duration_rejects_invalid_json_path ... ok
+test wait_duration_rejects_multiple_fields ... ok
+test wait_duration_rejects_no_field ... ok
+test wait_duration_seconds ... ok
+test wait_duration_seconds_path ... ok
+test wait_duration_serde_roundtrip_seconds ... ok
+test wait_duration_serde_roundtrip_timestamp_path ... ok
+test wait_duration_timestamp ... ok
+test wait_duration_timestamp_path ... ok
+test wait_state_deser_seconds_next ... ok
+test wait_state_deser_timestamp_path_end ... ok
+test wait_state_rejects_no_duration ... ok
+test wait_state_rejects_no_transition ... ok
+test wait_state_seconds_and_next ... ok
+test wait_state_serde_roundtrip ... ok
+test wait_state_timestamp_and_end ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 50 tests
+test catcher_tests::ca2_valid_minimal ... ok
+test catcher_tests::ca10_multiple_catchers ... ok
+test catcher_tests::ca11_multiple_retriers ... ok
+test catcher_tests::ca1_valid_all_fields ... ok
+test catcher_tests::ca3_reject_empty_errors ... ok
+test catcher_tests::ca7_serde_with_assign ... ok
+test jitter_strategy_tests::js1_default_is_none ... ok
+test catcher_tests::ca6_serde_rejects_empty_errors ... ok
+test catcher_tests::ca4_serde_roundtrip ... ok
+test jitter_strategy_tests::js3_serialize_none ... ok
+test jitter_strategy_tests::js4_deserialize_full ... ok
+test jitter_strategy_tests::js5_deserialize_none ... ok
+test catcher_tests::ca8_yaml_deserialization ... ok
+test catcher_tests::ca5_serde_omits_none ... ok
+test jitter_strategy_tests::js2_serialize_full ... ok
+test catcher_tests::ca9_single_error ... ok
+test jitter_strategy_tests::js6_reject_unknown ... ok
+test jitter_strategy_tests::js8_display ... ok
+test jitter_strategy_tests::js9_roundtrip ... ok
+test jitter_strategy_tests::js7_reject_lowercase ... ok
+test retrier_tests::rt10_boundary_max_delay_just_above ... ok
+test retrier_tests::rt13_serde_defaults_jitter ... ok
+test retrier_tests::rt12_serde_omits_none ... ok
+test retrier_tests::rt11_serde_roundtrip_json ... ok
+test retrier_tests::rt14_serde_rejects_empty_errors ... ok
+test retrier_tests::rt15_serde_rejects_zero_interval ... ok
+test retrier_tests::rt17_single_error_equals ... ok
+test retrier_tests::rt18_large_max_attempts ... ok
+test retrier_tests::rt1_valid_all_fields ... ok
+test retrier_tests::rt2_valid_minimal ... ok
+test retrier_tests::rt16_yaml_deserialization ... ok
+test retrier_tests::rt3_reject_empty_errors ... ok
+test retrier_tests::rt4_reject_interval_zero ... ok
+test retrier_tests::rt5_reject_max_attempts_zero ... ok
+test retrier_tests::rt6_reject_max_delay_equal_interval ... ok
+test retrier_tests::rt7_reject_max_delay_less_than_interval ... ok
+test retrier_tests::rt8_boundary_interval_one ... ok
+test retrier_tests::rt9_boundary_max_attempts_one ... ok
+test transition_tests::tr10_serialize_end_roundtrip ... ok
+test transition_tests::tr11_display ... ok
+test transition_tests::tr12_equality ... ok
+test transition_tests::tr1_construct_next ... ok
+test transition_tests::tr2_construct_end ... ok
+test transition_tests::tr5_reject_both_next_and_end ... ok
+test transition_tests::tr6_reject_neither ... ok
+test transition_tests::tr3_deserialize_next_yaml ... ok
+test transition_tests::tr4_deserialize_end_yaml ... ok
+test transition_tests::tr7_reject_end_false ... ok
+test transition_tests::tr8_reject_invalid_state_name ... ok
+test transition_tests::tr9_serialize_next_roundtrip ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 107 tests
+test backoff_rate_tests::display_format ... ok
+test backoff_rate_tests::from_str_non_numeric ... ok
+test backoff_rate_tests::from_str_valid ... ok
+test backoff_rate_tests::min_positive_accepted ... ok
+test backoff_rate_tests::nan_rejected ... ok
+test backoff_rate_tests::from_str_zero ... ok
+test backoff_rate_tests::neg_infinity_rejected ... ok
+test backoff_rate_tests::negative_rejected ... ok
+test backoff_rate_tests::negative_zero_rejected ... ok
+test backoff_rate_tests::pos_infinity_rejected ... ok
+test backoff_rate_tests::serde_rejects_zero ... ok
+test backoff_rate_tests::valid_construction ... ok
+test backoff_rate_tests::serde_roundtrip ... ok
+test backoff_rate_tests::zero_rejected ... ok
+test error_code_tests::clone_and_equality ... ok
+test error_code_tests::custom_equality_different ... ok
+test error_code_tests::all_variants_serde_roundtrip ... ok
+test error_code_tests::custom_equality_same ... ok
+test error_code_tests::deserialize_all_uppercase ... ok
+test error_code_tests::deserialize_all_lowercase ... ok
+test error_code_tests::deserialize_task_failed_mixed_case ... ok
+test error_code_tests::deserialize_timeout_case_insensitive ... ok
+test error_code_tests::deserialize_unknown_becomes_custom ... ok
+test error_code_tests::display_all ... ok
+test error_code_tests::display_branch_failed ... ok
+test error_code_tests::display_custom ... ok
+test error_code_tests::display_heartbeat_timeout ... ok
+test error_code_tests::display_intrinsic_failure ... ok
+test error_code_tests::display_no_choice_matched ... ok
+test error_code_tests::display_parameter_path_failure ... ok
+test error_code_tests::display_permissions ... ok
+test error_code_tests::display_result_path_match_failure ... ok
+test error_code_tests::display_roundtrip_all_variants ... ok
+test error_code_tests::display_task_failed ... ok
+test error_code_tests::display_timeout ... ok
+test error_code_tests::from_str_case_insensitive_all_variants ... ok
+test error_code_tests::from_str_infallible ... ok
+test error_code_tests::from_str_known_variant ... ok
+test error_code_tests::from_str_unknown_variant ... ok
+test error_code_tests::hash_consistency ... ok
+test error_code_tests::serialize_all ... ok
+test error_code_tests::serialize_branch_failed ... ok
+test error_code_tests::serialize_custom ... ok
+test error_code_tests::serialize_heartbeat_timeout ... ok
+test error_code_tests::serialize_intrinsic_failure ... ok
+test error_code_tests::serialize_no_choice_matched ... ok
+test error_code_tests::serialize_parameter_path_failure ... ok
+test error_code_tests::serialize_permissions ... ok
+test error_code_tests::serialize_result_path_match_failure ... ok
+test error_code_tests::serialize_task_failed ... ok
+test error_code_tests::serialize_timeout ... ok
+test expression_tests::deref_to_str ... ok
+test expression_tests::empty_rejected ... ok
+test expression_tests::from_str_roundtrip ... ok
+test expression_tests::intrinsic_function_accepted ... ok
+test expression_tests::serde_rejects_empty ... ok
+test expression_tests::serde_roundtrip ... ok
+test expression_tests::valid_construction ... ok
+test image_ref_tests::contains_space_rejected ... ok
+test image_ref_tests::contains_tab_rejected ... ok
+test image_ref_tests::deref_to_str ... ok
+test image_ref_tests::empty_rejected ... ok
+test image_ref_tests::from_str_roundtrip ... ok
+test image_ref_tests::image_with_digest ... ok
+test image_ref_tests::serde_rejects_whitespace ... ok
+test image_ref_tests::serde_roundtrip ... ok
+test image_ref_tests::simple_image_name ... ok
+test image_ref_tests::valid_docker_image ... ok
+test json_path_tests::deref_to_str ... ok
+test json_path_tests::empty_rejected ... ok
+test json_path_tests::from_str_roundtrip ... ok
+test json_path_tests::missing_dollar_prefix ... ok
+test json_path_tests::root_only_accepted ... ok
+test json_path_tests::serde_rejects_empty ... ok
+test json_path_tests::serde_rejects_no_dollar ... ok
+test json_path_tests::serde_roundtrip ... ok
+test json_path_tests::valid_construction ... ok
+test shell_script_tests::deref_to_str ... ok
+test shell_script_tests::empty_rejected ... ok
+test shell_script_tests::from_str_roundtrip ... ok
+test shell_script_tests::multi_line_script ... ok
+test shell_script_tests::serde_rejects_empty ... ok
+test shell_script_tests::serde_roundtrip ... ok
+test shell_script_tests::valid_construction ... ok
+test state_name_tests::boundary_1_char_accepted ... ok
+test state_name_tests::boundary_256_chars_accepted ... ok
+test state_name_tests::deref_to_str ... ok
+test state_name_tests::empty_rejected ... ok
+test state_name_tests::from_str_roundtrip ... ok
+test state_name_tests::serde_rejects_empty ... ok
+test state_name_tests::serde_roundtrip ... ok
+test state_name_tests::too_long_rejected ... ok
+test state_name_tests::unicode_allowed ... ok
+test state_name_tests::valid_construction ... ok
+test variable_name_tests::boundary_128_chars_accepted ... ok
+test variable_name_tests::contains_hyphen_rejected ... ok
+test variable_name_tests::contains_space_rejected ... ok
+test variable_name_tests::deref_to_str ... ok
+test variable_name_tests::empty_rejected ... ok
+test variable_name_tests::from_str_roundtrip ... ok
+test variable_name_tests::serde_rejects_invalid_start ... ok
+test variable_name_tests::serde_roundtrip ... ok
+test variable_name_tests::single_char ... ok
+test variable_name_tests::starts_with_digit_rejected ... ok
+test variable_name_tests::starts_with_underscore ... ok
+test variable_name_tests::too_long_rejected ... ok
+test variable_name_tests::valid_construction ... ok
+
+test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 16 tests
+test choice_targets_are_reachable ... ok
+test choice_default_makes_state_reachable ... ok
+test choice_with_orphan_sibling ... ok
+test cycle_with_terminal_exit_not_reported ... ok
+test complex_graph_reports_all_issues ... ok
+test dead_end_state_detected ... ok
+test empty_report_is_clean ... ok
+test fail_state_counts_as_terminal ... ok
+test diamond_graph_is_clean ... ok
+test report_with_unreachable_is_not_clean ... ok
+test orphan_state_detected ... ok
+test self_loop_detected ... ok
+test simple_cycle_detected ... ok
+test single_succeed_state_is_clean ... ok
+test linear_chain_is_clean ... ok
+test multiple_orphan_states_detected ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 82 tests
+test test_empty_expression_returns_true ... ok
+test test_evaluate_expr_integer_division_by_zero ... ok
+test test_evaluate_expr_logical_operators ... ok
+test test_evaluate_expr_string_comparison ... ok
+test test_evaluate_expr_simple_arithmetic ... ok
+test test_evaluate_expr_modulo ... ok
+test test_evaluate_expr_string_concatenation ... ok
+test test_evaluate_expr_division_by_zero ... ok
+test test_evaluate_expr_chained_comparisons ... ok
+test test_evaluate_expr_sequence_function ... ok
+test test_evaluate_expr_complex_expression ... ok
+test test_complex_logical_expression ... ok
+test test_evaluate_expr_boolean_implication ... ok
+test test_boolean_literals ... ok
+test test_combined_task_and_job_context ... ok
+test test_evaluate_condition_non_boolean_result ... ok
+test test_evaluate_expr_string_equality ... ok
+test test_evaluate_expr_random_int_bounded ... ok
+test test_from_json_array ... ok
+test test_evaluate_condition_invalid_expression ... ok
+test test_evaluate_expr_undefined_variable ... ok
+test test_evaluate_expr_with_variables ... ok
+test test_evaluate_template_injection_single_variable ... ok
+test test_evaluate_template_rejects_nested_braces ... ok
+test test_evaluate_template_injection_with_split ... ok
+test test_evaluate_expr_numeric_comparison ... ok
+test test_evaluate_template_injection_multiple_variables ... ok
+test test_evaluate_template_injection_with_expression ... ok
+test test_evaluate_template_injection_with_function ... ok
+test test_evaluate_template_with_mixed_text_and_expressions ... ok
+test test_evaluate_template_multiple_expressions_same_line ... ok
+test test_evaluate_template_missing_variable_uses_empty ... ok
+test test_from_json_and_to_json_chained ... ok
+test test_from_json_boolean ... ok
+test test_sanitize_preserves_plain_expr ... ok
+test test_parenthesized_expression ... ok
+test test_logical_or_operator ... ok
+test test_from_json_null ... ok
+test test_sanitize_removes_braces ... ok
+test test_sanitize_trims_whitespace ... ok
+test test_from_json_number ... ok
+test test_from_json_object ... ok
+test test_split_basic ... ok
+test test_from_json_string ... ok
+test test_job_error_without_error ... ok
+test test_job_error_with_error_present ... ok
+test test_job_id_comparison ... ok
+test test_split_with_empty_result ... ok
+test test_job_name_comparison ... ok
+test test_split_multiple_delimiters ... ok
+test test_task_condition_invalid_expression ... ok
+test test_task_and_job_different_states ... ok
+test test_task_empty_expression_returns_true ... ok
+test test_job_state_in_task_condition ... ok
+test test_task_condition_with_failure ... ok
+test test_task_condition_non_boolean ... ok
+test test_task_condition_logical_or ... ok
+test test_job_state_inequality ... ok
+test test_simple_state_comparison ... ok
+test test_template_no_expression ... ok
+test test_template_empty_expression ... ok
+test test_template_leading_text ... ok
+test test_task_id_comparison ... ok
+test test_template_multiple_expressions ... ok
+test test_logical_and_operator ... ok
+test test_task_state_comparison ... ok
+test test_to_json_boolean ... ok
+test test_template_with_variable ... ok
+test test_to_json_number ... ok
+test test_template_with_number_variable ... ok
+test test_transform_and ... ok
+test test_template_trailing_text ... ok
+test test_to_json_array ... ok
+test test_template_with_json_functions ... ok
+test test_transform_or ... ok
+test test_to_json_string ... ok
+test test_transform_preserves_standard_operators ... ok
+test test_valid_expr_empty ... ok
+test test_valid_expr_with_whitespace ... ok
+test test_valid_expr_with_comparison ... ok
+test test_valid_expr_with_operators ... ok
+test test_valid_expr_simple ... ok
+
+test result: ok. 82 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 59 tests
+test test_validate_duration_invalid ... ok
+test test_validate_duration_valid ... ok
+test test_validate_cron_invalid ... ok
+test test_validate_job_invalid_defaults ... ok
+test test_validate_job_missing_tasks ... ok
+test test_validate_job_valid ... ok
+test test_validate_priority_valid ... ok
+test test_validate_job_missing_name ... ok
+test test_validate_priority_invalid ... ok
+test test_validate_cron_valid ... ok
+test test_validate_queue_name_invalid ... ok
+test test_validate_queue_name_valid ... ok
+test test_validate_retry_valid ... ok
+test test_validate_retry_invalid ... ok
+test test_validate_task_each_empty ... ok
+test test_validate_task_invalid_priority ... ok
+test test_validate_task_invalid_queue ... ok
+test test_validate_task_invalid_retry ... ok
+test test_validate_task_invalid_timeout ... ok
+test test_validate_task_multiple_errors ... ok
+test test_validate_task_parallel_empty ... ok
+test test_validate_task_valid ... ok
+test validation_cron_fails_when_invalid_expression ... ok
+test validation_cron_fails_when_too_many_fields ... ok
+test validation_job_defaults_fails_when_timeout_invalid ... ok
+test validation_job_fails_when_name_empty ... ok
+test validation_job_fails_when_name_missing ... ok
+test validation_queue_passes_when_valid_name ... ok
+test validation_job_fails_when_tasks_empty ... ok
+test validation_job_passes_when_minimal_valid ... ok
+test validation_task_fails_when_retry_limit_50 ... ok
+test validation_task_fails_when_parallel_and_subjob_both_set ... ok
+test validation_task_passes_when_timeout_6h ... ok
+test validation_var_passes_when_64_chars ... ok
+test validation_webhook_fails_when_url_empty ... ok
+test validation_mount_fails_when_target_contains_colon ... ok
+test validation_mount_fails_when_target_is_tork ... ok
+test validation_mount_passes_when_bind_has_source_and_target ... ok
+test validation_job_task_fails_when_name_missing ... ok
+test validation_task_passes_when_retry_limit_1 ... ok
+test validation_task_passes_when_retry_limit_10 ... ok
+test validation_mount_fails_when_bind_type_missing_source ... ok
+test validation_job_task_passes_when_image_missing ... ok
+test validation_subjob_passes_when_webhook_valid ... ok
+test validation_var_fails_when_too_long ... ok
+test validation_subjob_fails_when_webhook_url_empty ... ok
+test validation_mount_fails_when_source_contains_hash ... ok
+test validation_var_passes_when_shorter ... ok
+test validation_webhook_passes_when_url_valid ... ok
+test validation_queue_fails_when_x_jobs ... ok
+test validation_parallel_passes_when_single_task ... ok
+test validation_mount_fails_when_type_and_target_missing ... ok
+test validation_mount_passes_when_type_custom ... ok
+test validation_mount_passes_when_bind_with_options ... ok
+test validation_each_passes_when_expression_valid ... ok
+test validation_expr_passes_when_valid_arithmetic ... ok
+test validation_expr_fails_when_invalid_syntax ... ok
+test validation_expr_passes_when_valid_template ... ok
+test validation_task_fails_when_parallel_and_each_both_set ... ok
+
+test result: ok. 59 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 25 tests
 test is_retryable_returns_false_for_200 ... ok
 test is_retryable_returns_false_for_201 ... ok
-test is_retryable_returns_false_for_400 ... ok
-test is_retryable_returns_true_for_429 ... ok
-test is_retryable_returns_true_for_500 ... ok
+test event_constants_match_expected_values ... ok
 test is_retryable_returns_false_for_401 ... ok
+test is_retryable_returns_false_for_400 ... ok
 test is_retryable_returns_false_for_403 ... ok
+test is_retryable_returns_true_for_429 ... ok
 test is_retryable_returns_false_for_404 ... ok
-test is_retryable_returns_true_for_503 ... ok
+test is_retryable_returns_true_for_500 ... ok
 test is_retryable_returns_true_for_502 ... ok
+test is_retryable_returns_true_for_503 ... ok
 test is_retryable_returns_true_for_504 ... ok
 test webhook_default_is_empty ... ok
-test webhook_call_returns_error_when_url_is_none ... ok
 test webhook_error_display_format_max_attempts ... ok
-test webhook_error_display_format_serialization ... ok
-test webhook_error_display_format_non_retryable ... ok
 test webhook_serde_skips_none_fields ... ok
+test webhook_error_display_format_non_retryable ... ok
+test webhook_error_display_format_serialization ... ok
 test webhook_serialize_deserialize_roundtrip ... ok
-test webhook_call_returns_error_on_401 ... ok
-test webhook_call_returns_error_on_non_retryable_status_400 ... ok
-test webhook_call_sends_json_content_type ... ok
-test webhook_call_returns_error_on_404 ... ok
-test webhook_call_succeeds_on_201 ... ok
-test webhook_call_sends_custom_headers ... ok
-test webhook_call_succeeds_on_200 ... ok
-test webhook_call_serializes_body_to_json ... ok
-test webhook_call_returns_error_on_403 ... ok
-test webhook_call_succeeds_with_empty_body ... ok
-test webhook_call_retries_on_503_then_succeeds ... ok
-test webhook_call_retries_on_429_then_succeeds ... ok
-test webhook_call_retries_on_500_then_succeeds ... ok
-test webhook_call_retries_on_504_then_succeeds ... ok
-test webhook_call_retries_on_502_then_succeeds ... ok
-test webhook_call_multiple_retries_then_success ... ok
 test webhook_call_handles_connection_error ... ok
-test webhook_call_exhausts_retries_on_persistent_500 ... ok
+test webhook_call_sends_json_content_type ... ok
+test webhook_call_succeeds_with_empty_body ... ok
+test webhook_call_sends_custom_headers ... ok
+test webhook_call_serializes_body_to_json ... ok
+test webhook_call_succeeds_on_200 ... ok
+test webhook_call_multiple_retries_then_success ... ok
 
-test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.05s
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.01s
 
 
-running 302 tests
+running 340 tests
+test broker::rabbitmq::helpers::tests::clamp_i32_clamps_negative_underflow ... ok
+test broker::rabbitmq::helpers::tests::clamp_i32_handles_zero ... ok
+test broker::inmemory::tests::test_health_check ... ok
+test broker::rabbitmq::helpers::tests::clamp_i32_handles_min_i32 ... ok
+test broker::rabbitmq::helpers::tests::clamp_i32_handles_max_i32 ... ok
+test broker::rabbitmq::helpers::tests::clamp_i32_clamps_positive_overflow ... ok
+test broker::inmemory::tests::test_queue_info ... ok
+test broker::rabbitmq::helpers::tests::extract_i32_returns_zero_for_null ... ok
+test broker::inmemory::tests::broker_shutdown_fails_health_check_after ... ok
+test broker::inmemory::tests::test_get_queues_unacked ... ok
+test broker::inmemory::tests::test_delete_queue ... ok
+test broker::inmemory::tests::test_get_queues ... ok
+test broker::rabbitmq::helpers::tests::extract_i64_returns_negative_value ... ok
+test broker::rabbitmq::helpers::tests::extract_i64_returns_value_for_integer ... ok
+test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_null ... ok
+test broker::rabbitmq::helpers::tests::extract_i32_returns_clamped_large_value ... ok
+test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_string ... ok
+test broker::rabbitmq::helpers::tests::rabbitmq_conn_err_formats_with_index ... ok
+test broker::rabbitmq::helpers::tests::rabbitmq_conn_err_formats_message ... ok
+test broker::tests::empty_engine_id_produces_unprefixed_queue ... ok
+test broker::tests::all_coordinator_queues_round_trip_correctly ... ok
+test broker::tests::extract_engine_id_extracts_from_prefixed_queue ... ok
+test broker::tests::extract_engine_id_from_already_prefixed_queue ... ok
+test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_missing_field ... ok
+test broker::tests::extract_engine_id_returns_none_for_unprefixed_queue ... ok
+test broker::tests::is_coordinator_queue_recognizes_prefixed_coordinator_queues ... ok
 test broker::tests::is_coordinator_queue_returns_false_for_default_queue ... ok
+test broker::tests::extract_engine_id_handles_engine_id_with_dots ... ok
+test broker::tests::is_coordinator_queue_returns_false_for_exclusive_prefix_queue ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_completed ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_failed ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_heartbeat ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_jobs ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_progress ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_redeliveries ... ok
-test broker::tests::is_coordinator_queue_returns_true_for_queue_started ... ok
 test broker::tests::is_coordinator_queue_returns_true_for_queue_task_log_part ... ok
-test broker::tests::is_task_queue_delegates_to_is_worker_queue ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_completed ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_failed ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_heartbeat ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_jobs ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_progress ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_redeliveries ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_started ... ok
-test broker::tests::is_worker_queue_returns_false_for_queue_task_log_part ... ok
+test broker::rabbitmq::helpers::tests::clamp_i32_returns_value_within_range ... ok
+test broker::tests::is_worker_queue_returns_false_for_all_coordinator_queues ... ok
+test broker::tests::prefixed_queue_extract_round_trip_is_identity_when_engine_id_empty ... ok
 test broker::tests::is_worker_queue_returns_true_for_custom_queue ... ok
+test broker::tests::is_coordinator_queue_returns_true_for_queue_started ... ok
+test broker::tests::is_task_queue_matches_is_worker_queue ... ok
 test broker::tests::is_worker_queue_returns_true_for_default_queue ... ok
+test broker::tests::is_worker_queue_accepts_worker_queues ... ok
 test broker::tests::is_worker_queue_returns_false_for_exclusive_prefix_queue ... ok
-test broker::tests::is_coordinator_queue_returns_false_for_exclusive_prefix_queue ... ok
-test broker::inmemory::tests::test_health_check ... ok
 test cache::tests::cache_defaults_to_no_janitor_and_empty ... ok
-test broker::inmemory::tests::test_get_queues_unacked ... ok
-test broker::inmemory::tests::test_queue_info ... ok
-test broker::inmemory::tests::test_delete_queue ... ok
-test broker::inmemory::tests::test_get_queues ... ok
+test broker::tests::prefixed_queue_adds_prefix_when_engine_id_non_empty ... ok
+test cache::tests::cache_expires_item_when_shorter_expiration_is_set ... ok
+test cache::tests::cache_is_empty_when_created_without_janitor ... ok
+test cache::item::tests::test_item_not_yet_expired ... ok
+test cache::tests::cache_cleans_expired_items_when_janitor_is_enabled ... ok
+test broker::tests::prefixed_queue_returns_original_when_engine_id_empty ... ok
+test broker::tests::prefixed_queue_extract_and_reprefix_round_trip ... ok
+test broker::tests::whitespace_engine_id_produces_prefixed_queue ... ok
+test cache::item::tests::test_clone ... ok
+test cache::item::tests::test_get_returns_none_on_poison ... ok
+test broker::tests::prefixed_queue_handles_engine_id_with_dots ... ok
+test broker::tests::is_worker_queue_rejects_prefixed_coordinator_queues ... ok
+test broker::tests::prefixed_queue_appends_suffix_when_queue_already_prefixed ... ok
+test cache::tests::cache_iterate_visits_all_items_when_returning_true ... ok
+test cache::tests::cache_contains_returns_false_when_item_expires ... ok
+test cache::tests::cache_list_returns_matching_items_when_filters_applied ... ok
 test cache::tests::cache_list_returns_matching_items_when_multiple_filters_applied ... ok
 test cache::tests::cache_modify_returns_error_when_modifier_fails ... ok
-test cache::tests::cache_modify_updates_value_when_key_exists ... ok
+test cache::tests::cache_list_excludes_items_when_expired ... ok
 test cache::tests::cache_modify_returns_none_when_key_is_missing ... ok
+test cache::item::tests::test_item_never_expires ... ok
 test cache::tests::cache_list_returns_all_items_when_no_filters_applied ... ok
-test cache::tests::cache_retains_items_when_closed ... ok
-test cache::tests::cache_set_expiration_returns_false_when_key_is_missing ... ok
+test cache::tests::cache_iterate_excludes_items_when_expired ... ok
+test cache::tests::cache_modify_updates_value_when_key_exists ... ok
+test cache::item::tests::test_item_expired ... ok
+test cache::tests::cache_iterate_stops_early_when_returning_false ... ok
 test cache::tests::cache_removes_expired_items_when_delete_expired_is_called ... ok
 test datastore::postgres::encrypt::tests::test_decrypt_invalid_base64_fails ... ok
-test datastore::postgres::encrypt::tests::test_decrypt_secrets_empty_map ... ok
 test datastore::postgres::encrypt::tests::test_decrypt_short_ciphertext_fails ... ok
+test datastore::postgres::encrypt::tests::test_decrypt_secrets_without_key ... ok
 test cache::tests::janitor_cleans_expired_items_when_ticker_ticks ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_decrypt_roundtrip ... ok
-test datastore::postgres::encrypt::tests::test_decrypt_with_wrong_key_fails ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_secrets_empty_map ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_secrets_without_key ... ok
+test datastore::postgres::impl_jobs::tests::classify_perm_error_returns_database_for_other ... ok
 test datastore::postgres::encrypt::tests::test_encrypt_empty_string ... ok
 test datastore::postgres::encrypt::tests::test_encrypt_different_keys_produce_different_ciphertext ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_secrets_empty_map ... ok
-test datastore::postgres::encrypt::tests::test_decrypt_secrets_without_key ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_decrypt_secrets_roundtrip ... ok
+test datastore::postgres::encrypt::tests::test_decrypt_secrets_empty_map ... ok
+test cache::tests::cache_set_expiration_returns_false_when_key_is_missing ... ok
+test datastore::postgres::encrypt::tests::test_decrypt_with_wrong_key_fails ... ok
+test datastore::postgres::impl_jobs::tests::deserialize_tasks_handles_single_task ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_decrypt_roundtrip ... ok
+test cache::tests::cache_retains_items_when_closed ... ok
+test datastore::postgres::impl_jobs::tests::classify_perm_error_detects_user_fkey ... ok
+test datastore::postgres::impl_jobs::tests::deserialize_tasks_returns_error_for_invalid_json ... ok
 test datastore::postgres::encrypt::tests::test_decrypt_secrets_mixed_encrypted_and_plain ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_secrets_without_key ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_secrets_with_key ... ok
+test broker::rabbitmq::helpers::tests::make_json_handler_ignores_invalid_json ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_special_characters ... ok
 test datastore::postgres::encrypt::tests::test_encrypt_secrets_preserves_keys ... ok
+test datastore::postgres::impl_jobs::tests::deserialize_tasks_handles_empty_array ... ok
+test datastore::postgres::impl_jobs::tests::classify_perm_error_detects_role_fkey ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_secrets_with_key ... ok
+test broker::rabbitmq::helpers::tests::make_json_handler_arc_wraps_in_arc ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_combines_multiple_tags ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_deduplicates_not_applied ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_extracts_tag_prefix ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_empty_query ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_extracts_tags_comma_separated ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_empty_tag_value ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_returns_empty_for_no_tags ... ok
+test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_mixed_tag_and_tags ... ok
+test datastore::postgres::impl_jobs::tests::serialize_json_field_returns_none_for_none ... ok
 test datastore::postgres::records::auth::tests::role_record_to_role_basic_fields ... ok
 test datastore::postgres::records::auth::tests::user_record_to_user_basic_fields ... ok
+test datastore::postgres::impl_jobs::tests::serialize_json_field_returns_bytes_for_some ... ok
 test datastore::postgres::records::auth::tests::user_record_to_user_disabled ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_special_characters ... ok
 test datastore::postgres::records::helpers::tests::str_to_task_state_converts_all_states ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_decrypt_secrets_roundtrip ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_basic_fields ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_empty_webhooks_and_perms_yield_none ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_basic_fields ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_no_secrets ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_progress_defaults ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_auto_delete ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_with_created_by ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_defaults ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_inputs ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_delete_at ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_permissions ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_schedule ... ok
-test datastore::postgres::records::job::tests::job_record_to_job_with_tags ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_auto_delete ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_without_encryption_secrets_pass_through ... ok
 test datastore::postgres::records::log::tests::task_log_part_record_to_task_log_part ... ok
 test datastore::postgres::records::job::tests::job_record_to_job_with_webhooks ... ok
-test datastore::postgres::records::node::tests::node_record_to_node_non_up_status_preserved ... ok
-test datastore::postgres::records::node::tests::node_record_to_node_cpu_percent_preserved ... ok
-test datastore::postgres::records::node::tests::node_record_to_node_recent_heartbeat_stays_up ... ok
 test datastore::postgres::records::node::tests::node_record_to_node_basic_fields ... ok
+test datastore::postgres::records::node::tests::node_record_to_node_cpu_percent_preserved ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_delete_at ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_defaults ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_permissions ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_inputs ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_schedule ... ok
+test datastore::postgres::records::node::tests::node_record_to_node_non_up_status_preserved ... ok
+test datastore::postgres::records::node::tests::node_record_to_node_recent_heartbeat_stays_up ... ok
+test datastore::postgres::records::job::tests::job_record_to_job_with_tags ... ok
 test datastore::postgres::records::node::tests::node_record_to_node_stale_heartbeat_goes_offline ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_basic ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_empty_webhooks_and_perms_yield_none ... ok
+test broker::rabbitmq::helpers::tests::make_json_handler_deserializes_and_invokes ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_no_secrets ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_cron ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_inputs ... ok
 test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_tags ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_all_timestamps ... ok
-test datastore::postgres::records::task::tests::task_record_to_task_default_priority_and_progress ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_basic_fields ... ok
+test datastore::postgres::records::task::tests::task_record_to_task_default_priority_and_progress ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_empty_optional_fields ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_cmd_and_entrypoint ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_env_and_files ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_error_and_result ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_networks_and_tags ... ok
-test datastore::postgres::records::task::tests::task_record_to_task_with_parallel ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_parent_id ... ok
+test datastore::postgres::records::task::tests::task_record_to_task_with_parallel ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_registry ... ok
 test datastore::postgres::records::task::tests::task_record_to_task_with_retry_and_limits ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_jobs ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_jobs_perms ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_nodes ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_roles ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_scheduled_jobs ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_scheduled_jobs_perms ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_tasks ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_users ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_tasks_log_parts ... ok
-test datastore::postgres::schema::tests::schema_contains_create_table_users_roles ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_created_at ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_delete_at ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_perms_job_id ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_perms_user_role ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_state ... ok
-test datastore::postgres::schema::tests::schema_contains_index_jobs_tags ... ok
-test datastore::postgres::schema::tests::schema_contains_index_nodes_heartbeat ... ok
-test datastore::postgres::schema::tests::schema_contains_index_roles_slug ... ok
-test datastore::postgres::schema::tests::schema_contains_index_tasks_job_id ... ok
-test datastore::postgres::schema::tests::schema_contains_index_tasks_log_parts_created_at ... ok
-test datastore::postgres::schema::tests::schema_contains_index_tasks_log_parts_task_id ... ok
-test datastore::postgres::schema::tests::schema_contains_index_tasks_parent_and_state ... ok
-test datastore::postgres::schema::tests::schema_contains_index_tasks_state ... ok
-test datastore::postgres::schema::tests::schema_contains_index_users_roles_unique ... ok
-test datastore::postgres::schema::tests::schema_jobs_has_scheduled_job_id_fk ... ok
-test datastore::postgres::schema::tests::schema_jobs_has_created_by_fk ... ok
-test datastore::postgres::schema::tests::schema_jobs_progress_is_double ... ok
-test datastore::postgres::schema::tests::schema_jobs_tags_is_text_array ... ok
-test datastore::postgres::schema::tests::schema_jobs_ts_uses_generated_always ... ok
-test datastore::postgres::schema::tests::schema_nodes_has_primary_key ... ok
-test datastore::postgres::schema::tests::schema_nodes_port_is_bigint ... ok
-test datastore::postgres::schema::tests::schema_roles_has_unique_slug ... ok
-test datastore::postgres::schema::tests::schema_scheduled_jobs_has_created_by_fk ... ok
-test datastore::postgres::schema::tests::schema_seeds_guest_user ... ok
-test datastore::postgres::schema::tests::schema_seeds_public_role ... ok
-test datastore::postgres::schema::tests::schema_tasks_log_parts_ts_uses_generated_always ... ok
-test datastore::postgres::schema::tests::schema_scheduled_jobs_tags_is_text_array ... ok
-test datastore::postgres::schema::tests::schema_tasks_log_parts_has_task_id_fk ... ok
-test datastore::postgres::schema::tests::schema_tasks_has_job_id_fk ... ok
-test datastore::postgres::schema::tests::schema_tasks_progress_is_double ... ok
-test datastore::postgres::schema::tests::schema_users_has_unique_username ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_jobs ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_nodes ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_jobs_perms ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_roles ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_scheduled_jobs ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_scheduled_jobs_perms ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_users ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_tasks ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_users_roles ... ok
+test datastore::postgres::schema_tests::schema_contains_create_table_tasks_log_parts ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_created_at ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_delete_at ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_perms_job_id ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_perms_user_role ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_state ... ok
+test datastore::postgres::schema_tests::schema_contains_index_jobs_tags ... ok
+test datastore::postgres::schema_tests::schema_contains_index_nodes_heartbeat ... ok
+test datastore::postgres::schema_tests::schema_contains_index_roles_slug ... ok
+test datastore::postgres::schema_tests::schema_contains_index_tasks_job_id ... ok
+test datastore::postgres::schema_tests::schema_contains_index_tasks_log_parts_created_at ... ok
+test datastore::postgres::schema_tests::schema_contains_index_tasks_log_parts_task_id ... ok
+test datastore::postgres::schema_tests::schema_contains_index_tasks_parent_and_state ... ok
+test datastore::postgres::schema_tests::schema_contains_index_tasks_state ... ok
+test datastore::postgres::schema_tests::schema_contains_index_users_roles_unique ... ok
+test datastore::postgres::schema_tests::schema_jobs_ts_uses_generated_always ... ok
+test datastore::postgres::schema_tests::schema_seeds_guest_user ... ok
+test datastore::postgres::schema_tests::schema_seeds_public_role ... ok
+test datastore::postgres::schema_tests::schema_jobs_has_scheduled_job_id_fk ... ok
+test datastore::postgres::schema_tests::schema_tasks_log_parts_ts_uses_generated_always ... ok
+test datastore::postgres::schema_tests::schema_jobs_has_created_by_fk ... ok
+test datastore::postgres::schema_tests::schema_jobs_tags_is_text_array ... ok
+test datastore::postgres::schema_tests::schema_jobs_progress_is_double ... ok
+test datastore::postgres::schema_tests::schema_nodes_port_is_bigint ... ok
+test datastore::postgres::schema_tests::schema_nodes_has_primary_key ... ok
+test datastore::postgres::schema_tests::schema_roles_has_unique_slug ... ok
 test httpx::tests::test_can_connect_with_invalid_address ... ok
-test datastore::postgres::schema::tests::schema_users_roles_has_foreign_keys ... ok
-test datastore::postgres::encrypt::tests::test_encrypt_long_secret ... ok
-test datastore::postgres::schema::tests::schema_uses_bigint_for_counters ... ok
+test datastore::postgres::schema_tests::schema_scheduled_jobs_tags_is_text_array ... ok
 test httpx::tests::test_polling_config_default ... ok
-test datastore::postgres::schema::tests::schema_uses_timestamptz ... ok
 test httpx::tests::test_can_connect_with_unreachable_address ... ok
-test locker::inmemory::tests::test_inmemory_locker_acquire_lock_returns_error_when_locked ... ok
-test httpx::tests::test_can_connect_with_valid_address ... ok
-test locker::inmemory::tests::test_inmemory_locker_release_nonexistent_fails ... ok
+test datastore::postgres::schema_tests::schema_scheduled_jobs_has_created_by_fk ... ok
+test datastore::postgres::schema_tests::schema_tasks_log_parts_has_task_id_fk ... ok
+test datastore::postgres::schema_tests::schema_tasks_has_job_id_fk ... ok
 test locker::postgres::tests::test_hash_key ... ok
 test locker::postgres::tests::test_hash_key_deterministic ... ok
 test locker::postgres::tests::test_postgres_locker_acquire_lock_returns_error_when_locked ... ignored, requires postgres
+test datastore::postgres::schema_tests::schema_tasks_progress_is_double ... ok
+test datastore::postgres::schema_tests::schema_uses_bigint_for_counters ... ok
 test locker::postgres::tests::test_postgres_locker_new ... ignored, requires postgres
+test httpx::tests::test_can_connect_with_valid_address ... ok
+test locker::inmemory::tests::test_inmemory_locker_double_acquire_fails ... ok
+test locker::inmemory::tests::test_inmemory_locker_release_nonexistent_fails ... ok
 test locker::postgres::tests::test_hash_key_different_keys ... ok
+test locker::inmemory::tests::test_inmemory_locker_acquire_lock_returns_error_when_locked ... ok
+test datastore::postgres::schema_tests::schema_uses_timestamptz ... ok
+test datastore::postgres::encrypt::tests::test_encrypt_long_secret ... ok
+test datastore::postgres::schema_tests::schema_users_roles_has_foreign_keys ... ok
 test reexec::tests::test_command_args_passed ... ok
 test reexec::tests::test_command_creation ... ok
+test datastore::postgres::schema_tests::schema_users_has_unique_username ... ok
 test reexec::tests::test_command_empty_args ... ok
 test reexec::tests::test_command_uses_proc_self_exe ... ok
 test reexec::tests::test_naive_self_absolute_path_passthrough ... ok
 test reexec::tests::test_naive_self_bare_name_searches_path ... ok
 test reexec::tests::test_naive_self_mkdir_resolved ... ok
+test httpx::tests::test_start_async_success ... ok
 test reexec::tests::test_naive_self_relative_path_absolved ... ok
 test reexec::tests::test_naive_self_returns_path ... ok
-test reexec::tests::test_register_and_init_not_called ... ok
 test reexec::tests::test_register_duplicate_fails ... ok
-test reexec::tests::test_register_error_message_exact ... ok
+test reexec::tests::test_register_and_init_not_called ... ok
 test reexec::tests::test_self_path_is_proc_self_exe ... ok
 test reexec::tests::test_self_path_returns_valid ... ok
-test runtime::docker::archive::tests::test_archive_entry_builder ... ok
-test runtime::docker::archive::tests::test_archive_read_impl ... ok
+test reexec::tests::test_register_error_message_exact ... ok
+test runtime::docker::auth::auth_config::tests::test_config_get_credentials_explicit_user_pass ... ok
 test runtime::docker::archive::tests::test_archive_remove ... ok
-test runtime::docker::archive::tests::test_archive_write_multiple_files ... ok
+test runtime::docker::auth::auth_config::tests::test_config_get_credentials_direct ... ok
+test runtime::docker::archive::tests::test_archive_read_impl ... ok
+test runtime::docker::auth::auth_config::tests::test_config_get_credentials_identity_token ... ok
+test runtime::docker::archive::tests::test_archive_entry_builder ... ok
 test runtime::docker::archive::tests::test_create_archive ... ok
 test runtime::docker::auth::auth_config::tests::test_config_deserialize_full ... ok
-test runtime::docker::auth::auth_config::tests::test_config_get_credentials_direct ... ok
-test runtime::docker::auth::auth_config::tests::test_config_get_credentials_explicit_user_pass ... ok
-test runtime::docker::auth::auth_config::tests::test_config_get_credentials_identity_token ... ok
-test reexec::tests::test_command_subprocess_exit ... ok
-test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_colon_in_password ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_empty ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_empty_password ... ok
-test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_happy ... ok
+test runtime::docker::archive::tests::test_archive_write_multiple_files ... ok
+test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_colon_in_password ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_invalid ... ok
+test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_happy ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_invalid_format ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_null_trim ... ok
+test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_empty_config_returns_empty ... ok
 test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_with_special_chars_in_password ... ok
 test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_auth_field_takes_precedence_over_empty_user_pass ... ok
-test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_empty_config_returns_empty ... ok
 test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_empty_identity_token_falls_through ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_deserialize_empty_object ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_deserialize_minimal_auth ... ok
-test runtime::docker::auth::auth_resolver::tests::test_config_get_credentials_with_credential_helper_configured ... ok
-test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_default_path_when_empty ... ok
-test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_explicit_path ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_empty_file ... ok
-test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_invalid_json ... ok
+test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_explicit_path ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_missing_file ... ok
-test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_valid_json ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_new_is_default ... ok
 test runtime::docker::auth::auth_resolver::tests::test_config_serialize_roundtrip ... ok
-test cache::item::tests::test_clone ... ok
-test cache::item::tests::test_get_returns_none_on_poison ... ok
-test cache::item::tests::test_item_not_yet_expired ... ok
-test cache::item::tests::test_item_expired ... ok
-test cache::tests::cache_iterate_stops_early_when_returning_false ... ok
-test cache::tests::cache_expires_item_when_shorter_expiration_is_set ... ok
-test locker::inmemory::tests::test_inmemory_locker_double_acquire_fails ... ok
-test cache::tests::cache_list_excludes_items_when_expired ... ok
-test cache::tests::cache_list_returns_matching_items_when_filters_applied ... ok
-test cache::tests::cache_is_empty_when_created_without_janitor ... ok
-test cache::tests::cache_iterate_visits_all_items_when_returning_true ... ok
-test cache::tests::cache_iterate_excludes_items_when_expired ... ok
 test runtime::docker::bind::tests::test_bind_mount_allowed_source ... ok
 test runtime::docker::bind::tests::test_bind_mount_case_insensitive ... ok
-test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_invalid_config_file_returns_error ... ok
-test cache::tests::cache_cleans_expired_items_when_janitor_is_enabled ... ok
-test broker::inmemory::tests::broker_shutdown_fails_health_check_after ... ok
-test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_valid_config_file ... ok
-test httpx::tests::test_start_async_success ... ok
 test runtime::docker::bind::tests::test_bind_mount_no_source ... ok
-test runtime::docker::bind::tests::test_bind_mount_empty_sources_allows_any ... ok
-test runtime::docker::bind::tests::test_bind_mount_idempotent ... ok
 test runtime::docker::bind::tests::test_bind_mount_not_allowed ... ok
 test runtime::docker::bind::tests::test_bind_mount_source_not_allowed ... ok
 test runtime::docker::bind::tests::test_unmount_is_noop ... ok
-test runtime::docker::credential_helper::tests::test_credential_helper_error_display ... ok
-test runtime::docker::credential_helper::tests::test_token_username_detection ... ok
+test reexec::tests::test_command_subprocess_exit ... ok
 test runtime::docker::reference::tests::test_parse_empty_string ... ok
-test runtime::docker::credential_helper::tests::test_get_from_helper_nonexistent_helper_returns_empty ... ok
-test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_missing_config_falls_through ... ok
+test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_valid_json ... ok
+test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_invalid_json ... ok
+test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_invalid_config_file_returns_error ... ok
+test runtime::docker::bind::tests::test_bind_mount_idempotent ... ok
+test runtime::docker::bind::tests::test_bind_mount_empty_sources_allows_any ... ok
+test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_valid_config_file ... ok
+test runtime::docker::auth::auth_resolver::tests::test_config_get_credentials_with_credential_helper_configured ... ok
+test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_default_path_when_empty ... ok
 test runtime::docker::auth::auth_config::tests::test_config_get_credentials_unknown_hostname ... ok
-test runtime::docker::credential_helper::tests::test_default_helper_returns_non_empty ... ok
-test runtime::docker::credential_helper::tests::test_get_from_helper_empty_helper_returns_empty_when_no_default ... ok
-test runtime::docker::credential_helper::tests::test_default_helper_is_known_value ... ok
-test cache::item::tests::test_item_never_expires ... ok
-test cache::tests::cache_contains_returns_false_when_item_expires ... ok
+test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_missing_config_falls_through ... ok
 test httpx::tests::test_start_async_connection_timeout ... ok
-test broker::inmemory::tests::test_task_log_part_without_task_id_does_not_store ... ok
-test broker::inmemory::tests::test_publish_and_subscribe_for_job ... ok
-test broker::inmemory::tests::test_publish_and_subscribe_for_task_progress ... ok
-test broker::inmemory::tests::test_publish_task_log_part_stores_and_notifies ... ok
-test broker::inmemory::tests::broker_publish_heartbeat_receives_handler ... ok
-test broker::inmemory::tests::test_publish_heartbeat_stores_and_notifies ... ok
-test broker::inmemory::tests::test_subscribe_for_events ... ok
 test broker::inmemory::tests::test_heartbeat_without_id_does_not_store ... ok
+test broker::inmemory::tests::test_publish_and_subscribe_for_job ... ok
 test broker::inmemory::tests::test_publish_and_subscribe_for_task ... ok
+test broker::inmemory::tests::test_publish_task_log_part_stores_and_notifies ... ok
+test broker::inmemory::tests::test_publish_heartbeat_stores_and_notifies ... ok
+test broker::inmemory::tests::test_publish_and_subscribe_for_task_progress ... ok
+test broker::inmemory::tests::test_task_log_part_without_task_id_does_not_store ... ok
+test broker::inmemory::tests::test_subscribe_for_events ... ok
+test broker::inmemory::tests::broker_publish_heartbeat_receives_handler ... ok
 test broker::inmemory::tests::test_multiple_subscribers_for_job ... ok
-test broker::inmemory::tests::test_subscribe_for_heartbeats_sends_existing ... ok
 test broker::inmemory::tests::test_subscribe_for_task_log_part_sends_existing ... ok
-test runtime::docker::reference::tests::test_parse_uppercase_rejected ... ok
+test broker::inmemory::tests::test_subscribe_for_heartbeats_sends_existing ... ok
 test runtime::docker::reference::tests::test_parse_invalid_format ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_prune_images_preserves_fresh ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_prune_images_removes_expired ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_boundary_behavior ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_prune_images_skips_when_tasks_running ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_cache_multiple_images_mixed_expiration ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_cache_one_second_over_ttl ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_check_image_not_in_cache ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_check_expired_ttl ... ok
-test runtime::docker::runtime::ttl_cache_tests::test_ttl_check_within_ttl ... ok
-test runtime::docker::tmpfs::tests::test_mount_tmpfs ... ok
-test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_source_allowed ... ok
-test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_target ... ok
-test runtime::docker::tmpfs::tests::test_mount_tmpfs_no_target ... ok
-test runtime::docker::tmpfs::tests::test_mount_tmpfs_with_source ... ok
-test runtime::docker::tmpfs::tests::test_unmount_tmpfs ... ok
-test runtime::podman::volume::tests::volume_mount_creates_directory_when_mounted ... ok
+test runtime::docker::runtime::tests::test_prune_images_preserves_fresh ... ok
+test runtime::docker::runtime::tests::test_prune_images_removes_expired ... ok
+test runtime::docker::runtime::tests::test_prune_images_skips_when_tasks_running ... ok
+test runtime::docker::runtime::tests::test_ttl_boundary_behavior ... ok
+test runtime::docker::runtime::tests::test_ttl_cache_multiple_images_mixed_expiration ... ok
+test runtime::docker::reference::tests::test_parse_localhost_domain ... ok
+test runtime::docker::reference::tests::test_parse_uppercase_in_domain_accepted ... ok
+test runtime::docker::reference::tests::test_parse_simple_name_with_tag ... ok
+test runtime::docker::reference::tests::test_parse_short_name ... ok
 test runtime::docker::reference::tests::test_parse_tag_with_dots_and_dashes ... ok
 test runtime::docker::reference::tests::test_full_name_without_domain ... ok
 test runtime::docker::reference::tests::test_parse_uppercase_in_tag_accepted ... ok
-test runtime::docker::reference::tests::test_parse_with_latest_tag ... ok
+test runtime::docker::runtime::tests::test_ttl_cache_one_second_over_ttl ... ok
 test runtime::docker::reference::tests::test_with_tag ... ok
-test runtime::docker::reference::tests::test_parse_uppercase_in_domain_accepted ... ok
-test runtime::docker::reference::tests::test_parse_short_name ... ok
-test runtime::podman::volume::tests::volume_mount_unmount_succeeds_across_multiple_cycles ... ok
-test runtime::docker::reference::tests::test_parse_docker_hub_official ... ok
-test runtime::docker::reference::tests::test_parse_with_custom_registry ... ok
-test runtime::docker::reference::tests::test_parse_domain_with_port_no_tag ... ok
-test runtime::docker::reference::tests::test_with_tag_preserves_path ... ok
 test runtime::docker::reference::tests::test_full_name_with_domain ... ok
 test runtime::docker::reference::tests::test_parse_without_tag ... ok
-test runtime::docker::reference::tests::test_full_name_multi_component ... ok
-test runtime::docker::reference::tests::test_reference_equality ... ok
-test runtime::docker::reference::tests::test_parse_simple_name_with_tag ... ok
-test runtime::docker::reference::tests::test_parse_multi_component_path ... ok
-test runtime::docker::reference::tests::test_parse_localhost_domain ... ok
+test runtime::docker::reference::tests::test_parse_domain_with_port_no_tag ... ok
 test runtime::docker::reference::tests::test_parse_multi_component_path_no_domain ... ok
-test runtime::podman::volume::tests::volume_unmount_succeeds_when_source_empty ... ok
-test runtime::podman::volume::tests::volume_unmount_succeeds_when_path_nonexistent ... ok
-test runtime::docker::reference::tests::test_reference_inequality ... ok
+test runtime::docker::reference::tests::test_parse_multi_component_path ... ok
+test runtime::docker::reference::tests::test_with_tag_preserves_path ... ok
+test runtime::docker::reference::tests::test_parse_with_latest_tag ... ok
+test runtime::docker::reference::tests::test_full_name_multi_component ... ok
+test runtime::docker::reference::tests::test_parse_uppercase_rejected ... ok
+test runtime::docker::runtime::tests::test_ttl_check_expired_ttl ... ok
+test runtime::docker::reference::tests::test_parse_domain_without_tag ... ok
 test runtime::docker::reference::tests::test_with_tag_preserves_domain ... ok
 test runtime::docker::reference::tests::test_parse_with_port ... ok
-test runtime::docker::reference::tests::test_full_name_with_port ... ok
+test runtime::docker::runtime::tests::test_ttl_check_image_not_in_cache ... ok
+test runtime::docker::reference::tests::test_parse_with_custom_registry ... ok
+test runtime::docker::runtime::tests::test_ttl_check_within_ttl ... ok
 test runtime::docker::reference::tests::test_parse_with_port_and_tag_suffix ... ok
-test runtime::docker::reference::tests::test_parse_domain_without_tag ... ok
-test worker::worker_impl::tests::test_apply_limits_empty_task ... ok
-test worker::worker_impl::tests::test_apply_limits_partial_task ... ok
-test worker::worker_impl::tests::test_parse_duration ... ok
-test worker::api::tests::test_health_check_impl_all_healthy ... ok
+test runtime::docker::reference::tests::test_reference_equality ... ok
+test runtime::docker::reference::tests::test_parse_docker_hub_official ... ok
+test runtime::docker::reference::tests::test_full_name_with_port ... ok
+test runtime::docker::reference::tests::test_reference_inequality ... ok
+test runtime::docker::tmpfs::tests::test_mount_tmpfs ... ok
+test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_target ... ok
+test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_source_allowed ... ok
+test runtime::docker::tmpfs::tests::test_mount_tmpfs_no_target ... ok
+test runtime::docker::tmpfs::tests::test_unmount_tmpfs ... ok
+test runtime::docker::tmpfs::tests::test_mount_tmpfs_with_source ... ok
+test runtime::podman::volume::tests::volume_unmount_succeeds_when_path_nonexistent ... ok
+test runtime::podman::volume::tests::volume_unmount_succeeds_when_source_empty ... ok
+test worker::internal::execution::tests::test_apply_limits_empty_task ... ok
+test runtime::podman::volume::tests::volume_mount_creates_directory_when_mounted ... ok
+test worker::internal::execution::tests::test_apply_limits_partial_task ... ok
+test runtime::podman::volume::tests::volume_mount_unmount_succeeds_across_multiple_cycles ... ok
+test worker::internal::execution::tests::test_parse_duration ... ok
 test worker::api::tests::test_worker_api_creation ... ok
+test worker::api::tests::test_health_check_impl_all_healthy ... ok
 test runtime::docker::reference::tests::test_parse_domain_with_digest_no_tag ... ok
-test runtime::docker::reference::tests::test_parse_with_digest ... ok
-test runtime::docker::reference::tests::test_parse_with_tag_and_digest ... ok
 test runtime::docker::reference::tests::test_parse_name_too_long ... ok
 test runtime::docker::reference::tests::test_parse_name_at_max_length ... ok
+test runtime::docker::reference::tests::test_parse_with_digest ... ok
+test runtime::docker::reference::tests::test_parse_with_tag_and_digest ... ok
 test runtime::docker::volume::tests::test_create_volume ... ok
+test worker::internal::worker::tests::worker_stop_notifies_when_active_tasks_cleared ... ok
 
-test result: ok. 300 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.30s
+test result: ok. 338 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.28s
 
 
 running 20 tests
-test cache_clear_removes_all_items ... ok
 test cache_get_returns_none_when_key_not_present ... ok
-test cache_delete_expired_removes_only_expired_items ... ok
 test cache_delete_returns_none_for_missing_key ... ok
 test cache_delete_removes_existing_key ... ok
+test cache_clear_removes_all_items ... ok
 test cache_get_returns_value_when_key_present ... ok
-test cache_concurrent_gets_are_safe ... ok
-test cache_modify_updates_value_atomically ... ok
-test cache_modify_returns_none_for_missing_key ... ok
-test cache_modify_aborts_on_error ... ok
-test cache_on_evicted_callback_is_invoked ... ok
+test cache_delete_expired_removes_only_expired_items ... ok
 test cache_concurrent_inserts_are_safe ... ok
 test cache_concurrent_mixed_operations_are_safe ... ok
-test cache_set_stores_value_without_expiration ... ok
-test cache_set_overwrites_existing_value ... ok
+test cache_concurrent_gets_are_safe ... ok
 test cache_iterate_sums_values ... ok
+test cache_modify_aborts_on_error ... ok
 test cache_concurrent_get_insert_remove_are_safe ... ok
+test cache_modify_returns_none_for_missing_key ... ok
+test cache_set_overwrites_existing_value ... ok
+test cache_set_stores_value_without_expiration ... ok
+test cache_on_evicted_callback_is_invoked ... ok
+test cache_modify_updates_value_atomically ... ok
 test cache_get_returns_none_when_key_expired ... ok
 test cache_concurrent_delete_expired_is_safe ... ok
 test cache_set_with_expiration_expires_correctly ... ok
@@ -909,19 +1692,28 @@ test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 running 1 test
 test test_postgres_all ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.35s
+
+
+running 4 tests
+test broker_publishes_to_prefixed_queues_when_engine_id_set ... ok
+test broker_with_empty_engine_id_uses_unprefixed_queues ... ok
+test same_engine_id_engines_share_queues ... ok
+test two_brokers_with_different_engine_ids_do_not_cross_talk ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.46s
 
 
 running 7 tests
-test test_rabbitmq_all ... ok
 test test_rabbitmq_health_check ... ok
 test heartbeat_delivered_when_published_to_rabbitmq ... ok
 test job_delivered_when_published_to_rabbitmq ... ok
+test test_rabbitmq_all ... ok
 test events_routed_correctly_when_patterns_match ... ok
 test task_delivered_when_published_to_rabbitmq ... ok
 test tasks_delivered_in_priority_order_when_buffered_in_rabbitmq ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.30s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.54s
 
 
 running 9 tests
@@ -938,53 +1730,265 @@ test test_podman_volume_mounts ... ignored, requires Podman
 test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
+running 101 tests
+test api::error::tests::from_datastore_error_maps_job_not_found ... ok
+test api::error::tests::from_datastore_error_maps_node_not_found ... ok
+test api::error::tests::from_anyhow_error_maps_to_internal ... ok
+test api::error::tests::from_datastore_error_maps_scheduled_job_not_found ... ok
+test api::error::tests::from_datastore_error_maps_task_not_found ... ok
+test api::error::tests::from_datastore_error_maps_user_not_found ... ok
+test api::error::tests::from_datastore_error_maps_unknown_to_internal ... ok
+test api::yaml::tests::tests::ast_depth_returns_correct_depth_for_nested_yaml ... ok
+test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_1 ... ok
+test api::yaml::tests::tests::ast_depth_catches_flow_style_nesting ... ok
+test api::yaml::tests::tests::ast_depth_counts_array_nesting ... ok
+test api::error::tests::into_response_not_found_returns_404 ... ok
+test api::error::tests::into_response_bad_request_preserves_message ... ok
+test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_3 ... ok
+test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_2 ... ok
+test api::error::tests::into_response_internal_sanitizes_message ... ok
+test api::yaml::tests::tests::from_slice_accepts_unicode_value ... ok
+test api::yaml::tests::tests::from_slice_accepts_job_state_uppercase ... ok
+test api::yaml::tests::tests::from_slice_accepts_yaml_with_tabs_in_quoted_strings ... ok
+test api::yaml::tests::tests::from_slice_accepts_yaml_at_shallow_depth ... ok
+test api::yaml::tests::tests::from_slice_accepts_control_chars_0x01_to_0x1f_in_strings ... ok
+test api::yaml::tests::tests::from_slice_deserializes_empty_hashmap ... ok
+test api::yaml::tests::tests::ast_depth_returns_zero_for_flat_yaml ... ok
+test api::yaml::tests::tests::from_slice_deserializes_float_scientific_notation ... ok
+test api::yaml::tests::tests::from_slice_accepts_del_0x7f_in_quoted_strings ... ok
+test api::yaml::tests::tests::from_slice_deserializes_empty_string_value ... ok
+test api::yaml::tests::tests::ast_nodes_counts_all_nodes ... ok
+test api::yaml::tests::tests::from_slice_deserializes_hash_with_boolean_key ... ok
+test api::yaml::tests::tests::from_slice_deserializes_hash_with_null_key ... ok
+test api::yaml::tests::tests::from_slice_deserializes_hash_with_real_key ... ok
+test api::yaml::tests::tests::from_slice_deserializes_task_struct_with_image_and_queue ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_boolean_true ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_float ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_integer ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_negative_integer ... ok
+test api::yaml::tests::tests::from_slice_handles_empty_body ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_null_as_none ... ok
+test api::yaml::tests::tests::from_slice_deserializes_zero_integer ... ok
+test api::yaml::tests::tests::from_slice_deserializes_job_struct_with_minimal_fields ... ok
+test api::yaml::tests::tests::from_slice_deserializes_into_hashmap ... ok
+test api::yaml::tests::tests::from_slice_deserializes_hash_with_integer_keys ... ok
+test api::yaml::tests::tests::from_slice_deserializes_mixed_array_types ... ok
+test api::yaml::tests::tests::from_slice_handles_printable_ascii_in_values ... ok
+test api::yaml::tests::tests::from_slice_handles_multiline_block_scalar ... ok
+test api::yaml::tests::tests::from_slice_handles_flow_sequence ... ok
+test api::yaml::tests::tests::from_slice_deserializes_multiline_folded_block ... ok
+test api::yaml::tests::tests::from_slice_deserializes_multiline_literal_block ... ok
+test api::yaml::tests::tests::from_slice_handles_single_quoted_strings ... ok
+test api::yaml::tests::tests::from_slice_handles_unicode_keys_and_values ... ok
+test api::yaml::tests::tests::from_slice_handles_unknown_yaml_tag_as_null ... ok
+test api::yaml::tests::tests::from_slice_ignores_unknown_yaml_fields ... ok
+test api::yaml::tests::tests::from_slice_handles_yaml_with_trailing_newlines ... ok
+test api::yaml::tests::tests::from_slice_job_with_all_optional_fields_absent ... ok
+test api::yaml::tests::tests::from_slice_deserializes_job_with_tasks ... ok
+test api::yaml::tests::tests::from_slice_job_progress_clamps_to_valid_range ... ok
+test api::yaml::tests::tests::from_slice_job_with_auto_delete ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_list_of_strings ... ok
+test api::yaml::tests::tests::from_slice_deserializes_whitespace_only_value ... ok
+test api::yaml::tests::tests::from_slice_job_with_tags ... ok
+test api::yaml::tests::tests::from_slice_job_with_webhooks ... ok
+test api::yaml::tests::tests::from_slice_job_with_task_defaults ... ok
+test api::yaml::tests::tests::from_slice_parses_complex_nested_structure ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_binary_content_0x00 ... ok
+test api::yaml::tests::tests::from_slice_rejects_invalid_job_state ... ok
+test api::yaml::tests::tests::from_slice_rejects_job_with_invalid_task_image_type ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_binary_content_0x80_to_0xff ... ok
+test api::yaml::tests::tests::from_slice_rejects_job_with_invalid_task_priority_type ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_embedded_null_byte ... ok
+test api::yaml::tests::tests::from_slice_job_with_camelcase_fields ... ok
+test api::yaml::tests::tests::from_slice_deserializes_very_large_integer ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_mixed_valid_and_invalid_utf8 ... ok
+test api::yaml::tests::tests::from_slice_deserializes_nested_map ... ok
+test api::yaml::tests::tests::from_slice_handles_double_quoted_strings ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_boolean_false ... ok
+test api::yaml::tests::tests::from_slice_deserializes_negative_integer ... ok
+test api::yaml::tests::tests::from_slice_deserializes_yaml_alias ... ok
+test api::yaml::tests::tests::from_slice_deserializes_zero_float ... ok
+test api::yaml::tests::tests::from_slice_job_with_empty_tasks_array ... ok
+test api::yaml::tests::tests::from_slice_job_with_null_description_becomes_none ... ok
+test api::yaml::tests::tests::from_slice_job_with_inputs ... ok
+test api::yaml::tests::tests::from_slice_job_with_schedule ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_truncated_utf8_sequence ... ok
+test api::yaml::tests::tests::from_slice_deserializes_nested_arrays ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_for_type_mismatch ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_body_is_whitespace_only ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_bytes_are_not_utf8 ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_missing_required_field ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_yaml_is_malformed ... ok
+test api::yaml::tests::tests::from_slice_returns_none_for_absent_option_field ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_nesting_exceeds_depth_limit ... ok
+test api::yaml::tests::tests::from_slice_rejects_deeply_nested_flow_style ... ok
+test api::yaml::tests::tests::from_slice_job_with_context ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_body_exceeds_size_limit ... ok
+test api::yaml::tests::tests::from_slice_returns_valid_job_when_yaml_is_well_formed ... ok
+test api::yaml::tests::tests::from_slice_uses_default_for_absent_field ... ok
+test api::yaml::tests::tests::parse_all_example_yaml_files ... ok
+test api::yaml::tests::tests::ast_depth_never_negative ... ok
+test api::yaml::tests::tests::from_slice_returns_bad_request_when_node_count_exceeds_limit ... ok
+test api::yaml::tests::tests::ast_depth_and_nodes_deterministic ... ok
+test api::yaml::tests::tests::from_slice_returns_ok_when_body_exactly_at_size_limit ... ok
+test api::yaml::tests::tests::from_slice_rejects_flow_style_depth_bomb ... ok
+
+test result: ok. 101 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+running 43 tests
+test cancel_job_returns_404_when_job_not_found ... ok
+test delete_queue_returns_ok_when_exists ... ok
+test create_user_returns_400_without_username ... ok
+test get_job_returns_404_when_not_found ... ok
+test create_scheduled_job_returns_400_without_tasks ... ok
+test create_user_returns_400_without_password ... ok
+test get_job_log_returns_404_when_job_not_found ... ok
+test delete_scheduled_job_returns_404_when_not_found ... ok
+test create_scheduled_job_returns_400_without_cron ... ok
+test cancel_job_returns_ok_when_job_is_running ... ok
+test delete_queue_returns_status ... ok
+test get_queue_returns_queue_info ... ok
+test create_scheduled_job_returns_400_with_invalid_cron ... ok
+test create_scheduled_job_returns_400_with_unsupported_content_type ... ok
+test get_scheduled_job_returns_404_when_not_found ... ok
+test get_metrics_returns_metrics ... ok
+test create_job_returns_400_with_unsupported_content_type ... ok
+test get_job_returns_job_when_exists ... ok
+test create_scheduled_job_returns_ok_with_valid_json ... ok
+test get_job_log_returns_empty_when_no_logs ... ok
+test get_queue_returns_queue_info_when_exists ... ok
+test get_task_log_returns_404_when_task_not_found ... ok
+test get_scheduled_job_returns_job_when_exists ... ok
+test create_job_returns_400_with_invalid_json ... ok
+test cancel_job_returns_400_when_job_not_cancellable ... ok
+test health_response_includes_version ... ok
+test list_queues_returns_queues ... ok
+test list_jobs_respects_pagination_params ... ok
+test pause_scheduled_job_returns_404_when_not_found ... ok
+test list_jobs_returns_empty_list_when_no_jobs ... ok
+test list_jobs_returns_jobs_when_exist ... ok
+test restart_job_returns_400_when_job_not_restartable ... ok
+test get_task_returns_404_when_not_found ... ok
+test list_nodes_returns_nodes_list ... ok
+test list_scheduled_jobs_returns_empty_list_when_no_jobs ... ok
+test restart_job_returns_ok_when_job_is_failed ... ok
+test restart_job_returns_404_when_job_not_found ... ok
+test resume_scheduled_job_returns_404_when_not_found ... ok
+test delete_scheduled_job_returns_ok_when_exists ... ok
+test list_scheduled_jobs_returns_jobs_when_exist ... ok
+test pause_scheduled_job_returns_ok_when_active ... ok
+test resume_scheduled_job_returns_ok_when_paused ... ok
+test create_user_returns_ok_with_valid_credentials ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+
+running 7 tests
+test error_response_formatted_as_json_when_job_missing ... ok
+test health_status_is_up_when_engine_is_ready ... ok
+test health_status_returns_503_when_broker_health_check_fails ... ok
+test job_secrets_redacted_when_fetched_from_api ... ok
+test job_created_successfully_when_valid_json_posted ... ok
+test job_created_successfully_when_valid_yaml_posted ... ok
+test job_wait_returns_completed_when_job_finishes ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.00s
+
+
+running 18 tests
+test nodes_list_returns_node_list ... ok
+test jobs_get_returns_404_for_nonexistent ... ok
+test health_returns_up_status ... ok
+test jobs_create_rejects_unsupported_content_type ... ok
+test error_response_has_json_format ... ok
+test queues_delete_returns_ok ... ok
+test jobs_cancel_returns_ok_for_running_job ... ok
+test jobs_restart_returns_ok_for_failed_job ... ok
+test jobs_get_returns_job ... ok
+test queues_list_returns_queue_list ... ok
+test metrics_returns_metrics_data ... ok
+test queues_get_returns_queue_info ... ok
+test jobs_list_returns_job_list ... ok
+test users_create_returns_bad_request_without_username ... ok
+test jobs_create_returns_job_summary ... ok
+test jobs_create_with_yaml_returns_job_summary ... ok
+test users_create_returns_bad_request_without_password ... ok
+test users_create_returns_ok ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-running 7 tests
-test health_status_returns_503_when_broker_health_check_fails ... ok
-test health_status_is_up_when_engine_is_ready ... ok
-test error_response_formatted_as_json_when_job_missing ... ok
-test job_secrets_redacted_when_fetched_from_api ... ok
-test job_wait_returns_completed_when_job_finishes ... ok
-test job_created_successfully_when_valid_yaml_posted ... ok
-test job_created_successfully_when_valid_json_posted ... ok
+running 0 tests
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test monte_carlo_simulation::monte_carlo_scenario_1_simple_echo ... ok
+test monte_carlo_simulation::monte_carlo_scenario_8_parallel_8_tasks ... ok
+test monte_carlo_simulation::monte_carlo_scenario_15_sustained_burst ... ok
+test monte_carlo_simulation::correlation_complexity_vs_throughput ... ok
+test monte_carlo_simulation::run_full_monte_carlo_simulation ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 50.69s
+
+
+running 8 tests
+test realistic_mutation_benchmarks::latency_distribution_realistic_workload ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::mutation_workload_each_items ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::mutation_workload_high_parallelism ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::mutation_workload_mixed_job_types ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::mutation_workload_realistic_started_simulation ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::mutation_workload_single_jobs ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::stress_test_sustained_realistic_load ... ignored, manual benchmark; exclude from normal cargo test
+test realistic_mutation_benchmarks::generated_yaml_variants_parse_as_jobs ... ok
+
+test result: ok. 1 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
 running 27 tests
-test tests::redact_appended_when_multiple_secret_values_present ... ok
-test tests::redact_appended_when_value_contains_secret_value ... ok
-test tests::redact_job_context_inputs_when_containing_secrets ... ok
 test tests::redact_handles_empty_secret_values_without_panic ... ok
+test tests::redact_appended_when_value_contains_secret_value ... ok
+test tests::redact_appended_when_multiple_secret_values_present ... ok
+test tests::redact_job_context_inputs_when_containing_secrets ... ok
+test tests::redact_job_summary_does_not_redact_non_secret_keys ... ok
+test tests::redact_job_context_tasks_when_containing_secrets ... ok
+test tests::redact_job_summary_inputs_by_key_only ... ok
+test tests::redact_job_tasks_env_vars_containing_secrets ... ok
 test tests::redact_job_execution_tasks_redacted ... ok
 test tests::redact_job_secrets_map_replaced_with_redacted ... ok
 test tests::redact_job_context_secrets_replaced_with_redacted ... ok
-test tests::redact_job_context_tasks_when_containing_secrets ... ok
-test tests::redact_job_summary_does_not_redact_non_secret_keys ... ok
-test tests::redact_job_tasks_parallel_tasks_recursively_redacted ... ok
-test tests::redact_job_summary_inputs_by_key_only ... ok
-test tests::redact_job_tasks_registry_password_replaced ... ok
-test tests::redact_job_tasks_pre_sidecars_recursively_redacted ... ok
 test tests::redact_job_tasks_mount_opts_containing_secrets ... ok
-test tests::redact_job_tasks_env_vars_containing_secrets ... ok
+test tests::redact_job_tasks_parallel_tasks_recursively_redacted ... ok
+test tests::redact_job_tasks_pre_sidecars_recursively_redacted ... ok
+test tests::redact_job_tasks_registry_password_replaced ... ok
 test tests::redact_job_tasks_subjob_secrets_replaced ... ok
 test tests::redact_job_tasks_subjob_webhooks_redacted ... ok
 test tests::redact_job_webhook_headers_containing_secrets ... ok
 test tests::redact_matches_multiple_occurrences_of_same_secret ... ok
 test tests::redact_matches_secret_value_in_nested_json_string ... ok
-test tests::redact_no_op_when_no_secrets_defined ... ok
 test tests::redact_no_op_when_secrets_map_is_empty ... ok
+test tests::redact_no_op_when_no_secrets_defined ... ok
 test tests::redact_patterns_api_key_when_key_contains_token ... ok
-test tests::redact_patterns_aws_secret_key_when_key_contains_secret ... ok
 test tests::redact_replaces_secret_value_when_key_contains_secret ... ok
+test tests::redact_patterns_aws_secret_key_when_key_contains_secret ... ok
 test tests::redact_replaces_secret_value_when_key_is_access_key ... ok
 test tests::redact_replaces_secret_value_when_key_is_password ... ok
 
 test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test true_yaml_benchmark::true_yaml_parse_latency_p50_p90_p99 ... ok
+test true_yaml_benchmark::true_yaml_parse_throughput_100k ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.14s
 
 
 running 0 tests
@@ -1001,18 +2005,19 @@ running 2 tests
 test crates/twerk-common/src/slices.rs - slices::map_slice (line 48) ... ok
 test crates/twerk-common/src/slices.rs - slices::intersect (line 22) ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 2 tests
+test crates/twerk-core/src/task.rs - task::is_task_state_active (line 95) ... ok
+test crates/twerk-core/src/env.rs - env::format_kv (line 9) ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
 
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-
-running 1 test
-test crates/twerk-infrastructure/src/encryption.rs - encryption (line 5) ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
 
 
 running 0 tests

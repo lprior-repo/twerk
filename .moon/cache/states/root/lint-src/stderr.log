@@ -1,0 +1,8 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking twerk-core v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-core)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-cli)
+    Checking twerk-infrastructure v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-infrastructure)
+    Checking twerk-app v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-app)
+    Checking twerk-web v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-web)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36.74s

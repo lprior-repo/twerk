@@ -1,0 +1,1943 @@
+▮▮▮▮ installing rust 1.94.0
+▮▮▮▮ root:test (3b698460)
+▮▮▮▮ root:lint-src (f37e699b)
+▮▮▮▮ root:fmt (a264ee9e)
+▮▮▮▮ root:check (5d5f2a0f)
+   root:check |     Blocking waiting for file lock on package cache
+root:lint-src |     Blocking waiting for file lock on package cache
+    root:test |     Blocking waiting for file lock on package cache
+   root:check |     Blocking waiting for file lock on package cache
+root:lint-src |     Blocking waiting for file lock on package cache
+    root:test |     Blocking waiting for file lock on package cache
+   root:check |     Blocking waiting for file lock on package cache
+root:lint-src |     Blocking waiting for file lock on package cache
+    root:test |     Blocking waiting for file lock on package cache
+▮▮▮▮ root:fmt (291ms, a264ee9e)
+   root:check |     Blocking waiting for file lock on package cache
+root:lint-src |     Blocking waiting for file lock on build directory
+    root:test |     Blocking waiting for file lock on artifact directory
+   root:check |     Checking twerk-core v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-core)
+   root:check |    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-cli)
+   root:check |     Checking twerk-infrastructure v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-infrastructure)
+   root:check |     Checking twerk-app v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-app)
+   root:check |     Checking twerk-web v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-web)
+   root:check |     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.56s
+▮▮▮▮ root:check (2s 600ms, 5d5f2a0f)
+root:lint-src |    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-cli)
+root:lint-src |     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.93s
+▮▮▮▮ root:lint-src (2s 979ms, f37e699b)
+    root:test |    Compiling twerk-core v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-core)
+    root:test |    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-cli)
+    root:test |    Compiling twerk-infrastructure v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-infrastructure)
+    root:test | warning: unused import: `twerk_core::asl::pass::PassState`
+    root:test |  --> crates/twerk-core/tests/asl_container_test.rs:9:5
+    root:test |   |
+    root:test | 9 | use twerk_core::asl::pass::PassState;
+    root:test |   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    root:test |   |
+    root:test |   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+    root:test | warning: `twerk-core` (test "asl_container_test") generated 1 warning (run `cargo fix --test "asl_container_test" -p twerk-core` to apply 1 suggestion)
+    root:test |    Compiling twerk-app v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-app)
+    root:test |    Compiling twerk-web v0.1.0 (/home/lewis/src/twerk-fq8/crates/twerk-web)
+
+    root:test | running 49 tests
+    root:test | test engine::coordinator::hostenv::tests::parse_var_spec_invalid_too_many_colons ... ok
+    root:test | test engine::coordinator::hostenv::tests::parse_var_spec_with_task_mapping ... ok
+    root:test | test engine::coordinator::hostenv::tests::parse_var_spec_single_host_var ... ok
+    root:test | test engine::coordinator::hostenv::tests::parse_var_specs_multiple ... ok
+    root:test | test engine::coordinator::utils::tests::parse_body_limit_returns_none_when_invalid_input ... ok
+    root:test | test engine::coordinator::utils::tests::parse_body_limit_returns_parsed_bytes_when_valid_input ... ok
+    root:test | test engine::coordinator::utils::tests::wildcard_match_returns_true_when_exact_match ... ok
+    root:test | test engine::coordinator::utils::tests::wildcard_match_returns_true_when_star_used ... ok
+    root:test | test engine::coordinator::utils::tests::wildcard_match_returns_true_when_multiple_stars ... ok
+    root:test | test engine::coordinator::utils::tests::wildcard_match_returns_true_when_empty ... ok
+    root:test | test engine::locker::tests::env_duration_default_parses_seconds_from_env ... ok
+    root:test | test engine::locker::tests::env_duration_default_falls_back_on_invalid_value ... ok
+    root:test | test engine::locker::tests::env_duration_default_returns_default_when_unset ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_subjob_task_creates_subjob ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_regular ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_regular_task_applies_job_defaults ... ok
+    root:test | test engine::locker::tests::create_locker_inmemory_returns_ok ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_subjob ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_default_queue ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_regular_task_sets_scheduled_state ... ok
+    root:test | test engine::coordinator::webhook::tests::should_fire_webhook_with_matching_event ... ok
+    root:test | test engine::locker::tests::create_locker_unknown_type_returns_err ... ok
+    root:test | test engine::locker::tests::env_int_default_parses_valid_integer_from_env ... ok
+    root:test | test engine::locker::tests::env_int_default_falls_back_on_invalid_value ... ok
+    root:test | test engine::locker::tests::env_int_default_returns_default_when_unset ... ok
+    root:test | test engine::locker::tests::env_string_default_returns_default_when_unset ... ok
+    root:test | test engine::locker::tests::env_string_default_returns_env_value_when_set ... ok
+    root:test | test engine::worker::mounter::tests::test_bind_config_default ... ok
+    root:test | test engine::worker::mounter::tests::test_bind_mounter_is_source_allowed_empty_sources ... ok
+    root:test | test engine::worker::shell::tests::validate_task_returns_error_when_id_is_empty ... ok
+    root:test | test engine::worker::podman::tests::test_validate_task_empty_id ... ok
+    root:test | test engine::worker::podman::tests::test_validate_task_completed_state ... ok
+    root:test | test engine::worker::shell::tests::validate_task_returns_error_when_state_is_completed ... ok
+    root:test | test engine::worker::shell::tests::validate_task_returns_error_when_state_is_stopped ... ok
+    root:test | test engine::worker::podman::tests::test_validate_task_running_state ... ok
+    root:test | test engine::worker::shell::tests::validate_task_returns_ok_when_state_is_running ... ok
+    root:test | test engine::worker::mounter::tests::test_volume_mounter_mount ... ok
+    root:test | test engine::worker::mounter::tests::test_bind_mounter_mount_disallowed ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_parallel_task_sets_parent_id_on_children ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_each ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_each_task_sets_size ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_parallel_task_creates_child_tasks ... ok
+    root:test | test engine::default::tests::test_default_run_standalone ... ok
+    root:test |     Finished `test` profile [unoptimized + debuginfo] target(s) in 15.54s
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_app-ff28edaaad52660a)
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_each_task_with_sequence_expression ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_each_task_with_real_yaml_template ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_task_dispatches_to_parallel ... ok
+    root:test | test engine::coordinator::scheduler::tests::test_schedule_each_task_creates_task_per_list_item ... ok
+    root:test | test engine::worker::tests::send_heartbeat_when_health_check_fails_returns_down_status ... ok
+    root:test | test engine::worker::tests::send_heartbeat_when_health_check_succeeds_returns_up_status ... ok
+
+    root:test | test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+    root:test | running 4 tests
+    root:test | test key_auth_config_with_custom_skip_paths ... ok
+    root:test | test key_auth_layer_creates_proper_layer ... ok
+    root:test | test basic_auth_layer_creates_proper_layer ... ok
+    root:test | test key_auth_config_with_empty_key_allowed ... ok
+
+    root:test | test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 4 tests
+    root:test | test id_benchmarks::benchmark_id_creation_100k ... ignored
+    root:test | test id_benchmarks::latency_single_id_operation ... ok
+    root:test | test id_benchmarks::throughput_batch_id_creation ... ok
+    root:test |      Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-259fbb98f4574651)
+    root:test |      Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-dbfea28ee08ef34d)
+    root:test | test id_benchmarks::stress_id_creation_1m ... ok
+
+    root:test | test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+    root:test | running 6 tests
+    root:test | test ci_cd_pipeline_simulation::generate_all_pipeline_variants ... ok
+    root:test |      Running tests/ci_cd_pipeline_simulation.rs (target/debug/deps/ci_cd_pipeline_simulation-0c92e3defe436813)
+    root:test | test ci_cd_pipeline_simulation::simulate_simple_pipeline_throughput ... ok
+    root:test | test ci_cd_pipeline_simulation::simulate_full_pipeline_throughput ... ok
+    root:test | test ci_cd_pipeline_simulation::simulate_medium_pipeline_throughput ... ok
+    root:test | test ci_cd_pipeline_simulation::burst_load_test ... ok
+▮▮▮▮ root:test (running for 30s)
+▮▮▮▮ root:test (running for 60s)
+    root:test | test ci_cd_pipeline_simulation::sustained_load_60_seconds has been running for over 60 seconds
+    root:test | test ci_cd_pipeline_simulation::sustained_load_60_seconds ... ok
+
+    root:test | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.00s
+
+
+    root:test | running 3 tests
+    root:test | test submit_job_returns_error_when_datastore_create_fails ... ok
+    root:test | test submit_job_returns_error_when_broker_publish_fails ... ok
+    root:test | test start_job_returns_scheduled_state_when_broker_fails_to_publish_task ... ok
+
+    root:test | test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 5 tests
+    root:test | test first_top_level_task_is_scheduled_immediately_when_job_submitted ... ok
+    root:test | test subjob_scheduled_when_parent_job_running ... ok
+    root:test | test job_completes_when_tasks_are_finished ... ok
+    root:test | test each_tasks_scheduled_when_job_submitted ... ok
+    root:test | test parallel_tasks_scheduled_when_job_submitted ... ok
+
+    root:test | test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 5 tests
+    root:test | test db_concurrent_write_test ... ignored, requires running PostgreSQL with migrated schema
+    root:test | test db_query_under_load_test ... ignored, requires running PostgreSQL with migrated schema
+    root:test | test db_write_throughput_test ... ignored, requires running PostgreSQL with migrated schema
+    root:test | test e2e_load_test_1000_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+    root:test | test e2e_load_test_100_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+
+    root:test | test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 43 tests
+    root:test | test broker_proxy_check_init_returns_error_when_not_initialized ... ok
+    root:test | test cors_layer_creation_succeeds ... ok
+    root:test | test broker_proxy_set_broker_allows_custom_implementation ... ok
+    root:test | test create_runtime_from_config_fails_clearly_when_runtime_is_invalid ... ok
+    root:test | test broker_proxy_can_be_used_as_broker_trait ... ok
+    root:test | test broker_proxy_init_creates_inmemory_broker ... ok
+    root:test | test create_broker_inmemory_creates_broker ... ok
+    root:test | test broker_proxy_clone_inner_creates_independent_copy ... ok
+    root:test | test create_datastore_inmemory_creates_datastore ... ok
+    root:test | test datastore_proxy_can_be_used_as_datastore_trait ... ok
+    root:test | test datastore_proxy_set_datastore_allows_custom_implementation ... ok
+    root:test | test datastore_proxy_clone_inner_creates_independent_copy ... ok
+    root:test | test engine_new_creates_idle_engine ... ok
+    root:test | test engine_register_endpoint_allowed_when_idle ... ok
+    root:test | test engine_debug_shows_state_and_mode ... ok
+    root:test | test datastore_proxy_init_creates_inmemory_datastore ... ok
+    root:test | test engine_register_broker_provider_allowed_when_idle ... ok
+    root:test | test engine_register_runtime_allowed_when_idle ... ok
+    root:test | test engine_register_middleware_allowed_when_idle ... ok
+    root:test | test engine_register_runtime_ignored_when_already_set ... ok
+    root:test | test engine_set_mode_only_allowed_when_idle ... ok
+    root:test | test engine_submit_job_returns_error_when_engine_not_running ... ok
+    root:test | test engine_register_datastore_provider_allowed_when_idle ... ok
+    root:test | test http_log_config_debug_shows_level ... ok
+    root:test | test engine_terminate_fails_when_not_running ... ok
+    root:test | test state_idle_can_transition_to_any_state ... ok
+    root:test | test state_can_transition_to_terminating_from_running ... ok
+    root:test | test state_is_terminal_for_terminated ... ok
+    root:test | test http_log_config_default_creates_successfully ... ok
+    root:test | test coordinator_stop_cancels_tasks ... ok
+    root:test | test engine_submit_job_returns_error_when_not_coordinator_mode ... ok
+    root:test | test start_worker_initializes_broker ... ok
+    root:test | test coordinator_submit_job_generates_id_when_missing ... ok
+    root:test | test coordinator_submit_job_sets_created_at ... ok
+    root:test | test coordinator_submit_job_creates_job_in_datastore ... ok
+    root:test | test engine_run_starts_without_panic ... ok
+    root:test | test engine_register_middleware_ignored_when_running ... ok
+    root:test | test engine_register_endpoint_ignored_when_running ... ok
+    root:test | test engine_start_fails_when_not_idle ... ok
+    root:test | test engine_submit_job_submits_to_coordinator_in_standalone_mode ... ok
+    root:test | test start_coordinator_initializes_broker_and_datastore ... ok
+    root:test | test broker_proxy_init_accepts_rabbitmq_type ... ok
+    root:test | test start_standalone_initializes_broker_and_datastore ... ok
+
+    root:test | test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 7 tests
+    root:test | test handle_log_part_multiple_parts_for_same_task ... ok
+    root:test | test handle_log_part_stores_log_parts ... ok
+    root:test | test handle_heartbeat_updates_node_status ... ok
+    root:test | test handle_started_updates_task_state ... ok
+    root:test | test handle_redelivered_requeues_task ... ok
+    root:test | test handle_error_publishes_to_failed_queue ... ok
+    root:test | test handle_error_updates_task_state ... ok
+
+    root:test | test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 20 tests
+    root:test | test hostenv_middleware_does_not_inject_on_other_events ... ok
+    root:test | test hostenv_middleware_injects_env_vars_on_state_change ... ok
+    root:test | test hostenv_middleware_empty_does_nothing ... ok
+    root:test | test hostenv_middleware_multiple_vars_injected ... ok
+    root:test | test job_middleware_after_runs_after_handler ... ok
+    root:test | test job_middleware_before_runs_before_handler ... ok
+    root:test | test hostenv_middleware_preserves_existing_env ... ok
+    root:test | test job_middleware_error_propagates ... ok
+    root:test | test log_middleware_redact_on_read ... ok
+    root:test | test job_no_middleware_calls_handler_directly ... ok
+    root:test | test log_no_middleware_calls_handler_with_original_logs ... ok
+    root:test | test middleware_composer_chains_multiple_middleware_types ... ok
+    root:test | test node_middleware_after_runs_after_handler ... ok
+    root:test | test node_middleware_before_runs_before_handler ... ok
+    root:test | test node_middleware_error_propagates ... ok
+    root:test | test node_no_middleware_calls_handler_directly ... ok
+    root:test | test task_middleware_after_runs_after_handler ... ok
+    root:test | test task_middleware_before_runs_before_handler ... ok
+    root:test | test task_middleware_error_propagates ... ok
+    root:test | test task_no_middleware_calls_handler_directly ... ok
+
+    root:test | test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 2 tests
+    root:test | test pokemon_api_benchmark_through_twerk ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+    root:test | test verify_pokemon_api_direct ... ignored, requires Pokemon API running on port 8080
+
+    root:test | test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 5 tests
+    root:test | test profiling_benchmarks::service_time_distribution ... ok
+    root:test | test profiling_benchmarks::latency_id_creation_p50_p90_p99 ... ok
+    root:test | test profiling_benchmarks::throughput_batch_operations ... ok
+    root:test |      Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-4fa6f50d25eda57f)
+    root:test |      Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-837569563d410bf4)
+    root:test |      Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-645a8950677027d7)
+    root:test |      Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-f7fe1b88f905c29f)
+    root:test |      Running tests/handlers_test.rs (target/debug/deps/handlers_test-f9940af10db71116)
+    root:test |      Running tests/middleware_test.rs (target/debug/deps/middleware_test-4f874751fdbdc0ad)
+    root:test |      Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-31dea08a5cb7eebc)
+    root:test |      Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-84bc522f76bdc32f)
+    root:test | test profiling_benchmarks::throughput_sustained_10k_ops ... ok
+    root:test | test profiling_benchmarks::comparison_with_targets ... ok
+
+    root:test | test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+
+    root:test | running 6 tests
+    root:test | test realistic_profiling::throughput_mixed_workload ... ok
+    root:test | test realistic_profiling::latency_io_workload ... ok
+    root:test | test realistic_profiling::latency_compute_workload ... ok
+    root:test | test realistic_profiling::latency_echo_workload ... ok
+    root:test |      Running tests/realistic_profiling.rs (target/debug/deps/realistic_profiling-80e06086a36c696f)
+    root:test | test realistic_profiling::comparison_summary ... ok
+    root:test | test realistic_profiling::throughput_id_creation_sustained ... ok
+
+    root:test | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+
+    root:test | running 6 tests
+    root:test |      Running tests/standalone_e2e_test.rs (target/debug/deps/standalone_e2e_test-b5fcafcc48cfbf7f)
+    root:test | test standalone_engine_retries_failed_task ... ok
+    root:test | test standalone_engine_completes_job_naturally ... ok
+    root:test | test standalone_engine_completes_parallel_job_naturally ... ok
+    root:test | test standalone_engine_marks_job_as_failed_when_task_fails ... ok
+    root:test | test standalone_engine_completes_each_job_naturally ... ok
+    root:test | test standalone_engine_marks_parallel_job_as_failed_when_subtask_fails ... ok
+
+    root:test | test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+
+    root:test | running 1 test
+    root:test | test twerk_chaos_engineering_benchmark ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+
+    root:test | test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 2 tests
+    root:test | test twerk_pokemon_api_workflow ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+    root:test | test twerk_simple_curl_workflow ... ignored, requires running twerk server on localhost:8000
+
+    root:test | test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 49 tests
+    root:test | test banner::tests::test_banner_mode_clone ... ok
+    root:test | test banner::tests::test_banner_contains_twerk_name ... ok
+    root:test | test banner::tests::test_banner_mode_copy ... ok
+    root:test | test banner::tests::test_banner_mode_default ... ok
+    root:test | test banner::tests::test_banner_mode_from_str_with_whitespace_not_trimmed ... ok
+    root:test | test banner::tests::test_banner_not_empty ... ok
+    root:test | test banner::tests::test_banner_mode_from_str_case_insensitive ... ok
+    root:test | test cli::tests::test_constants_are_static ... ok
+    root:test | test banner::tests::test_banner_mode_equality ... ok
+    root:test | test cli::tests::test_default_datastore_type ... ok
+    root:test | test banner::tests::test_banner_mode_from_str ... ok
+    root:test | test cli::tests::test_default_endpoint ... ok
+    root:test | test cli::tests::test_default_postgres_dsn ... ok
+    root:test | test cli::tests::test_get_banner_mode_prefers_environment_override ... ok
+    root:test | test cli::tests::test_git_commit_not_empty ... ok
+    root:test | test cli::tests::test_version_not_empty ... ok
+    root:test | test commands::tests::test_commands_default ... ok
+    root:test | test commands::tests::test_commands_derive ... ok
+    root:test | test cli::tests::test_get_git_commit_returns_string ... ok
+    root:test | test cli::tests::test_get_endpoint_reads_client_endpoint_env_override ... ok
+    root:test | test cli::tests::test_parse_cli_args_for_version_short_circuits ... ok
+    root:test | test cli::tests::test_parse_cli_args_without_subcommand_returns_none ... ok
+    root:test | test commands::tests::test_version_flag_is_supported ... ok
+    root:test | test cli::tests::test_parse_cli_args_json_flag ... ok
+    root:test | test cli::tests::test_parse_cli_args_for_run_command_executes ... ok
+    root:test | test error::tests::test_cli_error_health_failed ... ok
+    root:test | test commands::tests::test_run_mode_value_parser_accepts_known_modes ... ok
+    root:test | test commands::tests::test_commands_help ... ok
+    root:test | test error::tests::test_cli_error_unknown_datastore ... ok
+    root:test | test commands::tests::test_help_contains_examples ... ok
+    root:test | test health::tests::test_health_response_deserialize ... ok
+    root:test | test health::tests::test_health_response_deserialize_with_extra_fields ... ok
+    root:test | test migrate::tests::test_default_postgres_dsn ... ok
+    root:test | test migrate::tests::test_unknown_datastore_rejected ... ok
+    root:test | test run::tests::test_run_mode_maps_coordinator ... ok
+    root:test | test run::tests::test_run_mode_maps_standalone ... ok
+    root:test | test run::tests::test_run_mode_maps_worker ... ok
+    root:test | test error::tests::test_cli_error_config ... ok
+    root:test | test error::tests::test_cli_error_engine ... ok
+    root:test | test error::tests::test_cli_error_debug ... ok
+    root:test | test error::tests::test_cli_error_invalid_body ... ok
+    root:test | test migrate::tests::test_postgres_variants_both_accepted ... ok
+    root:test | test migrate::tests::test_postgres_variant_matching ... ok
+    root:test | test error::tests::test_cli_error_io ... ok
+    root:test | test error::tests::test_cli_error_missing_argument ... ok
+    root:test | test error::tests::test_cli_error_logging ... ok
+    root:test | test error::tests::test_cli_error_migration ... ok
+    root:test | test health::tests::test_health_response_debug ... ok
+    root:test | test migrate::tests::test_default_postgres_dsn_format ... ok
+
+    root:test | test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 81 tests
+    root:test | test conf::tests::test_config_state_bool_map_for_key ... ok
+    root:test | test conf::tests::test_config_state_bool_map_for_key_with_string_values ... ok
+    root:test | test conf::tests::test_config_state_build_table_from_flat ... ok
+    root:test | test conf::tests::test_config_state_build_table_from_flat_nested ... ok
+    root:test | test conf::tests::test_config_state_get_int ... ok
+    root:test | test conf::tests::test_config_state_get_array ... ok
+    root:test | test conf::tests::test_config_state_get_bool ... ok
+    root:test | test conf::tests::test_config_state_contains_key ... ok
+    root:test | test conf::tests::test_config_state_get_table ... ok
+    root:test | test conf::tests::test_config_state_get_str ... ok
+    root:test | test conf::tests::test_config_state_int_map_for_key ... ok
+    root:test | test conf::tests::test_config_state_int_map_for_key_with_string_values ... ok
+    root:test | test conf::tests::test_config_state_string_map_for_key_with_table ... ok
+    root:test | test conf::tests::test_config_state_string_map_for_key ... ok
+    root:test | test conf::tests::test_config_state_strings_for_key ... ok
+    root:test | test conf::tests::test_config_state_strings_for_key_or_string_falls_back_to_string ... ok
+    root:test | test conf::tests::test_config_state_strings_for_key_or_string_prefers_array ... ok
+    root:test | test conf::tests::test_config_state_strings_from_string_comma_separated ... ok
+    root:test | test conf::tests::test_expand_path_absolute ... ok
+    root:test | test conf::tests::test_expand_path_tilde ... ok
+    root:test | test conf::tests::test_flatten_table ... ok
+    root:test | test conf::tests::test_extract_env_vars_empty ... ok
+    root:test | test conf::tests::test_flatten_table_nested_nested ... ok
+    root:test | test conf::tests::test_flatten_table_with_prefix ... ok
+    root:test | test conf::tests::test_merge_values ... ok
+    root:test | test conf::tests::test_merge_values_override_wins ... ok
+    root:test | test conf::tests::test_parse_toml_file_not_exist ... ok
+    root:test | test conf::tests::test_extract_env_vars_with_twerk_prefix ... ok
+    root:test | test conf::tests::test_extract_env_vars_underscore_to_dot ... ok
+    root:test | test env::tests::test_key_transformation ... ok
+    root:test | test logging::tests::test_normalize_level_preserves_valid ... ok
+    root:test | test logging::tests::test_level_to_tracing_level ... ok
+    root:test | test env::tests::test_var_with_twerk_prefix ... ok
+    root:test | test logging::tests::test_normalize_level_warning ... ok
+    root:test | test logging::tests::test_tracing_writer_as_trait ... ok
+    root:test | test logging::tests::test_tracing_writer_write ... ok
+    root:test | test reexec::tests::test_command_creation ... ok
+    root:test | test reexec::tests::test_register_and_init_not_matched ... ok
+    root:test | test reexec::tests::test_naive_self_returns_path ... ok
+    root:test | test reexec::tests::test_register_duplicate_name_fails ... ok
+    root:test | test reexec::tests::test_self_path_returns_path ... ok
+    root:test | test slices::tests::intersect::returns_false_on_empty_a ... ok
+    root:test | test slices::tests::intersect::returns_false_on_empty_b ... ok
+    root:test | test slices::tests::intersect::returns_false_when_both_empty ... ok
+    root:test | test slices::tests::intersect::returns_false_when_no_elements_match ... ok
+    root:test | test conf::tests::test_parse_toml_file_bad_contents ... ok
+    root:test | test slices::tests::intersect::returns_true_when_element_exists_in_both ... ok
+    root:test | test slices::tests::intersect::returns_true_when_first_element_matches ... ok
+    root:test | test slices::tests::intersect::returns_true_when_last_element_matches ... ok
+    root:test | test conf::tests::test_parse_toml_file_with_bool ... ok
+    root:test | test conf::tests::test_parse_toml_file_valid ... ok
+    root:test | test slices::tests::intersect::works_with_duplicates_in_a ... ok
+    root:test | test conf::tests::test_parse_toml_file_duration_string ... ok
+    root:test | test slices::tests::intersect::works_with_duplicates_in_b ... ok
+    root:test | test conf::tests::test_parse_toml_file_with_integer ... ok
+    root:test | test conf::tests::test_parse_toml_file_with_array ... ok
+    root:test | test slices::tests::intersect::works_with_strings ... ok
+    root:test | test slices::tests::map_slice::handles_single_element ... ok
+    root:test | test conf::tests::test_parse_and_flatten_integration ... ok
+    root:test | test conf::tests::test_parse_toml_file_with_nested_tables ... ok
+    root:test | test slices::tests::map_slice::identity_mapping ... ok
+    root:test | test slices::tests::map_slice::preserves_order ... ok
+    root:test | test slices::tests::map_slice::returns_empty_on_empty_input ... ok
+    root:test | test slices::tests::map_slice::transforms_to_different_type ... ok
+    root:test | test slices::tests::map_slice::transforms_integers ... ok
+    root:test | test slices::tests::map_slice::works_with_strings ... ok
+    root:test | test uuid::tests::test_base57_alphabet_is_57_chars ... ok
+    root:test | test syncx::map::tests::test_get_non_existent ... ok
+    root:test | test syncx::map::tests::test_set_and_get ... ok
+    root:test | test syncx::map::tests::test_set_and_delete ... ok
+    root:test | test syncx::map::tests::test_clone_is_independent ... ok
+    root:test | test syncx::map::tests::test_iterate ... ok
+    root:test | test uuid::tests::test_encode_base57_deterministic ... ok
+    root:test | test wildcard::tests::test_wildcard_match_exact ... ok
+    root:test | test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
+    root:test | test wildcard::tests::test_wildcard_match_star ... ok
+    root:test | test uuid::tests::test_new_uuid_length ... ok
+    root:test | test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
+    root:test | test wildcard::tests::test_wildcard_match_empty ... ok
+    root:test | test wildcard::tests::test_wildcard_match_multiple_stars ... ok
+    root:test | test syncx::map::tests::test_concurrent_set_and_get ... ok
+
+    root:test | test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 152 tests
+    root:test | test asl::transition::tests::end_variant_has_no_target ... ok
+    root:test | test asl::transition::tests::next_variant_stores_name ... ok
+    root:test | test domain_types::tests::go_duration_combo ... ok
+    root:test | test domain_types::tests::go_duration_days ... ok
+    root:test | test domain_types::tests::go_duration_empty_rejected ... ok
+    root:test | test domain_types::tests::cron_invalid ... ok
+    root:test | test domain_types::tests::go_duration_complex ... ok
+    root:test | test domain_types::tests::cron_valid ... ok
+    root:test | test domain_types::tests::cron_from_str_roundtrip ... ok
+    root:test | test domain_types::tests::go_duration_from_str_roundtrip ... ok
+    root:test | test domain_types::tests::go_duration_micros ... ok
+    root:test | test domain_types::tests::go_duration_millis ... ok
+    root:test | test domain_types::tests::go_duration_nanos ... ok
+    root:test | test domain_types::tests::go_duration_seconds ... ok
+    root:test | test domain_types::tests::queue_name_deref ... ok
+    root:test | test domain_types::tests::queue_name_from_str_roundtrip ... ok
+    root:test | test domain_types::tests::queue_name_rejects_empty ... ok
+    root:test | test domain_types::tests::queue_name_rejects_too_long ... ok
+    root:test | test domain_types::tests::queue_name_rejects_uppercase ... ok
+    root:test | test domain_types::tests::queue_name_valid ... ok
+    root:test | test id::tests::job_id_as_ref_trait ... ok
+    root:test | test id::tests::job_id_clone ... ok
+    root:test | test id::tests::job_id_default ... ok
+    root:test | test id::tests::job_id_deref_trait ... ok
+    root:test | test id::tests::job_id_display_trait ... ok
+    root:test | test id::tests::job_id_eq_and_hash ... ok
+    root:test | test id::tests::job_id_from_str_trait ... ok
+    root:test | test id::tests::job_id_returns_err_with_emoji ... ok
+    root:test | test id::tests::job_id_returns_err_with_special_chars ... ok
+    root:test | test id::tests::job_id_from_str_borrowing ... ok
+    root:test | test id::tests::job_id_returns_ok_when_input_is_valid_alphanumeric ... ok
+    root:test | test id::tests::job_id_from_string_ownership ... ok
+    root:test | test id::tests::role_id_new_empty_rejected ... ok
+    root:test | test id::tests::user_id_new_with_invalid_chars_rejected ... ok
+    root:test | test id::tests::job_id_returns_err_empty_string ... ok
+    root:test | test id::tests::validate_id_rejects_only_whitespace ... ok
+    root:test | test id::tests::job_id_returns_ok_at_max_length ... ok
+    root:test | test id::tests::job_id_with_cjk_characters_is_accepted ... ok
+    root:test | test id::tests::scheduled_job_id_new_valid ... ok
+    root:test | test id::tests::validate_id_max_length_boundary ... ok
+    root:test | test id::tests::job_id_returns_err_when_exceeds_max_length ... ok
+    root:test | test id::tests::job_id_returns_err_with_newline ... ok
+    root:test | test node::tests::test_node_status_from_str ... ok
+    root:test | test redact::tests::tests::test_is_secret_key ... ok
+    root:test | test id::tests::validate_id_rejects_dots ... ok
+    root:test | test id::tests::job_id_returns_err_with_null_byte ... ok
+    root:test | test redact::tests::tests::test_redact_task_env ... ok
+    root:test | test redact::tests::tests::test_redact_job ... ok
+    root:test | test id::tests::job_id_returns_err_with_slash ... ok
+    root:test | test redact::tests::tests::test_redact_task_log_parts ... ok
+    root:test | test redact::tests::tests::test_redact_task_registry_password ... ok
+    root:test | test redact::tests::tests::test_redact_vars_handles_empty_secrets ... ok
+    root:test | test redact::tests::tests::test_redact_vars_key_match ... ok
+    root:test | test redact::tests::tests::test_redact_vars_no_match ... ok
+    root:test | test redact::tests::tests::test_redacter_contains_case_insensitive ... ok
+    root:test | test redact::tests::tests::test_redact_vars_value_match ... ok
+    root:test | test redact::tests::tests::test_redacter_wildcard_empty_key ... ok
+    root:test | test redact::tests::tests::test_redacter_wildcard_no_match ... ok
+    root:test | test redact::tests::tests::test_redacter_wildcard_replaces_all_occurrences ... ok
+    root:test | test id::tests::job_id_returns_err_with_space ... ok
+    root:test | test role::tests::clone_preserves_all_fields ... ok
+    root:test | test id::tests::job_id_returns_err_with_tab ... ok
+    root:test | test role::tests::debug_format_contains_fields ... ok
+    root:test | test role::tests::debug_format_on_default_shows_none_fields ... ok
+    root:test | test role::tests::default_role_is_not_public ... ok
+    root:test | test role::tests::id_display_matches_inner ... ok
+    root:test | test role::tests::id_newtype_from_string ... ok
+    root:test | test role::tests::id_newtype_preserves_value ... ok
+    root:test | test id::tests::validate_id_rejects_control_characters ... ok
+    root:test | test role::tests::is_public_only_checks_slug_not_name ... ok
+    root:test | test role::tests::is_public_returns_expected_value::case_1 ... ok
+    root:test | test role::tests::is_public_returns_expected_value::case_2 ... ok
+    root:test | test id::tests::job_id_with_only_cjk_characters_is_accepted ... ok
+    root:test | test role::tests::is_public_returns_false_when_slug_is_empty_string ... ok
+    root:test | test id::tests::node_id_new_too_long_rejected ... ok
+    root:test | test id::tests::role_id_new_valid ... ok
+    root:test | test role::tests::is_public_returns_false_when_slug_is_public_uppercase ... ok
+    root:test | test role::tests::is_public_returns_false_when_slug_is_public_with_spaces ... ok
+    root:test | test role::tests::is_public_returns_true_when_slug_is_exact_public ... ok
+    root:test | test id::tests::job_id_returns_ok_with_underscore ... ok
+    root:test | test role::tests::partial_eq_matches_for_identical_roles ... ok
+    root:test | test role::tests::partial_eq_returns_false_for_different_ids ... ok
+    root:test | test id::tests::validate_id_accepts_dash_and_underscore ... ok
+    root:test | test role::tests::partial_eq_returns_false_for_different_slugs ... ok
+    root:test | test id::tests::user_id_new_valid ... ok
+    root:test | test id::tests::validate_id_rejects_empty ... ok
+    root:test | test role::tests::role_clone_preserves_created_at ... ok
+    root:test | test role::tests::role_public_constant_is_public ... ok
+    root:test | test role::tests::role_with_all_none_fields_is_default ... ok
+    root:test | test id::tests::validate_id_accepts_single_alphanumeric ... ok
+    root:test | test role::tests::role_with_unicode_name_roundtrips ... ok
+    root:test | test id::tests::validate_id_error_messages_are_descriptive ... ok
+    root:test | test role::tests::serialization_includes_slug_when_some ... ok
+    root:test | test id::tests::task_id_new_valid ... ok
+    root:test | test role::tests::serialization_omits_none_fields ... ok
+    root:test | test id::tests::job_id_from_str_trait_error ... ok
+    root:test | test node::tests::test_node_clone ... ok
+    root:test | test stats::tests::test_job_metrics_json ... ok
+    root:test | test stats::tests::test_deserialize_from_json ... ok
+    root:test | test role::tests::serialization_roundtrip_preserves_all_fields ... ok
+    root:test | test stats::tests::test_node_metrics_json ... ok
+    root:test | test stats::tests::test_node_metrics_deserialize ... ok
+    root:test | test stats::tests::test_metrics_roundtrip ... ok
+    root:test | test stats::tests::test_task_metrics_json ... ok
+    root:test | test user::tests::clone_preserves_password ... ok
+    root:test | test user::tests::debug_format_contains_fields ... ok
+    root:test | test user::tests::debug_format_on_default_shows_none_fields ... ok
+    root:test | test id::tests::node_id_new_valid ... ok
+    root:test | test role::tests::is_public_returns_expected_value::case_3 ... ok
+    root:test | test user::tests::deep_clone_removes_password_when_password_is_some ... ok
+    root:test | test user::tests::deep_clone_returns_none_password_when_password_is_none ... ok
+    root:test | test user::tests::default_user_is_enabled ... ok
+    root:test | test user::tests::id_display_matches_inner ... ok
+    root:test | test user::tests::id_newtype_from_str_ref ... ok
+    root:test | test user::tests::deep_clone_on_default_user_produces_default_except_password ... ok
+    root:test | test user::tests::deep_clone_preserves_all_fields_except_password ... ok
+    root:test | test user::tests::id_newtype_from_string ... ok
+    root:test | test user::tests::deep_clone_preserves_disabled_false ... ok
+    root:test | test user::tests::is_enabled_returns_expected_value::case_2 ... ok
+    root:test | test id::tests::task_id_new_empty_rejected ... ok
+    root:test | test user::tests::deep_clone_preserves_empty_strings ... ok
+    root:test | test user::tests::is_guest_and_is_enabled_are_independent ... ok
+    root:test | test user::tests::is_guest_returns_expected_value::case_1 ... ok
+    root:test | test user::tests::is_guest_returns_expected_value::case_2 ... ok
+    root:test | test user::tests::deep_clone_preserves_disabled_true ... ok
+    root:test | test user::tests::is_guest_returns_expected_value::case_3 ... ok
+    root:test | test user::tests::is_guest_returns_false_when_username_is_empty_string ... ok
+    root:test | test user::tests::is_guest_returns_false_when_username_is_guest_uppercase ... ok
+    root:test | test user::tests::is_guest_returns_false_when_username_is_guest_with_spaces ... ok
+    root:test | test user::tests::is_guest_returns_true_when_username_is_exact_guest ... ok
+    root:test | test user::tests::partial_eq_matches_for_identical_users ... ok
+    root:test | test user::tests::partial_eq_returns_false_for_different_ids ... ok
+    root:test | test user::tests::id_newtype_preserves_value ... ok
+    root:test | test user::tests::password_hash_is_skipped_in_serialization ... ok
+    root:test | test user::tests::password_is_skipped_in_serialization ... ok
+    root:test | test user::tests::serialization_includes_disabled_when_true ... ok
+    root:test | test user::tests::serialization_omits_none_fields ... ok
+    root:test | test user::tests::user_guest_constant_is_guest ... ok
+    root:test | test user::tests::is_enabled_returns_expected_value::case_1 ... ok
+    root:test | test user::tests::serialization_roundtrip_with_all_fields_populated ... ok
+    root:test | test user::tests::serialization_roundtrip_preserves_all_public_fields ... ok
+    root:test | test user::tests::user_with_special_characters_in_fields ... ok
+    root:test | test user::tests::user_with_unicode_name_roundtrips ... ok
+    root:test | test user::tests::user_with_very_long_username ... ok
+    root:test | test user::tests::username_constant_is_username ... ok
+    root:test | test uuid::tests::test_encode_base57_deterministic ... ok
+    root:test | test uuid::tests::test_encode_base57_zero_bytes_padded ... ok
+    root:test | test uuid::tests::test_new_uuid_length ... ok
+    root:test | test uuid::tests::test_base57_alphabet_is_57_chars ... ok
+    root:test | test uuid::tests::test_new_short_uuid_length_and_uniqueness ... ok
+    root:test |      Running tests/twerk_chaos_engineering_benchmark.rs (target/debug/deps/twerk_chaos_engineering_benchmark-e9c475c713a7ebc5)
+    root:test |      Running tests/twerk_yaml_workflow_benchmark.rs (target/debug/deps/twerk_yaml_workflow_benchmark-4ed88defbd9d646a)
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_cli-2229a1425fbaf918)
+    root:test |      Running unittests src/main.rs (target/debug/deps/twerk_cli-29c6ada78e8293e5)
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_common-16e69074b93b2803)
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_core-30bcae6994955131)
+    root:test | test host::tests::test_get_cpu_percent_returns_valid_range ... ok
+    root:test | test host::tests::test_get_cpu_percent_twice_is_callable ... ok
+
+    root:test | test result: ok. 152 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+    root:test | running 36 tests
+    root:test | test map_state_reject_infinity_tolerance ... ok
+    root:test | test map_state_reject_nan_tolerance ... ok
+    root:test | test map_state_max_concurrency_zero ... ok
+    root:test | test map_state_reject_neg_infinity_tolerance ... ok
+    root:test | test map_state_reject_over_hundred_tolerance ... ok
+    root:test | test map_state_reject_negative_tolerance ... ok
+    root:test | test map_state_tolerance_zero ... ok
+    root:test | test map_state_valid_all_fields ... ok
+    root:test | test map_state_serde_omits_defaults ... ok
+    root:test | test map_state_tolerance_hundred ... ok
+    root:test | test map_state_valid_minimal ... ok
+    root:test | test parallel_state_reject_empty_branches ... ok
+    root:test | test parallel_state_fail_fast_false ... ok
+    root:test | test map_state_serde_json_roundtrip ... ok
+    root:test | test parallel_state_valid_multiple_branches ... ok
+    root:test | test parallel_state_serde_omits_none_fail_fast ... ok
+    root:test | test map_state_serde_reject_invalid_tolerance ... ok
+    root:test | test parallel_state_valid_single_branch ... ok
+    root:test | test parallel_state_serde_reject_empty_branches ... ok
+    root:test | test parallel_state_serde_json_roundtrip ... ok
+    root:test | test task_state_heartbeat_just_below_timeout ... ok
+    root:test | test task_state_heartbeat_without_timeout ... ok
+    root:test | test task_state_reject_empty_env_key ... ok
+    root:test | test task_state_reject_heartbeat_equals_timeout ... ok
+    root:test | test task_state_reject_heartbeat_exceeds_timeout ... ok
+    root:test | test task_state_reject_heartbeat_zero ... ok
+    root:test | test task_state_reject_timeout_zero ... ok
+    root:test | test task_state_serde_deserialize_defaults ... ok
+    root:test | test task_state_serde_env_multiple ... ok
+    root:test | test task_state_serde_omits_defaults ... ok
+    root:test | test task_state_timeout_minimum ... ok
+    root:test | test task_state_serde_reject_heartbeat_exceeds_timeout ... ok
+    root:test | test task_state_valid_all_fields ... ok
+    root:test | test task_state_valid_minimal ... ok
+    root:test | test task_state_serde_json_roundtrip_full ... ok
+    root:test | test task_state_yaml_deserialize ... ok
+
+    root:test | test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 24 tests
+    root:test | test display_impl_for_data_flow_error ... ok
+    root:test | test full_pipeline_all_none ... ok
+    root:test | test full_pipeline_all_paths ... ok
+    root:test | test full_pipeline_input_and_result_path ... ok
+    root:test | test input_path_array_index ... ok
+    root:test | test input_path_array_index_out_of_bounds ... ok
+    root:test | test input_path_dollar_returns_entire_input ... ok
+    root:test | test input_path_extracts_nested_field ... ok
+    root:test | test input_path_extracts_nested_object ... ok
+    root:test | test input_path_extracts_top_level_field ... ok
+    root:test | test input_path_field_on_non_object_returns_error ... ok
+    root:test | test input_path_none_passes_through ... ok
+    root:test | test input_path_not_found_returns_error ... ok
+    root:test | test input_path_on_array_root ... ok
+    root:test | test output_path_extracts_field ... ok
+    root:test | test nested_array_index_access ... ok
+    root:test | test output_path_none_passes_through ... ok
+    root:test | test result_path_creates_intermediate_objects ... ok
+    root:test | test result_path_dollar_replaces_input ... ok
+    root:test | test result_path_merges_into_field ... ok
+    root:test | test result_path_merges_into_nested_field ... ok
+    root:test | test result_path_none_replaces_input ... ok
+    root:test | test result_path_on_non_object_returns_error ... ok
+    root:test | test result_path_overwrites_existing_field ... ok
+
+    root:test | test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 38 tests
+    root:test | test array_range_zero_step ... ok
+    root:test | test array_partition_zero_chunk ... ok
+    root:test | test array_length_basic ... ok
+    root:test | test array_contains_found ... ok
+    root:test | test array_creates_tuple ... ok
+    root:test | test base64_decode_invalid ... ok
+    root:test | test array_empty ... ok
+    root:test | test array_length_empty ... ok
+    root:test | test array_range_basic ... ok
+    root:test | test array_range_step_2 ... ok
+    root:test | test format_basic_positional ... ok
+    root:test | test array_partition_even ... ok
+    root:test | test base64_encode_decode_roundtrip ... ok
+    root:test | test array_contains_not_found ... ok
+    root:test | test array_unique_dedup ... ok
+    root:test | test math_add_ints ... ok
+    root:test | test array_unique_strings ... ok
+    root:test | test format_no_placeholders ... ok
+    root:test | test array_partition_uneven ... ok
+    root:test | test array_unique_already_unique ... ok
+    root:test | test array_contains_string ... ok
+    root:test | test format_too_few_args_leaves_placeholder ... ok
+    root:test | test math_sub_ints ... ok
+    root:test | test format_multiple_args ... ok
+    root:test | test hash_md5 ... ok
+    root:test | test math_sub_negative_result ... ok
+    root:test | test math_add_floats ... ok
+    root:test | test hash_sha256 ... ok
+    root:test | test hash_unsupported_algo ... ok
+    root:test | test json_to_string_int ... ok
+    root:test | test json_to_string_string ... ok
+    root:test | test math_random_invalid_range ... ok
+    root:test | test math_random_single_value_range ... ok
+    root:test | test math_random_in_range ... ok
+    root:test | test string_to_json_invalid ... ok
+    root:test | test uuid_returns_valid_v4 ... ok
+    root:test | test string_to_json_object ... ok
+    root:test | test uuid_unique ... ok
+
+    root:test | test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 35 tests
+    root:test | test get_state_not_found ... ok
+    root:test | test get_state_found ... ok
+    root:test | test state_serde_roundtrip_pass_with_comment ... ok
+    root:test | test start_state_returns_first ... ok
+    root:test | test state_with_all_shared_fields ... ok
+    root:test | test state_serde_roundtrip_fail ... ok
+    root:test | test state_serde_unknown_type_rejected ... ok
+    root:test | test state_serde_roundtrip_succeed ... ok
+    root:test | test state_with_minimal_fields ... ok
+    root:test | test statekind_choice_has_no_transition ... ok
+    root:test | test statekind_choice_is_not_terminal ... ok
+    root:test | test statekind_fail_has_no_transition ... ok
+    root:test | test statekind_fail_is_terminal ... ok
+    root:test | test statekind_map_is_not_terminal_and_has_transition ... ok
+    root:test | test statekind_succeed_has_no_transition ... ok
+    root:test | test statekind_parallel_is_not_terminal_and_has_transition ... ok
+    root:test | test statekind_pass_is_not_terminal_and_has_transition ... ok
+    root:test | test statekind_succeed_is_terminal ... ok
+    root:test | test statekind_task_is_not_terminal ... ok
+    root:test | test statekind_wait_is_not_terminal_and_has_transition ... ok
+    root:test | test statekind_task_has_transition ... ok
+    root:test | test statemachine_serde_roundtrip_preserves_order ... ok
+    root:test | test validate_choice_target_not_found ... ok
+    root:test | test statemachine_serde_with_timeout ... ok
+    root:test | test validate_default_target_not_found ... ok
+    root:test | test statemachine_serde_with_parallel_branches ... ok
+    root:test | test statemachine_serde_with_map_item_processor ... ok
+    root:test | test validate_empty_states ... ok
+    root:test | test validate_fail_state_is_terminal ... ok
+    root:test | test validate_no_terminal_state ... ok
+    root:test | test validate_transition_end_counts_as_terminal ... ok
+    root:test | test validate_multiple_errors_collected ... ok
+    root:test | test validate_valid_machine_ok ... ok
+    root:test | test validate_start_at_not_found ... ok
+    root:test | test validate_transition_target_not_found ... ok
+
+    root:test | test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 53 tests
+    root:test | test choice_rule_new_without_assign ... ok
+    root:test | test choice_rule_new_with_assign ... ok
+    root:test | test choice_state_multiple_rules_with_default ... ok
+    root:test | test choice_state_deserialize_valid ... ok
+    root:test | test choice_rule_serde_roundtrip_no_assign ... ok
+    root:test | test choice_rule_serde_roundtrip_with_assign ... ok
+    root:test | test choice_state_one_rule_no_default ... ok
+    root:test | test choice_state_deserialize_rejects_empty_choices ... ok
+    root:test | test choice_state_rejects_empty_choices ... ok
+    root:test | test fail_state_both_fields ... ok
+    root:test | test fail_state_deser_both ... ok
+    root:test | test fail_state_deser_empty ... ok
+    root:test | test choice_state_serde_roundtrip ... ok
+    root:test | test fail_state_empty ... ok
+    root:test | test fail_state_display ... ok
+    root:test | test fail_state_equality ... ok
+    root:test | test fail_state_only_cause ... ok
+    root:test | test fail_state_only_error ... ok
+    root:test | test fail_state_serialize_skips_none ... ok
+    root:test | test fail_state_serde_roundtrip ... ok
+    root:test | test pass_state_deser_without_result ... ok
+    root:test | test pass_state_deser_with_result ... ok
+    root:test | test pass_state_no_result_end ... ok
+    root:test | test pass_state_serde_roundtrip_without_result ... ok
+    root:test | test pass_state_serde_roundtrip_with_result ... ok
+    root:test | test pass_state_with_result_and_next ... ok
+    root:test | test succeed_state_construct ... ok
+    root:test | test succeed_state_deserialize ... ok
+    root:test | test succeed_state_equality ... ok
+    root:test | test succeed_state_is_copy ... ok
+    root:test | test succeed_state_serialize ... ok
+    root:test | test wait_duration_deser_seconds ... ok
+    root:test | test wait_duration_deser_timestamp ... ok
+    root:test | test wait_duration_deser_seconds_path ... ok
+    root:test | test wait_duration_deser_timestamp_path ... ok
+    root:test | test wait_duration_display ... ok
+    root:test | test wait_duration_rejects_empty_timestamp ... ok
+    root:test | test wait_duration_rejects_invalid_json_path ... ok
+    root:test | test wait_duration_rejects_no_field ... ok
+    root:test | test wait_duration_seconds ... ok
+    root:test | test wait_duration_rejects_multiple_fields ... ok
+    root:test | test wait_duration_seconds_path ... ok
+    root:test | test wait_duration_serde_roundtrip_seconds ... ok
+    root:test | test wait_duration_serde_roundtrip_timestamp_path ... ok
+    root:test | test wait_duration_timestamp ... ok
+    root:test | test wait_duration_timestamp_path ... ok
+    root:test | test wait_state_deser_seconds_next ... ok
+    root:test | test wait_state_deser_timestamp_path_end ... ok
+    root:test | test wait_state_rejects_no_duration ... ok
+    root:test | test wait_state_seconds_and_next ... ok
+    root:test | test wait_state_rejects_no_transition ... ok
+    root:test | test wait_state_serde_roundtrip ... ok
+    root:test | test wait_state_timestamp_and_end ... ok
+
+    root:test | test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 50 tests
+    root:test | test catcher_tests::ca10_multiple_catchers ... ok
+    root:test | test catcher_tests::ca3_reject_empty_errors ... ok
+    root:test | test catcher_tests::ca2_valid_minimal ... ok
+    root:test | test catcher_tests::ca11_multiple_retriers ... ok
+    root:test | test catcher_tests::ca5_serde_omits_none ... ok
+    root:test | test catcher_tests::ca1_valid_all_fields ... ok
+    root:test | test catcher_tests::ca4_serde_roundtrip ... ok
+    root:test | test catcher_tests::ca7_serde_with_assign ... ok
+    root:test | test catcher_tests::ca6_serde_rejects_empty_errors ... ok
+    root:test | test jitter_strategy_tests::js1_default_is_none ... ok
+    root:test | test catcher_tests::ca9_single_error ... ok
+    root:test | test jitter_strategy_tests::js2_serialize_full ... ok
+    root:test | test jitter_strategy_tests::js3_serialize_none ... ok
+    root:test | test catcher_tests::ca8_yaml_deserialization ... ok
+    root:test | test jitter_strategy_tests::js5_deserialize_none ... ok
+    root:test | test jitter_strategy_tests::js4_deserialize_full ... ok
+    root:test | test jitter_strategy_tests::js6_reject_unknown ... ok
+    root:test | test jitter_strategy_tests::js7_reject_lowercase ... ok
+    root:test | test jitter_strategy_tests::js8_display ... ok
+    root:test | test jitter_strategy_tests::js9_roundtrip ... ok
+    root:test | test retrier_tests::rt10_boundary_max_delay_just_above ... ok
+    root:test | test retrier_tests::rt12_serde_omits_none ... ok
+    root:test | test retrier_tests::rt13_serde_defaults_jitter ... ok
+    root:test | test retrier_tests::rt11_serde_roundtrip_json ... ok
+    root:test | test retrier_tests::rt15_serde_rejects_zero_interval ... ok
+    root:test | test retrier_tests::rt14_serde_rejects_empty_errors ... ok
+    root:test | test retrier_tests::rt17_single_error_equals ... ok
+    root:test | test retrier_tests::rt18_large_max_attempts ... ok
+    root:test | test retrier_tests::rt1_valid_all_fields ... ok
+    root:test | test retrier_tests::rt16_yaml_deserialization ... ok
+    root:test | test retrier_tests::rt2_valid_minimal ... ok
+    root:test | test retrier_tests::rt3_reject_empty_errors ... ok
+    root:test | test retrier_tests::rt4_reject_interval_zero ... ok
+    root:test | test retrier_tests::rt5_reject_max_attempts_zero ... ok
+    root:test | test retrier_tests::rt6_reject_max_delay_equal_interval ... ok
+    root:test | test retrier_tests::rt7_reject_max_delay_less_than_interval ... ok
+    root:test | test retrier_tests::rt8_boundary_interval_one ... ok
+    root:test | test retrier_tests::rt9_boundary_max_attempts_one ... ok
+    root:test | test transition_tests::tr10_serialize_end_roundtrip ... ok
+    root:test | test transition_tests::tr11_display ... ok
+    root:test | test transition_tests::tr12_equality ... ok
+    root:test | test transition_tests::tr1_construct_next ... ok
+    root:test | test transition_tests::tr2_construct_end ... ok
+    root:test | test transition_tests::tr3_deserialize_next_yaml ... ok
+    root:test | test transition_tests::tr5_reject_both_next_and_end ... ok
+    root:test | test transition_tests::tr6_reject_neither ... ok
+    root:test | test transition_tests::tr4_deserialize_end_yaml ... ok
+    root:test | test transition_tests::tr7_reject_end_false ... ok
+    root:test | test transition_tests::tr8_reject_invalid_state_name ... ok
+    root:test | test transition_tests::tr9_serialize_next_roundtrip ... ok
+
+    root:test | test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 107 tests
+    root:test | test backoff_rate_tests::display_format ... ok
+    root:test | test backoff_rate_tests::from_str_non_numeric ... ok
+    root:test | test backoff_rate_tests::from_str_valid ... ok
+    root:test | test backoff_rate_tests::min_positive_accepted ... ok
+    root:test | test backoff_rate_tests::from_str_zero ... ok
+    root:test | test backoff_rate_tests::nan_rejected ... ok
+    root:test | test backoff_rate_tests::neg_infinity_rejected ... ok
+    root:test | test backoff_rate_tests::negative_rejected ... ok
+    root:test | test backoff_rate_tests::negative_zero_rejected ... ok
+    root:test | test backoff_rate_tests::pos_infinity_rejected ... ok
+    root:test | test backoff_rate_tests::serde_rejects_zero ... ok
+    root:test | test backoff_rate_tests::serde_roundtrip ... ok
+    root:test | test backoff_rate_tests::valid_construction ... ok
+    root:test | test backoff_rate_tests::zero_rejected ... ok
+    root:test | test error_code_tests::all_variants_serde_roundtrip ... ok
+    root:test | test error_code_tests::clone_and_equality ... ok
+    root:test | test error_code_tests::custom_equality_same ... ok
+    root:test | test error_code_tests::custom_equality_different ... ok
+    root:test | test error_code_tests::deserialize_all_lowercase ... ok
+    root:test | test error_code_tests::deserialize_all_uppercase ... ok
+    root:test | test error_code_tests::deserialize_task_failed_mixed_case ... ok
+    root:test | test error_code_tests::deserialize_timeout_case_insensitive ... ok
+    root:test | test error_code_tests::deserialize_unknown_becomes_custom ... ok
+    root:test | test error_code_tests::display_all ... ok
+    root:test | test error_code_tests::display_branch_failed ... ok
+    root:test | test error_code_tests::display_custom ... ok
+    root:test | test error_code_tests::display_heartbeat_timeout ... ok
+    root:test | test error_code_tests::display_intrinsic_failure ... ok
+    root:test | test error_code_tests::display_no_choice_matched ... ok
+    root:test | test error_code_tests::display_parameter_path_failure ... ok
+    root:test | test error_code_tests::display_permissions ... ok
+    root:test | test error_code_tests::display_result_path_match_failure ... ok
+    root:test | test error_code_tests::display_roundtrip_all_variants ... ok
+    root:test | test error_code_tests::display_task_failed ... ok
+    root:test | test error_code_tests::display_timeout ... ok
+    root:test | test error_code_tests::from_str_infallible ... ok
+    root:test | test error_code_tests::from_str_case_insensitive_all_variants ... ok
+    root:test | test error_code_tests::from_str_known_variant ... ok
+    root:test | test error_code_tests::from_str_unknown_variant ... ok
+    root:test | test error_code_tests::serialize_all ... ok
+    root:test | test error_code_tests::hash_consistency ... ok
+    root:test | test error_code_tests::serialize_branch_failed ... ok
+    root:test | test error_code_tests::serialize_custom ... ok
+    root:test | test error_code_tests::serialize_heartbeat_timeout ... ok
+    root:test | test error_code_tests::serialize_intrinsic_failure ... ok
+    root:test | test error_code_tests::serialize_no_choice_matched ... ok
+    root:test | test error_code_tests::serialize_parameter_path_failure ... ok
+    root:test | test error_code_tests::serialize_permissions ... ok
+    root:test | test error_code_tests::serialize_result_path_match_failure ... ok
+    root:test | test error_code_tests::serialize_task_failed ... ok
+    root:test | test error_code_tests::serialize_timeout ... ok
+    root:test | test expression_tests::deref_to_str ... ok
+    root:test | test expression_tests::empty_rejected ... ok
+    root:test | test expression_tests::from_str_roundtrip ... ok
+    root:test | test expression_tests::intrinsic_function_accepted ... ok
+    root:test | test expression_tests::serde_rejects_empty ... ok
+    root:test | test expression_tests::serde_roundtrip ... ok
+    root:test | test expression_tests::valid_construction ... ok
+    root:test | test image_ref_tests::contains_space_rejected ... ok
+    root:test | test image_ref_tests::contains_tab_rejected ... ok
+    root:test | test image_ref_tests::deref_to_str ... ok
+    root:test | test image_ref_tests::empty_rejected ... ok
+    root:test | test image_ref_tests::from_str_roundtrip ... ok
+    root:test | test image_ref_tests::image_with_digest ... ok
+    root:test | test image_ref_tests::serde_rejects_whitespace ... ok
+    root:test | test image_ref_tests::serde_roundtrip ... ok
+    root:test | test image_ref_tests::simple_image_name ... ok
+    root:test | test image_ref_tests::valid_docker_image ... ok
+    root:test | test json_path_tests::deref_to_str ... ok
+    root:test | test json_path_tests::empty_rejected ... ok
+    root:test | test json_path_tests::missing_dollar_prefix ... ok
+    root:test | test json_path_tests::from_str_roundtrip ... ok
+    root:test | test json_path_tests::root_only_accepted ... ok
+    root:test | test json_path_tests::serde_rejects_empty ... ok
+    root:test | test json_path_tests::serde_rejects_no_dollar ... ok
+    root:test | test json_path_tests::serde_roundtrip ... ok
+    root:test | test json_path_tests::valid_construction ... ok
+    root:test | test shell_script_tests::multi_line_script ... ok
+    root:test | test shell_script_tests::from_str_roundtrip ... ok
+    root:test | test shell_script_tests::empty_rejected ... ok
+    root:test | test shell_script_tests::serde_roundtrip ... ok
+    root:test | test shell_script_tests::serde_rejects_empty ... ok
+    root:test | test state_name_tests::deref_to_str ... ok
+    root:test | test shell_script_tests::valid_construction ... ok
+    root:test | test state_name_tests::boundary_256_chars_accepted ... ok
+    root:test | test shell_script_tests::deref_to_str ... ok
+    root:test | test state_name_tests::boundary_1_char_accepted ... ok
+    root:test | test state_name_tests::empty_rejected ... ok
+    root:test | test state_name_tests::from_str_roundtrip ... ok
+    root:test | test state_name_tests::serde_rejects_empty ... ok
+    root:test | test state_name_tests::serde_roundtrip ... ok
+    root:test | test state_name_tests::too_long_rejected ... ok
+    root:test | test state_name_tests::unicode_allowed ... ok
+    root:test | test state_name_tests::valid_construction ... ok
+    root:test | test variable_name_tests::boundary_128_chars_accepted ... ok
+    root:test | test variable_name_tests::contains_hyphen_rejected ... ok
+    root:test | test variable_name_tests::contains_space_rejected ... ok
+    root:test | test variable_name_tests::deref_to_str ... ok
+    root:test | test variable_name_tests::empty_rejected ... ok
+    root:test | test variable_name_tests::from_str_roundtrip ... ok
+    root:test | test variable_name_tests::serde_rejects_invalid_start ... ok
+    root:test | test variable_name_tests::serde_roundtrip ... ok
+    root:test | test variable_name_tests::single_char ... ok
+    root:test | test variable_name_tests::starts_with_digit_rejected ... ok
+    root:test | test variable_name_tests::starts_with_underscore ... ok
+    root:test | test variable_name_tests::too_long_rejected ... ok
+    root:test | test variable_name_tests::valid_construction ... ok
+
+    root:test | test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 16 tests
+    root:test | test choice_targets_are_reachable ... ok
+    root:test | test complex_graph_reports_all_issues ... ok
+    root:test | test choice_with_orphan_sibling ... ok
+    root:test | test choice_default_makes_state_reachable ... ok
+    root:test | test cycle_with_terminal_exit_not_reported ... ok
+    root:test | test dead_end_state_detected ... ok
+    root:test | test empty_report_is_clean ... ok
+    root:test | test diamond_graph_is_clean ... ok
+    root:test | test fail_state_counts_as_terminal ... ok
+    root:test | test linear_chain_is_clean ... ok
+    root:test | test multiple_orphan_states_detected ... ok
+    root:test | test report_with_unreachable_is_not_clean ... ok
+    root:test | test orphan_state_detected ... ok
+    root:test | test self_loop_detected ... ok
+    root:test | test simple_cycle_detected ... ok
+    root:test | test single_succeed_state_is_clean ... ok
+
+    root:test | test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 82 tests
+    root:test | test test_empty_expression_returns_true ... ok
+    root:test | test test_evaluate_expr_integer_division_by_zero ... ok
+    root:test | test test_evaluate_expr_modulo ... ok
+    root:test | test test_evaluate_expr_string_concatenation ... ok
+    root:test | test test_evaluate_expr_complex_expression ... ok
+    root:test | test test_evaluate_expr_chained_comparisons ... ok
+    root:test | test test_evaluate_condition_invalid_expression ... ok
+    root:test | test test_complex_logical_expression ... ok
+    root:test | test test_combined_task_and_job_context ... ok
+    root:test | test test_boolean_literals ... ok
+    root:test | test test_evaluate_expr_boolean_implication ... ok
+    root:test | test test_evaluate_expr_logical_operators ... ok
+    root:test | test test_evaluate_expr_string_comparison ... ok
+    root:test | test test_evaluate_expr_simple_arithmetic ... ok
+    root:test | test test_evaluate_expr_string_equality ... ok
+    root:test | test test_evaluate_expr_with_variables ... ok
+    root:test | test test_evaluate_expr_undefined_variable ... ok
+    root:test | test test_evaluate_expr_division_by_zero ... ok
+    root:test | test test_evaluate_expr_sequence_function ... ok
+    root:test | test test_evaluate_condition_non_boolean_result ... ok
+    root:test | test test_evaluate_expr_random_int_bounded ... ok
+    root:test | test test_evaluate_expr_numeric_comparison ... ok
+    root:test | test test_evaluate_template_injection_with_expression ... ok
+    root:test | test test_from_json_and_to_json_chained ... ok
+    root:test | test test_evaluate_template_injection_single_variable ... ok
+    root:test | test test_evaluate_template_injection_multiple_variables ... ok
+    root:test | test test_evaluate_template_missing_variable_uses_empty ... ok
+    root:test | test test_evaluate_template_injection_with_split ... ok
+    root:test | test test_from_json_array ... ok
+    root:test | test test_evaluate_template_injection_with_function ... ok
+    root:test | test test_evaluate_template_multiple_expressions_same_line ... ok
+    root:test | test test_from_json_boolean ... ok
+    root:test | test test_from_json_null ... ok
+    root:test | test test_evaluate_template_with_mixed_text_and_expressions ... ok
+    root:test | test test_from_json_number ... ok
+    root:test | test test_evaluate_template_rejects_nested_braces ... ok
+    root:test | test test_from_json_object ... ok
+    root:test | test test_from_json_string ... ok
+    root:test | test test_job_error_without_error ... ok
+    root:test | test test_job_error_with_error_present ... ok
+    root:test | test test_sanitize_preserves_plain_expr ... ok
+    root:test | test test_job_state_inequality ... ok
+    root:test | test test_job_state_in_task_condition ... ok
+    root:test | test test_parenthesized_expression ... ok
+    root:test | test test_sanitize_removes_braces ... ok
+    root:test | test test_logical_and_operator ... ok
+    root:test | test test_logical_or_operator ... ok
+    root:test | test test_sanitize_trims_whitespace ... ok
+    root:test | test test_split_basic ... ok
+    root:test | test test_simple_state_comparison ... ok
+    root:test | test test_split_with_empty_result ... ok
+    root:test | test test_task_and_job_different_states ... ok
+    root:test | test test_split_multiple_delimiters ... ok
+    root:test | test test_task_condition_invalid_expression ... ok
+    root:test | test test_task_condition_logical_or ... ok
+    root:test | test test_job_id_comparison ... ok
+    root:test | test test_task_condition_with_failure ... ok
+    root:test | test test_task_empty_expression_returns_true ... ok
+    root:test | test test_task_condition_non_boolean ... ok
+    root:test | test test_template_empty_expression ... ok
+    root:test | test test_template_leading_text ... ok
+    root:test | test test_task_state_comparison ... ok
+    root:test | test test_task_id_comparison ... ok
+    root:test | test test_template_no_expression ... ok
+    root:test | test test_template_multiple_expressions ... ok
+    root:test | test test_template_with_number_variable ... ok
+    root:test | test test_template_trailing_text ... ok
+    root:test | test test_template_with_json_functions ... ok
+    root:test | test test_template_with_variable ... ok
+    root:test | test test_to_json_string ... ok
+    root:test | test test_transform_and ... ok
+    root:test | test test_transform_or ... ok
+    root:test | test test_to_json_number ... ok
+    root:test | test test_transform_preserves_standard_operators ... ok
+    root:test |      Running tests/asl_container_test.rs (target/debug/deps/asl_container_test-fd02be53a8446065)
+    root:test |      Running tests/asl_data_flow_test.rs (target/debug/deps/asl_data_flow_test-e7a7365b65b2f36b)
+    root:test |      Running tests/asl_functions_test.rs (target/debug/deps/asl_functions_test-2502191dc0072d96)
+    root:test |      Running tests/asl_machine_test.rs (target/debug/deps/asl_machine_test-00cafb40ecf46b3d)
+    root:test |      Running tests/asl_states_test.rs (target/debug/deps/asl_states_test-bcd9c78e447d6d6a)
+    root:test |      Running tests/asl_transition_test.rs (target/debug/deps/asl_transition_test-456ff035630055d1)
+    root:test |      Running tests/asl_types_test.rs (target/debug/deps/asl_types_test-7d087e6c2c75a023)
+    root:test |      Running tests/asl_validation_test.rs (target/debug/deps/asl_validation_test-cce53ac73ee02c25)
+    root:test |      Running tests/eval_test.rs (target/debug/deps/eval_test-25d7ccb04cea37e2)
+    root:test |      Running tests/validation_test.rs (target/debug/deps/validation_test-d7cc8bb7bfec4685)
+    root:test | test test_to_json_array ... ok
+    root:test | test test_job_name_comparison ... ok
+    root:test | test test_valid_expr_empty ... ok
+    root:test | test test_valid_expr_simple ... ok
+    root:test | test test_valid_expr_with_comparison ... ok
+    root:test | test test_valid_expr_with_whitespace ... ok
+    root:test | test test_valid_expr_with_operators ... ok
+    root:test | test test_to_json_boolean ... ok
+
+    root:test | test result: ok. 82 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 59 tests
+    root:test | test test_validate_duration_valid ... ok
+    root:test | test test_validate_cron_invalid ... ok
+    root:test | test test_validate_duration_invalid ... ok
+    root:test | test test_validate_job_missing_name ... ok
+    root:test | test test_validate_job_missing_tasks ... ok
+    root:test | test test_validate_priority_invalid ... ok
+    root:test | test test_validate_job_invalid_defaults ... ok
+    root:test | test test_validate_queue_name_invalid ... ok
+    root:test | test test_validate_cron_valid ... ok
+    root:test | test test_validate_job_valid ... ok
+    root:test | test test_validate_queue_name_valid ... ok
+    root:test | test test_validate_priority_valid ... ok
+    root:test | test test_validate_retry_valid ... ok
+    root:test | test test_validate_retry_invalid ... ok
+    root:test | test test_validate_task_each_empty ... ok
+    root:test | test test_validate_task_invalid_priority ... ok
+    root:test | test test_validate_task_invalid_queue ... ok
+    root:test | test test_validate_task_invalid_retry ... ok
+    root:test | test test_validate_task_invalid_timeout ... ok
+    root:test | test test_validate_task_multiple_errors ... ok
+    root:test | test test_validate_task_parallel_empty ... ok
+    root:test | test test_validate_task_valid ... ok
+    root:test | test validation_cron_fails_when_invalid_expression ... ok
+    root:test | test validation_cron_fails_when_too_many_fields ... ok
+    root:test | test validation_job_fails_when_name_empty ... ok
+    root:test | test validation_job_defaults_fails_when_timeout_invalid ... ok
+    root:test | test validation_job_fails_when_name_missing ... ok
+    root:test | test validation_job_fails_when_tasks_empty ... ok
+    root:test | test validation_job_task_fails_when_name_missing ... ok
+    root:test | test validation_job_passes_when_minimal_valid ... ok
+    root:test | test validation_job_task_passes_when_image_missing ... ok
+    root:test | test validation_mount_fails_when_bind_type_missing_source ... ok
+    root:test | test validation_mount_fails_when_source_contains_hash ... ok
+    root:test | test validation_mount_fails_when_target_contains_colon ... ok
+    root:test | test validation_mount_fails_when_target_is_tork ... ok
+    root:test | test validation_mount_passes_when_bind_has_source_and_target ... ok
+    root:test | test validation_mount_fails_when_type_and_target_missing ... ok
+    root:test | test validation_mount_passes_when_bind_with_options ... ok
+    root:test | test validation_mount_passes_when_type_custom ... ok
+    root:test | test validation_queue_fails_when_x_jobs ... ok
+    root:test | test validation_queue_passes_when_valid_name ... ok
+    root:test | test validation_parallel_passes_when_single_task ... ok
+    root:test | test validation_subjob_fails_when_webhook_url_empty ... ok
+    root:test | test validation_subjob_passes_when_webhook_valid ... ok
+    root:test | test validation_task_fails_when_parallel_and_subjob_both_set ... ok
+    root:test | test validation_task_fails_when_retry_limit_50 ... ok
+    root:test | test validation_task_passes_when_retry_limit_1 ... ok
+    root:test | test validation_task_passes_when_retry_limit_10 ... ok
+    root:test | test validation_task_passes_when_timeout_6h ... ok
+    root:test | test validation_var_fails_when_too_long ... ok
+    root:test | test validation_var_passes_when_64_chars ... ok
+    root:test | test validation_var_passes_when_shorter ... ok
+    root:test | test validation_webhook_fails_when_url_empty ... ok
+    root:test | test validation_webhook_passes_when_url_valid ... ok
+    root:test | test validation_expr_passes_when_valid_arithmetic ... ok
+    root:test | test validation_each_passes_when_expression_valid ... ok
+    root:test | test validation_expr_fails_when_invalid_syntax ... ok
+    root:test | test validation_task_fails_when_parallel_and_each_both_set ... ok
+    root:test | test validation_expr_passes_when_valid_template ... ok
+
+    root:test | test result: ok. 59 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 25 tests
+    root:test | test event_constants_match_expected_values ... ok
+    root:test | test is_retryable_returns_false_for_200 ... ok
+    root:test | test is_retryable_returns_false_for_401 ... ok
+    root:test | test is_retryable_returns_false_for_201 ... ok
+    root:test | test is_retryable_returns_false_for_400 ... ok
+    root:test | test is_retryable_returns_false_for_403 ... ok
+    root:test | test is_retryable_returns_false_for_404 ... ok
+    root:test | test is_retryable_returns_true_for_429 ... ok
+    root:test | test is_retryable_returns_true_for_503 ... ok
+    root:test | test is_retryable_returns_true_for_500 ... ok
+    root:test | test is_retryable_returns_true_for_502 ... ok
+    root:test | test is_retryable_returns_true_for_504 ... ok
+    root:test | test webhook_default_is_empty ... ok
+    root:test | test webhook_error_display_format_max_attempts ... ok
+    root:test | test webhook_serde_skips_none_fields ... ok
+    root:test | test webhook_error_display_format_non_retryable ... ok
+    root:test | test webhook_error_display_format_serialization ... ok
+    root:test | test webhook_serialize_deserialize_roundtrip ... ok
+    root:test | test webhook_call_handles_connection_error ... ok
+    root:test | test webhook_call_succeeds_on_200 ... ok
+    root:test | test webhook_call_sends_custom_headers ... ok
+    root:test | test webhook_call_serializes_body_to_json ... ok
+    root:test | test webhook_call_sends_json_content_type ... ok
+    root:test | test webhook_call_succeeds_with_empty_body ... ok
+    root:test |      Running tests/webhook_test.rs (target/debug/deps/webhook_test-12a357522f94cd2b)
+▮▮▮▮ root:test (running for 90s)
+    root:test | test webhook_call_multiple_retries_then_success ... ok
+
+    root:test | test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.01s
+
+
+    root:test | running 340 tests
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_clamps_negative_underflow ... ok
+    root:test | test broker::inmemory::tests::test_health_check ... ok
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_clamps_positive_overflow ... ok
+    root:test | test broker::inmemory::tests::test_delete_queue ... ok
+    root:test | test broker::inmemory::tests::test_queue_info ... ok
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_returns_value_within_range ... ok
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_handles_zero ... ok
+    root:test | test broker::inmemory::tests::test_get_queues ... ok
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_handles_max_i32 ... ok
+    root:test | test broker::inmemory::tests::broker_shutdown_fails_health_check_after ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i32_returns_zero_for_null ... ok
+    root:test | test broker::inmemory::tests::test_get_queues_unacked ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i32_returns_clamped_large_value ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i64_returns_negative_value ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i64_returns_value_for_integer ... ok
+    root:test | test broker::rabbitmq::helpers::tests::clamp_i32_handles_min_i32 ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_null ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_missing_field ... ok
+    root:test | test broker::rabbitmq::helpers::tests::extract_i64_returns_zero_for_string ... ok
+    root:test | test broker::rabbitmq::helpers::tests::rabbitmq_conn_err_formats_with_index ... ok
+    root:test | test broker::rabbitmq::helpers::tests::rabbitmq_conn_err_formats_message ... ok
+    root:test | test broker::tests::empty_engine_id_produces_unprefixed_queue ... ok
+    root:test | test broker::tests::all_coordinator_queues_round_trip_correctly ... ok
+    root:test | test broker::tests::extract_engine_id_handles_engine_id_with_dots ... ok
+    root:test | test broker::tests::extract_engine_id_extracts_from_prefixed_queue ... ok
+    root:test | test broker::tests::extract_engine_id_from_already_prefixed_queue ... ok
+    root:test | test broker::tests::extract_engine_id_returns_none_for_unprefixed_queue ... ok
+    root:test | test broker::tests::is_coordinator_queue_recognizes_prefixed_coordinator_queues ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_false_for_default_queue ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_false_for_exclusive_prefix_queue ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_completed ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_failed ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_heartbeat ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_jobs ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_progress ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_redeliveries ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_started ... ok
+    root:test | test broker::tests::is_worker_queue_rejects_prefixed_coordinator_queues ... ok
+    root:test | test broker::tests::is_task_queue_matches_is_worker_queue ... ok
+    root:test | test broker::tests::is_worker_queue_returns_false_for_exclusive_prefix_queue ... ok
+    root:test | test broker::tests::is_worker_queue_returns_true_for_default_queue ... ok
+    root:test | test broker::tests::prefixed_queue_adds_prefix_when_engine_id_non_empty ... ok
+    root:test | test broker::tests::prefixed_queue_appends_suffix_when_queue_already_prefixed ... ok
+    root:test | test broker::tests::prefixed_queue_extract_and_reprefix_round_trip ... ok
+    root:test | test broker::tests::prefixed_queue_extract_round_trip_is_identity_when_engine_id_empty ... ok
+    root:test | test broker::tests::prefixed_queue_handles_engine_id_with_dots ... ok
+    root:test | test broker::tests::prefixed_queue_returns_original_when_engine_id_empty ... ok
+    root:test | test broker::tests::whitespace_engine_id_produces_prefixed_queue ... ok
+    root:test | test cache::item::tests::test_clone ... ok
+    root:test | test cache::item::tests::test_get_returns_none_on_poison ... ok
+    root:test | test broker::tests::is_coordinator_queue_returns_true_for_queue_task_log_part ... ok
+    root:test | test broker::tests::is_worker_queue_accepts_worker_queues ... ok
+    root:test | test cache::item::tests::test_item_expired ... ok
+    root:test | test cache::tests::cache_iterate_stops_early_when_returning_false ... ok
+    root:test | test cache::tests::cache_list_returns_matching_items_when_filters_applied ... ok
+    root:test | test broker::tests::is_worker_queue_returns_false_for_all_coordinator_queues ... ok
+    root:test | test cache::tests::cache_list_returns_matching_items_when_multiple_filters_applied ... ok
+    root:test | test cache::tests::cache_modify_returns_error_when_modifier_fails ... ok
+    root:test | test cache::tests::cache_iterate_visits_all_items_when_returning_true ... ok
+    root:test | test cache::item::tests::test_item_never_expires ... ok
+    root:test | test cache::tests::cache_retains_items_when_closed ... ok
+    root:test | test cache::tests::cache_contains_returns_false_when_item_expires ... ok
+    root:test | test cache::tests::cache_defaults_to_no_janitor_and_empty ... ok
+    root:test | test cache::item::tests::test_item_not_yet_expired ... ok
+    root:test | test cache::tests::cache_iterate_excludes_items_when_expired ... ok
+    root:test | test cache::tests::cache_expires_item_when_shorter_expiration_is_set ... ok
+    root:test | test cache::tests::cache_is_empty_when_created_without_janitor ... ok
+    root:test | test cache::tests::cache_list_excludes_items_when_expired ... ok
+    root:test | test cache::tests::cache_cleans_expired_items_when_janitor_is_enabled ... ok
+    root:test | test broker::tests::is_worker_queue_returns_true_for_custom_queue ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_invalid_base64_fails ... ok
+    root:test | test cache::tests::janitor_cleans_expired_items_when_ticker_ticks ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_secrets_without_key ... ok
+    root:test | test cache::tests::cache_removes_expired_items_when_delete_expired_is_called ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_secrets_mixed_encrypted_and_plain ... ok
+    root:test | test cache::tests::cache_modify_returns_none_when_key_is_missing ... ok
+    root:test | test cache::tests::cache_list_returns_all_items_when_no_filters_applied ... ok
+    root:test | test cache::tests::cache_modify_updates_value_when_key_exists ... ok
+    root:test | test cache::tests::cache_set_expiration_returns_false_when_key_is_missing ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_secrets_empty_map ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_secrets_empty_map ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_empty_string ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_different_keys_produce_different_ciphertext ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_secrets_preserves_keys ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::classify_perm_error_detects_role_fkey ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_special_characters ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::classify_perm_error_detects_user_fkey ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_secrets_without_key ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_with_wrong_key_fails ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_decrypt_roundtrip ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::deserialize_tasks_returns_error_for_invalid_json ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_combines_multiple_tags ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_decrypt_short_ciphertext_fails ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_decrypt_secrets_roundtrip ... ok
+    root:test | test broker::rabbitmq::helpers::tests::make_json_handler_arc_wraps_in_arc ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::classify_perm_error_returns_database_for_other ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_deduplicates_not_applied ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_secrets_with_key ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_extracts_tag_prefix ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::deserialize_tasks_handles_empty_array ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::deserialize_tasks_handles_single_task ... ok
+    root:test | test broker::rabbitmq::helpers::tests::make_json_handler_ignores_invalid_json ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_extracts_tags_comma_separated ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_empty_query ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_empty_tag_value ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_handles_mixed_tag_and_tags ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::parse_query_impl_returns_empty_for_no_tags ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::serialize_json_field_returns_bytes_for_some ... ok
+    root:test | test datastore::postgres::records::auth::tests::role_record_to_role_basic_fields ... ok
+    root:test | test datastore::postgres::records::auth::tests::user_record_to_user_basic_fields ... ok
+    root:test | test datastore::postgres::records::auth::tests::user_record_to_user_disabled ... ok
+    root:test | test datastore::postgres::records::helpers::tests::str_to_task_state_converts_all_states ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_no_secrets ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_empty_webhooks_and_perms_yield_none ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_basic_fields ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_progress_defaults ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_created_by ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_auto_delete ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_delete_at ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_schedule ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_permissions ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_inputs ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_defaults ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_tags ... ok
+    root:test | test datastore::postgres::records::log::tests::task_log_part_record_to_task_log_part ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_with_webhooks ... ok
+    root:test | test datastore::postgres::records::job::tests::job_record_to_job_without_encryption_secrets_pass_through ... ok
+    root:test | test datastore::postgres::records::node::tests::node_record_to_node_basic_fields ... ok
+    root:test | test datastore::postgres::impl_jobs::tests::serialize_json_field_returns_none_for_none ... ok
+    root:test | test datastore::postgres::encrypt::tests::test_encrypt_long_secret ... ok
+    root:test | test broker::rabbitmq::helpers::tests::make_json_handler_deserializes_and_invokes ... ok
+    root:test | test datastore::postgres::records::node::tests::node_record_to_node_cpu_percent_preserved ... ok
+    root:test | test datastore::postgres::records::node::tests::node_record_to_node_non_up_status_preserved ... ok
+    root:test | test datastore::postgres::records::node::tests::node_record_to_node_recent_heartbeat_stays_up ... ok
+    root:test | test datastore::postgres::records::node::tests::node_record_to_node_stale_heartbeat_goes_offline ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_basic ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_empty_webhooks_and_perms_yield_none ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_no_secrets ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_cron ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_tags ... ok
+    root:test | test datastore::postgres::records::scheduled_job::tests::scheduled_job_record_to_scheduled_job_with_inputs ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_all_timestamps ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_basic_fields ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_default_priority_and_progress ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_empty_optional_fields ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_cmd_and_entrypoint ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_error_and_result ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_env_and_files ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_networks_and_tags ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_parent_id ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_parallel ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_registry ... ok
+    root:test | test datastore::postgres::records::task::tests::task_record_to_task_with_retry_and_limits ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_jobs ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_nodes ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_roles ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_scheduled_jobs_perms ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_jobs_perms ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_scheduled_jobs ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_tasks ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_users ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_tasks_log_parts ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_create_table_users_roles ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_created_at ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_delete_at ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_perms_job_id ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_perms_user_role ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_state ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_jobs_tags ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_nodes_heartbeat ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_roles_slug ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_tasks_job_id ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_tasks_log_parts_created_at ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_tasks_log_parts_task_id ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_tasks_parent_and_state ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_tasks_state ... ok
+    root:test | test datastore::postgres::schema_tests::schema_contains_index_users_roles_unique ... ok
+    root:test | test datastore::postgres::schema_tests::schema_jobs_ts_uses_generated_always ... ok
+    root:test | test datastore::postgres::schema_tests::schema_seeds_guest_user ... ok
+    root:test | test datastore::postgres::schema_tests::schema_seeds_public_role ... ok
+    root:test | test datastore::postgres::schema_tests::schema_jobs_has_scheduled_job_id_fk ... ok
+    root:test | test datastore::postgres::schema_tests::schema_jobs_has_created_by_fk ... ok
+    root:test | test datastore::postgres::schema_tests::schema_jobs_progress_is_double ... ok
+    root:test | test datastore::postgres::schema_tests::schema_jobs_tags_is_text_array ... ok
+    root:test | test datastore::postgres::schema_tests::schema_tasks_log_parts_ts_uses_generated_always ... ok
+    root:test | test datastore::postgres::schema_tests::schema_nodes_has_primary_key ... ok
+    root:test | test datastore::postgres::schema_tests::schema_roles_has_unique_slug ... ok
+    root:test | test datastore::postgres::schema_tests::schema_scheduled_jobs_has_created_by_fk ... ok
+    root:test | test datastore::postgres::schema_tests::schema_scheduled_jobs_tags_is_text_array ... ok
+    root:test | test httpx::tests::test_can_connect_with_invalid_address ... ok
+    root:test | test httpx::tests::test_polling_config_default ... ok
+    root:test | test datastore::postgres::schema_tests::schema_nodes_port_is_bigint ... ok
+    root:test | test httpx::tests::test_can_connect_with_unreachable_address ... ok
+    root:test | test datastore::postgres::schema_tests::schema_tasks_log_parts_has_task_id_fk ... ok
+    root:test | test datastore::postgres::schema_tests::schema_tasks_progress_is_double ... ok
+    root:test | test datastore::postgres::schema_tests::schema_users_roles_has_foreign_keys ... ok
+    root:test | test locker::postgres::tests::test_hash_key ... ok
+    root:test | test locker::postgres::tests::test_postgres_locker_acquire_lock_returns_error_when_locked ... ignored, requires postgres
+    root:test | test datastore::postgres::schema_tests::schema_tasks_has_job_id_fk ... ok
+    root:test | test locker::postgres::tests::test_hash_key_different_keys ... ok
+    root:test | test locker::postgres::tests::test_hash_key_deterministic ... ok
+    root:test | test datastore::postgres::schema_tests::schema_uses_bigint_for_counters ... ok
+    root:test | test datastore::postgres::schema_tests::schema_users_has_unique_username ... ok
+    root:test | test locker::postgres::tests::test_postgres_locker_new ... ignored, requires postgres
+    root:test | test locker::inmemory::tests::test_inmemory_locker_release_nonexistent_fails ... ok
+    root:test | test datastore::postgres::schema_tests::schema_uses_timestamptz ... ok
+    root:test | test httpx::tests::test_can_connect_with_valid_address ... ok
+    root:test | test locker::inmemory::tests::test_inmemory_locker_double_acquire_fails ... ok
+    root:test | test locker::inmemory::tests::test_inmemory_locker_acquire_lock_returns_error_when_locked ... ok
+    root:test | test reexec::tests::test_command_args_passed ... ok
+    root:test | test reexec::tests::test_command_creation ... ok
+    root:test | test reexec::tests::test_command_empty_args ... ok
+    root:test | test reexec::tests::test_naive_self_absolute_path_passthrough ... ok
+    root:test | test reexec::tests::test_command_uses_proc_self_exe ... ok
+    root:test | test reexec::tests::test_naive_self_bare_name_searches_path ... ok
+    root:test | test reexec::tests::test_naive_self_mkdir_resolved ... ok
+    root:test | test reexec::tests::test_naive_self_returns_path ... ok
+    root:test | test reexec::tests::test_register_and_init_not_called ... ok
+    root:test | test reexec::tests::test_naive_self_relative_path_absolved ... ok
+    root:test | test reexec::tests::test_register_duplicate_fails ... ok
+    root:test | test reexec::tests::test_self_path_is_proc_self_exe ... ok
+    root:test | test reexec::tests::test_self_path_returns_valid ... ok
+    root:test | test reexec::tests::test_register_error_message_exact ... ok
+    root:test | test httpx::tests::test_start_async_success ... ok
+    root:test | test runtime::docker::archive::tests::test_archive_remove ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_config_get_credentials_identity_token ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_config_get_credentials_explicit_user_pass ... ok
+    root:test | test runtime::docker::archive::tests::test_archive_read_impl ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_config_get_credentials_direct ... ok
+    root:test | test runtime::docker::archive::tests::test_archive_entry_builder ... ok
+    root:test | test runtime::docker::archive::tests::test_archive_write_multiple_files ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_config_deserialize_full ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_colon_in_password ... ok
+    root:test | test runtime::docker::archive::tests::test_create_archive ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_empty_password ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_empty ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_invalid_format ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_null_trim ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_with_special_chars_in_password ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_happy ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_auth_field_takes_precedence_over_empty_user_pass ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_empty_config_returns_empty ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_decode_base64_auth_invalid ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_resolve_auth_config_empty_identity_token_falls_through ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_deserialize_empty_object ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_deserialize_minimal_auth ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_missing_file ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_empty_file ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_explicit_path ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_new_is_default ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_serialize_roundtrip ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_allowed_source ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_case_insensitive ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_no_source ... ok
+    root:test | test runtime::docker::bind::tests::test_unmount_is_noop ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_source_not_allowed ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_not_allowed ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_get_credentials_with_credential_helper_configured ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_empty_string ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_invalid_config_file_returns_error ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_idempotent ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_invalid_json ... ok
+    root:test | test runtime::docker::bind::tests::test_bind_mount_empty_sources_allows_any ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_from_path_valid_json ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_with_valid_config_file ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_config_load_config_uses_default_path_when_empty ... ok
+    root:test | test reexec::tests::test_command_subprocess_exit ... ok
+    root:test | test runtime::docker::auth::auth_resolver::tests::test_get_registry_credentials_missing_config_falls_through ... ok
+    root:test | test runtime::docker::auth::auth_config::tests::test_config_get_credentials_unknown_hostname ... ok
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_infrastructure-af96040dce60185b)
+    root:test | test httpx::tests::test_start_async_connection_timeout ... ok
+    root:test | test broker::inmemory::tests::test_heartbeat_without_id_does_not_store ... ok
+    root:test | test broker::inmemory::tests::broker_publish_heartbeat_receives_handler ... ok
+    root:test | test broker::inmemory::tests::test_publish_and_subscribe_for_job ... ok
+    root:test | test broker::inmemory::tests::test_publish_task_log_part_stores_and_notifies ... ok
+    root:test | test broker::inmemory::tests::test_task_log_part_without_task_id_does_not_store ... ok
+    root:test | test broker::inmemory::tests::test_publish_heartbeat_stores_and_notifies ... ok
+    root:test | test broker::inmemory::tests::test_subscribe_for_events ... ok
+    root:test | test broker::inmemory::tests::test_publish_and_subscribe_for_task ... ok
+    root:test | test broker::inmemory::tests::test_publish_and_subscribe_for_task_progress ... ok
+    root:test | test broker::inmemory::tests::test_multiple_subscribers_for_job ... ok
+    root:test | test broker::inmemory::tests::test_subscribe_for_heartbeats_sends_existing ... ok
+    root:test | test broker::inmemory::tests::test_subscribe_for_task_log_part_sends_existing ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_invalid_format ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_uppercase_rejected ... ok
+    root:test | test runtime::docker::runtime::tests::test_prune_images_preserves_fresh ... ok
+    root:test | test runtime::docker::runtime::tests::test_prune_images_removes_expired ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_boundary_behavior ... ok
+    root:test | test runtime::docker::runtime::tests::test_prune_images_skips_when_tasks_running ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_cache_multiple_images_mixed_expiration ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_check_expired_ttl ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_cache_one_second_over_ttl ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_check_image_not_in_cache ... ok
+    root:test | test runtime::docker::runtime::tests::test_ttl_check_within_ttl ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_mount_tmpfs ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_source_allowed ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_mount_tmpfs_no_target ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_latest_tag ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_mount_tmpfs_with_source ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_simple_name_with_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_tag_with_dots_and_dashes ... ok
+    root:test | test runtime::docker::reference::tests::test_full_name_without_domain ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_uppercase_in_domain_accepted ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_uppercase_in_tag_accepted ... ok
+    root:test | test runtime::docker::reference::tests::test_with_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_localhost_domain ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_docker_hub_official ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_multi_component_path_no_domain ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_domain_without_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_domain_with_port_no_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_full_name_multi_component ... ok
+    root:test | test runtime::docker::reference::tests::test_reference_equality ... ok
+    root:test | test runtime::docker::reference::tests::test_reference_inequality ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_without_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_full_name_with_port ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_short_name ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_multi_component_path ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_custom_registry ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_port ... ok
+    root:test | test runtime::docker::reference::tests::test_with_tag_preserves_path ... ok
+    root:test | test runtime::docker::reference::tests::test_with_tag_preserves_domain ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_port_and_tag_suffix ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_mount_tmpfs_empty_target ... ok
+    root:test | test runtime::docker::reference::tests::test_full_name_with_domain ... ok
+    root:test | test runtime::podman::volume::tests::volume_mount_creates_directory_when_mounted ... ok
+    root:test | test runtime::docker::tmpfs::tests::test_unmount_tmpfs ... ok
+    root:test | test runtime::podman::volume::tests::volume_unmount_succeeds_when_path_nonexistent ... ok
+    root:test | test runtime::podman::volume::tests::volume_unmount_succeeds_when_source_empty ... ok
+    root:test | test worker::internal::execution::tests::test_apply_limits_empty_task ... ok
+    root:test | test worker::internal::execution::tests::test_apply_limits_partial_task ... ok
+    root:test | test worker::internal::execution::tests::test_parse_duration ... ok
+    root:test | test worker::api::tests::test_health_check_impl_all_healthy ... ok
+    root:test | test worker::api::tests::test_worker_api_creation ... ok
+    root:test | test runtime::podman::volume::tests::volume_mount_unmount_succeeds_across_multiple_cycles ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_digest ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_domain_with_digest_no_tag ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_name_at_max_length ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_name_too_long ... ok
+    root:test | test runtime::docker::reference::tests::test_parse_with_tag_and_digest ... ok
+    root:test | test runtime::docker::volume::tests::test_create_volume ... ok
+    root:test | test worker::internal::worker::tests::worker_stop_notifies_when_active_tasks_cleared ... ok
+
+    root:test | test result: ok. 338 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+
+    root:test | running 20 tests
+    root:test | test cache_get_returns_value_when_key_present ... ok
+    root:test | test cache_clear_removes_all_items ... ok
+    root:test | test cache_delete_removes_existing_key ... ok
+    root:test | test cache_delete_expired_removes_only_expired_items ... ok
+    root:test | test cache_modify_updates_value_atomically ... ok
+    root:test | test cache_get_returns_none_when_key_not_present ... ok
+    root:test | test cache_delete_returns_none_for_missing_key ... ok
+    root:test | test cache_modify_aborts_on_error ... ok
+    root:test | test cache_on_evicted_callback_is_invoked ... ok
+    root:test | test cache_modify_returns_none_for_missing_key ... ok
+    root:test | test cache_iterate_sums_values ... ok
+    root:test | test cache_set_stores_value_without_expiration ... ok
+    root:test | test cache_set_overwrites_existing_value ... ok
+    root:test | test cache_concurrent_inserts_are_safe ... ok
+    root:test | test cache_concurrent_mixed_operations_are_safe ... ok
+    root:test | test cache_concurrent_gets_are_safe ... ok
+    root:test |      Running tests/cache_test.rs (target/debug/deps/cache_test-3cde514a4407676d)
+    root:test | test cache_concurrent_get_insert_remove_are_safe ... ok
+    root:test | test cache_get_returns_none_when_key_expired ... ok
+    root:test | test cache_concurrent_delete_expired_is_safe ... ok
+    root:test | test cache_set_with_expiration_expires_correctly ... ok
+
+    root:test | test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+    root:test | running 1 test
+    root:test |      Running tests/postgres_test.rs (target/debug/deps/postgres_test-cd68bf0c0a834152)
+    root:test | test test_postgres_all ... ok
+
+    root:test | test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.70s
+
+
+    root:test | running 4 tests
+    root:test |      Running tests/rabbitmq_isolation_test.rs (target/debug/deps/rabbitmq_isolation_test-59a40f8ab7b8eeb7)
+    root:test | test broker_publishes_to_prefixed_queues_when_engine_id_set ... ok
+    root:test | test broker_with_empty_engine_id_uses_unprefixed_queues ... ok
+    root:test | test same_engine_id_engines_share_queues ... ok
+    root:test | test two_brokers_with_different_engine_ids_do_not_cross_talk ... ok
+
+    root:test | test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.86s
+
+
+    root:test | running 7 tests
+    root:test |      Running tests/rabbitmq_test.rs (target/debug/deps/rabbitmq_test-1ead55d554d7c62a)
+    root:test | test job_delivered_when_published_to_rabbitmq ... ok
+    root:test | test test_rabbitmq_health_check ... ok
+    root:test | test test_rabbitmq_all ... ok
+    root:test | test heartbeat_delivered_when_published_to_rabbitmq ... ok
+    root:test | test task_delivered_when_published_to_rabbitmq ... ok
+    root:test | test events_routed_correctly_when_patterns_match ... ok
+    root:test | test tasks_delivered_in_priority_order_when_buffered_in_rabbitmq ... ok
+
+    root:test | test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.27s
+
+
+    root:test | running 9 tests
+    root:test | test test_docker_lifecycle ... ignored, requires Docker daemon
+    root:test | test test_docker_probe ... ignored, requires Docker daemon
+    root:test | test test_docker_progress_reporting ... ignored, requires Docker daemon
+    root:test | test test_docker_resource_limits ... ignored, requires Docker daemon
+    root:test | test test_podman_lifecycle ... ignored, requires Podman
+    root:test | test test_podman_pre_post_tasks ... ignored, requires Podman
+    root:test | test test_podman_probe ... ignored, requires Podman
+    root:test | test test_podman_resource_limits ... ignored, requires Podman
+    root:test | test test_podman_volume_mounts ... ignored, requires Podman
+
+    root:test | test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 101 tests
+    root:test | test api::error::tests::from_datastore_error_maps_job_not_found ... ok
+    root:test | test api::error::tests::from_datastore_error_maps_node_not_found ... ok
+    root:test | test api::error::tests::from_anyhow_error_maps_to_internal ... ok
+    root:test | test api::error::tests::from_datastore_error_maps_task_not_found ... ok
+    root:test | test api::error::tests::from_datastore_error_maps_unknown_to_internal ... ok
+    root:test | test api::error::tests::from_datastore_error_maps_scheduled_job_not_found ... ok
+    root:test | test api::error::tests::from_datastore_error_maps_user_not_found ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_1 ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_catches_flow_style_nesting ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_counts_array_nesting ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_returns_correct_depth_for_nested_yaml ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_2 ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_returns_expected_for_nesting_levels::case_3 ... ok
+    root:test | test api::error::tests::into_response_bad_request_preserves_message ... ok
+    root:test | test api::yaml::tests::tests::ast_nodes_counts_all_nodes ... ok
+    root:test | test api::error::tests::into_response_internal_sanitizes_message ... ok
+    root:test | test api::error::tests::into_response_not_found_returns_404 ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_control_chars_0x01_to_0x1f_in_strings ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_del_0x7f_in_quoted_strings ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_unicode_value ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_job_state_uppercase ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_yaml_at_shallow_depth ... ok
+    root:test | test api::yaml::tests::tests::from_slice_accepts_yaml_with_tabs_in_quoted_strings ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_returns_zero_for_flat_yaml ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_empty_hashmap ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_empty_string_value ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_float_scientific_notation ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_hash_with_boolean_key ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_hash_with_integer_keys ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_hash_with_null_key ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_hash_with_real_key ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_multiline_folded_block ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_into_hashmap ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_job_struct_with_minimal_fields ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_multiline_literal_block ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_mixed_array_types ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_negative_integer ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_nested_arrays ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_nested_map ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_very_large_integer ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_whitespace_only_value ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_boolean_false ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_job_with_tasks ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_task_struct_with_image_and_queue ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_float ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_alias ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_integer ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_list_of_strings ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_boolean_true ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_null_as_none ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_zero_integer ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_yaml_negative_integer ... ok
+    root:test | test api::yaml::tests::tests::from_slice_deserializes_zero_float ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_empty_body ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_double_quoted_strings ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_multiline_block_scalar ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_flow_sequence ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_printable_ascii_in_values ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_single_quoted_strings ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_unicode_keys_and_values ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_unknown_yaml_tag_as_null ... ok
+    root:test | test api::yaml::tests::tests::from_slice_handles_yaml_with_trailing_newlines ... ok
+    root:test | test api::yaml::tests::tests::from_slice_ignores_unknown_yaml_fields ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_progress_clamps_to_valid_range ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_context ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_inputs ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_null_description_becomes_none ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_schedule ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_tags ... ok
+    root:test | test api::yaml::tests::tests::from_slice_parses_complex_nested_structure ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_all_optional_fields_absent ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_webhooks ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_auto_delete ... ok
+    root:test | test api::yaml::tests::tests::from_slice_rejects_invalid_job_state ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_binary_content_0x00 ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_camelcase_fields ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_binary_content_0x80_to_0xff ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_mixed_valid_and_invalid_utf8 ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_task_defaults ... ok
+    root:test | test api::yaml::tests::tests::from_slice_job_with_empty_tasks_array ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_body_is_whitespace_only ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_type_mismatch ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_bytes_are_not_utf8 ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_missing_required_field ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_yaml_is_malformed ... ok
+    root:test | test api::yaml::tests::tests::from_slice_rejects_job_with_invalid_task_image_type ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_nesting_exceeds_depth_limit ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_valid_job_when_yaml_is_well_formed ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_embedded_null_byte ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_for_truncated_utf8_sequence ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_none_for_absent_option_field ... ok
+    root:test | test api::yaml::tests::tests::from_slice_uses_default_for_absent_field ... ok
+    root:test | test api::yaml::tests::tests::from_slice_rejects_deeply_nested_flow_style ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_body_exceeds_size_limit ... ok
+    root:test | test api::yaml::tests::tests::from_slice_rejects_job_with_invalid_task_priority_type ... ok
+    root:test | test api::yaml::tests::tests::parse_all_example_yaml_files ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_ok_when_body_exactly_at_size_limit ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_never_negative ... ok
+    root:test | test api::yaml::tests::tests::from_slice_returns_bad_request_when_node_count_exceeds_limit ... ok
+    root:test | test api::yaml::tests::tests::ast_depth_and_nodes_deterministic ... ok
+    root:test |      Running tests/runtime_test.rs (target/debug/deps/runtime_test-8b326add545eb306)
+    root:test |      Running unittests src/lib.rs (target/debug/deps/twerk_web-8832f2d7ad585fb5)
+    root:test |      Running tests/api_endpoints_test.rs (target/debug/deps/api_endpoints_test-00ca14762f8a8b96)
+    root:test | test api::yaml::tests::tests::from_slice_rejects_flow_style_depth_bomb ... ok
+
+    root:test | test result: ok. 101 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+    root:test | running 43 tests
+    root:test | test create_scheduled_job_returns_400_with_unsupported_content_type ... ok
+    root:test | test delete_queue_returns_ok_when_exists ... ok
+    root:test | test create_user_returns_400_without_username ... ok
+    root:test | test cancel_job_returns_ok_when_job_is_running ... ok
+    root:test | test cancel_job_returns_404_when_job_not_found ... ok
+    root:test | test create_job_returns_400_with_invalid_json ... ok
+    root:test | test get_job_log_returns_404_when_job_not_found ... ok
+    root:test | test delete_queue_returns_status ... ok
+    root:test | test create_scheduled_job_returns_400_with_invalid_cron ... ok
+    root:test | test get_queue_returns_queue_info ... ok
+    root:test | test get_job_returns_job_when_exists ... ok
+    root:test | test get_job_log_returns_empty_when_no_logs ... ok
+    root:test | test create_scheduled_job_returns_ok_with_valid_json ... ok
+    root:test | test get_job_returns_404_when_not_found ... ok
+    root:test | test delete_scheduled_job_returns_ok_when_exists ... ok
+    root:test | test pause_scheduled_job_returns_404_when_not_found ... ok
+    root:test | test list_jobs_returns_jobs_when_exist ... ok
+    root:test | test list_scheduled_jobs_returns_empty_list_when_no_jobs ... ok
+    root:test | test create_scheduled_job_returns_400_without_cron ... ok
+    root:test | test restart_job_returns_400_when_job_not_restartable ... ok
+    root:test | test restart_job_returns_404_when_job_not_found ... ok
+    root:test | test restart_job_returns_ok_when_job_is_failed ... ok
+    root:test | test resume_scheduled_job_returns_404_when_not_found ... ok
+    root:test | test list_scheduled_jobs_returns_jobs_when_exist ... ok
+    root:test | test list_jobs_returns_empty_list_when_no_jobs ... ok
+    root:test | test get_metrics_returns_metrics ... ok
+    root:test | test create_user_returns_400_without_password ... ok
+    root:test | test pause_scheduled_job_returns_ok_when_active ... ok
+    root:test | test get_task_log_returns_404_when_task_not_found ... ok
+    root:test | test get_task_returns_404_when_not_found ... ok
+    root:test | test resume_scheduled_job_returns_ok_when_paused ... ok
+    root:test | test list_nodes_returns_nodes_list ... ok
+    root:test | test list_jobs_respects_pagination_params ... ok
+    root:test | test delete_scheduled_job_returns_404_when_not_found ... ok
+    root:test | test get_queue_returns_queue_info_when_exists ... ok
+    root:test | test get_scheduled_job_returns_404_when_not_found ... ok
+    root:test | test create_job_returns_400_with_unsupported_content_type ... ok
+    root:test | test create_scheduled_job_returns_400_without_tasks ... ok
+    root:test | test cancel_job_returns_400_when_job_not_cancellable ... ok
+    root:test | test list_queues_returns_queues ... ok
+    root:test | test health_response_includes_version ... ok
+    root:test | test get_scheduled_job_returns_job_when_exists ... ok
+    root:test |      Running tests/api_test.rs (target/debug/deps/api_test-93e0bb18003a6da8)
+    root:test | test create_user_returns_ok_with_valid_credentials ... ok
+
+    root:test | test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+
+    root:test | running 7 tests
+    root:test | test health_status_returns_503_when_broker_health_check_fails ... ok
+    root:test | test error_response_formatted_as_json_when_job_missing ... ok
+    root:test | test job_secrets_redacted_when_fetched_from_api ... ok
+    root:test | test job_created_successfully_when_valid_yaml_posted ... ok
+    root:test | test health_status_is_up_when_engine_is_ready ... ok
+    root:test | test job_created_successfully_when_valid_json_posted ... ok
+    root:test |      Running tests/comprehensive_api_test.rs (target/debug/deps/comprehensive_api_test-d7283e2430f6a221)
+    root:test | test job_wait_returns_completed_when_job_finishes ... ok
+
+    root:test | test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.00s
+
+
+    root:test | running 18 tests
+    root:test | test queues_delete_returns_ok ... ok
+    root:test | test queues_list_returns_queue_list ... ok
+    root:test | test error_response_has_json_format ... ok
+    root:test | test jobs_restart_returns_ok_for_failed_job ... ok
+    root:test | test jobs_get_returns_404_for_nonexistent ... ok
+    root:test | test queues_get_returns_queue_info ... ok
+    root:test | test nodes_list_returns_node_list ... ok
+    root:test | test jobs_get_returns_job ... ok
+    root:test | test jobs_cancel_returns_ok_for_running_job ... ok
+    root:test | test users_create_returns_bad_request_without_password ... ok
+    root:test | test jobs_list_returns_job_list ... ok
+    root:test | test health_returns_up_status ... ok
+    root:test | test jobs_create_rejects_unsupported_content_type ... ok
+    root:test | test metrics_returns_metrics_data ... ok
+    root:test | test users_create_returns_bad_request_without_username ... ok
+    root:test | test jobs_create_with_yaml_returns_job_summary ... ok
+    root:test | test jobs_create_returns_job_summary ... ok
+    root:test | test users_create_returns_ok ... ok
+
+    root:test | test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 5 tests
+    root:test |      Running tests/concurrent_isolation_test.rs (target/debug/deps/concurrent_isolation_test-b896a9fb842a6950)
+    root:test |      Running tests/distributed_e2e_test.rs (target/debug/deps/distributed_e2e_test-96e908a88312eb6e)
+    root:test |      Running tests/monte_carlo_simulation.rs (target/debug/deps/monte_carlo_simulation-4a289b0ce416f54b)
+    root:test | test monte_carlo_simulation::monte_carlo_scenario_1_simple_echo ... ok
+    root:test | test monte_carlo_simulation::monte_carlo_scenario_8_parallel_8_tasks ... ok
+▮▮▮▮ root:test (running for 120s)
+    root:test | test monte_carlo_simulation::monte_carlo_scenario_15_sustained_burst ... ok
+▮▮▮▮ root:test (running for 150s)
+    root:test | test monte_carlo_simulation::run_full_monte_carlo_simulation ... ok
+    root:test | test monte_carlo_simulation::correlation_complexity_vs_throughput ... ok
+
+    root:test | test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 47.30s
+
+
+    root:test | running 8 tests
+    root:test | test realistic_mutation_benchmarks::latency_distribution_realistic_workload ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::mutation_workload_each_items ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::mutation_workload_high_parallelism ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::mutation_workload_mixed_job_types ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::mutation_workload_realistic_started_simulation ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::mutation_workload_single_jobs ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::stress_test_sustained_realistic_load ... ignored, manual benchmark; exclude from normal cargo test
+    root:test | test realistic_mutation_benchmarks::generated_yaml_variants_parse_as_jobs ... ok
+
+    root:test | test result: ok. 1 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 27 tests
+    root:test | test tests::redact_appended_when_multiple_secret_values_present ... ok
+    root:test | test tests::redact_handles_empty_secret_values_without_panic ... ok
+    root:test | test tests::redact_job_context_inputs_when_containing_secrets ... ok
+    root:test | test tests::redact_appended_when_value_contains_secret_value ... ok
+    root:test | test tests::redact_job_context_secrets_replaced_with_redacted ... ok
+    root:test | test tests::redact_job_secrets_map_replaced_with_redacted ... ok
+    root:test | test tests::redact_job_execution_tasks_redacted ... ok
+    root:test | test tests::redact_job_context_tasks_when_containing_secrets ... ok
+    root:test | test tests::redact_job_summary_inputs_by_key_only ... ok
+    root:test | test tests::redact_job_summary_does_not_redact_non_secret_keys ... ok
+    root:test | test tests::redact_job_tasks_env_vars_containing_secrets ... ok
+    root:test | test tests::redact_job_tasks_mount_opts_containing_secrets ... ok
+    root:test | test tests::redact_job_tasks_registry_password_replaced ... ok
+    root:test | test tests::redact_job_tasks_parallel_tasks_recursively_redacted ... ok
+    root:test | test tests::redact_job_tasks_subjob_secrets_replaced ... ok
+    root:test | test tests::redact_job_tasks_pre_sidecars_recursively_redacted ... ok
+    root:test | test tests::redact_job_tasks_subjob_webhooks_redacted ... ok
+    root:test | test tests::redact_job_webhook_headers_containing_secrets ... ok
+    root:test | test tests::redact_matches_multiple_occurrences_of_same_secret ... ok
+    root:test | test tests::redact_matches_secret_value_in_nested_json_string ... ok
+    root:test | test tests::redact_no_op_when_no_secrets_defined ... ok
+    root:test | test tests::redact_no_op_when_secrets_map_is_empty ... ok
+    root:test | test tests::redact_patterns_api_key_when_key_contains_token ... ok
+    root:test | test tests::redact_patterns_aws_secret_key_when_key_contains_secret ... ok
+    root:test | test tests::redact_replaces_secret_value_when_key_contains_secret ... ok
+    root:test | test tests::redact_replaces_secret_value_when_key_is_access_key ... ok
+    root:test | test tests::redact_replaces_secret_value_when_key_is_password ... ok
+
+    root:test | test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 2 tests
+    root:test |      Running tests/mutation_workload_bench.rs (target/debug/deps/mutation_workload_bench-1dc59b41e61e72b9)
+    root:test |      Running tests/redact_test.rs (target/debug/deps/redact_test-9d85bd1b4b6d80cb)
+    root:test |      Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-79735a1e3683eb50)
+    root:test | test true_yaml_benchmark::true_yaml_parse_latency_p50_p90_p99 ... ok
+    root:test | test true_yaml_benchmark::true_yaml_parse_throughput_100k ... ok
+
+    root:test | test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.94s
+
+    root:test |    Doc-tests twerk_app
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    root:test |    Doc-tests twerk_cli
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    root:test | running 2 tests
+    root:test |    Doc-tests twerk_common
+    root:test | test crates/twerk-common/src/slices.rs - slices::map_slice (line 48) ... ok
+    root:test | test crates/twerk-common/src/slices.rs - slices::intersect (line 22) ... ok
+
+    root:test | test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+    root:test |    Doc-tests twerk_core
+
+    root:test | running 2 tests
+    root:test | test crates/twerk-core/src/task.rs - task::is_task_state_active (line 95) ... ok
+    root:test | test crates/twerk-core/src/env.rs - env::format_kv (line 9) ... ok
+
+    root:test | test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+    root:test |    Doc-tests twerk_infrastructure
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    root:test |    Doc-tests twerk_web
+
+    root:test | running 0 tests
+
+    root:test | test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+▮▮▮▮ root:test (2m 43s 67ms, 3b698460)
+
+Tasks: 4 completed
+ Time: 2m 43s 214ms
+

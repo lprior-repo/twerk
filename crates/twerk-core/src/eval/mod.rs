@@ -28,7 +28,9 @@ use thiserror::Error;
 
 pub mod condition;
 pub mod context;
+pub mod data_flow;
 pub mod functions;
+pub mod intrinsics;
 pub mod task;
 pub mod template;
 pub mod transform;

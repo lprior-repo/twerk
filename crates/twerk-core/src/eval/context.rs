@@ -7,6 +7,7 @@ use evalexpr::{ContextWithMutableFunctions, ContextWithMutableVariables, HashMap
 use std::collections::HashMap;
 
 use super::functions;
+use super::intrinsics;
 use crate::eval::EvalError;
 
 /// Converts a JSON value to an evalexpr Value.
@@ -184,6 +185,9 @@ pub fn create_context(
             EvalError::ExpressionError("toJSON".into(), e.to_string())
         })?;
 
+    // Register ASL intrinsic functions
+    register_intrinsics(&mut ctx)?;
+
     // Add context variables
     for (key, value) in context {
         let eval_value = json_to_eval_value(value)?;
@@ -194,4 +198,48 @@ pub fn create_context(
     }
 
     Ok(ctx)
+}
+
+/// Registers a single intrinsic function on the context.
+fn register_one(
+    ctx: &mut HashMapContext,
+    name: &str,
+    f: fn(&Value) -> Result<Value, String>,
+) -> Result<(), EvalError> {
+    let func = evalexpr::Function::new(move |args| {
+        f(args).map_err(evalexpr::EvalexprError::CustomMessage)
+    });
+    ctx.set_function(name.to_string(), func)
+        .map_err(|e: evalexpr::EvalexprError| {
+            EvalError::ExpressionError(name.into(), e.to_string())
+        })
+}
+
+/// Type alias for intrinsic function pointers.
+type IntrinsicFn = fn(&Value) -> Result<Value, String>;
+
+/// Registers all ASL intrinsic functions on the context.
+fn register_intrinsics(ctx: &mut HashMapContext) -> Result<(), EvalError> {
+    let entries: &[(&str, IntrinsicFn)] = &[
+        ("format", intrinsics::format_fn),
+        ("stringToJson", intrinsics::string_to_json_fn),
+        ("jsonToString", intrinsics::json_to_string_fn),
+        ("array", intrinsics::array_fn),
+        ("mathRandom", intrinsics::math_random_fn),
+        ("mathAdd", intrinsics::math_add_fn),
+        ("mathSub", intrinsics::math_sub_fn),
+        ("uuid", intrinsics::uuid_fn),
+        ("hash", intrinsics::hash_fn),
+        ("base64Encode", intrinsics::base64_encode_fn),
+        ("base64Decode", intrinsics::base64_decode_fn),
+        ("arrayPartition", intrinsics::array_partition_fn),
+        ("arrayContains", intrinsics::array_contains_fn),
+        ("arrayRange", intrinsics::array_range_fn),
+        ("arrayLength", intrinsics::array_length_fn),
+        ("arrayUnique", intrinsics::array_unique_fn),
+    ];
+    for &(name, f) in entries {
+        register_one(ctx, name, f)?;
+    }
+    Ok(())
 }

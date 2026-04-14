@@ -14,6 +14,7 @@ pub mod role;
 pub mod stats;
 pub mod task;
 pub mod trigger;
+pub mod types;
 pub mod user;
 pub mod uuid;
 pub mod validation;
@@ -21,8 +22,12 @@ pub mod webhook;
 
 pub use domain_types::{
     CronError, CronExpression, DomainParseError, GoDuration, GoDurationError, Priority,
-    PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
+    PriorityError, QueueName, QueueNameError,
 };
 pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};
 pub use trigger::{ParseTriggerStateError, TriggerState};
+pub use types::{
+    Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError, RetryLimit,
+    RetryLimitError, TaskCount, TaskCountError, TaskPosition, TaskPositionError,
+};

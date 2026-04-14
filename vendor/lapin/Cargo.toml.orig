@@ -1,0 +1,122 @@
+[package]
+name = "lapin"
+version = "4.4.0"
+edition = "2024"
+authors = ["Geoffroy Couprie <geo.couprie@gmail.com>", "Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
+description = "AMQP client library"
+repository = "https://github.com/amqp-rs/lapin"
+readme = "README.md"
+documentation = "https://docs.rs/lapin"
+keywords = ["amqp", "rabbitmq", "mio", "futures"]
+categories = ["database"]
+license = "MIT"
+build = "build.rs"
+rust-version = "1.88.0"
+
+[features]
+default                   = ["rustls", "default-runtime"]
+default-runtime           = ["tokio"]
+
+async-global-executor     = ["amq-protocol/async-global-executor", "async-rs/async-global-executor", "async-rs/async-io"]
+hickory-dns               = ["amq-protocol/hickory-dns", "async-rs/hickory-dns"]
+smol                      = ["amq-protocol/smol", "async-rs/smol"]
+tokio                     = ["amq-protocol/tokio", "async-rs/tokio"]
+
+codegen                   = ["codegen-internal", "amq-protocol/codegen"]
+codegen-internal          = ["dep:amq-protocol-codegen", "dep:serde_json"]
+
+native-tls                = ["amq-protocol/native-tls"]
+openssl                   = ["amq-protocol/openssl"]
+rustls                    = ["amq-protocol/rustls"]
+rustls-native-certs       = ["amq-protocol/rustls-native-certs"]
+rustls-webpki-roots-certs = ["amq-protocol/rustls-webpki-roots-certs"]
+vendored-openssl          = ["amq-protocol/vendored-openssl"]
+
+# rustls crypto providers. Choose at least one. Otherwise, runtime errors.
+# See https://docs.rs/rustls/latest/rustls/#crate-features. for more info
+rustls--aws_lc_rs         = ["amq-protocol/rustls--aws_lc_rs"] # default, but doesn't build everywhere
+rustls--ring              = ["amq-protocol/rustls--ring"] # more compatible, (e.g., easily builds on Windows)
+
+[build-dependencies.amq-protocol-codegen]
+version = "^10.0.1"
+optional = true
+
+[build-dependencies.serde_json]
+version = "^1.0"
+optional = true
+
+[dependencies]
+async-trait = "^0.1.42"
+cfg-if = "^1.0"
+futures-core = "^0.3"
+futures-io = "^0.3"
+
+[dependencies.amq-protocol]
+version = "^10.0.1"
+default-features = false
+
+[dependencies.async-rs]
+version = "^0.8.2"
+default-features = false
+
+[dependencies.backon]
+version = "^1.6"
+default-features = false
+features = ["std"]
+
+[dependencies.flume]
+version = "^0.12"
+default-features = false
+features = ["async"]
+
+[dependencies.tracing]
+version = "^0.1"
+default-features = false
+
+[dev-dependencies]
+futures-lite = "^2.0"
+serde_json = "^1.0"
+smol = "^2.0"
+
+[dev-dependencies.tokio]
+version = "^1.17"
+features = ["macros", "rt-multi-thread"]
+
+[dev-dependencies.tracing-subscriber]
+version = "^0.3.20"
+features = ["fmt"]
+
+[[example]]
+name = "connection"
+required-features = ["async-global-executor"]
+
+[[example]]
+name = "reconnect_manual"
+required-features = ["async-global-executor"]
+
+[[example]]
+name = "reconnect_semi_automatic"
+required-features = ["tokio"]
+
+[[example]]
+name = "smol"
+required-features = ["smol"]
+
+[[example]]
+name = "tokio"
+required-features = ["tokio"]
+
+[[test]]
+name = "runtime_isolation"
+required-features = ["tokio"]
+
+[[test]]
+name = "smol"
+required-features = ["smol"]
+
+[[test]]
+name = "tokio"
+required-features = ["tokio"]
+
+[badges]
+maintenance = { status = "actively-developed" }

@@ -1,0 +1,71 @@
+[package]
+name          = "rustls-connector"
+version       = "0.22.0"
+authors       = ["Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
+edition       = "2024"
+description   = "Connector similar to openssl or native-tls for rustls"
+repository    = "https://github.com/amqp-rs/rustls-connector"
+documentation = "https://docs.rs/rustls-connector"
+keywords      = ["tls", "rustls"]
+categories    = ["network-programming"]
+license       = "BSD-2-Clause"
+rust-version  = "1.85.0"
+
+[lib]
+name = "rustls_connector"
+
+[features]
+default            = ["native-certs", "rustls--aws_lc_rs" ]
+futures            = ["dep:futures-io", "dep:futures-rustls"]
+logging            = ["futures-rustls?/logging", "rustls/logging"]
+
+native-certs       = ["dep:log", "dep:rustls-native-certs"]
+webpki-roots-certs = ["dep:webpki-roots"]
+
+# rustls crypto providers. Choose at least one. Otherwise, runtime errors.
+# See https://docs.rs/rustls/latest/rustls/#crate-features. for more info
+rustls--aws_lc_rs  = ["futures-rustls?/aws-lc-rs", "rustls/aws_lc_rs"] # default, but doesn't build everywhere
+rustls--ring       = ["futures-rustls?/ring", "rustls/ring"] # more compatible, (e.g., easily builds on Windows)
+
+[dependencies.futures-io]
+version  = "^0.3"
+optional = true
+
+[dependencies.futures-rustls]
+version          = "^0.26"
+optional         = true
+default-features = false
+features         = ["tls12"]
+
+[dependencies.log]
+version  = "^0.4"
+optional = true
+
+[dependencies.rustls]
+version          = "^0.23.25"
+default-features = false
+features         = ["std", "tls12"]
+
+[dependencies.rustls-native-certs]
+version  = "^0.8"
+optional = true
+
+[dependencies.rustls-pki-types]
+version          = "^1.4"
+default-features = false
+features         = ["std"]
+
+[dependencies.rustls-webpki]
+version          = "^0.103"
+default-features = false
+features         = ["std"]
+
+[dependencies.webpki-roots]
+version  = "^1.0"
+optional = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[badges]
+maintenance = { status = "actively-developed" }

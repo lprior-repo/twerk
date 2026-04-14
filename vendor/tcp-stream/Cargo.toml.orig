@@ -1,0 +1,90 @@
+[package]
+name          = "tcp-stream"
+version       = "0.34.3"
+authors       = ["Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
+edition       = "2024"
+description   = "std::net::TcpStream on steroids"
+repository    = "https://github.com/amqp-rs/tcp-stream"
+documentation = "https://docs.rs/tcp-stream"
+keywords      = ["tcp", "io", "async", "non-blocking"]
+categories    = ["asynchronous", "network-programming"]
+license       = "BSD-2-Clause"
+rust-version  = "1.88.0"
+
+[lib]
+name = "tcp_stream"
+
+[features]
+default                   = ["rustls-native-certs", "rustls--aws_lc_rs", "tokio"]
+futures                   = ["dep:futures-io", "dep:async-rs"]
+
+async-global-executor     = ["futures", "async-rs?/async-global-executor", "async-rs?/async-io"]
+smol                      = ["futures", "async-rs?/smol"]
+tokio                     = ["futures", "async-rs?/tokio"]
+
+native-tls-futures        = ["dep:async-native-tls", "futures", "native-tls"]
+openssl-futures           = ["dep:async-openssl", "futures", "openssl"]
+rustls-futures            = ["futures", "rustls", "rustls-connector/futures"]
+
+native-tls                = ["dep:native-tls", "dep:rustls-pki-types"]
+openssl                   = ["dep:openssl"]
+rustls-webpki-roots-certs = ["rustls", "rustls-connector/webpki-roots-certs"]
+rustls-native-certs       = ["rustls", "rustls-connector/native-certs"]
+rustls                    = ["dep:rustls-connector", "dep:p12-keystore"]
+vendored-openssl          = ["openssl", "openssl/vendored"]
+
+# rustls crypto providers. Choose at least one. Otherwise, runtime errors.
+# See https://docs.rs/rustls/latest/rustls/#crate-features. for more info
+rustls--aws_lc_rs         = ["dep:rustls-connector", "rustls-connector/rustls--aws_lc_rs"] # default, but doesn't build everywhere
+rustls--ring              = ["dep:rustls-connector", "rustls-connector/rustls--ring"] # more compatible, (e.g., easily builds on Windows)
+
+[dependencies]
+cfg-if = "^1.0"
+
+[dependencies.async-native-tls]
+version = "^0.6"
+default-features = false
+features = ["runtime-smol"] # this feature name is bad. means async traits from futures-io
+optional = true
+
+[dependencies.async-openssl]
+version = "^0.2"
+optional = true
+
+[dependencies.async-rs]
+version = "^0.8"
+default-features = false
+optional = true
+
+[dependencies.futures-io]
+version = "^0.3"
+optional = true
+
+[dependencies.native-tls]
+version  = "^0.2"
+optional = true
+
+[dependencies.openssl]
+version  = "^0.10.72"
+optional = true
+
+[dependencies.p12-keystore]
+version = "^0.2"
+optional = true
+
+[dependencies.rustls-connector]
+version          = "^0.22"
+optional         = true
+default-features = false
+
+[dependencies.rustls-pki-types]
+version          = "^1.4"
+optional         = true
+default-features = false
+features         = ["std"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[badges]
+maintenance = { status = "actively-developed" }

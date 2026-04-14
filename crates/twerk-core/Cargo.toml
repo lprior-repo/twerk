@@ -19,6 +19,7 @@ itertools.workspace = true
 tap.workspace = true
 rpds.workspace = true
 thiserror.workspace = true
+url.workspace = true
 indexmap = { version = "2", features = ["serde"] }
 sysinfo.workspace = true
 once_cell.workspace = true

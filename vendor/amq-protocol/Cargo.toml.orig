@@ -1,0 +1,75 @@
+[package]
+name          = "amq-protocol"
+description   = "AMQP specifications"
+documentation = "https://docs.rs/amq-protocol"
+build         = "build.rs"
+
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "amq_protocol"
+
+[features]
+default                   = ["rustls"]
+
+codegen                   = ["codegen-internal"]
+codegen-internal          = ["dep:amq-protocol-codegen"]
+
+async-global-executor     = ["amq-protocol-tcp/async-global-executor"]
+hickory-dns               = ["amq-protocol-tcp/hickory-dns"]
+smol                      = ["amq-protocol-tcp/smol"]
+tokio                     = ["amq-protocol-tcp/tokio"]
+
+native-tls                = ["amq-protocol-tcp/native-tls"]
+openssl                   = ["amq-protocol-tcp/openssl"]
+rustls                    = ["amq-protocol-tcp/rustls"]
+rustls-native-certs       = ["amq-protocol-tcp/rustls-native-certs"]
+rustls-webpki-roots-certs = ["amq-protocol-tcp/rustls-webpki-roots-certs"]
+vendored-openssl          = ["amq-protocol-tcp/vendored-openssl"]
+verbose-errors            = ["amq-protocol-types/verbose-errors"]
+
+# rustls crypto providers. Choose at least one. Otherwise, runtime errors.
+# See https://docs.rs/rustls/latest/rustls/#crate-features. for more info
+rustls--aws_lc_rs         = ["amq-protocol-tcp/rustls--aws_lc_rs"] # default, but doesn't build everywhere
+rustls--ring              = ["amq-protocol-tcp/rustls--ring"] # more compatible, (e.g., easily builds on Windows)
+
+[build-dependencies.amq-protocol-codegen]
+version  = "=10.0.1"
+path     = "../codegen"
+optional = true
+
+[dependencies.amq-protocol-tcp]
+version          = "=10.0.1"
+default-features = false
+path             = "../tcp"
+
+[dependencies.amq-protocol-types]
+version = "=10.0.1"
+path    = "../types"
+
+[dependencies.amq-protocol-uri]
+version = "=10.0.1"
+path    = "../uri"
+
+[dependencies.cookie-factory]
+version          = "^0.3"
+default-features = false
+features         = ["std"]
+
+[dependencies.nom]
+version  = "^8.0"
+features = ["std"]
+
+[dependencies.serde]
+version  = "^1.0"
+features = ["derive"]
+
+[badges]
+maintenance = { status = "actively-developed" }

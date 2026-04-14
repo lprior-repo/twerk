@@ -1,0 +1,15 @@
+[package]
+name = "twerk-core-fuzz"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+libfuzzer_sys = "0.4"
+serde = { workspace = true }
+serde_json = { workspace = true }
+twerk-core = { path = "..", features = [] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

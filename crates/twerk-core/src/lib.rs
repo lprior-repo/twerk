@@ -1,4 +1,5 @@
 pub mod asl;
+pub mod domain;
 pub mod domain_types;
 pub mod env;
 pub mod eval;
@@ -20,14 +21,17 @@ pub mod uuid;
 pub mod validation;
 pub mod webhook;
 
+pub use domain::{
+    CronExpression, CronExpressionError, Hostname, HostnameError, WebhookUrl, WebhookUrlError,
+};
 pub use domain_types::{
-    CronError, CronExpression, DomainParseError, GoDuration, GoDurationError, Priority,
-    PriorityError, QueueName, QueueNameError,
+    CronError, CronExpression as CronExpressionOld, DomainParseError, GoDuration, GoDurationError,
+    Priority, PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
 };
 pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};
 pub use trigger::{ParseTriggerStateError, TriggerState};
 pub use types::{
-    Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError, RetryLimit,
-    RetryLimitError, TaskCount, TaskCountError, TaskPosition, TaskPositionError,
+    Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError,
+    TaskCount, TaskCountError, TaskPosition, TaskPositionError,
 };

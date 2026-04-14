@@ -1,0 +1,60 @@
+[package]
+name          = "amq-protocol-tcp"
+description   = "AMQP URI TCP connection handling"
+documentation = "https://docs.rs/amq-protocol-tcp"
+
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "amq_protocol_tcp"
+
+[features]
+default                   = ["rustls", "tokio"]
+
+async-global-executor     = ["async-rs/async-global-executor", "async-rs/async-io"]
+hickory-dns               = ["async-rs/hickory-dns"]
+smol                      = ["async-rs/smol"]
+tokio                     = ["async-rs/tokio"]
+
+native-tls                = ["tcp-stream/native-tls-futures"]
+openssl                   = ["tcp-stream/openssl-futures"]
+rustls                    = ["rustls-native-certs", "rustls--aws_lc_rs"]
+rustls-native-certs       = ["rustls-common", "tcp-stream/rustls-native-certs"]
+rustls-webpki-roots-certs = ["rustls-common", "tcp-stream/rustls-webpki-roots-certs"]
+rustls-common             = ["tcp-stream/rustls-futures"]
+vendored-openssl          = ["tcp-stream/vendored-openssl"]
+
+# rustls crypto providers. Choose at least one. Otherwise, runtime errors.
+# See https://docs.rs/rustls/latest/rustls/#crate-features. for more info
+rustls--aws_lc_rs         = ["tcp-stream/rustls--aws_lc_rs"] # default, but doesn't build everywhere
+rustls--ring              = ["tcp-stream/rustls--ring"] # more compatible, (e.g., easily builds on Windows)
+
+[dependencies]
+cfg-if = "^1.0"
+
+[dependencies.amq-protocol-uri]
+version = "=10.0.1"
+path    = "../uri"
+
+[dependencies.async-rs]
+version = "^0.8"
+default-features = false
+
+[dependencies.tcp-stream]
+version          = "^0.34.2"
+default-features = false
+features         = ["futures"]
+
+[dependencies.tracing]
+version          = "^0.1"
+default-features = false
+
+[badges]
+maintenance = { status = "actively-developed" }

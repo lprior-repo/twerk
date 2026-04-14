@@ -8,7 +8,9 @@
 //! - Kani formal verification proofs
 
 #[cfg(test)]
-use crate::trigger::types::{Trigger, TriggerContext, TriggerError, TriggerId, TriggerIdError, TriggerState, TriggerVariant};
+use crate::trigger::types::{
+    Trigger, TriggerContext, TriggerError, TriggerId, TriggerIdError, TriggerState, TriggerVariant,
+};
 #[cfg(test)]
 use crate::trigger::{is_valid_transition, InMemoryTriggerRegistry, TriggerRegistry};
 

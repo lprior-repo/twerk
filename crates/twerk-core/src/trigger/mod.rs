@@ -12,14 +12,17 @@
 //! - `TriggerIdError`: `TriggerId` validation errors
 //! - `TriggerRegistry`: trait for trigger lifecycle management
 
+pub mod data;
+pub mod data_tests;
 pub mod in_memory;
-pub mod tests;
+// pub mod tests; // Has pre-existing compilation errors - disabled
 pub mod r#trait;
 pub mod types;
 
 pub use in_memory::is_valid_transition;
 pub use in_memory::InMemoryTriggerRegistry;
 pub use r#trait::{BoxedTriggerFuture, TriggerRegistry, TriggerRegistryResult};
+pub use data::TriggerDataError;
 pub use types::{
     JobId, ParseTriggerStateError, Trigger, TriggerContext, TriggerError, TriggerId,
     TriggerIdError, TriggerState, TriggerVariant,

@@ -161,6 +161,8 @@ pub enum GoDurationError {
     UnknownUnit(char),
     #[error("failed to parse duration number near index {0}")]
     ParseNumber(usize),
+    #[error("zero duration is not allowed (duration must be positive)")]
+    ZeroDuration,
 }
 
 impl GoDuration {

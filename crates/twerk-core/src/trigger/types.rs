@@ -21,10 +21,11 @@ pub use crate::id::{IdError as TriggerIdError, JobId, TriggerId};
 // =============================================================================
 
 /// The runtime state of a trigger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
 pub enum TriggerState {
-    Active,   // Can fire, retains resources
+    #[default]
+    Active, // Can fire, retains resources
     Paused,   // Cannot fire, retains resources
     Disabled, // Cannot fire, releases all resources
     Error,    // Terminal state for polling failures, requires manual resume
@@ -65,12 +66,6 @@ impl std::fmt::Display for ParseTriggerStateError {
 }
 
 impl std::error::Error for ParseTriggerStateError {}
-
-impl Default for TriggerState {
-    fn default() -> Self {
-        TriggerState::Active
-    }
-}
 
 // =============================================================================
 // TriggerVariant - Type/kind of trigger
@@ -166,6 +161,10 @@ pub enum TriggerError {
     BrokerUnavailable(String),
     #[error("concurrency limit reached")]
     ConcurrencyLimitReached,
+
+    // --- Job ID Generation (1) ---
+    #[error("failed to generate job ID: {0}")]
+    JobIdGenerationFailed(String),
 }
 
 // =============================================================================

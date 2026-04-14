@@ -124,7 +124,6 @@ impl JobId {
     /// # Errors
     ///
     /// Returns `IdError::InvalidUuid` if the string is not a valid RFC 4122 UUID.
-    #[must_use]
     pub fn new(uuid: impl Into<String>) -> Result<Self, IdError> {
         let s = uuid.into();
         if uuid::Uuid::parse_str(&s).is_ok() {

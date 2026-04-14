@@ -230,7 +230,8 @@ impl TriggerRegistry for InMemoryTriggerRegistry {
         self.fire_count.fetch_add(1, Ordering::SeqCst);
         let trigger = self.get_trigger(&ctx.trigger_id)?;
         self.validate_trigger_for_fire(&trigger)?;
-        Ok(JobId::new(uuid::Uuid::new_v4().to_string()).expect("UUID is always valid JobId"))
+        let uuid_str = uuid::Uuid::new_v4().to_string();
+        JobId::new(uuid_str).map_err(|e| TriggerError::JobIdGenerationFailed(e.to_string()))
     }
 }
 

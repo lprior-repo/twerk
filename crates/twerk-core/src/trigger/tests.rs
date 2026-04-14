@@ -7,9 +7,9 @@
 //! - Proptest property-based tests
 //! - Kani formal verification proofs
 
-use crate::trigger::types::{
-    Trigger, TriggerContext, TriggerError, TriggerId, TriggerIdError, TriggerState, TriggerVariant,
-};
+#[cfg(test)]
+use crate::trigger::types::{Trigger, TriggerContext, TriggerError, TriggerId, TriggerIdError, TriggerState, TriggerVariant};
+#[cfg(test)]
 use crate::trigger::{is_valid_transition, InMemoryTriggerRegistry, TriggerRegistry};
 
 // =============================================================================

@@ -21,14 +21,43 @@ pub use crate::id::{IdError as TriggerIdError, JobId, TriggerId};
 // =============================================================================
 
 /// The runtime state of a trigger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TriggerState {
     #[default]
     Active, // Can fire, retains resources
     Paused,   // Cannot fire, retains resources
     Disabled, // Cannot fire, releases all resources
     Error,    // Terminal state for polling failures, requires manual resume
+}
+
+/// Case-insensitive string matching for FromStr (accepts all case variants).
+fn match_state_variant_for_fromstr(s: &str) -> Option<TriggerState> {
+    match s.to_uppercase().as_str() {
+        "ACTIVE" => Some(TriggerState::Active),
+        "PAUSED" => Some(TriggerState::Paused),
+        "DISABLED" => Some(TriggerState::Disabled),
+        "ERROR" => Some(TriggerState::Error),
+        _ => None,
+    }
+}
+
+/// Serde-friendly matching: accepts "Active" (PascalCase) and "ACTIVE" (uppercase),
+/// but rejects "active" (lowercase). This matches the contract where:
+/// - serde serialization outputs "Active" (PascalCase)
+/// - serde accepts both "Active" and "ACTIVE"
+/// - serde rejects "active" (lowercase)
+fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
+    match s {
+        "Active" => Some(TriggerState::Active),
+        "Paused" => Some(TriggerState::Paused),
+        "Disabled" => Some(TriggerState::Disabled),
+        "Error" => Some(TriggerState::Error),
+        "ACTIVE" => Some(TriggerState::Active),
+        "PAUSED" => Some(TriggerState::Paused),
+        "DISABLED" => Some(TriggerState::Disabled),
+        "ERROR" => Some(TriggerState::Error),
+        _ => None,
+    }
 }
 
 impl std::fmt::Display for TriggerState {
@@ -45,13 +74,46 @@ impl std::fmt::Display for TriggerState {
 impl std::str::FromStr for TriggerState {
     type Err = ParseTriggerStateError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Active" => Ok(TriggerState::Active),
-            "Paused" => Ok(TriggerState::Paused),
-            "Disabled" => Ok(TriggerState::Disabled),
-            "Error" => Ok(TriggerState::Error),
-            _ => Err(ParseTriggerStateError(s.to_string())),
+        match_state_variant_for_fromstr(s).ok_or_else(|| ParseTriggerStateError(s.to_string()))
+    }
+}
+
+/// Custom serializer for TriggerState - outputs PascalCase.
+impl Serialize for TriggerState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+/// Custom deserializer for TriggerState - accepts uppercase variants only.
+impl<'de> Deserialize<'de> for TriggerState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct TriggerStateVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for TriggerStateVisitor {
+            type Value = TriggerState;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a TriggerState string (ACTIVE, PAUSED, DISABLED, ERROR)")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match_state_variant_for_serde(value).ok_or_else(|| {
+                    serde::de::Error::custom(format!("unknown TriggerState: {value}"))
+                })
+            }
         }
+
+        deserializer.deserialize_str(TriggerStateVisitor)
     }
 }
 
@@ -61,7 +123,7 @@ pub struct ParseTriggerStateError(pub String);
 
 impl std::fmt::Display for ParseTriggerStateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid TriggerState: {}", self.0)
+        write!(f, "unknown TriggerState: {}", self.0)
     }
 }
 

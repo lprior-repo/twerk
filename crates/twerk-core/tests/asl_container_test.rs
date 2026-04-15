@@ -725,3 +725,92 @@ fn map_state_reject_neg_infinity_tolerance() {
     .expect_err("neg infinity");
     assert_eq!(err, MapStateError::NonFiniteToleratedFailurePercentage);
 }
+
+// =========================================================================
+// StateMachine YAML Parsing
+// =========================================================================
+
+#[test]
+fn state_machine_parses_asl_yaml() {
+    let yaml = r#"
+comment: "Simple two-step ASL workflow"
+startAt: Hello
+states:
+  Hello:
+    type: pass
+    result: "Hello, World!"
+    next: Goodbye
+  Goodbye:
+    type: pass
+    result: "Goodbye!"
+    end: true
+"#;
+    let sm: StateMachine = serde_saphyr::from_str(yaml).expect("yaml deser");
+    assert_eq!(sm.start_at().as_str(), "Hello");
+    assert_eq!(sm.states().len(), 2);
+    assert!(sm.validate().is_ok());
+}
+
+#[test]
+fn state_machine_parses_asl_yaml_with_task() {
+    let yaml = r#"
+startAt: RunTask
+states:
+  RunTask:
+    type: task
+    image: alpine:3.19
+    run: echo hello
+    next: Done
+  Done:
+    type: succeed
+"#;
+    let sm: StateMachine = serde_saphyr::from_str(yaml).expect("yaml deser");
+    assert_eq!(sm.states().len(), 2);
+    assert!(sm.validate().is_ok());
+}
+
+#[test]
+fn state_machine_parses_real_yaml_file() {
+    use std::fs;
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace_root = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("could not resolve workspace root");
+    let asl_yaml = workspace_root.join("examples/asl-hello.yaml");
+
+    let content = fs::read_to_string(&asl_yaml)
+        .unwrap_or_else(|_| panic!("Failed to read {}", asl_yaml.display()));
+
+    let sm: StateMachine = serde_saphyr::from_str(&content)
+        .unwrap_or_else(|e| panic!("Failed to parse {}: {}", asl_yaml.display(), e));
+
+    assert_eq!(sm.start_at().as_str(), "Hello");
+    assert_eq!(sm.states().len(), 2);
+    assert!(sm.validate().is_ok());
+}
+
+#[test]
+fn state_machine_parses_task_with_retry_yaml() {
+    use std::fs;
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace_root = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("could not resolve workspace root");
+    let yaml_path = workspace_root.join("examples/asl-task-retry.yaml");
+
+    let content = fs::read_to_string(&yaml_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", yaml_path.display()));
+
+    let sm: StateMachine = serde_saphyr::from_str(&content)
+        .unwrap_or_else(|e| panic!("Failed to parse {}: {}", yaml_path.display(), e));
+
+    assert_eq!(sm.start_at().as_str(), "Build");
+    assert_eq!(sm.states().len(), 3);
+    assert!(sm.validate().is_ok());
+
+    let build_state = sm.get_state(&sn("Build")).expect("Build state");
+    let task_kind = build_state.kind();
+    assert!(matches!(task_kind, StateKind::Task(_)));
+}

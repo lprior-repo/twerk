@@ -1,0 +1,11 @@
+comment: "Simple two-step ASL workflow"
+startAt: Hello
+states:
+  Hello:
+    type: pass
+    result: "Hello, World!"
+    next: Goodbye
+  Goodbye:
+    type: pass
+    result: "Goodbye!"
+    end: true

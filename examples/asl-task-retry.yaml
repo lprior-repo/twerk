@@ -1,0 +1,30 @@
+comment: "ASL-style task workflow with retry and catch"
+startAt: Build
+states:
+  Build:
+    type: task
+    image: ubuntu:mantic
+    run: |
+      echo "Building..."
+      if [ $RANDOM -lt 16384 ]; then
+        echo "Build failed!"
+        exit 1
+      fi
+      echo "Build succeeded!"
+    retry:
+      - errorEquals:
+          - TaskFailed
+        intervalSeconds: 1
+        maxAttempts: 3
+        backoffRate: 2.0
+    next: Test
+  Test:
+    type: task
+    image: ubuntu:mantic
+    run: echo "Running tests..."
+    next: Deploy
+  Deploy:
+    type: task
+    image: ubuntu:mantic
+    run: echo "Deploying..."
+    end: true

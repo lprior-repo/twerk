@@ -111,35 +111,39 @@ bd automatically syncs via Dolt:
 
 ### Dolt Remote Configuration
 
-bd stores its Dolt database in `.beads/dolt/` (not in `twerk-database/`). The Dolt database is a **local file-based repository** at `file:///home/lewis/src/twerk/twerk-database`. **Do NOT use DoltHub remotes** — they require credentials and this project uses a local file remote.
+bd stores its Dolt database in `.beads/dolt/`. The remote is **DoltHub**: `https://doltremoteapi.dolthub.com/priorlewis43/twerk-database`
 
 **Check current remote:**
 ```bash
 cd .beads/dolt && dolt remote -v
-# Expected: origin file:///home/lewis/src/twerk/twerk-database {}
+# Expected: origin https://doltremoteapi.dolthub.com/priorlewis43/twerk-database {}
 ```
 
 **If `bd dolt push` or `dolt push origin main` fails:**
 
-1. **"unknown url scheme" or "dolt://" errors**: Remote uses wrong scheme. Fix with:
+1. **"permission denied"**: Credentials issue. Check DoltHub login or use force:
    ```bash
    cd .beads/dolt
-   dolt remote remove origin
-   dolt remote add origin file:///home/lewis/src/twerk/twerk-database
-   dolt push origin main
+   dolt push origin main --force
    ```
 
-2. **"permission denied" on DoltHub**: Remote is set to DoltHub URL. Same fix as above.
-
-3. **"no common ancestor"**: History mismatch. The local and remote have diverged. Force push if you don't care about remote history:
+2. **"no common ancestor"**: History mismatch. Force push:
    ```bash
    dolt push origin main --force
    ```
 
-4. **"database not found"**: Dolt server isn't running or metadata.json is wrong. Check:
+3. **"database not found"**: Dolt server isn't running or metadata.json is wrong. Check:
    ```bash
    cat .beads/metadata.json  # should have database: "twerk"
    dolt sql -q "SHOW DATABASES;"  # should list twerk
+   ```
+
+4. **Remote wrong**: Fix with:
+   ```bash
+   cd .beads/dolt
+   dolt remote remove origin
+   dolt remote add origin https://doltremoteapi.dolthub.com/priorlewis43/twerk-database
+   dolt push origin main
    ```
 
 **Standard push workflow:**

@@ -401,7 +401,7 @@ fn task_state_serde_env_multiple() {
 #[test]
 fn task_state_yaml_deserialize() {
     let yaml = "image: \"alpine:3.19\"\nrun: \"echo hello\"\nenv:\n  GREETING: hello\ntimeout: 120\nnext: ProcessResult";
-    let ts: TaskState = serde_yaml::from_str(yaml).expect("yaml deser");
+    let ts: TaskState = serde_saphyr::from_str(yaml).expect("yaml deser");
     assert_eq!(ts.image().as_str(), "alpine:3.19");
     assert_eq!(ts.env().get("GREETING").map(|e| e.as_str()), Some("hello"));
     assert_eq!(ts.timeout(), Some(120));

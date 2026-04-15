@@ -419,7 +419,7 @@ mod ci_cd_pipeline_simulation {
         for i in 0..iterations {
             let job_id = format!("simple-{}", i);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
         }
         let duration = start.elapsed();
 
@@ -475,7 +475,7 @@ mod ci_cd_pipeline_simulation {
         for i in 0..iterations {
             let job_id = format!("medium-{}", i);
             let yaml = generate_medium_pipeline(&job_id);
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
         }
         let duration = start.elapsed();
 
@@ -526,7 +526,7 @@ mod ci_cd_pipeline_simulation {
         for i in 0..iterations {
             let job_id = format!("full-{}", i);
             let yaml = generate_full_pipeline(&job_id);
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
         }
         let duration = start.elapsed();
 
@@ -594,7 +594,7 @@ mod ci_cd_pipeline_simulation {
                 }
             };
 
-            match serde_yaml::from_slice::<Job>(yaml.as_bytes()) {
+            match serde_saphyr::from_str::<Job>(&yaml) {
                 Ok(_) => count += 1,
                 Err(_) => error_count += 1,
             }
@@ -682,7 +682,7 @@ mod ci_cd_pipeline_simulation {
         while start.elapsed().as_secs() < 2 {
             let job_id = format!("normal-{}", count);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
             count += 1;
         }
         let normal_rate = count as f64 / 2.0;
@@ -696,7 +696,7 @@ mod ci_cd_pipeline_simulation {
         while burst_start.elapsed().as_secs() < 3 {
             let job_id = format!("burst-{}", burst_count);
             let yaml = generate_medium_pipeline(&job_id); // Larger YAML during burst
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
             burst_count += 1;
         }
         let burst_rate = burst_count as f64 / 3.0;
@@ -714,7 +714,7 @@ mod ci_cd_pipeline_simulation {
         while cooldown_start.elapsed().as_secs() < 2 {
             let job_id = format!("cooldown-{}", cooldown_count);
             let yaml = generate_simple_pipeline(&job_id);
-            let _: Result<Job, _> = serde_yaml::from_slice(yaml.as_bytes());
+            let _: Result<Job, _> = serde_saphyr::from_str(&yaml);
             cooldown_count += 1;
         }
         let cooldown_rate = cooldown_count as f64 / 2.0;

@@ -41,7 +41,7 @@ mod transition_tests {
     #[test]
     fn tr3_deserialize_next_yaml() {
         let yaml = "next: ProcessOrder";
-        let t: Transition = serde_yaml::from_str(yaml).expect("deser next");
+        let t: Transition = serde_saphyr::from_str(yaml).expect("deser next");
         let expected = Transition::next(StateName::new("ProcessOrder").unwrap());
         assert_eq!(t, expected);
     }
@@ -51,7 +51,7 @@ mod transition_tests {
     #[test]
     fn tr4_deserialize_end_yaml() {
         let yaml = "end: true";
-        let t: Transition = serde_yaml::from_str(yaml).expect("deser end");
+        let t: Transition = serde_saphyr::from_str(yaml).expect("deser end");
         assert_eq!(t, Transition::end());
     }
 
@@ -524,7 +524,7 @@ maxAttempts: 5
 backoffRate: 2.0
 jitterStrategy: FULL
 ";
-        let r: Retrier = serde_yaml::from_str(yaml).unwrap();
+        let r: Retrier = serde_saphyr::from_str(yaml).unwrap();
         assert_eq!(
             r.error_equals(),
             &[ErrorCode::Timeout, ErrorCode::TaskFailed]
@@ -707,7 +707,7 @@ errorEquals:
 next: RecoveryState
 resultPath: \"$.error\"
 ";
-        let c: Catcher = serde_yaml::from_str(yaml).unwrap();
+        let c: Catcher = serde_saphyr::from_str(yaml).unwrap();
         assert_eq!(c.next().as_str(), "RecoveryState");
         assert_eq!(c.result_path().map(|p| p.as_str()), Some("$.error"));
     }

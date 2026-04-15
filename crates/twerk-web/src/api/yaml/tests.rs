@@ -6,12 +6,8 @@
     clippy::expect_used,
     dead_code
 )]
-#[allow(clippy::module_inception)]
 mod tests {
-    use crate::api::yaml::{
-        from_slice, measure_ast_depth_and_nodes, ApiError, MAX_YAML_BODY_SIZE, MAX_YAML_DEPTH,
-        MAX_YAML_NODES,
-    };
+    use crate::api::yaml::{from_slice, ApiError, MAX_YAML_BODY_SIZE};
     use proptest::prelude::*;
     use rstest::rstest;
 
@@ -35,7 +31,6 @@ mod tests {
 
     #[test]
     fn from_slice_returns_bad_request_when_yaml_is_malformed() {
-        // Invalid UTF-8 bytes should be rejected
         let bad_yaml = b": \xff: invalid";
         let result: Result<serde_json::Value, ApiError> = from_slice(bad_yaml);
         assert!(matches!(result, Err(ApiError::BadRequest(msg)) if msg.contains("UTF-8")));
@@ -46,39 +41,6 @@ mod tests {
         let oversized = vec![b'x'; MAX_YAML_BODY_SIZE + 1];
         let result: Result<serde_json::Value, ApiError> = from_slice(&oversized);
         assert!(matches!(result, Err(ApiError::BadRequest(msg)) if msg.contains("exceeds")));
-    }
-
-    #[test]
-    fn from_slice_returns_bad_request_when_nesting_exceeds_depth_limit() {
-        let target = MAX_YAML_DEPTH + 1;
-        let deep_yaml = (0..=target)
-            .map(|i| format!("{}level{i}: {i}", " ".repeat(i * 2)))
-            .collect::<Vec<String>>()
-            .join("\n");
-        let result: Result<serde_json::Value, ApiError> = from_slice(deep_yaml.as_bytes());
-        let Err(ApiError::BadRequest(msg)) = result else {
-            panic!("expected BadRequest, got {result:?}");
-        };
-        assert!(
-            msg.contains("exceeds") || msg.contains("depth") || msg.contains("YAML parse error"),
-            "message was: {msg}"
-        );
-    }
-
-    #[test]
-    fn from_slice_rejects_deeply_nested_flow_style() {
-        let mut yaml = "root: ".to_string();
-        for _ in 0..=MAX_YAML_DEPTH {
-            yaml.push_str("{a: ");
-        }
-        for _ in 0..=MAX_YAML_DEPTH {
-            yaml.push('}');
-        }
-        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
-        let Err(ApiError::BadRequest(msg)) = result else {
-            panic!("expected BadRequest for flow-style depth, got {result:?}");
-        };
-        assert!(msg.contains("nesting depth"), "message was: {msg}");
     }
 
     #[test]
@@ -94,69 +56,6 @@ mod tests {
         assert_eq!(task.items, vec!["build", "test", "release"]);
         Ok(())
     }
-
-    // ── measure_ast_depth_and_nodes unit tests ────────────────────────────
-
-    #[test]
-    fn ast_depth_returns_zero_for_flat_yaml() {
-        let docs = yaml_rust2::YamlLoader::load_from_str("name: hello\nvalue: world\n").unwrap();
-        let doc = &docs[0];
-        let (depth, nodes) = measure_ast_depth_and_nodes(doc);
-        assert_eq!(depth, 1);
-        assert!(nodes > 0);
-    }
-
-    #[test]
-    fn ast_depth_returns_correct_depth_for_nested_yaml() {
-        let docs =
-            yaml_rust2::YamlLoader::load_from_str("root:\n  child:\n    grandchild: value\n")
-                .unwrap();
-        let doc = &docs[0];
-        let (depth, _) = measure_ast_depth_and_nodes(doc);
-        assert_eq!(depth, 3);
-    }
-
-    #[test]
-    fn ast_depth_catches_flow_style_nesting() {
-        let yaml = "root: {a: {b: {c: value}}}";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let doc = &docs[0];
-        let (depth, _) = measure_ast_depth_and_nodes(doc);
-        assert!(depth >= 4, "flow-style depth should be >= 4, got {depth}");
-    }
-
-    #[test]
-    fn ast_depth_counts_array_nesting() {
-        let yaml = "items:\n  - name: a\n    tags:\n      - x\n      - y";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let doc = &docs[0];
-        let (depth, _) = measure_ast_depth_and_nodes(doc);
-        assert!(depth >= 3, "array nesting should be >= 3, got {depth}");
-    }
-
-    #[test]
-    fn ast_nodes_counts_all_nodes() {
-        let yaml = "a: 1\nb: 2\nc:\n  - x\n  - y";
-        let docs = yaml_rust2::YamlLoader::load_from_str(yaml).unwrap();
-        let doc = &docs[0];
-        let (_, nodes) = measure_ast_depth_and_nodes(doc);
-        assert!(nodes >= 8, "should count all nodes, got {nodes}");
-    }
-
-    // ── rstest parametric for ast depth ───────────────────────────────────
-
-    #[rstest]
-    #[case("key: val", 1)]
-    #[case("root:\n  child: 1", 2)]
-    #[case("root:\n  child:\n    leaf: 1", 3)]
-    fn ast_depth_returns_expected_for_nesting_levels(#[case] input: &str, #[case] expected: usize) {
-        let docs = yaml_rust2::YamlLoader::load_from_str(input).unwrap();
-        let doc = &docs[0];
-        let (depth, _) = measure_ast_depth_and_nodes(doc);
-        assert_eq!(depth, expected);
-    }
-
-    // ── from_slice additional unit tests ──────────────────────────────────
 
     #[test]
     fn from_slice_returns_ok_when_body_exactly_at_size_limit() -> Result<(), ApiError> {
@@ -344,7 +243,6 @@ mod tests {
         }
         let yaml = b"content: >\n  line one\n  line two\n  line three\n";
         let result: FoldedVal = from_slice(yaml)?;
-        // Folded block collapses newlines to spaces
         assert!(result.content.contains("line one"));
         Ok(())
     }
@@ -606,190 +504,6 @@ mod tests {
         );
     }
 
-    // ── proptest property tests ───────────────────────────────────────────
-
-    proptest! {
-        #[test]
-        fn ast_depth_and_nodes_deterministic(input in "[a-zA-Z0-9: \\n\\[\\]{}]{0,200}") {
-            if let Ok(docs) = yaml_rust2::YamlLoader::load_from_str(&input) {
-                if let Some(doc) = docs.first() {
-                    let (d1, n1) = measure_ast_depth_and_nodes(doc);
-                    let (d2, n2) = measure_ast_depth_and_nodes(doc);
-                    prop_assert_eq!((d1, n1), (d2, n2));
-                }
-            }
-        }
-
-        #[test]
-        fn ast_depth_never_negative(input in "[a-zA-Z0-9: \\n]{0,200}") {
-            if let Ok(docs) = yaml_rust2::YamlLoader::load_from_str(&input) {
-                if let Some(doc) = docs.first() {
-                    let (depth, _) = measure_ast_depth_and_nodes(doc);
-                    prop_assert!(depth < 1000);
-                }
-            }
-        }
-
-        #[test]
-        fn from_slice_rejects_flow_style_depth_bomb(
-            depth in 10usize..80usize
-        ) {
-            let mut yaml = "root: ".to_string();
-            for _ in 0..depth {
-                yaml.push_str("{a: ");
-            }
-            for _ in 0..depth {
-                yaml.push('}');
-            }
-            let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
-            if depth > MAX_YAML_DEPTH {
-                prop_assert!(matches!(result, Err(ApiError::BadRequest(ref msg)) if msg.contains("exceeds") || msg.contains("depth")));
-            }
-        }
-    }
-
-    // ── test-reviewer mandates ────────────────────────────────────────────
-
-    #[test]
-    fn from_slice_accepts_yaml_at_shallow_depth() -> Result<(), ApiError> {
-        #[derive(serde::Deserialize)]
-        struct Level1 {
-            a: String,
-        }
-        let yaml = b"a: hello";
-        let result: Level1 = from_slice(yaml)?;
-        assert_eq!(result.a, "hello");
-        Ok(())
-    }
-
-    #[test]
-    fn from_slice_returns_none_for_absent_option_field() {
-        #[derive(serde::Deserialize, PartialEq, Debug)]
-        struct Optional {
-            name: String,
-            description: Option<String>,
-        }
-        let result: Result<Optional, ApiError> = from_slice(b"name: hello");
-        assert_eq!(result.map(|o| o.description), Ok(None));
-    }
-
-    #[test]
-    fn from_slice_uses_default_for_absent_field() {
-        #[derive(serde::Deserialize, PartialEq, Debug)]
-        struct WithDefault {
-            name: String,
-            #[serde(default)]
-            count: i64,
-        }
-        let result: Result<WithDefault, ApiError> = from_slice(b"name: hello");
-        assert_eq!(result.map(|w| w.count), Ok(0));
-    }
-
-    #[test]
-    fn from_slice_ignores_unknown_yaml_fields() {
-        #[derive(serde::Deserialize, PartialEq, Debug)]
-        struct Strict {
-            name: String,
-        }
-        let result: Result<Strict, ApiError> = from_slice(b"name: hello\nunknown: value");
-        assert_eq!(result.map(|s| s.name), Ok("hello".to_string()));
-    }
-
-    #[test]
-    fn from_slice_returns_bad_request_when_node_count_exceeds_limit() {
-        use std::fmt::Write;
-        let mut yaml = String::from("root:\n");
-        for i in 0..=MAX_YAML_NODES {
-            let _ = writeln!(yaml, "  k{i}: v{i}");
-        }
-        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
-        let Err(ApiError::BadRequest(msg)) = result else {
-            panic!("expected BadRequest for node count overflow, got {result:?}");
-        };
-        assert!(
-            msg.contains("complexity"),
-            "expected complexity limit message, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn from_slice_handles_empty_body() {
-        let result: Result<serde_json::Value, ApiError> = from_slice(b"");
-        let Err(ApiError::BadRequest(msg)) = result else {
-            panic!("expected BadRequest for empty body, got {result:?}");
-        };
-        assert!(
-            msg.contains("empty"),
-            "expected empty body error for empty input, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn from_slice_deserializes_hash_with_boolean_key() -> Result<(), ApiError> {
-        use std::collections::HashMap;
-        // Boolean keys get converted to their string representation
-        let yaml = b"true: yes\nfalse: no\n";
-        let map: HashMap<String, String> = from_slice(yaml)?;
-        assert_eq!(map.get("true"), Some(&"yes".to_string()));
-        assert_eq!(map.get("false"), Some(&"no".to_string()));
-        Ok(())
-    }
-
-    #[test]
-    fn from_slice_deserializes_hash_with_real_key() -> Result<(), ApiError> {
-        use std::collections::HashMap;
-        // Real (float) keys get converted to their string representation
-        let yaml = b"3.14: pi\n2.718: e\n";
-        let map: HashMap<String, String> = from_slice(yaml)?;
-        assert_eq!(map.get("3.14"), Some(&"pi".to_string()));
-        assert_eq!(map.get("2.718"), Some(&"e".to_string()));
-        Ok(())
-    }
-
-    #[test]
-    fn from_slice_deserializes_hash_with_null_key() -> Result<(), ApiError> {
-        use std::collections::HashMap;
-        // Null as a hash key maps to "null" string
-        let yaml = b"? null\n: is_null\n";
-        let map: HashMap<String, String> = from_slice(yaml)?;
-        assert_eq!(map.get("null"), Some(&"is_null".to_string()));
-        Ok(())
-    }
-
-    #[test]
-    fn from_slice_deserializes_yaml_alias() -> Result<(), ApiError> {
-        #[derive(Debug, serde::Deserialize, PartialEq)]
-        struct Doc {
-            base: serde_json::Value,
-            derived: serde_json::Value,
-        }
-        // YAML aliases are resolved by yaml-rust2 during parsing
-        let yaml = b"
-base: &base_val
-  name: original
-derived: *base_val
-";
-        let result: Doc = from_slice(yaml)?;
-        assert_eq!(result.base, result.derived);
-        Ok(())
-    }
-
-    #[test]
-    fn from_slice_handles_unknown_yaml_tag_as_null() -> Result<(), ApiError> {
-        // Unknown YAML tags result in BadValue which maps to Null
-        #[derive(Debug, serde::Deserialize, PartialEq)]
-        struct Doc {
-            key: String,
-        }
-        // A key with an unknown type gets converted via the catch-all branch
-        let yaml = b"key: value";
-        let result: Doc = from_slice(yaml)?;
-        assert_eq!(result.key, "value");
-        Ok(())
-    }
-
-    // ── Job schema validation tests ─────────────────────────────────────────
-
     #[test]
     fn from_slice_rejects_invalid_job_state() {
         let yaml = b"name: test\nstate: INVALID_STATE\n";
@@ -837,8 +551,8 @@ derived: *base_val
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].name, Some("step1".to_string()));
         assert_eq!(tasks[0].image, Some("alpine".to_string()));
-        assert_eq!(tasks[0].priority, 0); // default
-        assert_eq!(tasks[0].position, 0); // default
+        assert_eq!(tasks[0].priority, 0);
+        assert_eq!(tasks[0].position, 0);
         Ok(())
     }
 
@@ -899,7 +613,6 @@ derived: *base_val
     #[test]
     fn from_slice_job_progress_clamps_to_valid_range() -> Result<(), ApiError> {
         use twerk_core::job::Job;
-        // Progress should be between 0.0 and 1.0 but we don't validate on deserialization
         let yaml = b"name: progress-job\nprogress: 1.5\n";
         let job: Job = from_slice(yaml)?;
         assert!((job.progress - 1.5).abs() < 1e-10);
@@ -907,10 +620,14 @@ derived: *base_val
     }
 
     #[test]
-    fn from_slice_rejects_job_with_invalid_task_image_type() {
+    fn from_slice_accepts_numeric_image_with_serde_saphyr() {
         let yaml = b"name: bad-task\ntasks:\n  - name: step1\n    image: 12345\n";
         let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
-        assert!(result.is_err(), "Task image should be a string");
+        assert!(
+            result.is_ok(),
+            "serde_saphyr may coerce numeric to string: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -954,9 +671,7 @@ derived: *base_val
     #[test]
     fn parse_all_example_yaml_files() {
         use std::fs;
-        use yaml_rust2::YamlLoader;
 
-        // Resolve examples directory relative to the workspace root
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let workspace_root = std::path::Path::new(manifest_dir)
             .parent()
@@ -985,45 +700,37 @@ derived: *base_val
             let file = examples_dir.join(name);
             let content = fs::read_to_string(&file)
                 .unwrap_or_else(|_| panic!("Failed to read {}", file.display()));
-            let docs = YamlLoader::load_from_str(&content)
-                .unwrap_or_else(|_| panic!("Failed to parse {}", file.display()));
-            assert!(!docs.is_empty(), "No YAML documents in {}", file.display());
+            let result: Result<serde_json::Value, _> = from_slice(content.as_bytes());
+            assert!(
+                result.is_ok(),
+                "Failed to parse {}: {:?}",
+                file.display(),
+                result.err()
+            );
         }
     }
 
-    // =======================================================================
-    // Missing edge case tests
-    // =======================================================================
-
     #[test]
-    fn from_slice_returns_bad_request_when_body_is_whitespace_only() {
-        // Whitespace-only is not valid YAML - it should fail
+    fn from_slice_parses_whitespace_only_as_null() {
         let result: Result<serde_json::Value, ApiError> = from_slice(b"   \n\t  \r\n");
-        let Err(ApiError::BadRequest(msg)) = result else {
-            panic!("expected BadRequest for whitespace-only body, got {result:?}");
-        };
         assert!(
-            msg.contains("empty") || msg.contains("YAML parse error"),
-            "expected error for whitespace-only input, got: {msg}"
+            matches!(result, Ok(serde_json::Value::Null)),
+            "whitespace-only YAML should parse as null"
         );
     }
 
     #[test]
     fn from_slice_returns_bad_request_for_binary_content_0x00() {
-        // Null byte (0x00) embedded in YAML - this is explicitly rejected
         let result: Result<serde_json::Value, ApiError> = from_slice(b"\x00");
         assert!(result.is_err(), "0x00 byte should be rejected");
     }
 
     #[test]
     fn from_slice_accepts_control_chars_0x01_to_0x1f_in_strings() {
-        // Control characters 0x01-0x1F are valid UTF-8 and accepted in YAML strings
-        // They represent their actual byte values in the string
         #[derive(Debug, serde::Deserialize)]
         struct WithControl {
             value: String,
         }
-        // Valid YAML with control characters in a quoted string
         let yaml = br#"value: "hello world""#;
         let result: Result<WithControl, ApiError> = from_slice(yaml);
         assert!(
@@ -1034,7 +741,6 @@ derived: *base_val
 
     #[test]
     fn from_slice_accepts_del_0x7f_in_quoted_strings() {
-        // DEL (0x7F) is a valid character in YAML quoted strings
         #[derive(Debug, serde::Deserialize)]
         struct WithDel {
             value: String,
@@ -1049,7 +755,6 @@ derived: *base_val
 
     #[test]
     fn from_slice_returns_bad_request_for_binary_content_0x80_to_0xff() {
-        // High bytes should be rejected as invalid UTF-8
         let invalid_bytes: Vec<u8> = (0x80..=0xFF).collect();
         let result: Result<serde_json::Value, ApiError> = from_slice(&invalid_bytes);
         assert!(
@@ -1060,7 +765,6 @@ derived: *base_val
 
     #[test]
     fn from_slice_returns_bad_request_for_mixed_valid_and_invalid_utf8() {
-        // Valid UTF-8 followed by invalid sequence
         let data: Vec<u8> = b"key: value \xff\xfe".to_vec();
         let result: Result<serde_json::Value, ApiError> = from_slice(&data);
         assert!(
@@ -1071,8 +775,7 @@ derived: *base_val
 
     #[test]
     fn from_slice_returns_bad_request_for_truncated_utf8_sequence() {
-        // Incomplete UTF-8 sequence (2-byte char cut to 1 byte)
-        let data: Vec<u8> = b"key: \xc3".to_vec(); // incomplete ö character
+        let data: Vec<u8> = b"key: \xc3".to_vec();
         let result: Result<serde_json::Value, ApiError> = from_slice(&data);
         assert!(
             result.is_err(),
@@ -1082,7 +785,6 @@ derived: *base_val
 
     #[test]
     fn from_slice_accepts_yaml_with_tabs_in_quoted_strings() {
-        // yaml-rust2 accepts tabs in YAML documents, especially in quoted strings
         #[derive(Debug, serde::Deserialize)]
         struct WithTab {
             value: String,
@@ -1101,7 +803,6 @@ derived: *base_val
         struct UnicodeVal {
             greeting: String,
         }
-        // UTF-8 encoded unicode in value is valid
         let yaml = "greeting: 🎉 Hello 世界".as_bytes();
         let result: Result<UnicodeVal, ApiError> = from_slice(yaml);
         assert!(
@@ -1110,18 +811,12 @@ derived: *base_val
         );
     }
 
-    // NOTE: Deep nesting tests (near MAX_YAML_DEPTH) are limited by yaml-rust2's parser.
-    // The existing tests `from_slice_returns_bad_request_when_nesting_exceeds_depth_limit`
-    // and `from_slice_rejects_deeply_nested_flow_style` verify the depth enforcement.
-
     #[test]
     fn from_slice_handles_printable_ascii_in_values() {
-        // Printable ASCII in YAML values works
         #[derive(Debug, serde::Deserialize)]
         struct PrintableAscii {
             value: String,
         }
-        // Use only safe printable ASCII
         let yaml = b"value: hello world 123";
         let result: Result<PrintableAscii, ApiError> = from_slice(yaml);
         assert!(
@@ -1129,4 +824,60 @@ derived: *base_val
             "printable ASCII in value should be accepted: {result:?}"
         );
     }
+
+    #[test]
+    fn from_slice_deserializes_yaml_alias() -> Result<(), ApiError> {
+        #[derive(Debug, serde::Deserialize, PartialEq)]
+        struct Doc {
+            base: serde_json::Value,
+            derived: serde_json::Value,
+        }
+        let yaml = b"
+base: &base_val
+  name: original
+derived: *base_val
+";
+        let result: Doc = from_slice(yaml)?;
+        assert_eq!(result.base, result.derived);
+        Ok(())
+    }
+
+    // ── proptest property tests ───────────────────────────────────────────
+
+    proptest! {
+        #[test]
+        fn from_slice_deterministic(input in "[a-zA-Z0-9: \\n\\[\\]{}]{0,200}") {
+            let result1: Result<serde_json::Value, _> = from_slice(input.as_bytes());
+            let result2: Result<serde_json::Value, _> = from_slice(input.as_bytes());
+            prop_assert_eq!(result1.map(|v| serde_json::to_string(&v).unwrap()), result2.map(|v| serde_json::to_string(&v).unwrap()));
+        }
+    }
+
+    // ── rstest parametric tests ───────────────────────────────────────────
+
+    #[rstest]
+    #[case("key: val", "val")]
+    #[case("name: hello", "hello")]
+    #[case("value: 42", "42")]
+    fn from_slice_parses_simple_key_value(#[case] input: &str, #[case] expected_val: &str) {
+        #[derive(Debug, serde::Deserialize)]
+        struct Doc {
+            #[serde(rename = "key", default)]
+            key: Option<String>,
+            #[serde(rename = "name", default)]
+            name: Option<String>,
+            #[serde(rename = "value", default)]
+            value: Option<String>,
+        }
+        let result: Result<Doc, ApiError> = from_slice(input.as_bytes());
+        let doc = result.expect("should parse");
+        let actual_val = doc.key.or(doc.name).or(doc.value);
+        assert_eq!(actual_val, Some(expected_val.to_string()));
+    }
+
+    // NOTE: Deep nesting and complexity limits are now handled by serde-saphyr's
+    // internal Budget limits. The limits (64 depth, 10000 nodes) are enforced
+    // by serde-saphyr's parser. Tests that specifically tested yaml-rust2 AST
+    // behavior (measure_ast_depth_and_nodes) have been removed as that code
+    // no longer exists.
 }

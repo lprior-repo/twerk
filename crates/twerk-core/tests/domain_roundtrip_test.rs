@@ -18,8 +18,8 @@ fn webhook_url_json_roundtrip_preserves_value() {
 #[test]
 fn webhook_url_yaml_roundtrip_preserves_value() {
     let url = WebhookUrl::new("https://example.com/path").unwrap();
-    let yaml = serde_yaml::to_string(&url).unwrap();
-    let decoded: WebhookUrl = serde_yaml::from_str(&yaml).unwrap();
+    let yaml = serde_saphyr::to_string(&url).unwrap();
+    let decoded: WebhookUrl = serde_saphyr::from_str(&yaml).unwrap();
     assert_eq!(decoded.as_str(), url.as_str());
 }
 
@@ -39,8 +39,8 @@ fn hostname_json_roundtrip_preserves_value() {
 #[test]
 fn hostname_yaml_roundtrip_preserves_value() {
     let host = Hostname::new("api.example.com").unwrap();
-    let yaml = serde_yaml::to_string(&host).unwrap();
-    let decoded: Hostname = serde_yaml::from_str(&yaml).unwrap();
+    let yaml = serde_saphyr::to_string(&host).unwrap();
+    let decoded: Hostname = serde_saphyr::from_str(&yaml).unwrap();
     assert_eq!(decoded.as_str(), host.as_str());
 }
 
@@ -60,8 +60,8 @@ fn cron_expression_json_roundtrip_preserves_value() {
 #[test]
 fn cron_expression_yaml_roundtrip_preserves_value() {
     let expr = CronExpression::new("0 0 * * MON").unwrap();
-    let yaml = serde_yaml::to_string(&expr).unwrap();
-    let decoded: CronExpression = serde_yaml::from_str(&yaml).unwrap();
+    let yaml = serde_saphyr::to_string(&expr).unwrap();
+    let decoded: CronExpression = serde_saphyr::from_str(&yaml).unwrap();
     assert_eq!(decoded.as_str(), expr.as_str());
 }
 

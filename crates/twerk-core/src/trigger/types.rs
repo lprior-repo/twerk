@@ -41,17 +41,10 @@ fn match_state_variant_for_fromstr(s: &str) -> Option<TriggerState> {
     }
 }
 
-/// Serde-friendly matching: accepts "Active" (PascalCase) and "ACTIVE" (uppercase),
-/// but rejects "active" (lowercase). This matches the contract where:
-/// - serde serialization outputs "Active" (PascalCase)
-/// - serde accepts both "Active" and "ACTIVE"
-/// - serde rejects "active" (lowercase)
+/// Serde-friendly matching: accepts SCREAMING_SNAKE_CASE only (serde convention).
+/// Serialization outputs "Active" (PascalCase) but deserialization accepts only "ACTIVE".
 fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
     match s {
-        "Active" => Some(TriggerState::Active),
-        "Paused" => Some(TriggerState::Paused),
-        "Disabled" => Some(TriggerState::Disabled),
-        "Error" => Some(TriggerState::Error),
         "ACTIVE" => Some(TriggerState::Active),
         "PAUSED" => Some(TriggerState::Paused),
         "DISABLED" => Some(TriggerState::Disabled),
@@ -63,10 +56,10 @@ fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
 impl std::fmt::Display for TriggerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TriggerState::Active => write!(f, "Active"),
-            TriggerState::Paused => write!(f, "Paused"),
-            TriggerState::Disabled => write!(f, "Disabled"),
-            TriggerState::Error => write!(f, "Error"),
+            TriggerState::Active => write!(f, "ACTIVE"),
+            TriggerState::Paused => write!(f, "PAUSED"),
+            TriggerState::Disabled => write!(f, "DISABLED"),
+            TriggerState::Error => write!(f, "ERROR"),
         }
     }
 }
@@ -78,13 +71,19 @@ impl std::str::FromStr for TriggerState {
     }
 }
 
-/// Custom serializer for TriggerState - outputs PascalCase.
+/// Custom serializer for TriggerState - outputs SCREAMING_SNAKE_CASE.
 impl Serialize for TriggerState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        let s = match self {
+            TriggerState::Active => "ACTIVE",
+            TriggerState::Paused => "PAUSED",
+            TriggerState::Disabled => "DISABLED",
+            TriggerState::Error => "ERROR",
+        };
+        serializer.serialize_str(s)
     }
 }
 

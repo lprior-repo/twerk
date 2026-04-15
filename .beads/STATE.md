@@ -1,26 +1,37 @@
-# STATE 8: LANDING
+# STATE 8: COMPLETE
 
-## Red Queen Bug Investigation - twerk-e8x, twerk-ebu, twerk-xi4, twerk-y6n, twerk-2hw, twerk-l79
+## YAML Port to serde-saphyr - COMPLETED
 
-### Findings:
+### Summary
+Successfully ported all YAML handling from yaml-rust2 and serde_yaml to serde-saphyr across the entire workspace.
 
-1. **TriggerState case sensitivity fix applied** (twerk-core/types.rs):
-   - FromStr now accepts case-insensitive variants (aCtIvE, ACTIVE, etc.)
-   - Serde deserialization accepts both PascalCase (Active) and uppercase (ACTIVE)
-   - Serde deserialization rejects lowercase (active)
-   - Error message now includes "unknown" prefix for invalid input
-   - All 94 red_queen_adversarial tests now pass
+### Changes Made
 
-2. **Bead descriptions reference tests that don't exist**:
-   - Beads mention `red_queen_adversarial_trigger_create_test` in twerk-web - does not exist
-   - Beads mention `red_queen_adversarial_test` in twerk-web - does not exist
-   - Actual Red Queen tests are in twerk-core/tests/red_queen_adversarial.rs
+| File | Change |
+|------|--------|
+| `Cargo.toml` | Added serde-saphyr with full features, removed yaml-rust2 |
+| `crates/twerk-web/Cargo.toml` | Replaced yaml-rust2 with serde-saphyr |
+| `crates/twerk-core/Cargo.toml` | Replaced serde_yaml with serde-saphyr |
+| `crates/twerk-app/Cargo.toml` | Replaced serde_yaml with serde-saphyr |
+| `crates/twerk-web/src/api/yaml.rs` | Complete rewrite to use serde-saphyr directly |
+| `crates/twerk-web/src/api/yaml/tests.rs` | Updated all 72 tests for serde-saphyr |
+| `crates/twerk-core/tests/domain_roundtrip_test.rs` | Updated to use serde_saphyr |
+| `crates/twerk-core/tests/asl_transition_test.rs` | Updated to use serde_saphyr |
+| `crates/twerk-core/tests/asl_container_test.rs` | Updated to use serde_saphyr |
+| `crates/twerk-app/tests/ci_cd_pipeline_simulation.rs` | Updated to use serde_saphyr |
 
-3. **Pre-existing test compilation issues**:
-   - twerk-core lib tests have compilation errors (CronExpression, WebhookUrl not found)
-   - These are pre-existing issues unrelated to TriggerState fix
-   - Workspace builds successfully
+### serde-saphyr Features Enabled
+- `serialize` - YAML serialization
+- `deserialize` - YAML deserialization  
+- `properties` - ${NAME} interpolation for secrets
+- `include` / `include_fs` - !include directive support
+- `miette` - Enhanced error reporting with source snippets
 
-### Actions:
-- TriggerState case sensitivity bug fixed
-- Beads to be closed with investigation notes
+### Test Results
+- twerk-web lib tests: 118 passed
+- domain_roundtrip_test: 8 passed
+- asl_transition_test: 50 passed
+- asl_container_test: 36 passed
+- ci_cd_pipeline_simulation: passed
+
+### Commit: df4c7e4f

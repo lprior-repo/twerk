@@ -111,23 +111,38 @@ bd automatically syncs via Dolt:
 
 ### Dolt Remote Configuration
 
-bd stores its Dolt database in `.beads/dolt/` (not in `twerk-database/`). If `bd dolt push` fails, check and fix the remote:
+bd stores its Dolt database in `.beads/dolt/` (not in `twerk-database/`). The Dolt database is a **local file-based repository** at `file:///home/lewis/src/twerk/twerk-database`. **Do NOT use DoltHub remotes** — they require credentials and this project uses a local file remote.
 
+**Check current remote:**
 ```bash
-# Check current remote (run from .beads/dolt directory)
-cd .beads/dolt
-dolt remote -v
-
-# If wrong, remove and add correct remote (local file path)
-dolt remote remove origin
-dolt remote add origin file:///home/lewis/src/twerk/twerk-database
-
-# Then push - prefer using dolt CLI directly if bd fails
-dolt push origin main
-# OR: bd dolt push
+cd .beads/dolt && dolt remote -v
+# Expected: origin file:///home/lewis/src/twerk/twerk-database {}
 ```
 
-Standard push workflow:
+**If `bd dolt push` or `dolt push origin main` fails:**
+
+1. **"unknown url scheme" or "dolt://" errors**: Remote uses wrong scheme. Fix with:
+   ```bash
+   cd .beads/dolt
+   dolt remote remove origin
+   dolt remote add origin file:///home/lewis/src/twerk/twerk-database
+   dolt push origin main
+   ```
+
+2. **"permission denied" on DoltHub**: Remote is set to DoltHub URL. Same fix as above.
+
+3. **"no common ancestor"**: History mismatch. The local and remote have diverged. Force push if you don't care about remote history:
+   ```bash
+   dolt push origin main --force
+   ```
+
+4. **"database not found"**: Dolt server isn't running or metadata.json is wrong. Check:
+   ```bash
+   cat .beads/metadata.json  # should have database: "twerk"
+   dolt sql -q "SHOW DATABASES;"  # should list twerk
+   ```
+
+**Standard push workflow:**
 ```bash
 git pull --rebase
 cd .beads/dolt && dolt push origin main

@@ -19,10 +19,10 @@ pub mod in_memory;
 pub mod r#trait;
 pub mod types;
 
+pub use data::TriggerDataError;
 pub use in_memory::is_valid_transition;
 pub use in_memory::InMemoryTriggerRegistry;
 pub use r#trait::{BoxedTriggerFuture, TriggerRegistry, TriggerRegistryResult};
-pub use data::TriggerDataError;
 pub use types::{
     JobId, ParseTriggerStateError, Trigger, TriggerContext, TriggerError, TriggerId,
     TriggerIdError, TriggerState, TriggerVariant,

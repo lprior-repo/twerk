@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::domain::testing::arb_valid_webhook_url;
     use crate::WebhookUrl;
     use crate::WebhookUrlError;
 
@@ -221,6 +222,45 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
+    // Behavior: WebhookUrl returns error when URL exceeds 2048 characters
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn webhook_url_new_returns_url_too_long_error_when_input_is_2049_chars() {
+        // 2049 character URL (one over the 2048 limit)
+        // "https://example.com/" = 20 chars, so path = 2049 - 20 = 2029
+        let long_url = format!("https://example.com/{}", "a".repeat(2029));
+        assert_eq!(long_url.len(), 2049);
+        let result = WebhookUrl::new(long_url);
+        assert!(result.is_err());
+        let Err(e) = result else {
+            panic!("expected error")
+        };
+        assert!(matches!(e, WebhookUrlError::UrlTooLong));
+    }
+
+    #[test]
+    fn webhook_url_new_returns_ok_when_input_is_exactly_2048_chars() {
+        // Exactly 2048 character URL (at the limit)
+        // "https://example.com/" = 20 chars, so path = 2048 - 20 = 2028
+        let max_url = format!("https://example.com/{}", "a".repeat(2028));
+        assert_eq!(max_url.len(), 2048);
+        let result = WebhookUrl::new(max_url);
+        assert!(result.is_ok());
+    }
+
+    // -------------------------------------------------------------------------
+    // Behavior: WebhookUrl Display trait returns same as as_str
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn webhook_url_display_returns_same_as_as_str() {
+        let url = WebhookUrl::new("https://example.com:8080/webhook").unwrap();
+        assert_eq!(format!("{}", url), url.as_str());
+        assert_eq!(format!("{}", url), "https://example.com:8080/webhook");
+    }
+
+    // -------------------------------------------------------------------------
     // Proptest invariants
     // -------------------------------------------------------------------------
 
@@ -231,12 +271,7 @@ mod tests {
 
         proptest! {
             #[test]
-            fn webhook_url_new_preserves_input_valid_urls(url in prop::sample::select(&[
-                "https://example.com",
-                "http://localhost:8080",
-                "https://api.test.co:443/v1",
-                "https://example.com:8443/path",
-            ])) {
+            fn webhook_url_new_preserves_input_valid_urls(url in arb_valid_webhook_url()) {
                 let result = WebhookUrl::new(url);
                 prop_assert!(result.is_ok());
                 let url_obj = result.unwrap();
@@ -244,12 +279,7 @@ mod tests {
             }
 
             #[test]
-            fn webhook_url_url_components_are_always_valid(url in prop::sample::select(&[
-                "https://example.com",
-                "http://localhost:8080",
-                "https://api.test.co:443/v1",
-                "https://example.com:8443/path",
-            ])) {
+            fn webhook_url_url_components_are_always_valid(url in arb_valid_webhook_url()) {
                 let result = WebhookUrl::new(url);
                 prop_assert!(result.is_ok());
                 let url_obj = result.unwrap();
@@ -259,23 +289,13 @@ mod tests {
             }
 
             #[test]
-            fn webhook_url_display_matches_as_str(url in prop::sample::select(&[
-                "https://example.com",
-                "http://localhost:8080",
-                "https://api.test.co:443/v1",
-                "https://example.com:8443/path",
-            ])) {
+            fn webhook_url_display_matches_as_str(url in arb_valid_webhook_url()) {
                 let url_obj = WebhookUrl::new(url).unwrap();
                 prop_assert_eq!(format!("{}", url_obj), url_obj.as_str());
             }
 
             #[test]
-            fn webhook_url_is_send_and_sync(url in prop::sample::select(&[
-                "https://example.com",
-                "http://localhost:8080",
-                "https://api.test.co:443/v1",
-                "https://example.com:8443/path",
-            ])) {
+            fn webhook_url_is_send_and_sync(url in arb_valid_webhook_url()) {
                 let url_obj = WebhookUrl::new(url).unwrap();
                 fn assert_send<T: Send>(_: &T) {}
                 fn assert_sync<T: Sync>(_: &T) {}

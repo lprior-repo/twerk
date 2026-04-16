@@ -60,12 +60,19 @@ fn validate_scheme(parsed: &url::Url) -> Result<(), WebhookUrlError> {
 }
 
 fn validate_host(parsed: &url::Url) -> Result<(), WebhookUrlError> {
+    // NOTE: MissingHost is logically unreachable because the `url` crate's parse()
+    // already rejects URLs with empty hosts (e.g., "http://" fails to parse).
+    // However, we keep this variant for API completeness and defensive programming
+    // in case the underlying URL library behavior changes.
     parsed
         .host()
         .map_or(Err(WebhookUrlError::MissingHost), |_| Ok(()))
 }
 
 fn validate_path(parsed: &url::Url) -> Result<(), WebhookUrlError> {
+    // NOTE: SpaceInPath is theoretically reachable for URLs like "https://example.com/path with spaces"
+    // but in practice such URLs are rejected by the url crate's parse() as invalid.
+    // This variant exists for API completeness and future-proofing.
     if parsed.path().contains(' ') {
         Err(WebhookUrlError::SpaceInPath)
     } else {

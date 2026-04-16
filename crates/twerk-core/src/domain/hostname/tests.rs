@@ -102,6 +102,37 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
+    // Behavior: Hostname label boundary tests (63 chars per RFC 1123)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn hostname_new_returns_ok_when_label_is_exactly_63_chars() {
+        // 63-char label is the maximum allowed per RFC 1123
+        let label_63 = "a".repeat(63);
+        let hostname = format!("{}.com", label_63);
+        assert_eq!(hostname.len(), 67); // 63 + 1 (dot) + 3 (com)
+        let host = Hostname::new(&hostname).expect("63-char label should be valid");
+        assert_eq!(host.as_str(), hostname);
+    }
+
+    #[test]
+    fn hostname_new_returns_label_too_long_error_when_label_is_64_chars() {
+        // 64-char label exceeds the 63-char limit
+        let label_64 = "a".repeat(64);
+        let hostname = format!("{}.com", label_64);
+        let e = Hostname::new(hostname).expect_err("64-char label should fail");
+        assert!(matches!(e, HostnameError::LabelTooLong(label, 64) if label.len() == 64));
+    }
+
+    // -------------------------------------------------------------------------
+    // Behavior: Hostname total length boundary tests (253 chars max)
+    // -------------------------------------------------------------------------
+
+    // NOTE: 252-char hostname is not achievable with RFC 1123 label constraints.
+    // The maximum hostname is 253 chars (see max_length_hostname test).
+    // The next boundary down from 253 is achieved by the valid hostname samples.
+
+    // -------------------------------------------------------------------------
     // Behavior: Hostname returns original string when as_str is called
     // -------------------------------------------------------------------------
 

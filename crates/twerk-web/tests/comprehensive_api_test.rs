@@ -139,7 +139,7 @@ async fn jobs_list_returns_job_list() {
 
     // Create a job first
     let job = Job {
-        id: Some(JobId::new("test-job-1").unwrap()),
+        id: Some(JobId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         name: Some("Test Job".to_string()),
         ..Default::default()
     };
@@ -169,7 +169,7 @@ async fn jobs_get_returns_job() {
 
     // Create a job first
     let job = Job {
-        id: Some(JobId::new("test-job-get").unwrap()),
+        id: Some(JobId::new("00000000-0000-0000-0000-000000000002").unwrap()),
         name: Some("Test Job Get".to_string()),
         ..Default::default()
     };
@@ -178,7 +178,7 @@ async fn jobs_get_returns_job() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/jobs/test-job-get")
+                .uri("/jobs/00000000-0000-0000-0000-000000000002")
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -216,7 +216,7 @@ async fn jobs_cancel_returns_ok_for_running_job() {
 
     // Create a running job (using string state for this version)
     let job = Job {
-        id: Some(JobId::new("cancel-test-job").unwrap()),
+        id: Some(JobId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         name: Some("Cancel Test".to_string()),
         state: JobState::Running,
         ..Default::default()
@@ -227,7 +227,7 @@ async fn jobs_cancel_returns_ok_for_running_job() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/jobs/cancel-test-job/cancel")
+                .uri("/jobs/00000000-0000-0000-0000-000000000003/cancel")
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -245,7 +245,7 @@ async fn jobs_restart_returns_ok_for_failed_job() {
 
     // Create a failed job (using string state for this version)
     let job = Job {
-        id: Some(JobId::new("restart-test-job").unwrap()),
+        id: Some(JobId::new("00000000-0000-0000-0000-000000000004").unwrap()),
         name: Some("Restart Test".to_string()),
         state: JobState::Failed,
         ..Default::default()
@@ -256,7 +256,7 @@ async fn jobs_restart_returns_ok_for_failed_job() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/jobs/restart-test-job/restart")
+                .uri("/jobs/00000000-0000-0000-0000-000000000004/restart")
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )

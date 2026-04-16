@@ -65,7 +65,7 @@ async fn setup_state_with_tasks() -> (AppState, Arc<InMemoryDatastore>, JobId) {
     let broker = Arc::new(InMemoryBroker::new());
     let state = AppState::new(broker, ds.clone(), Config::default());
 
-    let job_id = JobId::new("test-job-for-task").unwrap();
+    let job_id = JobId::new("00000000-0000-0000-0000-000000000001").unwrap();
 
     // Create a job with tasks
     let job = Job {
@@ -91,8 +91,8 @@ async fn setup_state_with_direct_task() -> (AppState, Arc<InMemoryDatastore>, Ta
     let broker = Arc::new(InMemoryBroker::new());
     let state = AppState::new(broker, ds.clone(), Config::default());
 
-    let job_id = JobId::new("test-job-for-task").unwrap();
-    let task_id = TaskId::new("direct-task-1").unwrap();
+    let job_id = JobId::new("00000000-0000-0000-0000-000000000001").unwrap();
+    let task_id = TaskId::new("00000000-0000-0000-0000-000000000002").unwrap();
 
     // Create a task directly in the datastore (not via job)
     let task = Task {
@@ -451,7 +451,7 @@ async fn cancel_job_returns_ok_when_job_is_running() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/jobs/test-job-for-task/cancel")
+                .uri("/jobs/00000000-0000-0000-0000-000000000001/cancel")
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )

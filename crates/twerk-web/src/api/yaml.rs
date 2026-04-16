@@ -35,6 +35,12 @@ fn build_options() -> serde_saphyr::Options {
     }
 }
 
+/// Parse a YAML byte slice into a deserialized value.
+///
+/// # Errors
+///
+/// Returns [`ApiError`] if the input is empty, exceeds size limits,
+/// contains invalid UTF-8, or fails to parse as valid YAML.
 pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     validate_yaml_input(bytes)?;
 
@@ -44,10 +50,15 @@ pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
     let options = build_options();
 
     serde_saphyr::from_str_with_options::<T>(s, options)
-        .map_err(|e| ApiError::bad_request(format!("YAML parse error: {}", e)))
+        .map_err(|e| ApiError::bad_request(format!("YAML parse error: {e}")))
 }
 
+/// Serialize a value to a YAML string.
+///
+/// # Errors
+///
+/// Returns [`ApiError`] if serialization fails.
 pub fn to_string<T: serde::Serialize>(value: &T) -> Result<String, ApiError> {
     serde_saphyr::to_string(value)
-        .map_err(|e| ApiError::internal(format!("YAML serialization error: {}", e)))
+        .map_err(|e| ApiError::internal(format!("YAML serialization error: {e}")))
 }

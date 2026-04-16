@@ -6,7 +6,7 @@
     clippy::expect_used,
     dead_code
 )]
-mod tests {
+mod yaml_suite {
     use crate::api::yaml::{from_slice, ApiError, MAX_YAML_BODY_SIZE};
     use proptest::prelude::*;
     use rstest::rstest;
@@ -670,8 +670,6 @@ mod tests {
 
     #[test]
     fn parse_all_example_yaml_files() {
-        use std::fs;
-
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let workspace_root = std::path::Path::new(manifest_dir)
             .parent()
@@ -679,7 +677,7 @@ mod tests {
             .expect("could not resolve workspace root");
         let examples_dir = workspace_root.join("examples");
 
-        let files = vec![
+        let files = [
             "hello.yaml",
             "parallel.yaml",
             "retry.yaml",
@@ -696,9 +694,9 @@ mod tests {
             "split_and_stitch.yaml",
         ];
 
-        for name in files {
+        files.iter().for_each(|name| {
             let file = examples_dir.join(name);
-            let content = fs::read_to_string(&file)
+            let content = std::fs::read_to_string(&file)
                 .unwrap_or_else(|_| panic!("Failed to read {}", file.display()));
             let result: Result<serde_json::Value, _> = from_slice(content.as_bytes());
             assert!(
@@ -707,7 +705,7 @@ mod tests {
                 file.display(),
                 result.err()
             );
-        }
+        });
     }
 
     #[test]

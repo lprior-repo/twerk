@@ -116,7 +116,7 @@ macro_rules! define_id {
 /// Validated identifier for a job, must be a valid RFC 4122 UUID.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(transparent)]
-pub struct JobId(String);
+pub struct JobId(pub String);
 
 impl JobId {
     /// Creates a new JobId from a UUID string.
@@ -202,7 +202,7 @@ define_id!(RoleId);
 /// - Characters: `[a-zA-Z0-9_-]` (plus Unicode alphanumeric per Rust's `is_alphanumeric()`)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
 #[serde(transparent)]
-pub struct TriggerId(String);
+pub struct TriggerId(pub String);
 
 impl<'de> Deserialize<'de> for TriggerId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

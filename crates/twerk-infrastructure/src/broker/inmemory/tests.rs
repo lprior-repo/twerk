@@ -47,7 +47,7 @@ async fn test_publish_heartbeat_stores_and_notifies() {
     broker.subscribe_for_heartbeats(handler).await.unwrap();
 
     let node = twerk_core::node::Node {
-        id: Some(NodeId::new("node-1").unwrap()),
+        id: Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         name: Some("worker-1".to_string()),
         status: Some(NodeStatus::UP),
         ..Default::default()
@@ -59,7 +59,7 @@ async fn test_publish_heartbeat_stores_and_notifies() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(NodeId::new("node-1").unwrap()));
+    assert_eq!(guard[0].id, Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()));
     assert_eq!(guard[0].name, Some("worker-1".to_string()));
 }
 
@@ -68,13 +68,13 @@ async fn test_subscribe_for_heartbeats_sends_existing() {
     let broker = InMemoryBroker::new();
 
     let node1 = twerk_core::node::Node {
-        id: Some(NodeId::new("node-1").unwrap()),
+        id: Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         name: Some("worker-1".to_string()),
         status: Some(NodeStatus::UP),
         ..Default::default()
     };
     let node2 = twerk_core::node::Node {
-        id: Some(NodeId::new("node-2").unwrap()),
+        id: Some(NodeId::new("00000000-0000-0000-0000-000000000002").unwrap()),
         name: Some("worker-2".to_string()),
         status: Some(NodeStatus::UP),
         ..Default::default()
@@ -93,8 +93,8 @@ async fn test_subscribe_for_heartbeats_sends_existing() {
     let guard = received.read().await;
     assert_eq!(guard.len(), 2);
     let ids: Vec<_> = guard.iter().map(|n| n.id.clone()).collect();
-    assert!(ids.contains(&Some(NodeId::new("node-1").unwrap())));
-    assert!(ids.contains(&Some(NodeId::new("node-2").unwrap())));
+    assert!(ids.contains(&Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap())));
+    assert!(ids.contains(&Some(NodeId::new("00000000-0000-0000-0000-000000000002").unwrap())));
 }
 
 #[tokio::test]
@@ -107,7 +107,7 @@ async fn test_publish_task_log_part_stores_and_notifies() {
 
     let part = TaskLogPart {
         id: Some("log-part-1".to_string()),
-        task_id: Some(TaskId::new("task-1").unwrap()),
+        task_id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         number: 1,
         contents: Some("Log line 1".to_string()),
         ..Default::default()
@@ -120,7 +120,7 @@ async fn test_publish_task_log_part_stores_and_notifies() {
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
     assert_eq!(guard[0].id, Some("log-part-1".to_string()));
-    assert_eq!(guard[0].task_id, Some(TaskId::new("task-1").unwrap()));
+    assert_eq!(guard[0].task_id, Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()));
     assert_eq!(guard[0].number, 1);
     assert_eq!(guard[0].contents, Some("Log line 1".to_string()));
 }
@@ -131,14 +131,14 @@ async fn test_subscribe_for_task_log_part_sends_existing() {
 
     let part1 = TaskLogPart {
         id: Some("log-part-1".to_string()),
-        task_id: Some(TaskId::new("task-1").unwrap()),
+        task_id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         number: 1,
         contents: Some("Log line 1".to_string()),
         ..Default::default()
     };
     let part2 = TaskLogPart {
         id: Some("log-part-2".to_string()),
-        task_id: Some(TaskId::new("task-1").unwrap()),
+        task_id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         number: 2,
         contents: Some("Log line 2".to_string()),
         ..Default::default()
@@ -235,7 +235,7 @@ async fn test_publish_and_subscribe_for_task() {
         .unwrap();
 
     let task = Task {
-        id: Some(TaskId::new("task-1").unwrap()),
+        id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         name: Some("test-task".to_string()),
         ..Default::default()
     };
@@ -246,7 +246,7 @@ async fn test_publish_and_subscribe_for_task() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(TaskId::new("task-1").unwrap()));
+    assert_eq!(guard[0].id, Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()));
 }
 
 #[tokio::test]
@@ -341,7 +341,7 @@ async fn test_publish_and_subscribe_for_job() {
     broker.subscribe_for_jobs(handler).await.unwrap();
 
     let job = twerk_core::job::Job {
-        id: Some(JobId::new("job-1").unwrap()),
+        id: Some(JobId::new("00000000-0000-0000-0000-000000000004").unwrap()),
         name: Some("test-job".to_string()),
         ..Default::default()
     };
@@ -352,7 +352,7 @@ async fn test_publish_and_subscribe_for_job() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id.as_deref(), Some("job-1"));
+    assert_eq!(guard[0].id.as_deref(), Some("00000000-0000-0000-0000-000000000004"));
 }
 
 #[tokio::test]
@@ -388,7 +388,7 @@ async fn test_multiple_subscribers_for_job() {
     // Publish multiple jobs
     for i in 0..10 {
         let job = twerk_core::job::Job {
-            id: Some(JobId::new(format!("job-{}", i)).unwrap()),
+            id: Some(JobId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 10 + i)).unwrap()),
             ..Default::default()
         };
         broker.publish_job(&job).await.unwrap();
@@ -486,7 +486,7 @@ async fn test_publish_and_subscribe_for_task_progress() {
     broker.subscribe_for_task_progress(handler).await.unwrap();
 
     let task = Task {
-        id: Some(TaskId::new("task-1").unwrap()),
+        id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         progress: 50.0,
         ..Default::default()
     };
@@ -508,7 +508,7 @@ async fn test_queue_info() {
     // Publish some tasks
     for i in 0..5 {
         let task = Task {
-            id: Some(TaskId::new(format!("task-{}", i)).unwrap()),
+            id: Some(TaskId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 20 + i)).unwrap()),
             ..Default::default()
         };
         broker.publish_task(qname.clone(), &task).await.unwrap();
@@ -536,7 +536,7 @@ async fn broker_publish_heartbeat_receives_handler() {
     broker.subscribe_for_heartbeats(handler).await.unwrap();
 
     let node = twerk_core::node::Node {
-        id: Some(NodeId::new("node-1").unwrap()),
+        id: Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         name: Some("worker-1".to_string()),
         status: Some(NodeStatus::UP),
         ..Default::default()
@@ -548,7 +548,7 @@ async fn broker_publish_heartbeat_receives_handler() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(NodeId::new("node-1").unwrap()));
+    assert_eq!(guard[0].id, Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()));
     assert_eq!(guard[0].name, Some("worker-1".to_string()));
 }
 
@@ -564,7 +564,7 @@ async fn broker_shutdown_fails_health_check_after() {
         .unwrap();
 
     let task = Task {
-        id: Some(TaskId::new("task-1").unwrap()),
+        id: Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()),
         ..Default::default()
     };
     broker.publish_task(qname, &task).await.unwrap();

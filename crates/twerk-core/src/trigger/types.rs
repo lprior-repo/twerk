@@ -186,13 +186,17 @@ pub enum TriggerError {
     #[error("invalid timezone: {0}")]
     InvalidTimezone(String),
 
-    // --- State Machine (3) ---
-    #[error("invalid state transition: {0}")]
-    InvalidStateTransition(String),
+    // --- State Machine (5) ---
+    #[error("invalid state transition: {0} -> {1}")]
+    InvalidStateTransition(TriggerState, TriggerState),
     #[error("trigger in error state: {0}")]
     TriggerInErrorState(TriggerId),
     #[error("trigger disabled: {0}")]
     TriggerDisabled(TriggerId),
+    #[error("trigger not active: {0}")]
+    TriggerNotActive(TriggerState),
+    #[error("invalid trigger configuration: {0}")]
+    InvalidConfiguration(String),
 
     // --- Webhook (3) ---
     #[error("payload too large: {0} bytes")]

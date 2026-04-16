@@ -258,7 +258,7 @@ use std::collections::HashMap;
 
 pub(crate) fn create_test_job() -> Job {
     Job {
-        id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
+        id: Some(twerk_core::id::JobId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         name: Some("Test Job".to_string()),
         state: twerk_core::job::JobState::Pending,
         context: Some(JobContext {
@@ -271,8 +271,8 @@ pub(crate) fn create_test_job() -> Job {
 
 pub(crate) fn create_test_task() -> Task {
     Task {
-        id: Some(twerk_core::id::TaskId::new("task-1").unwrap()),
-        job_id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
+        id: Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000002").unwrap()),
+        job_id: Some(twerk_core::id::JobId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         state: twerk_core::task::TaskState::Created,
         name: Some("Test Task".to_string()),
         ..Default::default()

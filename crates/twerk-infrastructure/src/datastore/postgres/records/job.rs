@@ -190,13 +190,13 @@ mod tests {
     fn base_job_record() -> JobRecord {
         let now = fixed_now();
         JobRecord {
-            id: "job-001".to_string(),
+            id: "00000000-0000-0000-0000-000000000001".to_string(),
             name: Some("Build Job".to_string()),
             description: Some("Build the project".to_string()),
             tags: Some(vec!["ci".to_string()]),
             state: "PENDING".to_string(),
             created_at: now,
-            created_by: "user-001".to_string(),
+            created_by: "00000000-0000-0000-0000-000000000002".to_string(),
             started_at: None,
             completed_at: None,
             failed_at: None,
@@ -222,7 +222,7 @@ mod tests {
 
     fn base_user() -> User {
         User {
-            id: Some(twerk_core::id::UserId::new("user-001").unwrap()),
+            id: Some(twerk_core::id::UserId::new("00000000-0000-0000-0000-000000000002").unwrap()),
             name: Some("Test User".to_string()),
             username: Some("testuser".to_string()),
             password_hash: Some("hashed".to_string()),
@@ -242,7 +242,10 @@ mod tests {
             .to_job(vec![], vec![], user, vec![], None)
             .expect("conversion should succeed");
 
-        assert_eq!(job.id.as_deref(), Some("job-001"));
+        assert_eq!(
+            job.id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000001")
+        );
         assert_eq!(job.name.as_deref(), Some("Build Job"));
         assert_eq!(job.description.as_deref(), Some("Build the project"));
         assert_eq!(job.state, JobState::Pending);
@@ -284,7 +287,10 @@ mod tests {
             .created_by
             .as_ref()
             .expect("created_by should be present");
-        assert_eq!(created_by.id.as_deref(), Some("user-001"));
+        assert_eq!(
+            created_by.id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000002")
+        );
         assert_eq!(created_by.username.as_deref(), Some("testuser"));
     }
 
@@ -402,7 +408,10 @@ mod tests {
             Permission {
                 user: None,
                 role: Some(twerk_core::role::Role {
-                    id: Some(twerk_core::id::RoleId::new("role-pub").unwrap()),
+                    id: Some(
+                        twerk_core::id::RoleId::new("00000000-0000-0000-0000-000000000003")
+                            .unwrap(),
+                    ),
                     slug: Some("public".to_string()),
                     name: Some("Public".to_string()),
                     created_at: Some(fixed_now()),
@@ -426,7 +435,7 @@ mod tests {
     #[test]
     fn job_record_to_job_with_schedule() {
         let record = JobRecord {
-            scheduled_job_id: Some("sched-001".to_string()),
+            scheduled_job_id: Some("00000000-0000-0000-0000-000000000004".to_string()),
             ..base_job_record()
         };
         let job = record
@@ -434,7 +443,10 @@ mod tests {
             .expect("conversion should succeed");
 
         let sched = job.schedule.as_ref().expect("schedule should be present");
-        assert_eq!(sched.id.as_deref(), Some("sched-001"));
+        assert_eq!(
+            sched.id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000004")
+        );
         assert!(sched.cron.is_none());
     }
 

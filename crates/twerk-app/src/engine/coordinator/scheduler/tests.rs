@@ -20,7 +20,7 @@ async fn schedule_regular_task_sets_scheduled_state_when_task_is_regular() {
     ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-regular-1").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000003").unwrap());
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
 
@@ -29,7 +29,7 @@ async fn schedule_regular_task_sets_scheduled_state_when_task_is_regular() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-regular-1").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000003").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Scheduled);
 }
@@ -42,7 +42,7 @@ async fn schedule_regular_task_sets_default_queue_when_queue_is_missing() {
     ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-regular-2").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000004").unwrap());
     task.queue = None;
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
@@ -52,7 +52,7 @@ async fn schedule_regular_task_sets_default_queue_when_queue_is_missing() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-regular-2").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000004").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().queue, Some("default".to_string()));
 }
@@ -79,7 +79,7 @@ async fn schedule_regular_task_applies_job_defaults_when_task_omits_overrides() 
     ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-regular-defaults").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000005").unwrap());
     task.queue = None;
     task.limits = None;
     task.timeout = None;
@@ -93,7 +93,7 @@ async fn schedule_regular_task_applies_job_defaults_when_task_omits_overrides() 
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-regular-defaults").unwrap())
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000005").unwrap())
         .unwrap();
     assert_eq!(stored.queue, Some("gpu".to_string()));
     assert_eq!(stored.timeout, Some("30m".to_string()));
@@ -131,7 +131,7 @@ async fn schedule_parallel_task_creates_child_tasks_when_children_are_defined() 
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-parallel-1").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000006").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![child_task]),
         completions: 1,
@@ -147,7 +147,7 @@ async fn schedule_parallel_task_creates_child_tasks_when_children_are_defined() 
 
     let parent = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-parallel-1").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000006").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -175,7 +175,7 @@ async fn schedule_parallel_task_sets_parent_id_on_children_when_scheduled() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-parallel-2").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000007").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![child_task]),
         completions: 1,
@@ -193,7 +193,7 @@ async fn schedule_parallel_task_sets_parent_id_on_children_when_scheduled() {
     assert!(child.is_some());
     assert_eq!(
         child.unwrap().value().parent_id,
-        Some(twerk_core::id::TaskId::new("task-parallel-2").unwrap())
+        Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000007").unwrap())
     );
 }
 
@@ -213,7 +213,7 @@ async fn schedule_each_task_creates_one_child_task_per_list_item() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-1").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000008").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some(r#"["a", "b", "c"]"#.to_string()),
@@ -231,7 +231,7 @@ async fn schedule_each_task_creates_one_child_task_per_list_item() {
 
     let parent = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-each-1").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000008").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -259,7 +259,7 @@ async fn schedule_each_task_sets_parent_size_to_expanded_item_count() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-2").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000009").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some(r#"["x", "y"]"#.to_string()),
@@ -277,7 +277,7 @@ async fn schedule_each_task_sets_parent_size_to_expanded_item_count() {
 
     let parent_guard = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-each-2").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000009").unwrap());
     assert!(parent_guard.is_some());
     let parent = parent_guard.unwrap();
     let each = parent.each.as_ref().unwrap();
@@ -293,8 +293,8 @@ async fn schedule_subjob_task_creates_subjob_and_marks_parent_running() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let subjob_task = Task {
-        id: Some(twerk_core::id::TaskId::new("task-subjob-1").unwrap()),
-        job_id: Some(twerk_core::id::JobId::new("job-1").unwrap()),
+        id: Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000010").unwrap()),
+        job_id: Some(twerk_core::id::JobId::new("00000000-0000-0000-0000-000000000001").unwrap()),
         state: twerk_core::task::TaskState::Created,
         name: Some("SubJob Task".to_string()),
         subjob: Some(SubJobTask {
@@ -322,7 +322,7 @@ async fn schedule_subjob_task_creates_subjob_and_marks_parent_running() {
 
     let parent = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-subjob-1").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000010").unwrap());
     assert!(parent.is_some());
     assert_eq!(parent.unwrap().state, TaskState::Running);
 
@@ -339,7 +339,7 @@ async fn schedule_task_dispatches_to_parallel_scheduler_when_parallel_block_pres
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-parallel").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000011").unwrap());
     task.parallel = Some(ParallelTask {
         tasks: Some(vec![Task {
             id: None,
@@ -357,7 +357,7 @@ async fn schedule_task_dispatches_to_parallel_scheduler_when_parallel_block_pres
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-parallel").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000011").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -371,7 +371,7 @@ async fn schedule_task_dispatches_to_each_scheduler_when_each_block_present() {
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-each").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000012").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("i".to_string()),
         list: Some(r"[1, 2]".to_string()),
@@ -394,7 +394,7 @@ async fn schedule_task_dispatches_to_each_scheduler_when_each_block_present() {
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-each").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000012").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -408,7 +408,7 @@ async fn schedule_task_dispatches_to_subjob_scheduler_when_subjob_block_present(
     ds.jobs.insert(job.id.clone().unwrap(), job.clone());
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-subjob").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000013").unwrap());
     task.subjob = Some(SubJobTask {
         name: Some("SubJob Dispatch Test".to_string()),
         tasks: Some(vec![]),
@@ -422,7 +422,7 @@ async fn schedule_task_dispatches_to_subjob_scheduler_when_subjob_block_present(
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-subjob").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000013").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
 }
@@ -435,7 +435,7 @@ async fn schedule_task_dispatches_to_regular_scheduler_when_no_special_block_pre
     ds.jobs.insert(job.id.clone().unwrap(), job);
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-dispatch-regular").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000014").unwrap());
 
     ds.tasks.insert(task.id.clone().unwrap(), task.clone());
 
@@ -444,7 +444,7 @@ async fn schedule_task_dispatches_to_regular_scheduler_when_no_special_block_pre
 
     let stored = ds
         .tasks
-        .get(&twerk_core::id::TaskId::new("task-dispatch-regular").unwrap());
+        .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000014").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Scheduled);
 }
@@ -465,7 +465,7 @@ async fn schedule_each_task_expands_sequence_expression_into_children() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-seq").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000015").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some("{{ sequence(1,5) }}".to_string()),
@@ -523,7 +523,7 @@ async fn schedule_each_task_handles_real_yaml_template_from_examples() {
     };
 
     let mut task = create_test_task();
-    task.id = Some(twerk_core::id::TaskId::new("task-each-yaml").unwrap());
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000016").unwrap());
     task.each = Some(Box::new(EachTask {
         var: Some("item".to_string()),
         list: Some("{{ sequence(1,5) }}".to_string()),

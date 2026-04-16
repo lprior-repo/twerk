@@ -167,8 +167,8 @@ mod tests {
     fn base_task_record() -> TaskRecord {
         let now = fixed_now();
         TaskRecord {
-            id: "task-001".to_string(),
-            job_id: "job-001".to_string(),
+            id: "00000000-0000-0000-0000-000000000001".to_string(),
+            job_id: "00000000-0000-0000-0000-000000000002".to_string(),
             position: 0,
             name: Some("build".to_string()),
             description: Some("build the project".to_string()),
@@ -218,8 +218,14 @@ mod tests {
         let record = base_task_record();
         let task = record.to_task().expect("conversion should succeed");
 
-        assert_eq!(task.id.as_deref(), Some("task-001"));
-        assert_eq!(task.job_id.as_deref(), Some("job-001"));
+        assert_eq!(
+            task.id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000001")
+        );
+        assert_eq!(
+            task.job_id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000002")
+        );
         assert_eq!(task.position, 0);
         assert_eq!(task.name.as_deref(), Some("build"));
         assert_eq!(task.description.as_deref(), Some("build the project"));
@@ -381,12 +387,15 @@ mod tests {
     #[test]
     fn task_record_to_task_with_parent_id() {
         let record = TaskRecord {
-            parent_id: Some("parent-task-001".to_string()),
+            parent_id: Some("00000000-0000-0000-0000-000000000003".to_string()),
             ..base_task_record()
         };
         let task = record.to_task().expect("conversion should succeed");
 
-        assert_eq!(task.parent_id.as_deref(), Some("parent-task-001"));
+        assert_eq!(
+            task.parent_id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000003")
+        );
     }
 
     #[test]
@@ -439,8 +448,8 @@ mod tests {
         // Everything optional is None
         let now = fixed_now();
         let record = TaskRecord {
-            id: "task-minimal".to_string(),
-            job_id: "job-001".to_string(),
+            id: "00000000-0000-0000-0000-000000000004".to_string(),
+            job_id: "00000000-0000-0000-0000-000000000002".to_string(),
             state: "CREATED".to_string(),
             created_at: now,
             position: 0,
@@ -483,7 +492,10 @@ mod tests {
         };
         let task = record.to_task().expect("conversion should succeed");
 
-        assert_eq!(task.id.as_deref(), Some("task-minimal"));
+        assert_eq!(
+            task.id.as_deref(),
+            Some("00000000-0000-0000-0000-000000000004")
+        );
         assert_eq!(task.state.to_string(), "CREATED");
         assert!(task.name.is_none());
         assert!(task.description.is_none());

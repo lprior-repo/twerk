@@ -1,9 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 33c1f8331ce3501eadc241aa6be689f5c72a649d253938aab69d4c1ebc991072 # shrinks to hostname = "api¡example¡com"
-cc 41f1b82f4925c14d2674f8175a291698f41dcd4bb4fc20d351a74ced6566e117 # shrinks to hostname = "example¡com"
-cc 8e36a441e1f3a3a0b30f0278b7c3db16442d91898a5c760d563c739565ffe22d # shrinks to hostname = "example¡com"

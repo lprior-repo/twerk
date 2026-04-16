@@ -1186,7 +1186,7 @@ mod tests {
         let trigger = Trigger::Cron(cron);
 
         let json = serde_json::to_string(&trigger).unwrap();
-        assert!(json.contains("\"type\":\"Cron\""));
+        assert!(json.contains("\"type\":\"cron\""));
 
         let recovered: Trigger = serde_json::from_str(&json).unwrap();
         assert!(matches!(recovered, Trigger::Cron(_)));
@@ -1210,7 +1210,7 @@ mod tests {
         let trigger = Trigger::Webhook(webhook);
 
         let json = serde_json::to_string(&trigger).unwrap();
-        assert!(json.contains("\"type\":\"Webhook\""));
+        assert!(json.contains("\"type\":\"webhook\""));
 
         let recovered: Trigger = serde_json::from_str(&json).unwrap();
         assert!(matches!(recovered, Trigger::Webhook(_)));
@@ -1236,7 +1236,7 @@ mod tests {
         let trigger = Trigger::Polling(polling);
 
         let json = serde_json::to_string(&trigger).unwrap();
-        assert!(json.contains("\"type\":\"Polling\""));
+        assert!(json.contains("\"type\":\"polling\""));
 
         let recovered: Trigger = serde_json::from_str(&json).unwrap();
         assert!(matches!(recovered, Trigger::Polling(_)));

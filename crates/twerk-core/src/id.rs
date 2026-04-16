@@ -311,110 +311,105 @@ mod tests {
     // JobId validation tests
     // =======================================================================
 
+    /// Valid UUID for testing - RFC 4122 format
+    const TEST_UUID: &'static str = "550e8400-e29b-41d4-a716-446655440000";
+    /// Different valid UUID for testing equality
+    const TEST_UUID_2: &'static str = "661f9501-f30c-52e5-b827-557766551111";
+
     #[allow(clippy::redundant_pattern_matching)]
     #[test]
-    fn job_id_returns_ok_when_input_is_valid_alphanumeric() {
-        let result = JobId::new("job-123");
+    fn job_id_returns_ok_when_input_is_valid_uuid() {
+        let result = JobId::new(TEST_UUID);
         assert!(matches!(result, Ok(_)));
-        assert_eq!(result.unwrap().as_str(), "job-123");
+        assert_eq!(result.unwrap().as_str(), TEST_UUID);
     }
 
     #[allow(clippy::redundant_pattern_matching)]
     #[test]
-    fn job_id_returns_ok_with_underscore() {
-        let result = JobId::new("job_456");
+    fn job_id_returns_ok_with_uppercase_uuid() {
+        // UUIDs can be uppercase too
+        let result = JobId::new("550E8400-E29B-41D4-A716-446655440000");
         assert!(matches!(result, Ok(_)));
-        assert_eq!(result.unwrap().as_str(), "job_456");
     }
 
     #[test]
     fn job_id_returns_err_empty_string() {
         let result = JobId::new("");
-        assert!(matches!(result, Err(IdError::Empty)));
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_newline() {
-        let result = JobId::new("job\n123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        // newline character makes it invalid UUID
+        let result = JobId::new("550e8400-e29b-41d4-a716\n-446655440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_null_byte() {
-        let result = JobId::new("job\x00123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        let result = JobId::new("550e8400-e29b-41d4-a716-44665\x005440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_slash() {
-        let result = JobId::new("job/123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        // slash is not valid in UUID
+        let result = JobId::new("550e8400-e29b-41d4-a716/446655440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_space() {
-        let result = JobId::new("job 123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        let result = JobId::new("550e8400 e29b-41d4-a716-446655440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_tab() {
-        let result = JobId::new("job\t123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        let result = JobId::new("550e8400-\te29b-41d4-a716-446655440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
-    fn job_id_returns_ok_at_max_length() {
-        let max_id = "a".repeat(1000);
-        let result = JobId::new(&max_id);
-        assert!(result.is_ok(), "should accept 1000 character ID");
-        assert_eq!(result.unwrap().as_str().len(), 1000);
-    }
-
-    #[test]
-    fn job_id_returns_err_when_exceeds_max_length() {
+    fn job_id_returns_err_too_long() {
+        // Very long string is not a valid UUID
         let over_max = "a".repeat(1001);
         let result = JobId::new(&over_max);
-        assert!(matches!(result, Err(IdError::TooLong(1001))));
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
-    fn job_id_with_cjk_characters_is_accepted() {
-        // Rust's is_alphanumeric() returns true for CJK characters (Unicode Lo category)
-        // So "job-日本語-123" is actually valid according to the current implementation
-        let result = JobId::new("job-日本語-123");
-        assert!(
-            result.is_ok(),
-            "CJK characters are alphanumeric in Rust: {:?}",
-            result
-        );
+    fn job_id_with_cjk_characters_is_rejected() {
+        // CJK characters are not valid in UUID
+        let result = JobId::new("550e8400-e29b-41d4-a716-日本語-440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
-    fn job_id_with_only_cjk_characters_is_accepted() {
-        // Pure CJK ID is valid in Rust's classification
+    fn job_id_with_only_cjk_characters_is_rejected() {
         let result = JobId::new("日本語");
-        assert!(result.is_ok(), "pure CJK should be accepted: {:?}", result);
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_emoji() {
-        let result = JobId::new("job-🔥-123");
-        assert!(matches!(result, Err(IdError::InvalidCharacters)));
+        let result = JobId::new("550e8400-e29b-41d4-🔥-446655440000");
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_returns_err_with_special_chars() {
-        let special = [
-            "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "=", "+", "[", "]", "{", "}", "|",
-            "\\", ";", ":", "'", "\"", ",", ".", "<", ">", "/", "?", "`", "~",
+        // Special characters that are not valid in UUID
+        let invalid_uuids = [
+            "550e8400!e29b-41d4-a716-446655440000",
+            "550e8400@e29b-41d4-a716-446655440000",
+            "550e8400#e29b-41d4-a716-446655440000",
         ];
-        for c in special {
-            let id = format!("job{c}123");
-            let result = JobId::new(&id);
+        for id in invalid_uuids {
+            let result = JobId::new(id);
             assert!(
-                matches!(result, Err(IdError::InvalidCharacters)),
-                "expected InvalidCharacters for '{}'",
+                matches!(result, Err(IdError::InvalidUuid)),
+                "expected InvalidUuid for '{}'",
                 id
             );
         }
@@ -422,55 +417,55 @@ mod tests {
 
     #[test]
     fn job_id_from_string_ownership() {
-        let owned = String::from("test-job-456");
+        let owned = String::from(TEST_UUID);
         let id = JobId::from(owned);
-        assert_eq!(id.as_str(), "test-job-456");
+        assert_eq!(id.as_str(), TEST_UUID);
     }
 
     #[test]
     fn job_id_from_str_borrowing() {
-        let id = JobId::from("borrowed-job-789");
-        assert_eq!(id.as_str(), "borrowed-job-789");
+        let id = JobId::from(TEST_UUID);
+        assert_eq!(id.as_str(), TEST_UUID);
     }
 
     #[test]
     fn job_id_display_trait() {
-        let id = JobId::new("display-test").unwrap();
+        let id = JobId::new(TEST_UUID).unwrap();
         let formatted = format!("{}", id);
-        assert_eq!(formatted, "display-test");
+        assert_eq!(formatted, TEST_UUID);
     }
 
     #[test]
     fn job_id_as_ref_trait() {
-        let id = JobId::new("ref-test").unwrap();
+        let id = JobId::new(TEST_UUID).unwrap();
         let s: &str = id.as_ref();
-        assert_eq!(s, "ref-test");
+        assert_eq!(s, TEST_UUID);
     }
 
     #[test]
     fn job_id_deref_trait() {
-        let id = JobId::new("deref-test").unwrap();
+        let id = JobId::new(TEST_UUID).unwrap();
         let s: &str = &id;
-        assert_eq!(s, "deref-test");
+        assert_eq!(s, TEST_UUID);
     }
 
     #[test]
     fn job_id_from_str_trait() {
-        let parsed: JobId = "parsed-job".parse().unwrap();
-        assert_eq!(parsed.as_str(), "parsed-job");
+        let parsed: JobId = TEST_UUID.parse().unwrap();
+        assert_eq!(parsed.as_str(), TEST_UUID);
     }
 
     #[test]
     fn job_id_from_str_trait_error() {
-        let result: Result<JobId, _> = "".parse();
-        assert!(matches!(result, Err(IdError::Empty)));
+        let result: Result<JobId, _> = "not-a-uuid".parse();
+        assert!(matches!(result, Err(IdError::InvalidUuid)));
     }
 
     #[test]
     fn job_id_eq_and_hash() {
-        let id1 = JobId::new("equal-job").unwrap();
-        let id2 = JobId::new("equal-job").unwrap();
-        let id3 = JobId::new("different-job").unwrap();
+        let id1 = JobId::new(TEST_UUID).unwrap();
+        let id2 = JobId::new(TEST_UUID).unwrap();
+        let id3 = JobId::new(TEST_UUID_2).unwrap();
 
         assert_eq!(id1, id2);
         assert_ne!(id1, id3);
@@ -485,7 +480,7 @@ mod tests {
 
     #[test]
     fn job_id_clone() {
-        let id1 = JobId::new("cloned-job").unwrap();
+        let id1 = JobId::new(TEST_UUID).unwrap();
         let id2 = id1.clone();
         assert_eq!(id1, id2);
     }

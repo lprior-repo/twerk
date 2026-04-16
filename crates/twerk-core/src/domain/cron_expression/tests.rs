@@ -63,7 +63,8 @@ mod tests {
 
     #[test]
     fn cron_expression_new_returns_parse_error_when_input_is_invalid_cron() {
-        let result = CronExpression::new("not a cron expression");
+        // Use 5 fields but invalid cron syntax (X is not a valid second value)
+        let result = CronExpression::new("X * * * * *");
         assert!(result.is_err());
         let Err(e) = result else {
             panic!("expected error")
@@ -157,27 +158,29 @@ mod tests {
         use proptest::prelude::*;
         use proptest::proptest;
 
+        const VALID_CRON_EXPRESSIONS: &[&str] = &[
+            "0 0 * * *",
+            "*/15 * * * MON-FRI",
+            "0 30 8 1 * *",
+            "0 0 * * MON",
+        ];
+
         proptest! {
             #[test]
-            fn cron_expression_new_preserves_input_valid_expressions(expr in prop_oneof![
-                "0 0 * * *",
-                "*/15 * * * MON-FRI",
-                "0 30 8 1 * *",
-                "0 0 * * MON"
-            ].prop_map(|s| s.to_string())) {
-                let result = CronExpression::new(&expr);
+            fn cron_expression_new_preserves_input_valid_expressions(expr in prop::sample::select(VALID_CRON_EXPRESSIONS)) {
+                let result = CronExpression::new(expr);
                 prop_assert!(result.is_ok());
                 let cron_expr = result.unwrap();
                 prop_assert_eq!(cron_expr.as_str(), expr);
             }
 
             #[test]
-            fn cron_expression_field_count_is_always_5_or_6(expr in prop_oneof![
+            fn cron_expression_field_count_is_always_5_or_6(expr in prop::sample::select(&[
                 "0 0 * * *",
                 "*/15 * * * MON-FRI",
-                "0 30 8 1 * *"
-            ].prop_map(|s| s.to_string())) {
-                let result = CronExpression::new(&expr);
+                "0 30 8 1 * *",
+            ])) {
+                let result = CronExpression::new(expr);
                 prop_assert!(result.is_ok());
                 let cron_expr = result.unwrap();
                 let field_count = cron_expr.as_str().split_whitespace().count();
@@ -185,19 +188,19 @@ mod tests {
             }
 
             #[test]
-            fn cron_expression_display_matches_as_str(expr in prop_oneof![
+            fn cron_expression_display_matches_as_str(expr in prop::sample::select(&[
                 "0 0 * * *",
-                "*/15 * * * MON-FRI"
-            ].prop_map(|s| s.to_string())) {
-                let cron_expr = CronExpression::new(expr.clone()).unwrap();
+                "*/15 * * * MON-FRI",
+            ])) {
+                let cron_expr = CronExpression::new(expr).unwrap();
                 prop_assert_eq!(format!("{}", cron_expr), cron_expr.as_str());
             }
 
             #[test]
-            fn cron_expression_is_send_and_sync(expr in prop_oneof![
+            fn cron_expression_is_send_and_sync(expr in prop::sample::select(&[
                 "0 0 * * *",
-                "*/15 * * * MON-FRI"
-            ].prop_map(|s| s.to_string())) {
+                "*/15 * * * MON-FRI",
+            ])) {
                 let cron_expr = CronExpression::new(expr).unwrap();
                 fn assert_send<T: Send>(_: &T) {}
                 fn assert_sync<T: Sync>(_: &T) {}

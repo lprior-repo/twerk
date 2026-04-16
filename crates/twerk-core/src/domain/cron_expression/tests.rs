@@ -158,7 +158,7 @@ mod tests {
 
         proptest! {
             #[test]
-            fn cron_expression_new_preserves_input_valid_expressions(expr in prop::sample::select([
+            fn cron_expression_new_preserves_input_valid_expressions(expr in prop::sample::select(&[
                 "0 0 * * *".to_string(),
                 "*/15 * * * MON-FRI".to_string(),
                 "0 30 8 1 * *".to_string(),
@@ -171,7 +171,7 @@ mod tests {
             }
 
             #[test]
-            fn cron_expression_field_count_is_always_5_or_6(expr in prop::sample::select([
+            fn cron_expression_field_count_is_always_5_or_6(expr in prop::sample::select(&[
                 "0 0 * * *".to_string(),
                 "*/15 * * * MON-FRI".to_string(),
                 "0 30 8 1 * *".to_string(),
@@ -184,7 +184,7 @@ mod tests {
             }
 
             #[test]
-            fn cron_expression_display_matches_as_str(expr in prop::sample::select([
+            fn cron_expression_display_matches_as_str(expr in prop::sample::select(&[
                 "0 0 * * *".to_string(),
                 "*/15 * * * MON-FRI".to_string(),
             ])) {
@@ -193,7 +193,7 @@ mod tests {
             }
 
             #[test]
-            fn cron_expression_is_send_and_sync(expr in prop::sample::select([
+            fn cron_expression_is_send_and_sync(expr in prop::sample::select(&[
                 "0 0 * * *".to_string(),
                 "*/15 * * * MON-FRI".to_string(),
             ])) {

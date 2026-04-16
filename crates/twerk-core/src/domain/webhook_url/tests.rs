@@ -219,7 +219,7 @@ mod tests {
 
         proptest! {
             #[test]
-            fn webhook_url_new_preserves_input_valid_urls(url in prop::sample::select([
+            fn webhook_url_new_preserves_input_valid_urls(url in prop::sample::select(&[
                 "https://example.com".to_string(),
                 "http://localhost:8080".to_string(),
                 "https://api.test.co:443/v1".to_string(),

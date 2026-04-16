@@ -168,7 +168,7 @@ mod tests {
     fn hostname_as_str_has_no_empty_labels() {
         let host = Hostname::new("api.example.com").unwrap();
         let labels: Vec<&str> = host.as_str().split('.').collect();
-        assert!(labels.iter().all(|l| !l.is_empty()));
+        assert!(labels.iter().all(|l: &&str| !l.is_empty()));
     }
 
     // -------------------------------------------------------------------------
@@ -203,7 +203,7 @@ mod tests {
 
         proptest! {
             #[test]
-            fn hostname_new_preserves_input_valid_hostnames(hostname in prop::sample::select([
+            fn hostname_new_preserves_input_valid_hostnames(hostname in prop::sample::select(&[
                 "localhost".to_string(),
                 "example.com".to_string(),
                 "api.example.com".to_string(),
@@ -217,7 +217,7 @@ mod tests {
             }
 
             #[test]
-            fn hostname_labels_are_well_formed(hostname in prop::sample::select([
+            fn hostname_labels_are_well_formed(hostname in prop::sample::select(&[
                 "localhost".to_string(),
                 "example.com".to_string(),
                 "api.example.com".to_string(),
@@ -228,6 +228,7 @@ mod tests {
                 let host = result.unwrap();
                 // No empty labels
                 for label in host.as_str().split('.') {
+                    let _: &str = label;
                     prop_assert!(!label.is_empty());
                     prop_assert!(!label.contains(':'));
                 }
@@ -236,7 +237,7 @@ mod tests {
             }
 
             #[test]
-            fn hostname_display_matches_as_str(hostname in prop::sample::select([
+            fn hostname_display_matches_as_str(hostname in prop::sample::select(&[
                 "localhost".to_string(),
                 "example.com".to_string(),
                 "api.example.com".to_string(),
@@ -246,7 +247,7 @@ mod tests {
             }
 
             #[test]
-            fn hostname_is_send_and_sync(hostname in prop::sample::select([
+            fn hostname_is_send_and_sync(hostname in prop::sample::select(&[
                 "localhost".to_string(),
                 "example.com".to_string(),
             ])) {

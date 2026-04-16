@@ -98,16 +98,9 @@ async fn start_job(
     let job_ctx = build_job_context(&job);
     let job_id = job.id.as_ref().ok_or_else(|| anyhow!("job has no id"))?;
 
-    let mut task =
-        twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow!("{e}"))?;
-    task.id = Some(new_short_uuid().into());
-    task.job_id = Some(job_id.clone());
-    task.state = TaskState::Pending;
-    task.position = 1;
-    task.created_at = Some(now);
-
-    ds.create_task(&task).await?;
-
+    debug!(job_id = %job_id, "start_job: transitioning job to Scheduled");
+    // Transition job to Scheduled BEFORE evaluating task and calling handle_pending_task.
+    // This ensures the job state is updated even if task evaluation or broker dispatch fails.
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
@@ -119,7 +112,22 @@ async fn start_job(
     )
     .await?;
 
+    debug!(job_id = %job_id, "start_job: evaluating task");
+    let mut task =
+        twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow!("{e}"))?;
+    task.id = Some(new_short_uuid().into());
+    task.job_id = Some(job_id.clone());
+    task.state = TaskState::Pending;
+    task.position = 1;
+    task.created_at = Some(now);
+
+    debug!(job_id = %job_id, "start_job: creating task in datastore");
+    ds.create_task(&task).await?;
+
+    debug!(job_id = %job_id, "start_job: firing webhooks");
     fire_job_webhooks(&job, "job.Scheduled").await;
+
+    debug!(job_id = %job_id, "start_job: handling pending task");
     handle_pending_task(ds, broker, task).await
 }
 

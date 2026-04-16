@@ -59,7 +59,10 @@ async fn test_publish_heartbeat_stores_and_notifies() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()));
+    assert_eq!(
+        guard[0].id,
+        Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap())
+    );
     assert_eq!(guard[0].name, Some("worker-1".to_string()));
 }
 
@@ -93,8 +96,12 @@ async fn test_subscribe_for_heartbeats_sends_existing() {
     let guard = received.read().await;
     assert_eq!(guard.len(), 2);
     let ids: Vec<_> = guard.iter().map(|n| n.id.clone()).collect();
-    assert!(ids.contains(&Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap())));
-    assert!(ids.contains(&Some(NodeId::new("00000000-0000-0000-0000-000000000002").unwrap())));
+    assert!(ids.contains(&Some(
+        NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()
+    )));
+    assert!(ids.contains(&Some(
+        NodeId::new("00000000-0000-0000-0000-000000000002").unwrap()
+    )));
 }
 
 #[tokio::test]
@@ -120,7 +127,10 @@ async fn test_publish_task_log_part_stores_and_notifies() {
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
     assert_eq!(guard[0].id, Some("log-part-1".to_string()));
-    assert_eq!(guard[0].task_id, Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()));
+    assert_eq!(
+        guard[0].task_id,
+        Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap())
+    );
     assert_eq!(guard[0].number, 1);
     assert_eq!(guard[0].contents, Some("Log line 1".to_string()));
 }
@@ -246,7 +256,10 @@ async fn test_publish_and_subscribe_for_task() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap()));
+    assert_eq!(
+        guard[0].id,
+        Some(TaskId::new("00000000-0000-0000-0000-000000000003").unwrap())
+    );
 }
 
 #[tokio::test]
@@ -352,7 +365,10 @@ async fn test_publish_and_subscribe_for_job() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id.as_deref(), Some("00000000-0000-0000-0000-000000000004"));
+    assert_eq!(
+        guard[0].id.as_deref(),
+        Some("00000000-0000-0000-0000-000000000004")
+    );
 }
 
 #[tokio::test]
@@ -388,7 +404,9 @@ async fn test_multiple_subscribers_for_job() {
     // Publish multiple jobs
     for i in 0..10 {
         let job = twerk_core::job::Job {
-            id: Some(JobId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 10 + i)).unwrap()),
+            id: Some(
+                JobId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 10 + i)).unwrap(),
+            ),
             ..Default::default()
         };
         broker.publish_job(&job).await.unwrap();
@@ -508,7 +526,9 @@ async fn test_queue_info() {
     // Publish some tasks
     for i in 0..5 {
         let task = Task {
-            id: Some(TaskId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 20 + i)).unwrap()),
+            id: Some(
+                TaskId::new(format!("00000000-0000-0000-0000-0000000000{:02}", 20 + i)).unwrap(),
+            ),
             ..Default::default()
         };
         broker.publish_task(qname.clone(), &task).await.unwrap();
@@ -548,7 +568,10 @@ async fn broker_publish_heartbeat_receives_handler() {
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
-    assert_eq!(guard[0].id, Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap()));
+    assert_eq!(
+        guard[0].id,
+        Some(NodeId::new("00000000-0000-0000-0000-000000000001").unwrap())
+    );
     assert_eq!(guard[0].name, Some("worker-1".to_string()));
 }
 

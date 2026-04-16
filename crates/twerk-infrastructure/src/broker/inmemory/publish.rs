@@ -144,11 +144,8 @@ pub(crate) fn job(broker: &InMemoryBroker, job: &Job) -> BoxedFuture<()> {
     let handlers = broker.job_handlers.clone();
     Box::pin(async move {
         let handlers = handlers.read().await;
-        debug!(
-            "Publishing job {} to {} handlers",
-            job.id.as_deref().unwrap_or(DEFAULT_TASK_NAME),
-            handlers.len()
-        );
+        let job_id = job.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
+        debug!("Publishing job {} to {} handlers", job_id, handlers.len());
         for handler in handlers.iter() {
             let job_clone = job.clone();
             spawn_handler(handler.clone(), job_clone, "job handler failed");

@@ -146,10 +146,7 @@ impl InMemoryTriggerRegistry {
     ) -> TriggerRegistryResult<()> {
         let old_state = trigger.state;
         if !is_valid_transition(old_state, new_state, trigger.variant) {
-            Err(TriggerError::InvalidStateTransition(
-                old_state,
-                new_state,
-            ))
+            Err(TriggerError::InvalidStateTransition(old_state, new_state))
         } else {
             trigger.state = new_state;
             Ok(())

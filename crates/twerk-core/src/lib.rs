@@ -32,6 +32,6 @@ pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};
 pub use trigger::{ParseTriggerStateError, TriggerState};
 pub use types::{
-    Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError,
-    TaskCount, TaskCountError, TaskPosition, TaskPositionError,
+    Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError, TaskCount,
+    TaskCountError, TaskPosition, TaskPositionError,
 };

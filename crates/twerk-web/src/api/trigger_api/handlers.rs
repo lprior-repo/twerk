@@ -79,7 +79,9 @@ fn as_optional_string(value: Option<&Value>) -> Option<String> {
         .map(std::string::ToString::to_string)
 }
 
-fn as_optional_string_map(value: Option<&Value>) -> Option<std::collections::HashMap<String, String>> {
+fn as_optional_string_map(
+    value: Option<&Value>,
+) -> Option<std::collections::HashMap<String, String>> {
     value.and_then(Value::as_object).map(|map| {
         map.iter()
             .filter_map(|(k, v)| v.as_str().map(|inner| (k.clone(), inner.to_string())))

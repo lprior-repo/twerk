@@ -1,0 +1,55 @@
+    Checking config v0.14.1
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+    Checking mockito v1.7.2
+    Checking twerk-common v0.1.0 (/home/lewis/src/twerk/crates/twerk-common)
+    Checking twerk-core v0.1.0 (/home/lewis/src/twerk/crates/twerk-core)
+    Checking twerk-infrastructure v0.1.0 (/home/lewis/src/twerk/crates/twerk-infrastructure)
+    Checking twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
+    Checking twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/twerk-web/src/api/yaml.rs:38:1
+   |
+38 | pub fn from_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, ApiError> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+   = note: `-D clippy::missing-errors-doc` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::missing_errors_doc)]`
+
+error: variables can be used directly in the `format!` string
+  --> crates/twerk-web/src/api/yaml.rs:47:44
+   |
+47 |         .map_err(|e| ApiError::bad_request(format!("YAML parse error: {}", e)))
+   |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+   = note: `-D clippy::uninlined-format-args` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::uninlined_format_args)]`
+help: change this to
+   |
+47 -         .map_err(|e| ApiError::bad_request(format!("YAML parse error: {}", e)))
+47 +         .map_err(|e| ApiError::bad_request(format!("YAML parse error: {e}")))
+   |
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/twerk-web/src/api/yaml.rs:50:1
+   |
+50 | pub fn to_string<T: serde::Serialize>(value: &T) -> Result<String, ApiError> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: variables can be used directly in the `format!` string
+  --> crates/twerk-web/src/api/yaml.rs:52:41
+   |
+52 |         .map_err(|e| ApiError::internal(format!("YAML serialization error: {}", e)))
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+help: change this to
+   |
+52 -         .map_err(|e| ApiError::internal(format!("YAML serialization error: {}", e)))
+52 +         .map_err(|e| ApiError::internal(format!("YAML serialization error: {e}")))
+   |
+
+error: could not compile `twerk-web` (lib) due to 4 previous errors

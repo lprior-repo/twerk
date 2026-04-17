@@ -71,7 +71,7 @@ async fn send_put(
 #[tokio::test]
 async fn adversarial_id_with_unicode_characters() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -104,7 +104,7 @@ async fn adversarial_id_with_unicode_characters() {
 #[tokio::test]
 async fn adversarial_sql_injection_in_name() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -134,7 +134,7 @@ async fn adversarial_sql_injection_in_name() {
 #[tokio::test]
 async fn adversarial_field_exceeds_max_length() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let long_name = "a".repeat(100); // Exceeds 64 char limit
@@ -172,7 +172,7 @@ async fn adversarial_field_exceeds_max_length() {
 #[tokio::test]
 async fn adversarial_whitespace_only_fields() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -204,7 +204,7 @@ async fn adversarial_whitespace_only_fields() {
 #[tokio::test]
 async fn adversarial_null_bytes_in_fields() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -233,7 +233,7 @@ async fn adversarial_null_bytes_in_fields() {
 #[tokio::test]
 async fn adversarial_body_exceeds_max_size() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let large_body = "x".repeat(20 * 1024); // 20KB, exceeds 16KB limit
@@ -268,7 +268,7 @@ async fn adversarial_body_exceeds_max_size() {
 #[tokio::test]
 async fn adversarial_metadata_empty_key() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -301,7 +301,7 @@ async fn adversarial_metadata_empty_key() {
 #[tokio::test]
 async fn adversarial_metadata_non_ascii_key() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -333,7 +333,7 @@ async fn adversarial_metadata_non_ascii_key() {
 #[tokio::test]
 async fn adversarial_id_with_shell_special_chars() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -366,7 +366,7 @@ async fn adversarial_id_with_shell_special_chars() {
 #[tokio::test]
 async fn adversarial_id_path_traversal() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -407,7 +407,7 @@ async fn adversarial_id_path_traversal() {
 #[tokio::test]
 async fn adversarial_empty_body() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, _) = send_put(
@@ -429,7 +429,7 @@ async fn adversarial_empty_body() {
 #[tokio::test]
 async fn adversarial_completely_malformed_json() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, _) = send_put(
@@ -477,7 +477,7 @@ async fn adversarial_id_with_newlines() {
 #[tokio::test]
 async fn adversarial_negative_version() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -510,7 +510,7 @@ async fn adversarial_negative_version() {
 #[tokio::test]
 async fn adversarial_wrong_type_for_name() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -539,7 +539,7 @@ async fn adversarial_wrong_type_for_name() {
 #[tokio::test]
 async fn adversarial_condition_as_number() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -569,7 +569,7 @@ async fn adversarial_condition_as_number() {
 #[tokio::test]
 async fn adversarial_enabled_as_string() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -606,7 +606,7 @@ async fn adversarial_enabled_as_string() {
 #[tokio::test]
 async fn adversarial_id_case_mismatch() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("Valid-Id"));
+    trigger_ds.upsert(trigger("Valid-Id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -638,7 +638,7 @@ async fn adversarial_id_case_mismatch() {
 #[tokio::test]
 async fn adversarial_large_metadata_value() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let large_value = "x".repeat(10000);
@@ -669,7 +669,7 @@ async fn adversarial_large_metadata_value() {
 #[tokio::test]
 async fn adversarial_multiple_field_errors() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -705,7 +705,7 @@ async fn adversarial_multiple_field_errors() {
 async fn adversarial_id_max_boundary() {
     let max_id = "a".repeat(1000);
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger(&max_id));
+    trigger_ds.upsert(trigger(&max_id)).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -737,7 +737,7 @@ async fn adversarial_id_max_boundary() {
 #[tokio::test]
 async fn adversarial_content_type_with_charset() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -781,7 +781,7 @@ async fn adversarial_very_old_timestamp() {
         created_at: old_time,
         updated_at: old_time,
     };
-    trigger_ds.upsert(trigger);
+    trigger_ds.upsert(trigger).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -815,7 +815,7 @@ async fn adversarial_very_old_timestamp() {
 async fn adversarial_id_all_allowed_chars() {
     let allowed_id = "abc123-_DEF_GHI-jkl0123456789";
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger(allowed_id));
+    trigger_ds.upsert(trigger(allowed_id)).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -847,7 +847,7 @@ async fn adversarial_id_all_allowed_chars() {
 #[tokio::test]
 async fn adversarial_xml_content_type() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("valid-id"));
+    trigger_ds.upsert(trigger("valid-id")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, _) = send_put(

@@ -80,7 +80,7 @@ async fn send_put(
 #[tokio::test]
 async fn update_trigger_handler_returns_400_invalid_id_format_when_path_id_is_unparseable() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, body) = send_put(
@@ -99,7 +99,7 @@ async fn update_trigger_handler_returns_400_invalid_id_format_when_path_id_is_un
 async fn update_trigger_handler_returns_400_unsupported_content_type_when_content_type_is_text_plain(
 ) {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, body) = send_put(
@@ -120,7 +120,7 @@ async fn update_trigger_handler_returns_400_unsupported_content_type_when_conten
 #[tokio::test]
 async fn update_trigger_handler_returns_400_malformed_json_when_body_is_truncated_json() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, body) = send_put(
@@ -141,7 +141,7 @@ async fn update_trigger_handler_returns_400_malformed_json_when_body_is_truncate
 #[tokio::test]
 async fn update_trigger_handler_returns_400_validation_failed_when_body_is_empty_object() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, body) = send_put(
@@ -162,7 +162,7 @@ async fn update_trigger_handler_returns_400_validation_failed_when_body_is_empty
 #[tokio::test]
 async fn update_trigger_handler_returns_400_id_mismatch_when_body_id_differs_from_path_id() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_path"));
+    trigger_ds.upsert(trigger("trg_path")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let (status, body) = send_put(
@@ -201,7 +201,7 @@ async fn update_trigger_handler_returns_404_trigger_not_found_when_trigger_missi
 #[tokio::test]
 async fn update_trigger_handler_returns_409_version_conflict_when_stale_version_supplied() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
     let mut body_conflict = body_ok("trg_abc");
     body_conflict["version"] = json!(0);
@@ -224,7 +224,7 @@ async fn update_trigger_handler_returns_409_version_conflict_when_stale_version_
 #[tokio::test]
 async fn update_trigger_handler_returns_500_persistence_when_datastore_update_fails() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let previous = trigger_ds.set_fail_next_update(true);
     assert!(
         !previous,
@@ -250,7 +250,7 @@ async fn update_trigger_handler_returns_500_persistence_when_datastore_update_fa
 #[tokio::test]
 async fn update_trigger_handler_returns_500_serialization_when_response_encoding_fails() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let response = app
@@ -286,7 +286,7 @@ async fn update_trigger_handler_returns_500_serialization_when_response_encoding
 #[tokio::test]
 async fn update_trigger_handler_returns_200_and_trigger_view_equal_to_committed_trigger() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds.clone()));
 
     let (status, body) = send_put(
@@ -313,7 +313,7 @@ async fn update_trigger_handler_returns_200_and_trigger_view_equal_to_committed_
 #[tokio::test]
 async fn update_trigger_handler_keeps_same_mutable_state_when_same_request_applied_twice() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app_one = create_router(build_state(trigger_ds.clone()));
     let app_two = create_router(build_state(trigger_ds.clone()));
 
@@ -354,7 +354,7 @@ async fn update_trigger_handler_keeps_same_mutable_state_when_same_request_appli
 #[tokio::test]
 async fn update_trigger_handler_preserves_preupdate_state_when_modify_closure_returns_error() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let before = trigger_ds
         .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
         .expect("before");
@@ -389,7 +389,7 @@ async fn update_trigger_handler_preserves_preupdate_state_when_modify_closure_re
 async fn update_trigger_handler_accepts_min_path_id_length_when_id_length_equals_min() {
     let id = "a";
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger(id));
+    trigger_ds.upsert(trigger(id)).unwrap();
     let app = create_router(build_state(trigger_ds));
     let (status, _) = send_put(
         app,
@@ -405,7 +405,7 @@ async fn update_trigger_handler_accepts_min_path_id_length_when_id_length_equals
 async fn update_trigger_handler_accepts_max_path_id_length_when_id_length_equals_max() {
     let id = "a".repeat(twerk_web::api::trigger_api::TRIGGER_ID_MAX_LEN);
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger(&id));
+    trigger_ds.upsert(trigger(&id)).unwrap();
     let app = create_router(build_state(trigger_ds));
     let path = format!("/api/v1/triggers/{id}");
     let (status, _) = send_put(

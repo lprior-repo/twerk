@@ -25,10 +25,17 @@ impl InMemoryTriggerDatastore {
         }
     }
 
-    pub fn upsert(&self, trigger: Trigger) {
-        if let Ok(mut map) = self.data.lock() {
-            map.insert(trigger.id.as_str().to_string(), trigger);
-        }
+    /// Insert or update a trigger.
+    ///
+    /// # Errors
+    /// Returns persistence errors if lock acquisition fails.
+    pub fn upsert(&self, trigger: Trigger) -> Result<(), TriggerUpdateError> {
+        let mut map = self
+            .data
+            .lock()
+            .map_err(|_| TriggerUpdateError::Persistence(PERSISTENCE_MSG.to_string()))?;
+        map.insert(trigger.id.as_str().to_string(), trigger);
+        Ok(())
     }
 
     /// Create a new trigger from an update request.

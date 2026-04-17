@@ -86,7 +86,7 @@ async fn send_put(
 #[tokio::test]
 async fn adversarial_field_name_exceeds_max_length_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let long_name = "a".repeat(TRIGGER_FIELD_MAX_LEN + 1);
@@ -121,7 +121,7 @@ async fn adversarial_field_name_exceeds_max_length_should_fail() {
 #[tokio::test]
 async fn adversarial_field_event_exceeds_max_length_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let long_event = "e".repeat(TRIGGER_FIELD_MAX_LEN + 1);
@@ -156,7 +156,7 @@ async fn adversarial_field_event_exceeds_max_length_should_fail() {
 #[tokio::test]
 async fn adversarial_field_action_exceeds_max_length_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let long_action = "a".repeat(TRIGGER_FIELD_MAX_LEN + 1);
@@ -191,7 +191,7 @@ async fn adversarial_field_action_exceeds_max_length_should_fail() {
 #[tokio::test]
 async fn adversarial_metadata_empty_key_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -226,7 +226,7 @@ async fn adversarial_metadata_empty_key_should_fail() {
 #[tokio::test]
 async fn adversarial_metadata_non_ascii_key_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -261,7 +261,7 @@ async fn adversarial_metadata_non_ascii_key_should_fail() {
 #[tokio::test]
 async fn adversarial_body_exceeds_max_size_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let large_payload = serde_json::to_vec(&json!({
@@ -310,7 +310,7 @@ async fn adversarial_created_at_immutable_on_update() {
         created_at: original_time,
         updated_at: original_time,
     };
-    trigger_ds.upsert(trigger);
+    trigger_ds.upsert(trigger).unwrap();
     let app = create_router(build_state(trigger_ds.clone()));
 
     let (status, _) = send_put(
@@ -351,7 +351,7 @@ async fn adversarial_updated_at_advances_on_update() {
         created_at: original_time,
         updated_at: original_time,
     };
-    trigger_ds.upsert(trigger);
+    trigger_ds.upsert(trigger).unwrap();
     let app = create_router(build_state(trigger_ds.clone()));
 
     // First update
@@ -399,7 +399,7 @@ async fn adversarial_updated_at_advances_on_update() {
 #[tokio::test]
 async fn adversarial_whitespace_only_name_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -432,7 +432,7 @@ async fn adversarial_whitespace_only_name_should_fail() {
 #[tokio::test]
 async fn adversarial_positive_version_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -462,7 +462,7 @@ async fn adversarial_positive_version_should_succeed() {
 #[tokio::test]
 async fn adversarial_metadata_with_long_valid_key_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let long_key = "k".repeat(200);
@@ -498,7 +498,7 @@ async fn adversarial_metadata_with_long_valid_key_should_succeed() {
 #[tokio::test]
 async fn adversarial_all_whitespace_fields_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -533,7 +533,7 @@ async fn adversarial_all_whitespace_fields_should_fail() {
 #[tokio::test]
 async fn adversarial_body_without_id_field_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -566,7 +566,7 @@ async fn adversarial_body_without_id_field_should_succeed() {
 #[tokio::test]
 async fn adversarial_null_condition_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -596,7 +596,7 @@ async fn adversarial_null_condition_should_succeed() {
 #[tokio::test]
 async fn adversarial_null_metadata_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -627,7 +627,7 @@ async fn adversarial_null_metadata_should_succeed() {
 #[tokio::test]
 async fn adversarial_metadata_special_char_key_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -662,7 +662,7 @@ async fn adversarial_metadata_special_char_key_should_succeed() {
 #[tokio::test]
 async fn adversarial_field_at_max_length_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let max_name = "n".repeat(TRIGGER_FIELD_MAX_LEN);
@@ -696,7 +696,7 @@ async fn adversarial_field_at_max_length_should_succeed() {
 #[tokio::test]
 async fn adversarial_empty_metadata_object_should_succeed() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
 
     let body = json!({
@@ -730,7 +730,7 @@ async fn adversarial_empty_metadata_object_should_succeed() {
 #[tokio::test]
 async fn adversarial_whitespace_in_fields_should_be_normalized() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc"));
+    trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({

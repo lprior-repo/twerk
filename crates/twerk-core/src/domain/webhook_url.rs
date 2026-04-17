@@ -32,6 +32,8 @@ pub enum WebhookUrlError {
     UrlTooLong,
     #[error("URL path contains unencoded spaces")]
     SpaceInPath,
+    #[error("URL path contains control character (0x{0:02X})")]
+    ControlCharacterInPath(u8),
 }
 
 // ---------------------------------------------------------------------------
@@ -69,15 +71,16 @@ fn validate_host(parsed: &url::Url) -> Result<(), WebhookUrlError> {
         .map_or(Err(WebhookUrlError::MissingHost), |_| Ok(()))
 }
 
-fn validate_path(parsed: &url::Url) -> Result<(), WebhookUrlError> {
-    // NOTE: SpaceInPath is theoretically reachable for URLs like "https://example.com/path with spaces"
-    // but in practice such URLs are rejected by the url crate's parse() as invalid.
-    // This variant exists for API completeness and future-proofing.
+fn validate_path(parsed: &url::Url, original: &str) -> Result<(), WebhookUrlError> {
     if parsed.path().contains(' ') {
-        Err(WebhookUrlError::SpaceInPath)
-    } else {
-        Ok(())
+        return Err(WebhookUrlError::SpaceInPath);
     }
+    for b in original.bytes() {
+        if b == 0 || (b < 0x20 && b != 0x09) {
+            return Err(WebhookUrlError::ControlCharacterInPath(b));
+        }
+    }
+    Ok(())
 }
 
 impl WebhookUrl {
@@ -95,7 +98,7 @@ impl WebhookUrl {
         let parsed = validate_and_parse_url(&s)?;
         validate_scheme(&parsed)?;
         validate_host(&parsed)?;
-        validate_path(&parsed)?;
+        validate_path(&parsed, &s)?;
         Ok(Self(s))
     }
 

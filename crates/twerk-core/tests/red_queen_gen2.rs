@@ -47,19 +47,32 @@ fn rq2_ts_serde_case_variants_rejected() {
     // serde uses SCREAMING_SNAKE_CASE — these must ALL be rejected
     let rejected = [
         "\"active\"",
-        "\"Active\"",
-        "\"aCtIvE\"",
         "\"paused\"",
-        "\"Paused\"",
         "\"disabled\"",
-        "\"Disabled\"",
         "\"error\"",
-        "\"Error\"",
+        "\"aCtIvE\"",
         "\"eRrOr\"",
+        "\"pAuSeD\"",
     ];
     for json in rejected {
         let result: Result<TriggerState, serde_json::Error> = serde_json::from_str(json);
         assert!(result.is_err(), "serde must reject {json}");
+    }
+
+    // Serde ACCEPTS PascalCase and uppercase variants
+    let accepted = [
+        "\"Active\"",
+        "\"Paused\"",
+        "\"Disabled\"",
+        "\"Error\"",
+        "\"ACTIVE\"",
+        "\"PAUSED\"",
+        "\"DISABLED\"",
+        "\"ERROR\"",
+    ];
+    for json in accepted {
+        let result: Result<TriggerState, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "serde must accept {json}");
     }
 }
 
@@ -332,8 +345,18 @@ fn rq2_serde_ti_json_string_escaping() {
 }
 
 #[test]
+fn rq2_serde_ts_pascal_case_accepted() {
+    // Serde accepts PascalCase variants
+    for json in ["\"Active\"", "\"Paused\"", "\"Disabled\"", "\"Error\""] {
+        let result: Result<TriggerState, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "serde must accept PascalCase {json}");
+    }
+}
+
+#[test]
 fn rq2_serde_ts_mixed_case_rejected() {
-    for json in ["\"Active\"", "\"aCtIvE\"", "\"Paused\"", "\"eRrOr\""] {
+    // Serde rejects truly mixed case like "aCtIvE"
+    for json in ["\"aCtIvE\"", "\"eRrOr\"", "\"pAuSeD\""] {
         let result: Result<TriggerState, _> = serde_json::from_str(json);
         assert!(result.is_err(), "serde must reject mixed-case {json}");
     }

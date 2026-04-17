@@ -218,6 +218,7 @@ mod tests {
         ));
     }
 
+    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_register_error_message_exact() {
         let _ = register("msg_test", Box::new(|| {}));

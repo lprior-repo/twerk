@@ -173,11 +173,11 @@ mod tests {
     use super::*;
     use axum::{routing::get, Router};
 
+    #[allow(clippy::unwrap_used)]
     fn get_available_addr() -> SocketAddr {
         use std::net::TcpListener as StdTcpListener;
-        let listener =
-            StdTcpListener::bind("127.0.0.1:0").expect("failed to bind to random port for test");
-        listener.local_addr().expect("failed to get local address")
+        let listener = StdTcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap()
     }
 
     #[tokio::test]
@@ -243,14 +243,13 @@ mod tests {
         assert_eq!(config.delay, Duration::from_millis(100));
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_can_connect_with_valid_address() {
         let addr = get_available_addr();
         let addr_str = format!("{addr}");
 
-        let listener = tokio::net::TcpListener::bind(addr)
-            .await
-            .expect("failed to bind TCP listener for test");
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
         assert!(can_connect(&addr_str));
 

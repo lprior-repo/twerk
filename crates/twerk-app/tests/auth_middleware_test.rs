@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 use axum::routing::get;
+use tower::ServiceExt;
 use twerk_app::engine::coordinator::auth::{
     basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig,
 };
@@ -18,7 +19,6 @@ async fn test_valid_basic_auth_credentials_pass() {
     use async_trait::async_trait;
     use axum::http::{header, StatusCode};
     use twerk_core::user::User;
-    use tower::ServiceExt;
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     struct MockDatastore {
@@ -180,7 +180,6 @@ async fn test_invalid_basic_auth_credentials_return_401() {
     use async_trait::async_trait;
     use axum::http::{header, StatusCode};
     use twerk_core::user::User;
-    use tower::ServiceExt;
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     struct MockDatastore {
@@ -341,7 +340,6 @@ async fn test_invalid_basic_auth_credentials_return_401() {
 async fn test_missing_basic_auth_credentials_return_401() {
     use axum::http::StatusCode;
     use twerk_infrastructure::datastore::Error as DatastoreError;
-    use tower::ServiceExt;
 
     struct MockDatastore;
 
@@ -409,7 +407,6 @@ async fn test_missing_basic_auth_credentials_return_401() {
 #[tokio::test]
 async fn test_valid_api_key_passes() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string());
 
@@ -437,7 +434,6 @@ async fn test_valid_api_key_passes() {
 #[tokio::test]
 async fn test_invalid_api_key_returns_401() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string());
 
@@ -465,7 +461,6 @@ async fn test_invalid_api_key_returns_401() {
 #[tokio::test]
 async fn test_missing_api_key_returns_401() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string());
 
@@ -492,7 +487,6 @@ async fn test_missing_api_key_returns_401() {
 #[tokio::test]
 async fn test_request_matching_skip_path_bypasses_auth() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string())
         .with_skip_paths(vec!["GET /health".to_string()]);
@@ -521,7 +515,6 @@ async fn test_request_matching_skip_path_bypasses_auth() {
 #[tokio::test]
 async fn test_api_key_in_query_param_passes() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string());
 
@@ -548,7 +541,6 @@ async fn test_api_key_in_query_param_passes() {
 #[tokio::test]
 async fn test_wildcard_skip_path_matching() {
     use axum::http::StatusCode;
-    use tower::ServiceExt;
 
     let config = KeyAuthConfig::new("valid-api-key".to_string())
         .with_skip_paths(vec!["GET /health*".to_string()]);

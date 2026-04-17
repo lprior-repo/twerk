@@ -412,13 +412,24 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
     coordinator.start().await?;
 
+    // DEBUG: Verify handlers are subscribed by checking if publish_job would invoke them
+    eprintln!("DEBUG: Coordinator started, about to create job");
+
     let job = Job {
-        id: Some("job-3".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440003".into()),
         state: JobState::Pending,
+        name: Some("test job".to_string()),
         tasks: Some(vec![Task {
             name: Some("task 1".to_string()),
+            image: Some("ubuntu:20.04".to_string()),
+            run: Some("echo hello".to_string()),
+            queue: Some("default".to_string()),
             ..Default::default()
         }]),
+        context: Some(twerk_core::job::JobContext {
+            inputs: Some(std::collections::HashMap::new()),
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
@@ -437,7 +448,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     tokio::spawn(async move {
         let mut attempts = 0;
         loop {
-            match ds.get_job_by_id("job-3").await {
+            match ds.get_job_by_id("550e8400-e29b-41d4-a716-446655440003").await {
                 Ok(persisted_job) if persisted_job.state != JobState::Pending => {
                     let _ = tx.send(Ok(persisted_job));
                     return;
@@ -468,7 +479,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     assert_eq!(persisted_job.state, JobState::Scheduled);
 
     // Verify a task was created
-    let tasks = datastore.get_active_tasks("job-3").await?;
+    let tasks = datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440003").await?;
     assert_eq!(tasks.len(), 1);
 
     Ok(())

@@ -96,10 +96,8 @@ impl WebhookUrl {
     /// Parse and return the URL components.
     ///
     /// This parses on demand rather than storing the parsed URL, keeping the type simple.
-    #[must_use]
-    pub fn as_url(&self) -> url::Url {
-        // This will never fail since we validated at construction
-        url::Url::parse(&self.0).expect("validated URL should always parse")
+    pub fn as_url(&self) -> Result<url::Url, WebhookUrlError> {
+        validate_and_parse_url(&self.0)
     }
 }
 

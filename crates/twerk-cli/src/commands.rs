@@ -80,6 +80,7 @@ mod tests {
         // Verify Commands struct can be created
         let cmd = Commands::Run {
             mode: RunMode::Standalone,
+            hostname: None,
         };
         assert!(matches!(cmd, Commands::Run { .. }));
     }
@@ -90,7 +91,8 @@ mod tests {
         assert!(matches!(
             cmd,
             Commands::Run {
-                ref mode
+                ref mode,
+                hostname: None
             } if mode == &RunMode::Standalone
         ));
     }
@@ -133,7 +135,8 @@ mod tests {
             Ok(Cli {
                 json: false,
                 command: Some(Commands::Run {
-                    mode: RunMode::Worker
+                    mode: RunMode::Worker,
+                    hostname: None
                 })
             })
         ));

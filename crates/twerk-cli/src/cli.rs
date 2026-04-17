@@ -283,7 +283,8 @@ mod tests {
             parse_cli_args(&args),
             Ok(CliAction::Execute(
                 Some(Commands::Run {
-                    mode: crate::commands::RunMode::Coordinator
+                    mode: crate::commands::RunMode::Coordinator,
+                    hostname: None
                 }),
                 false
             ))

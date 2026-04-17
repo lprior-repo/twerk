@@ -24,7 +24,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("test-job-2".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440001".into()),
         name: Some("test job 2".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
@@ -42,7 +42,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     // Wait for task to be created
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let tasks = datastore.get_active_tasks("test-job-2").await?;
+            let tasks = datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440001").await?;
             if !tasks.is_empty() {
                 return Ok::<_, anyhow::Error>(tasks);
             }
@@ -66,7 +66,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     // Wait for job to be completed
     let persisted = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let persisted = datastore.get_job_by_id("test-job-2").await?;
+            let persisted = datastore.get_job_by_id("550e8400-e29b-41d4-a716-446655440001").await?;
             if persisted.state == JobState::Completed {
                 return Ok::<_, anyhow::Error>(persisted);
             }
@@ -97,7 +97,7 @@ async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> R
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("first-task-job".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440002".into()),
         name: Some("first task scheduling".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
@@ -114,7 +114,7 @@ async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> R
 
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let tasks = datastore.get_all_tasks_for_job("first-task-job").await?;
+            let tasks = datastore.get_all_tasks_for_job("550e8400-e29b-41d4-a716-446655440002").await?;
             if !tasks.is_empty() {
                 return Ok::<_, anyhow::Error>(tasks);
             }
@@ -130,7 +130,7 @@ async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> R
     assert_eq!(tasks[0].queue, Some("default".to_string()));
     assert!(tasks[0].scheduled_at.is_some());
 
-    let persisted = datastore.get_job_by_id("first-task-job").await?;
+    let persisted = datastore.get_job_by_id("550e8400-e29b-41d4-a716-446655440002").await?;
     assert_eq!(persisted.state, JobState::Scheduled);
     assert_eq!(persisted.position, 1);
 
@@ -152,7 +152,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("parallel-job".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440003".into()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel task".to_string()),
@@ -180,7 +180,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     // Wait for the parallel task to be "running" and subtasks to be "pending"
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let tasks = datastore.get_active_tasks("parallel-job").await?;
+            let tasks = datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440003").await?;
             if tasks.len() >= 3 {
                 return Ok::<_, anyhow::Error>(tasks);
             }
@@ -226,7 +226,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     inputs.insert("list".to_string(), "[\"a\", \"b\"]".to_string());
 
     let job = Job {
-        id: Some("each-job".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440004".into()),
         state: JobState::Pending,
         context: Some(twerk_core::job::JobContext {
             inputs: Some(inputs),
@@ -253,7 +253,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     // Wait for the each task to be "running" and subtasks to be "scheduled"
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let tasks = datastore.get_active_tasks("each-job").await?;
+            let tasks = datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440004").await?;
             if tasks.len() >= 3 {
                 return Ok::<_, anyhow::Error>(tasks);
             }
@@ -296,7 +296,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("parent-job".into()),
+        id: Some("550e8400-e29b-41d4-a716-446655440005".into()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("subjob task".to_string()),
@@ -319,7 +319,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     // Wait for the subjob task to be "running"
     let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
-            let tasks = datastore.get_active_tasks("parent-job").await?;
+            let tasks = datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440005").await?;
             if !tasks.is_empty() && tasks[0].state == TaskState::Running {
                 return Ok::<_, anyhow::Error>(tasks);
             }

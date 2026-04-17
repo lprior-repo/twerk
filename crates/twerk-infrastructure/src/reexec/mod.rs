@@ -218,16 +218,13 @@ mod tests {
         ));
     }
 
-    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_register_error_message_exact() {
-        // Go: panic("reexec func already registered under name \"reexec\"")
         let _ = register("msg_test", Box::new(|| {}));
         let err = register("msg_test", Box::new(|| {}))
-            .unwrap_err()
-            .to_string();
+            .expect_err("expected error when registering duplicate name");
         assert_eq!(
-            err,
+            err.to_string(),
             r#"reexec func already registered under name "msg_test""#
         );
     }

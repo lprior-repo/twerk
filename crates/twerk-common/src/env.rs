@@ -15,11 +15,14 @@ mod tests {
 
     #[test]
     fn test_var_with_twerk_prefix() {
-        // Note: This test relies on external environment setup
-        // In unit tests, we typically mock env vars
-        let result = var_with_twerk_prefix("test.key");
-        // Returns None if env var not set, which is valid
-        assert!(result.is_none() || result.is_some_and(|v| !v.is_empty()));
+        let key = "test.key";
+        let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
+        let test_value = "test_value_123";
+        env::set_var(&env_key, test_value);
+        let result = var_with_twerk_prefix(key);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), test_value);
+        env::remove_var(&env_key);
     }
 
     #[test]

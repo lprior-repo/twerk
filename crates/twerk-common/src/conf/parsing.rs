@@ -63,8 +63,23 @@ pub fn flatten_table(prefix: &str, table: &toml::value::Table) -> HashMap<String
             toml::Value::Table(t) => {
                 result.extend(flatten_table(&full_key, t));
             }
-            _ => {
-                result.insert(full_key, value.clone());
+            toml::Value::String(s) => {
+                result.insert(full_key, toml::Value::String(s.clone()));
+            }
+            toml::Value::Integer(i) => {
+                result.insert(full_key, toml::Value::Integer(*i));
+            }
+            toml::Value::Float(f) => {
+                result.insert(full_key, toml::Value::Float(*f));
+            }
+            toml::Value::Boolean(b) => {
+                result.insert(full_key, toml::Value::Boolean(*b));
+            }
+            toml::Value::Datetime(dt) => {
+                result.insert(full_key, toml::Value::Datetime(*dt));
+            }
+            toml::Value::Array(arr) => {
+                result.insert(full_key, toml::Value::Array(arr.clone()));
             }
         }
     }

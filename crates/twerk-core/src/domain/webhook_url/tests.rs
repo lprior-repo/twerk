@@ -14,10 +14,10 @@ mod tests {
         assert!(result.is_ok());
         let url = result.unwrap();
         assert_eq!(url.as_str(), "https://example.com:8080/webhook");
-        assert_eq!(url.as_url().scheme(), "https");
-        assert_eq!(url.as_url().host_str(), Some("example.com"));
-        assert_eq!(url.as_url().port(), Some(8080));
-        assert_eq!(url.as_url().path(), "/webhook");
+        assert_eq!(url.as_url().unwrap().scheme(), "https");
+        assert_eq!(url.as_url().unwrap().host_str(), Some("example.com"));
+        assert_eq!(url.as_url().unwrap().port(), Some(8080));
+        assert_eq!(url.as_url().unwrap().path(), "/webhook");
     }
 
     // -------------------------------------------------------------------------
@@ -30,9 +30,9 @@ mod tests {
         assert!(result.is_ok());
         let url = result.unwrap();
         assert_eq!(url.as_str(), "http://localhost:3000/");
-        assert_eq!(url.as_url().scheme(), "http");
-        assert_eq!(url.as_url().host_str(), Some("localhost"));
-        assert_eq!(url.as_url().port(), Some(3000));
+        assert_eq!(url.as_url().unwrap().scheme(), "http");
+        assert_eq!(url.as_url().unwrap().host_str(), Some("localhost"));
+        assert_eq!(url.as_url().unwrap().port(), Some(3000));
     }
 
     // -------------------------------------------------------------------------
@@ -163,7 +163,7 @@ mod tests {
     #[test]
     fn webhook_url_as_url_returns_parsed_url_components() {
         let url = WebhookUrl::new("https://api.example.com:9090/v1/users?id=42").unwrap();
-        let parsed = url.as_url();
+        let parsed = url.as_url().unwrap();
         assert_eq!(parsed.scheme(), "https");
         assert_eq!(parsed.host_str(), Some("api.example.com"));
         assert_eq!(parsed.port(), Some(9090));
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn webhook_url_as_url_scheme_is_always_http_or_https() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        let parsed = url.as_url();
+        let parsed = url.as_url().unwrap();
         let scheme = parsed.scheme();
         assert!(scheme == "http" || scheme == "https");
     }
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn webhook_url_as_url_host_is_always_some() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        assert!(url.as_url().host().is_some());
+        assert!(url.as_url().unwrap().host().is_some());
     }
 
     // -------------------------------------------------------------------------
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn webhook_url_new_returns_ok_when_path_is_root() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        assert_eq!(url.as_url().path(), "/");
+        assert_eq!(url.as_url().unwrap().path(), "/");
     }
 
     // -------------------------------------------------------------------------
@@ -283,7 +283,7 @@ mod tests {
                 let result = WebhookUrl::new(url);
                 prop_assert!(result.is_ok());
                 let url_obj = result.unwrap();
-                let parsed = url_obj.as_url();
+                let parsed = url_obj.as_url().unwrap();
                 prop_assert!(parsed.scheme() == "http" || parsed.scheme() == "https");
                 prop_assert!(parsed.host().is_some());
             }

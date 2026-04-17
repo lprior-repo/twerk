@@ -138,7 +138,7 @@ impl Repository for InMemoryRepository {
             return Err(Error::InvalidId("task log part has no task_id".to_string()));
         }
         let mut logs = self.task_logs.write();
-        logs.entry(task_id_str).or_insert_with(Vec::new).push(part.clone());
+        logs.entry(task_id_str).or_default().push(part.clone());
         Ok(())
     }
 
@@ -371,7 +371,7 @@ impl Repository for InMemoryRepository {
         let mut user_roles = self.user_roles.write();
         user_roles
             .entry(user_id.to_string())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(role_id.to_string());
         Ok(())
     }

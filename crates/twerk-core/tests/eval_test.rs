@@ -12,9 +12,12 @@ use twerk_core::id::{JobId, TaskId};
 use twerk_core::job::JobSummary;
 use twerk_core::task::TaskSummary;
 
+const TEST_JOB_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
+const TEST_TASK_ID: &str = "661f9501-f30c-52e5-b827-557766551111";
+
 fn make_job_summary(state: &str) -> JobSummary {
     JobSummary {
-        id: Some(JobId::new("job-123").unwrap()),
+        id: Some(JobId::new(TEST_JOB_ID).unwrap()),
         name: Some("test-job".to_string()),
         state: state.parse().unwrap_or_default(),
         error: None,
@@ -24,8 +27,8 @@ fn make_job_summary(state: &str) -> JobSummary {
 
 fn make_task_summary(state: &str) -> TaskSummary {
     TaskSummary {
-        id: Some(TaskId::new("task-456").unwrap()),
-        job_id: Some(JobId::new("job-123").unwrap()),
+        id: Some(TaskId::new(TEST_TASK_ID).unwrap()),
+        job_id: Some(JobId::new(TEST_JOB_ID).unwrap()),
         state: state.parse().unwrap_or_default(),
         ..Default::default()
     }
@@ -75,7 +78,7 @@ fn test_job_state_inequality() {
 fn test_job_id_comparison() {
     let summary = make_job_summary("running");
     assert_eq!(
-        evaluate_condition("job_id == \"job-123\"", &summary),
+        evaluate_condition(&format!("job_id == \"{}\"", TEST_JOB_ID), &summary),
         Ok(true)
     );
     assert_eq!(
@@ -101,7 +104,7 @@ fn test_job_name_comparison() {
 fn test_logical_and_operator() {
     let summary = make_job_summary("running");
     let result = evaluate_condition(
-        "job_state == \"running\" and job_id == \"job-123\"",
+        "job_state == \"running\" and job_id == \"550e8400-e29b-41d4-a716-446655440000\"",
         &summary,
     );
     assert_eq!(result, Ok(true));
@@ -114,7 +117,7 @@ fn test_logical_and_operator() {
 fn test_logical_or_operator() {
     let summary = make_job_summary("running");
     let result = evaluate_condition(
-        "job_state == \"completed\" or job_id == \"job-123\"",
+        "job_state == \"completed\" or job_id == \"550e8400-e29b-41d4-a716-446655440000\"",
         &summary,
     );
     assert_eq!(result, Ok(true));
@@ -144,7 +147,7 @@ fn test_parenthesized_expression() {
 fn test_complex_logical_expression() {
     let summary = make_job_summary("running");
     let result = evaluate_condition(
-        "(job_state == \"running\" or job_state == \"pending\") and job_id == \"job-123\"",
+        "(job_state == \"running\" or job_state == \"pending\") and job_id == \"550e8400-e29b-41d4-a716-446655440000\"",
         &summary,
     );
     assert_eq!(result, Ok(true));
@@ -229,7 +232,11 @@ fn test_task_id_comparison() {
     let task_summary = make_task_summary("running");
     let job_summary = make_job_summary("running");
     assert_eq!(
-        evaluate_task_condition("task_id == \"task-456\"", &task_summary, &job_summary),
+        evaluate_task_condition(
+            &format!("task_id == \"{}\"", TEST_TASK_ID),
+            &task_summary,
+            &job_summary
+        ),
         Ok(true)
     );
     assert_eq!(

@@ -9,9 +9,6 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{LazyLock, Mutex};
 
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
-
 /// Type alias for the initializer function type.
 type Initializer = fn();
 
@@ -109,9 +106,11 @@ pub fn self_path() -> String {
 #[cfg(target_os = "linux")]
 #[must_use]
 pub fn command(args: &[String]) -> Command {
+    unsafe {
+        libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+    }
     let mut cmd = Command::new(self_path());
     cmd.args(args);
-    cmd.process_group(0);
     cmd
 }
 

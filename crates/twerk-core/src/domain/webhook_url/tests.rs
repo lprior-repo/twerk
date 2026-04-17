@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
 
     // -------------------------------------------------------------------------
     // Behavior: WebhookUrl constructs successfully when given valid https URL
@@ -176,7 +176,8 @@ mod tests {
     #[test]
     fn webhook_url_as_url_scheme_is_always_http_or_https() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        let scheme = url.as_url().scheme();
+        let parsed = url.as_url();
+        let scheme = parsed.scheme();
         assert!(scheme == "http" || scheme == "https");
     }
 
@@ -219,13 +220,13 @@ mod tests {
 
         proptest! {
             #[test]
-            fn webhook_url_new_preserves_input_valid_urls(url in prop::sample::select([
-                "https://example.com".to_string(),
-                "http://localhost:8080".to_string(),
-                "https://api.test.co:443/v1".to_string(),
-                "https://example.com:8443/path".to_string(),
+            fn webhook_url_new_preserves_input_valid_urls(url in prop::sample::select(&[
+                "https://example.com",
+                "http://localhost:8080",
+                "https://api.test.co:443/v1",
+                "https://example.com:8443/path",
             ])) {
-                let result = WebhookUrl::new(&url);
+                let result = WebhookUrl::new(url);
                 prop_assert!(result.is_ok());
                 let url_obj = result.unwrap();
                 prop_assert_eq!(url_obj.as_str(), url);

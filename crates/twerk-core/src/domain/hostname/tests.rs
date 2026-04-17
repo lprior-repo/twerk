@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
 
     // -------------------------------------------------------------------------
     // Behavior: Hostname constructs successfully when given valid single-label hostname
@@ -203,52 +203,50 @@ mod tests {
 
         proptest! {
             #[test]
-            fn hostname_new_preserves_input_valid_hostnames(hostname in prop::sample::select([
-                "localhost".to_string(),
-                "example.com".to_string(),
-                "api.example.com".to_string(),
-                "my-host.example.co.uk".to_string(),
-                "server1.prod.us-east-1".to_string(),
+            fn hostname_new_preserves_input_valid_hostnames(hostname in prop::sample::select(&[
+                "localhost",
+                "example.com",
+                "api.example.com",
+                "my-host.example.co.uk",
+                "server1.prod.us-east-1",
             ])) {
-                let result = Hostname::new(&hostname);
+                let result = Hostname::new(hostname);
                 prop_assert!(result.is_ok());
                 let host = result.unwrap();
                 prop_assert_eq!(host.as_str(), hostname);
             }
 
             #[test]
-            fn hostname_labels_are_well_formed(hostname in prop::sample::select([
-                "localhost".to_string(),
-                "example.com".to_string(),
-                "api.example.com".to_string(),
-                "my-host.example.co.uk".to_string(),
+            fn hostname_labels_are_well_formed(hostname in prop::sample::select(&[
+                "localhost",
+                "example.com",
+                "api.example.com",
+                "my-host.example.co.uk",
             ])) {
-                let result = Hostname::new(&hostname);
+                let result = Hostname::new(hostname);
                 prop_assert!(result.is_ok());
                 let host = result.unwrap();
-                // No empty labels
                 for label in host.as_str().split('.') {
                     prop_assert!(!label.is_empty());
                     prop_assert!(!label.contains(':'));
                 }
-                // Length bounds
                 prop_assert!(host.as_str().len() >= 1 && host.as_str().len() <= 253);
             }
 
             #[test]
-            fn hostname_display_matches_as_str(hostname in prop::sample::select([
-                "localhost".to_string(),
-                "example.com".to_string(),
-                "api.example.com".to_string(),
+            fn hostname_display_matches_as_str(hostname in prop::sample::select(&[
+                "localhost",
+                "example.com",
+                "api.example.com",
             ])) {
-                let host = Hostname::new(hostname.clone()).unwrap();
+                let host = Hostname::new(hostname).unwrap();
                 prop_assert_eq!(format!("{}", host), host.as_str());
             }
 
             #[test]
-            fn hostname_is_send_and_sync(hostname in prop::sample::select([
-                "localhost".to_string(),
-                "example.com".to_string(),
+            fn hostname_is_send_and_sync(hostname in prop::sample::select(&[
+                "localhost",
+                "example.com",
             ])) {
                 let host = Hostname::new(hostname).unwrap();
                 fn assert_send<T: Send>(_: &T) {}

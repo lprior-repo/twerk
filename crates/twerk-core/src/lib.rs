@@ -11,6 +11,7 @@ pub mod mount;
 pub mod node;
 pub mod redact;
 pub mod repository;
+pub mod repository_inmemory;
 pub mod role;
 pub mod stats;
 pub mod task;
@@ -30,6 +31,7 @@ pub use domain_types::{
 };
 pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};
+pub use repository_inmemory::InMemoryRepository;
 pub use trigger::{ParseTriggerStateError, TriggerState};
 pub use types::{
     Port, PortError, Progress, ProgressError, RetryAttempt, RetryAttemptError, TaskCount,

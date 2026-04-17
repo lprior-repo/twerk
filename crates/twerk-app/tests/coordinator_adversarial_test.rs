@@ -450,11 +450,13 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
         loop {
             match ds.get_job_by_id("550e8400-e29b-41d4-a716-446655440003").await {
                 Ok(persisted_job) if persisted_job.state != JobState::Pending => {
-                    let _ = tx.send(Ok(persisted_job));
+                    // Use .ok() to explicitly indicate we don't care if receiver dropped
+                    // (timeout on the other end handles that case)
+                    let _ = tx.send(Ok(persisted_job)).ok();
                     return;
                 }
                 Err(e) => {
-                    let _ = tx.send(Err(e));
+                    let _ = tx.send(Err(e)).ok();
                     return;
                 }
                 _ => {
@@ -462,7 +464,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
                     if attempts >= 50 {
                         let _ = tx.send(Err(DatastoreError::Database(
                             "timeout waiting for state transition".into(),
-                        )));
+                        ))).ok();
                         return;
                     }
                     tokio::time::sleep(std::time::Duration::from_millis(10)).await;

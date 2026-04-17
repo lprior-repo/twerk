@@ -298,16 +298,7 @@ mod tests {
 
         proptest! {
             #[test]
-<<<<<<< HEAD
             fn cron_expression_new_preserves_input_valid_expressions(expr in arb_valid_cron_expression()) {
-=======
-            fn cron_expression_new_preserves_input_valid_expressions(expr in prop::sample::select(&[
-                "0 0 * * *",
-                "*/15 * * * MON-FRI",
-                "0 30 8 1 * *",
-                "0 0 * * MON",
-            ])) {
->>>>>>> origin/main
                 let result = CronExpression::new(expr);
                 prop_assert!(result.is_ok());
                 let cron_expr = result.unwrap();
@@ -315,42 +306,20 @@ mod tests {
             }
 
             #[test]
-<<<<<<< HEAD
             fn cron_expression_field_count_is_always_5_or_6(expr in arb_valid_cron_expression()) {
-=======
-            fn cron_expression_field_count_is_always_5_or_6(expr in prop::sample::select(&[
-                "0 0 * * *",
-                "*/15 * * * MON-FRI",
-                "0 30 8 1 * *",
-            ])) {
->>>>>>> origin/main
                 let result = CronExpression::new(expr);
                 prop_assert!(result.is_ok());
                 let _cron_expr = result.unwrap();
             }
 
             #[test]
-<<<<<<< HEAD
             fn cron_expression_display_matches_as_str(expr in arb_valid_cron_expression()) {
-=======
-            fn cron_expression_display_matches_as_str(expr in prop::sample::select(&[
-                "0 0 * * *",
-                "*/15 * * * MON-FRI",
-            ])) {
->>>>>>> origin/main
                 let cron_expr = CronExpression::new(expr).unwrap();
                 prop_assert_eq!(format!("{}", cron_expr), cron_expr.as_str());
             }
 
             #[test]
-<<<<<<< HEAD
             fn cron_expression_is_send_and_sync(expr in arb_valid_cron_expression()) {
-=======
-            fn cron_expression_is_send_and_sync(expr in prop::sample::select(&[
-                "0 0 * * *",
-                "*/15 * * * MON-FRI",
-            ])) {
->>>>>>> origin/main
                 let cron_expr = CronExpression::new(expr).unwrap();
                 assert_is_send_and_sync!(cron_expr);
             }

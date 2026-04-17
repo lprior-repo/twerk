@@ -239,17 +239,7 @@ mod tests {
 
         proptest! {
             #[test]
-<<<<<<< HEAD
             fn hostname_new_preserves_input_valid_hostnames(hostname in arb_valid_hostname()) {
-=======
-            fn hostname_new_preserves_input_valid_hostnames(hostname in prop::sample::select(&[
-                "localhost",
-                "example.com",
-                "api.example.com",
-                "my-host.example.co.uk",
-                "server1.prod.us-east-1",
-            ])) {
->>>>>>> origin/main
                 let result = Hostname::new(hostname);
                 prop_assert!(result.is_ok());
                 let host = result.unwrap();
@@ -257,78 +247,28 @@ mod tests {
             }
 
             #[test]
-<<<<<<< HEAD
             fn hostname_labels_are_well_formed(hostname in arb_valid_hostname()) {
                 let result = Hostname::new(hostname);
                 prop_assert!(result.is_ok());
                 let host = result.unwrap();
-                // No empty labels (enforced by Hostname constructor)
-=======
-            fn hostname_labels_are_well_formed(hostname in prop::sample::select(&[
-                "localhost",
-                "example.com",
-                "api.example.com",
-                "my-host.example.co.uk",
-            ])) {
-                let result = Hostname::new(hostname);
-                prop_assert!(result.is_ok());
-                let host = result.unwrap();
->>>>>>> origin/main
                 for label in host.as_str().split('.') {
                     let _: &str = label;
                     prop_assert!(!label.is_empty());
                     prop_assert!(!label.contains(':'));
                 }
-<<<<<<< HEAD
             }
 
             #[test]
             fn hostname_display_matches_as_str(hostname in arb_valid_hostname()) {
-=======
-                prop_assert!(host.as_str().len() >= 1 && host.as_str().len() <= 253);
-            }
-
-            #[test]
-            fn hostname_display_matches_as_str(hostname in prop::sample::select(&[
-                "localhost",
-                "example.com",
-                "api.example.com",
-            ])) {
->>>>>>> origin/main
                 let host = Hostname::new(hostname).unwrap();
                 prop_assert_eq!(format!("{}", host), host.as_str());
             }
 
             #[test]
-<<<<<<< HEAD
             fn hostname_is_send_and_sync(hostname in arb_valid_hostname()) {
-=======
-            fn hostname_is_send_and_sync(hostname in prop::sample::select(&[
-                "localhost",
-                "example.com",
-            ])) {
->>>>>>> origin/main
                 let host = Hostname::new(hostname).unwrap();
                 assert_is_send_and_sync!(host);
             }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Kani harnesses
-    // -------------------------------------------------------------------------
-
-    #[cfg(kani)]
-    mod kani {
-        use super::*;
-
-        #[kani::proof]
-        fn verify_hostname_bounds_invariants() {
-            // This is a stub - actual verification requires implementing the type
-            // Kani would verify: !contains(':') and len() <= 253 and len() >= 1
-            let input = kani::any::<String>();
-            kani::assume(input.len() <= 300);
-            // In real implementation, this would verify the invariants
         }
     }
 }

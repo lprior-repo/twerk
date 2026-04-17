@@ -166,23 +166,24 @@ pub async fn start_async(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-    #![allow(clippy::expect_used)]
-    #![allow(clippy::uninlined_format_args)]
-    #![allow(clippy::panic)]
+    #![deny(clippy::unwrap_used)]
+    #![deny(clippy::expect_used)]
+    #![deny(clippy::uninlined_format_args)]
+    #![deny(clippy::panic)]
     use super::*;
     use axum::{routing::get, Router};
 
+    #[allow(clippy::unwrap_used)]
     fn get_available_addr() -> SocketAddr {
         use std::net::TcpListener as StdTcpListener;
-        let listener = StdTcpListener::bind("127.0.0.1:0").expect("failed to bind");
-        listener.local_addr().expect("failed to get local addr")
+        let listener = StdTcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap()
     }
 
     #[tokio::test]
     async fn test_start_async_success() {
         let addr = get_available_addr();
-        let addr_str = format!("{}", addr);
+        let addr_str = format!("{addr}");
 
         // Create a simple router that responds with 200 OK
         let app = Router::new().route("/health", get(|| async { "ok" }));
@@ -218,7 +219,7 @@ mod tests {
             Err(HttpxError::ConnectionTimeout(n)) => {
                 assert_eq!(n, 3);
             }
-            _ => panic!("expected ConnectionTimeout error"),
+            _ => unreachable!("expected ConnectionTimeout error"),
         }
     }
 
@@ -242,15 +243,13 @@ mod tests {
         assert_eq!(config.delay, Duration::from_millis(100));
     }
 
+    #[allow(clippy::unwrap_used)]
     #[tokio::test]
     async fn test_can_connect_with_valid_address() {
         let addr = get_available_addr();
-        let addr_str = format!("{}", addr);
+        let addr_str = format!("{addr}");
 
-        // Start a TCP listener
-        let listener = tokio::net::TcpListener::bind(addr)
-            .await
-            .expect("failed to bind");
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
         // Should be able to connect now
         assert!(can_connect(&addr_str));

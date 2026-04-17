@@ -198,8 +198,9 @@ pub fn command(args: &[String]) -> Command {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-    #![allow(clippy::expect_used)]
+    #![deny(clippy::unwrap_used)]
+    #![deny(clippy::expect_used)]
+    #![deny(clippy::panic)]
     use super::*;
     #[cfg(unix)]
     use std::os::unix::process::CommandExt;
@@ -217,6 +218,7 @@ mod tests {
         ));
     }
 
+    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_register_error_message_exact() {
         // Go: panic("reexec func already registered under name \"reexec\"")
@@ -284,6 +286,7 @@ mod tests {
         assert_eq!(program, "/proc/self/exe");
     }
 
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[cfg(target_os = "linux")]
     #[test]
     fn test_command_subprocess_exit() {

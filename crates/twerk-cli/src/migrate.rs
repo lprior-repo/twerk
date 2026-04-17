@@ -65,22 +65,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_postgres_dsn() {
+    fn test_default_postgres_dsn_is_placeholder() {
         assert!(DEFAULT_POSTGRES_DSN.contains("localhost"));
         assert!(DEFAULT_POSTGRES_DSN.contains("twerk"));
         assert!(DEFAULT_POSTGRES_DSN.contains("5432"));
+        assert!(
+            DEFAULT_POSTGRES_DSN.contains("PLACEHOLDER_MUST_OVERRIDE"),
+            "DEFAULT_POSTGRES_DSN must use placeholder values, not real credentials"
+        );
     }
 
     #[test]
     fn test_default_postgres_dsn_format() {
-        // Verify DSN contains all required PostgreSQL connection components
         let dsn = DEFAULT_POSTGRES_DSN;
         assert!(dsn.contains("host=localhost"));
-        assert!(dsn.contains("user=twerk"));
-        assert!(dsn.contains("password=twerk"));
         assert!(dsn.contains("dbname=twerk"));
         assert!(dsn.contains("port=5432"));
         assert!(dsn.contains("sslmode=disable"));
+        assert!(
+            dsn.contains("PLACEHOLDER_MUST_OVERRIDE"),
+            "Credentials must be placeholders to prevent production accidents"
+        );
     }
 
     #[test]

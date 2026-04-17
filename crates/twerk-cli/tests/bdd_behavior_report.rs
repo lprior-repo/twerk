@@ -17,7 +17,7 @@
 //! | 11 | health | `HealthResponse` deserializes from JSON | health.rs:10-14 |
 //! | 12 | migrate | `run_migration("postgres", dsn)` executes schema | migrate.rs:35-61 |
 //! | 13 | migrate | `run_migration("mysql", dsn)` returns `CliError::UnknownDatastore` | migrate.rs:59 |
-//! | 14 | migrate | `DEFAULT_POSTGRES_DSN` contains required connection fields | migrate.rs |
+//! | 14 | migrate | `DEFAULT_POSTGRES_DSN` uses placeholders, not real credentials | migrate.rs |
 //!
 //! ## Execution Evidence
 
@@ -220,9 +220,12 @@ fn claim_19_migration_rejects_unknown_datastore() {
 fn claim_20_default_postgres_dsn_format() {
     let dsn = DEFAULT_POSTGRES_DSN;
     assert!(dsn.contains("host=localhost"));
-    assert!(dsn.contains("user=twerk"));
     assert!(dsn.contains("dbname=twerk"));
     assert!(dsn.contains("port=5432"));
+    assert!(
+        dsn.contains("PLACEHOLDER_MUST_OVERRIDE"),
+        "DSN must use placeholder credentials, not real values"
+    );
 }
 
 // =============================================================================

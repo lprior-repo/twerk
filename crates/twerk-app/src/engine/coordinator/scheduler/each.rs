@@ -111,9 +111,52 @@ impl Scheduler {
             "SPAWN_EACH_TASKS subtasks built, creating in DB"
         );
 
-        if !subtasks.is_empty() {
-            self.ds.create_tasks(&subtasks).await?;
-            self.publish_and_handle_failure(&subtasks).await?;
+        self.publish_and_handle_errors(&subtasks).await
+    }
+
+    fn build_subtask(ix: usize, item: &serde_json::Value, ctx: &SubtaskContext) -> Result<Task> {
+        let cx = Self::build_context(item, ctx.job_ctx, ctx.var_name, ix);
+
+        let evaluated = evaluate_task(ctx.template, &cx)
+            .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+
+        Ok(Task {
+            id: Some(new_short_uuid().into()),
+            job_id: Some(ctx.job_id.to_string().into()),
+            parent_id: Some(ctx.task_id.to_string().into()),
+            state: twerk_core::task::TaskState::Pending,
+            created_at: Some(ctx.now),
+            ..evaluated
+        })
+    }
+
+    fn build_context(
+        item: &serde_json::Value,
+        job_ctx: &HashMap<String, serde_json::Value>,
+        var_name: &str,
+        ix: usize,
+    ) -> HashMap<String, serde_json::Value> {
+        let mut m = job_ctx.clone();
+        m.insert(
+            format!("{var_name}_index"),
+            serde_json::Value::String(ix.to_string()),
+        );
+        if let Some(obj) = item.as_object() {
+            for (k, v) in obj {
+                let flat_key = format!("{var_name}_value_{k}");
+                m.insert(flat_key, v.clone());
+            }
+            m.insert(var_name.to_string(), item.clone());
+        } else {
+            m.insert(var_name.to_string(), item.clone());
+            m.insert(format!("{var_name}_value"), item.clone());
+        }
+        m
+    }
+
+    async fn publish_and_handle_errors(&self, subtasks: &[Task]) -> Result<()> {
+        if subtasks.is_empty() {
+            return Ok(());
         }
 
         Ok(())

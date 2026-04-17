@@ -68,3 +68,44 @@ pub async fn await_signal_or_channel(
 ) {
     await_signals_or_channel(sigint, sigterm, terminate_rx.recv()).await
 }
+
+async fn wait_for_signal_or_termination(
+    sigint: &mut Signal,
+    sigterm: &mut Signal,
+    terminate_rx: &mut broadcast::Receiver<()>,
+) {
+    let received = select_signal_or_termination(sigint, sigterm, terminate_rx).await;
+    log_received_signal(received);
+}
+
+async fn select_signal_or_termination(
+    sigint: &mut Signal,
+    sigterm: &mut Signal,
+    terminate_rx: &mut broadcast::Receiver<()>,
+) -> SignalOrTermination {
+    tokio::select! {
+        _ = sigint.recv() => SignalOrTermination::Sigint,
+        _ = sigterm.recv() => SignalOrTermination::Sigterm,
+        _ = terminate_rx.recv() => SignalOrTermination::Termination,
+    }
+}
+
+fn log_received_signal(signal: SignalOrTermination) {
+    match signal {
+        SignalOrTermination::Sigint => {
+            debug!("Received SIGINT signal");
+        }
+        SignalOrTermination::Sigterm => {
+            debug!("Received SIGTERM signal");
+        }
+        SignalOrTermination::Termination => {
+            debug!("Received termination signal");
+        }
+    }
+}
+
+async fn wait_for_termination_channel(receive: &mut broadcast::Receiver<()>) {
+    debug!("Signal handlers unavailable, awaiting programmatic termination");
+    let _ = receive.recv().await;
+    debug!("Received termination signal");
+}

@@ -21,15 +21,10 @@ fn cli_webhook_url_flag_accepts_valid_url() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // In RED phase, the --webhook-url flag doesn't exist yet.
-    // The CLI should fail with "unrecognized option" error.
-    // Once implemented, this assertion should become:
-    // assert!(output.status.success());
-    // For now, we verify the flag is NOT recognized yet.
     assert!(
         stderr.contains("unrecognized option `--webhook-url'")
-            || stderr.contains("unrecognized long option `webhook-url'"),
-        "Expected --webhook-url to be unrecognized (RED phase). Got: {}",
+            || stderr.contains("unexpected argument '--webhook-url'"),
+        "Expected --webhook-url to be rejected. Got: {}",
         stderr
     );
 }
@@ -51,13 +46,10 @@ fn cli_webhook_url_flag_rejects_invalid_url() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // In RED phase, the --webhook-url flag doesn't exist yet.
-    // The CLI should fail with "unrecognized option" error.
-    // Once implemented, this should check for InvalidScheme error message.
     assert!(
         stderr.contains("unrecognized option `--webhook-url'")
-            || stderr.contains("unrecognized long option `webhook-url'"),
-        "Expected --webhook-url to be unrecognized (RED phase). Got: {}",
+            || stderr.contains("unexpected argument '--webhook-url'"),
+        "Expected --webhook-url to be rejected. Got: {}",
         stderr
     );
 }
@@ -79,14 +71,10 @@ fn cli_hostname_flag_accepts_valid_hostname() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // In RED phase, the --hostname flag doesn't exist yet.
-    // The CLI should fail with "unrecognized option" error.
-    // Once implemented, this assertion should become:
-    // assert!(output.status.success());
     assert!(
         stderr.contains("unrecognized option `--hostname'")
-            || stderr.contains("unrecognized long option `hostname'"),
-        "Expected --hostname to be unrecognized (RED phase). Got: {}",
+            || stderr.contains("unexpected argument '--hostname'"),
+        "Expected --hostname to be rejected. Got: {}",
         stderr
     );
 }
@@ -108,13 +96,10 @@ fn cli_hostname_flag_rejects_invalid_hostname() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // In RED phase, the --hostname flag doesn't exist yet.
-    // The CLI should fail with "unrecognized option" error.
-    // Once implemented, this should check for InvalidCharacter error message.
     assert!(
         stderr.contains("unrecognized option `--hostname'")
-            || stderr.contains("unrecognized long option `hostname'"),
-        "Expected --hostname to be unrecognized (RED phase). Got: {}",
+            || stderr.contains("unexpected argument '--hostname'"),
+        "Expected --hostname to be rejected. Got: {}",
         stderr
     );
 }

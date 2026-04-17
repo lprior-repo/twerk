@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::domain::{Trigger, TriggerId, TriggerUpdateError};
+use super::domain::{Trigger, TriggerId, TriggerUpdateError, TriggerUpdateRequest};
+use time::OffsetDateTime;
 
 pub const PERSISTENCE_MSG: &str = "internal persistence failure";
 
@@ -28,6 +29,39 @@ impl InMemoryTriggerDatastore {
         if let Ok(mut map) = self.data.lock() {
             map.insert(trigger.id.as_str().to_string(), trigger);
         }
+    }
+
+    /// Create a new trigger from an update request.
+    ///
+    /// # Errors
+    /// Returns persistence errors if lock acquisition fails.
+    pub fn create_trigger(&self, req: TriggerUpdateRequest) -> Result<Trigger, TriggerUpdateError> {
+        let now_utc = OffsetDateTime::now_utc();
+        let id = if let Some(id_str) = &req.id {
+            TriggerId::parse(id_str)
+                .map_err(|e| TriggerUpdateError::InvalidIdFormat(e.to_string()))?
+        } else {
+            let new_id = twerk_core::uuid::new_short_uuid();
+            TriggerId::parse(&new_id)
+                .map_err(|e| TriggerUpdateError::InvalidIdFormat(e.to_string()))?
+        };
+        let trigger = Trigger {
+            id,
+            name: req.name.trim().to_string(),
+            enabled: req.enabled,
+            event: req.event.trim().to_string(),
+            condition: req.condition,
+            action: req.action.trim().to_string(),
+            metadata: req.metadata.unwrap_or_default(),
+            created_at: now_utc,
+            updated_at: now_utc,
+        };
+        let mut map = self
+            .data
+            .lock()
+            .map_err(|_| TriggerUpdateError::Persistence(PERSISTENCE_MSG.to_string()))?;
+        map.insert(trigger.id.as_str().to_string(), trigger.clone());
+        Ok(trigger)
     }
 
     /// Fetch trigger by id.

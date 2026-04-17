@@ -252,3 +252,42 @@ pub async fn list_triggers_handler(
         }
     }
 }
+
+/// POST /api/v1/triggers
+///
+/// # Errors
+/// Returns 201 on success, 400 for validation errors.
+pub async fn create_trigger_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, ApiError> {
+    if body.len() > MAX_BODY_BYTES {
+        return Ok(error_response(TriggerUpdateError::ValidationFailed(
+            BODY_TOO_LARGE_MSG.to_string(),
+        )));
+    }
+
+    let _content_type = match parse_content_type(&headers) {
+        Ok(ct) => ct,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    let req = match decode_trigger_update_request(&body) {
+        Ok(r) => r,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    if let Err(e) = super::domain::validate_trigger_create(&req) {
+        return Ok(error_response(e));
+    }
+
+    let created = match state.trigger_state.trigger_ds.create_trigger(req) {
+        Ok(t) => t,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    let view = TriggerView::from(created);
+    let response = (StatusCode::CREATED, axum::Json(view)).into_response();
+    Ok(response)
+}

@@ -204,6 +204,21 @@ pub fn validate_trigger_update(
     }
 }
 
+/// Validate create request fields without path ID check.
+///
+/// # Errors
+/// Returns field validation or id format errors.
+pub fn validate_trigger_create(req: &TriggerUpdateRequest) -> Result<(), TriggerUpdateError> {
+    validate_required_field(&req.name, NAME_REQUIRED_MSG, "name")?;
+    validate_required_field(&req.event, EVENT_REQUIRED_MSG, "event")?;
+    validate_required_field(&req.action, ACTION_REQUIRED_MSG, "action")?;
+    validate_metadata(req.metadata.as_ref())?;
+    if let Some(ref id) = req.id {
+        TriggerId::parse(id).map_err(|e| TriggerUpdateError::InvalidIdFormat(e.to_string()))?;
+    }
+    Ok(())
+}
+
 /// Validate that the update timestamp is not before the current timestamp.
 fn validate_timestamp_monotonicity(
     now_utc: OffsetDateTime,

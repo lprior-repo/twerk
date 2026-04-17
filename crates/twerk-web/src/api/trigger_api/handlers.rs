@@ -172,6 +172,31 @@ fn prepare_update(
     Ok((trigger_id, req))
 }
 
+/// GET /api/v1/triggers/{id}
+///
+/// # Errors
+/// Returns 404 if trigger not found, 400 if ID format invalid.
+pub async fn get_trigger_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let trigger_id = match TriggerId::parse(&id) {
+        Ok(id) => id,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    let trigger = match state.trigger_state.trigger_ds.get_trigger_by_id(&trigger_id) {
+        Ok(t) => t,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    let view = TriggerView::from(trigger);
+    match serialize_view(view) {
+        Ok(resp) => Ok(resp),
+        Err(e) => Ok(error_response(e)),
+    }
+}
+
 /// Handler for `PUT /api/v1/triggers/{id}`.
 ///
 /// # Errors

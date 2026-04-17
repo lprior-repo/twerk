@@ -209,6 +209,7 @@ mod bdd_commands_enum {
         fn then_run_variant_contains_mode() {
             let cmd = Commands::Run {
                 mode: twerk_cli::commands::RunMode::Standalone,
+                hostname: None,
             };
             assert!(matches!(cmd, Commands::Run { .. }));
         }
@@ -291,12 +292,15 @@ mod bdd_completeness_check {
         let _ = Commands::default();
         let _ = Commands::Run {
             mode: RunMode::Standalone,
+            hostname: None,
         };
         let _ = Commands::Run {
             mode: RunMode::Coordinator,
+            hostname: None,
         };
         let _ = Commands::Run {
             mode: RunMode::Worker,
+            hostname: None,
         };
         let _ = Commands::Health { endpoint: None };
         let _ = Commands::Migration { yes: false };

@@ -41,6 +41,10 @@ pub enum CliError {
     #[error("engine error: {0}")]
     Engine(String),
 
+    /// Invalid hostname
+    #[error("invalid hostname: {0}")]
+    InvalidHostname(String),
+
     /// IO error
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),

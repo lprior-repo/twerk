@@ -178,8 +178,8 @@ pub async fn run() -> Result<(), CliError> {
     }
 
     match cmd {
-        Commands::Run { mode } => {
-            run_engine(mode).await?;
+        Commands::Run { mode, hostname } => {
+            run_engine(mode, hostname).await?;
         }
         Commands::Migration { yes: _ } => {
             let dstype = get_datastore_type();

@@ -41,18 +41,26 @@ impl RunMode {
 /// # Arguments
 ///
 /// * `mode` - The engine mode to run in (standalone, coordinator, worker)
+/// * `hostname` - Optional hostname for coordinator
 ///
 /// # Errors
 ///
 /// Returns [`CliError::Engine`] if the engine fails to start or run.
-pub async fn run_engine(mode: RunMode) -> Result<(), CliError> {
+/// Returns [`CliError::InvalidHostname`] if hostname format is invalid.
+pub async fn run_engine(mode: RunMode, hostname: Option<String>) -> Result<(), CliError> {
     let _ = load_config();
+
+    if let Some(ref host) = hostname {
+        validate_hostname(host)?;
+    }
+
     let engine_mode = mode.clone().into_engine_mode();
 
     info!("Starting Twerk engine in {engine_mode:?} mode");
 
     let config = Config {
         mode: engine_mode,
+        hostname,
         ..Config::default()
     };
 
@@ -72,6 +80,23 @@ pub async fn run_engine(mode: RunMode) -> Result<(), CliError> {
         handle.abort();
     }
 
+    Ok(())
+}
+
+fn validate_hostname(hostname: &str) -> Result<(), CliError> {
+    if hostname.is_empty() {
+        return Err(CliError::InvalidHostname("hostname cannot be empty".to_string()));
+    }
+    if hostname.contains("://") {
+        return Err(CliError::InvalidHostname(
+            "hostname cannot contain scheme".to_string(),
+        ));
+    }
+    if hostname.contains(':') {
+        return Err(CliError::InvalidHostname(
+            "hostname cannot contain port".to_string(),
+        ));
+    }
     Ok(())
 }
 

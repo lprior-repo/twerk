@@ -42,6 +42,10 @@ pub enum Commands {
         /// The mode to run in (standalone, coordinator, worker)
         #[arg(value_name = "mode", required = true)]
         mode: RunMode,
+
+        /// The coordinator hostname for workers to connect to
+        #[arg(long)]
+        hostname: Option<String>,
     },
     /// Run database migration
     Migration {
@@ -61,6 +65,7 @@ impl Default for Commands {
     fn default() -> Self {
         Self::Run {
             mode: RunMode::Standalone,
+            hostname: None,
         }
     }
 }

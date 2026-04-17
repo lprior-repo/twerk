@@ -151,6 +151,7 @@ pub struct Middleware {
 pub struct Config {
     pub mode: Mode,
     pub engine_id: Option<String>,
+    pub hostname: Option<String>,
     pub middleware: Middleware,
     pub endpoints: HashMap<String, EndpointHandler>,
 }

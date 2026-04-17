@@ -17,6 +17,13 @@ fn get_config() -> Result<ConfigState, ConfigError> {
 }
 
 /// Get a string configuration value.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"section.subsection.key"`).
+///
+/// **Default value**: Returns an empty string if the key is not found or on error.
+///
+/// **Error behavior**: Silently returns empty string on any error (config not loaded,
+/// key not found, type mismatch). Use `string_default` if you need a non-empty fallback.
 #[must_use]
 pub fn string(key: &str) -> String {
     get_config()
@@ -26,6 +33,12 @@ pub fn string(key: &str) -> String {
 }
 
 /// Get a string configuration value with a default.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"section.subsection.key"`).
+///
+/// **Default value**: Returns `default` if key is not found, empty, or on error.
+///
+/// **Error behavior**: Silently returns `default` on any error.
 #[must_use]
 pub fn string_default(key: &str, default: &str) -> String {
     let s = string(key);
@@ -37,6 +50,13 @@ pub fn string_default(key: &str, default: &str) -> String {
 }
 
 /// Get a boolean configuration value.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"feature.flag.enabled"`).
+///
+/// **Default value**: Returns `false` if key is not found or on error.
+///
+/// **Error behavior**: Silently returns `false` on any error (config not loaded,
+/// key not found, type mismatch).
 #[must_use]
 pub fn bool(key: &str) -> bool {
     get_config()
@@ -46,6 +66,13 @@ pub fn bool(key: &str) -> bool {
 }
 
 /// Get a boolean configuration value with a default.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"feature.flag.enabled"`).
+///
+/// **Default value**: Returns `default` if key is not found or on error.
+/// Returns `default` if key exists but value is null/none.
+///
+/// **Error behavior**: Silently returns `default` on any error.
 #[must_use]
 pub fn bool_default(key: &str, default: bool) -> bool {
     get_config()
@@ -58,6 +85,13 @@ pub fn bool_default(key: &str, default: bool) -> bool {
 }
 
 /// Get an integer configuration value.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"server.port"`, `"limits.max_connections"`).
+///
+/// **Default value**: Returns `0` if key is not found or on error.
+///
+/// **Error behavior**: Silently returns `0` on any error (config not loaded,
+/// key not found, type mismatch).
 #[must_use]
 pub fn int(key: &str) -> i64 {
     get_config()
@@ -67,6 +101,13 @@ pub fn int(key: &str) -> i64 {
 }
 
 /// Get an integer configuration value with a default.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"server.port"`, `"limits.max_connections"`).
+///
+/// **Default value**: Returns `default` if key is not found or on error.
+/// Returns `default` if key exists but value is null/none.
+///
+/// **Error behavior**: Silently returns `default` on any error.
 #[must_use]
 pub fn int_default(key: &str, default: i64) -> i64 {
     get_config()
@@ -79,6 +120,13 @@ pub fn int_default(key: &str, default: i64) -> i64 {
 }
 
 /// Get a string-to-integer map configuration.
+///
+/// **Key format**: Dot-separated hierarchical key prefix (e.g., `"workers.counts"`).
+/// Returns all keys nested under this prefix as a map.
+///
+/// **Default value**: Returns an empty map if key is not found or on error.
+///
+/// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn int_map(key: &str) -> HashMap<String, i64> {
     get_config()
@@ -87,6 +135,13 @@ pub fn int_map(key: &str) -> HashMap<String, i64> {
 }
 
 /// Get a string-to-boolean map configuration.
+///
+/// **Key format**: Dot-separated hierarchical key prefix (e.g., `"features.flags"`).
+/// Returns all keys nested under this prefix as a map.
+///
+/// **Default value**: Returns an empty map if key is not found or on error.
+///
+/// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn bool_map(key: &str) -> HashMap<String, bool> {
     get_config()
@@ -95,6 +150,13 @@ pub fn bool_map(key: &str) -> HashMap<String, bool> {
 }
 
 /// Get a string-to-string map configuration.
+///
+/// **Key format**: Dot-separated hierarchical key prefix (e.g., `"regions.endpoints"`).
+/// Returns all keys nested under this prefix as a map.
+///
+/// **Default value**: Returns an empty map if key is not found or on error.
+///
+/// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn string_map(key: &str) -> HashMap<String, String> {
     get_config()
@@ -103,6 +165,12 @@ pub fn string_map(key: &str) -> HashMap<String, String> {
 }
 
 /// Get a list of strings configuration.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"servers.hosts"`, `" AllowedOrigins"`).
+///
+/// **Default value**: Returns an empty vector if key is not found or on error.
+///
+/// **Error behavior**: Silently returns empty vector on any error.
 #[must_use]
 pub fn strings(key: &str) -> Vec<String> {
     get_config()
@@ -111,6 +179,13 @@ pub fn strings(key: &str) -> Vec<String> {
 }
 
 /// Get a list of strings with a default fallback.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"servers.hosts"`, `" AllowedOrigins"`).
+///
+/// **Default value**: Returns `default` converted to Vec<String> if key is not found,
+/// empty, or on error.
+///
+/// **Error behavior**: Silently returns `default` on any error.
 #[must_use]
 pub fn strings_default(key: &str, default: &[&str]) -> Vec<String> {
     let v = strings(key);
@@ -209,6 +284,15 @@ fn parse_complex_duration(s: &str) -> Option<Duration> {
 }
 
 /// Get a duration configuration value with a default.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"timeouts.request"`).
+///
+/// **Duration format**: Parses strings like `"1h30m"`, `"30s"`, `"1d"`, `"500ms"`.
+/// Supports: ns, us/µs, ms, s, m, h, d. Complex durations like "1h30m" are supported.
+///
+/// **Default value**: Returns `default` if key is not found, empty, or cannot be parsed.
+///
+/// **Error behavior**: Silently returns `default` on any parse error or config error.
 #[must_use]
 pub fn duration_default(key: &str, default: Duration) -> Duration {
     let s = string(key);
@@ -216,6 +300,17 @@ pub fn duration_default(key: &str, default: Duration) -> Duration {
 }
 
 /// Unmarshal a configuration value into a deserializable type.
+///
+/// **Key format**: Dot-separated hierarchical key (e.g., `"database.config"`, `"redis.options"`).
+///
+/// **Type support**: Handles TOML tables, arrays, strings, and primitives.
+/// Uses `serde` deserialization for type conversion.
+///
+/// **Default value**: N/A - returns `Result`. Returns `ConfigError::UnmarshalError`
+/// if key not found, type unsupported, or deserialization fails.
+///
+/// **Error behavior**: Returns `ConfigError::UnmarshalError` with descriptive message.
+/// Returns `ConfigError::KeyNotFound` if key does not exist.
 pub fn unmarshal<T: for<'de> serde::Deserialize<'de>>(key: &str) -> Result<T, ConfigError> {
     get_config()
         .map_err(|e| ConfigError::UnmarshalError(e.to_string()))
@@ -266,24 +361,42 @@ pub fn unmarshal<T: for<'de> serde::Deserialize<'de>>(key: &str) -> Result<T, Co
 // ============================================================================
 
 /// Get RabbitMQ consumer timeout from config.
+///
+/// **Key**: `"broker.rabbitmq.consumer.timeout"`
+///
+/// **Default value**: 30 minutes if key not found or on error.
+///
+/// **Duration format**: Supports `"1h30m"`, `"30s"`, `"1d"`, `"500ms"`, etc.
 #[must_use]
 pub fn broker_rabbitmq_consumer_timeout() -> Duration {
     duration_default("broker.rabbitmq.consumer.timeout", Duration::minutes(30))
 }
 
 /// Get RabbitMQ durable queues setting from config.
+///
+/// **Key**: `"broker.rabbitmq.durable.queues"`
+///
+/// **Default value**: `false` if key not found or on error.
 #[must_use]
 pub fn broker_rabbitmq_durable_queues() -> bool {
     bool_default("broker.rabbitmq.durable.queues", false)
 }
 
 /// Get RabbitMQ queue type from config.
+///
+/// **Key**: `"broker.rabbitmq.queue.type"`
+///
+/// **Default value**: `"classic"` if key not found or on error.
 #[must_use]
 pub fn broker_rabbitmq_queue_type() -> String {
     string_default("broker.rabbitmq.queue.type", "classic")
 }
 
 /// Get worker resource limits from config.
+///
+/// **Keys**: `"worker.limits.cpus"`, `"worker.limits.memory"`, `"worker.limits.timeout"`
+///
+/// **Default values**: Empty string for each limit if key not found or on error.
 #[must_use]
 pub fn worker_limits() -> WorkerLimits {
     WorkerLimits {
@@ -294,60 +407,103 @@ pub fn worker_limits() -> WorkerLimits {
 }
 
 /// Check if bind mounts are allowed.
+///
+/// **Key**: `"mounts.bind.allowed"`
+///
+/// **Default value**: `false` if key not found or on error.
 #[must_use]
 pub fn mounts_bind_allowed() -> bool {
     bool_default("mounts.bind.allowed", false)
 }
 
 /// Get allowed bind mount sources.
+///
+/// **Key**: `"mounts.bind.sources"`
+///
+/// **Default value**: Empty vector if key not found or on error.
 #[must_use]
 pub fn mounts_bind_sources() -> Vec<String> {
     strings("mounts.bind.sources")
 }
 
 /// Get temporary directory for mounts.
+///
+/// **Key**: `"mounts.temp.dir"`
+///
+/// **Default value**: `"/tmp"` if key not found or on error.
 #[must_use]
 pub fn mounts_temp_dir() -> String {
     string_default("mounts.temp.dir", "/tmp")
 }
 
 /// Check if Docker privileged mode is enabled.
+///
+/// **Key**: `"runtime.docker.privileged"`
+///
+/// **Default value**: `false` if key not found or on error.
 #[must_use]
 pub fn runtime_docker_privileged() -> bool {
     bool_default("runtime.docker.privileged", false)
 }
 
 /// Get Docker image TTL from config.
+///
+/// **Key**: `"runtime.docker.image.ttl"`
+///
+/// **Default value**: 24 hours if key not found or on error.
+///
+/// **Duration format**: Supports `"1h30m"`, `"30s"`, `"1d"`, `"500ms"`, etc.
 #[must_use]
 pub fn runtime_docker_image_ttl() -> Duration {
     duration_default("runtime.docker.image.ttl", Duration::hours(24))
 }
 
 /// Check if Podman privileged mode is enabled.
+///
+/// **Key**: `"runtime.podman.privileged"`
+///
+/// **Default value**: `false` if key not found or on error.
 #[must_use]
 pub fn runtime_podman_privileged() -> bool {
     bool_default("runtime.podman.privileged", false)
 }
 
 /// Check if Podman host network is enabled.
+///
+/// **Key**: `"runtime.podman.host.network"`
+///
+/// **Default value**: `false` if key not found or on error.
 #[must_use]
 pub fn runtime_podman_host_network() -> bool {
     bool_default("runtime.podman.host.network", false)
 }
 
 /// Check if web logger middleware is enabled.
+///
+/// **Key**: `"middleware.web.logger.enabled"`
+///
+/// **Default value**: `true` if key not found or on error.
 #[must_use]
 pub fn middleware_web_logger_enabled() -> bool {
     bool_default("middleware.web.logger.enabled", true)
 }
 
 /// Get web logger middleware log level.
+///
+/// **Key**: `"middleware.web.logger.level"`
+///
+/// **Default value**: `"info"` if key not found or on error.
 #[must_use]
 pub fn middleware_web_logger_level() -> String {
     string_default("middleware.web.logger.level", "info")
 }
 
 /// Get paths to skip in web logger middleware.
+///
+/// **Keys**: `"middleware.web.logger.skip_paths"` (primary),
+/// `"middleware.web.logger.skip"` (fallback)
+///
+/// **Default value**: Empty vector if both keys not found or on error.
 #[must_use]
 pub fn middleware_web_logger_skip_paths() -> Vec<String> {
     let paths = strings("middleware.web.logger.skip_paths");

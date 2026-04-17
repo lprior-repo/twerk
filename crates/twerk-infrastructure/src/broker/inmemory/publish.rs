@@ -118,7 +118,6 @@ pub(crate) fn task_progress(broker: &InMemoryBroker, task: &Task) -> BoxedFuture
 /// Publish a heartbeat.
 #[allow(clippy::needless_pass_by_value)]
 pub(crate) fn heartbeat(broker: &InMemoryBroker, node: Node) -> BoxedFuture<()> {
-    let node = node.clone();
     let handlers = broker.heartbeat_handlers.clone();
     let heartbeats = broker.heartbeats.clone();
     Box::pin(async move {

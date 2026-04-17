@@ -154,7 +154,7 @@ fn build_port_bindings(task: &Task) -> Option<HashMap<String, Option<Vec<PortBin
     task.probe.as_ref().map(|probe| {
         let port_key = format!("{}/tcp", probe.port);
         [(
-            port_key.clone(),
+            port_key,
             Some(vec![PortBinding {
                 host_ip: Some("127.0.0.1".to_string()),
                 host_port: Some("0".to_string()),

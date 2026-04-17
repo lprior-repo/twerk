@@ -145,7 +145,7 @@ impl PostgresDatastore {
         if self.disable_cleanup {
             return;
         }
-        let ds = self.clone();
+        let ds = self;
         tokio::spawn(async move {
             ds.cleanup_process().await;
         });

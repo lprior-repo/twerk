@@ -134,10 +134,9 @@ impl InMemoryTriggerRegistry {
         }
     }
 
-    pub(crate) fn insert_trigger(&self, trigger: Trigger) -> TriggerRegistryResult<()> {
+    pub(crate) fn insert_trigger(&self, trigger: Trigger) {
         let mut triggers = self.triggers.write();
         triggers.insert(trigger.id.clone(), trigger);
-        Ok(())
     }
 
     pub(crate) fn apply_state_transition(
@@ -161,11 +160,12 @@ impl TriggerRegistry for InMemoryTriggerRegistry {
 
         let triggers = self.triggers.write();
         if triggers.contains_key(&trigger.id) {
-            return Err(TriggerError::AlreadyExists(trigger.id.clone()));
+            return Err(TriggerError::AlreadyExists(trigger.id));
         }
 
         self.validate_trigger_for_registration(&trigger)?;
-        self.insert_trigger(trigger)
+        self.insert_trigger(trigger);
+        Ok(())
     }
 
     async fn unregister(&self, id: &TriggerId) -> TriggerRegistryResult<()> {

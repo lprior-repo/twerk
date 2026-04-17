@@ -22,7 +22,7 @@ impl Scheduler {
         // Use uuid::Uuid to generate a proper RFC 4122 UUID
         let subjob_uuid = uuid::Uuid::new_v4().to_string();
         let subjob = twerk_core::job::Job {
-            id: Some(twerk_core::id::JobId::new(&subjob_uuid)?.into()),
+            id: Some(twerk_core::id::JobId::new(&subjob_uuid)?),
             parent_id: Some(task_id.to_string().into()),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),
@@ -48,7 +48,7 @@ impl Scheduler {
                     u.state = twerk_core::task::TaskState::Running;
                     u.started_at = Some(now);
                     if let Some(ref mut sj) = u.subjob {
-                        sj.id = Some(subjob_id.clone());
+                        sj.id = Some(subjob_id);
                     }
                     Ok(u)
                 }),

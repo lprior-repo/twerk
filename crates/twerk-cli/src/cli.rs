@@ -7,6 +7,7 @@ use std::ffi::OsString;
 use tracing::Level;
 use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
 use twerk_common::load_config;
+use twerk_core::domain::{Dsn, Endpoint};
 use twerk_infrastructure::config as app_config;
 use twerk_infrastructure::reexec;
 
@@ -89,10 +90,11 @@ fn get_banner_mode() -> BannerMode {
 }
 
 /// Get endpoint from configuration or default
-fn get_endpoint() -> String {
+fn get_endpoint() -> Result<Endpoint, twerk_core::domain::EndpointError> {
     get_config_string("client.endpoint")
         .or_else(|| get_config_string("endpoint"))
-        .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
+        .map(Endpoint::new)
+        .unwrap_or_else(|| Endpoint::new(DEFAULT_ENDPOINT))
 }
 
 /// Get datastore type from configuration or default
@@ -101,8 +103,10 @@ fn get_datastore_type() -> String {
 }
 
 /// Get `PostgreSQL` DSN from configuration or default
-fn get_postgres_dsn() -> String {
-    get_config_string("datastore.postgres.dsn").unwrap_or_else(|| DEFAULT_POSTGRES_DSN.to_string())
+fn get_postgres_dsn() -> Result<Dsn, twerk_core::domain::DsnError> {
+    get_config_string("datastore.postgres.dsn")
+        .map(Dsn::new)
+        .unwrap_or_else(|| Dsn::new(DEFAULT_POSTGRES_DSN))
 }
 
 /// Get a string config value, checking config file first, then environment variables.
@@ -183,12 +187,16 @@ pub async fn run() -> Result<(), CliError> {
         }
         Commands::Migration { yes: _ } => {
             let dstype = get_datastore_type();
-            let dsn = get_postgres_dsn();
-            run_migration(&dstype, &dsn).await?;
+            let dsn = get_postgres_dsn()?;
+            run_migration(&dstype, dsn.as_str()).await?;
         }
         Commands::Health { endpoint } => {
-            let ep = endpoint.unwrap_or_else(get_endpoint);
-            health_check(&ep, json_mode).await?;
+            let ep = if let Some(ep_str) = endpoint {
+                Endpoint::new(ep_str).map_err(|e| CliError::InvalidEndpoint(e.to_string()))?
+            } else {
+                get_endpoint()?
+            };
+            health_check(ep.as_str(), json_mode).await?;
         }
     }
 
@@ -323,9 +331,9 @@ mod tests {
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
 
-        let endpoint = get_endpoint();
+        let endpoint = get_endpoint().expect("valid endpoint from env");
 
         std::env::remove_var("TWERK_CLIENT_ENDPOINT");
-        assert_eq!(endpoint, "http://127.0.0.1:9999");
+        assert_eq!(endpoint.as_str(), "http://127.0.0.1:9999");
     }
 }

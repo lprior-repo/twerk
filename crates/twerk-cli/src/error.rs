@@ -1,6 +1,7 @@
 //! Domain errors for CLI operations
 
 use thiserror::Error;
+use twerk_core::domain::{DsnError, EndpointError};
 
 /// Errors that can occur during CLI operations
 #[derive(Debug, Error)]
@@ -45,9 +46,25 @@ pub enum CliError {
     #[error("invalid hostname: {0}")]
     InvalidHostname(String),
 
+    /// Invalid endpoint URL
+    #[error("invalid endpoint: {0}")]
+    InvalidEndpoint(String),
+
     /// IO error
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+}
+
+impl From<DsnError> for CliError {
+    fn from(e: DsnError) -> Self {
+        CliError::Migration(e.to_string())
+    }
+}
+
+impl From<EndpointError> for CliError {
+    fn from(e: EndpointError) -> Self {
+        CliError::InvalidEndpoint(e.to_string())
+    }
 }
 
 #[cfg(test)]

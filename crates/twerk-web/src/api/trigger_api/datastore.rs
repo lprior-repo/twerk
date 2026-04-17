@@ -43,6 +43,18 @@ impl InMemoryTriggerDatastore {
             .ok_or_else(|| TriggerUpdateError::TriggerNotFound(id.as_str().to_string()))
     }
 
+    /// List all triggers.
+    ///
+    /// # Errors
+    /// Returns persistence errors.
+    pub fn list_triggers(&self) -> Result<Vec<Trigger>, TriggerUpdateError> {
+        let map = self
+            .data
+            .lock()
+            .map_err(|_| TriggerUpdateError::Persistence(PERSISTENCE_MSG.to_string()))?;
+        Ok(map.values().cloned().collect())
+    }
+
     /// Atomically update trigger via closure, returning the updated trigger.
     ///
     /// # Errors

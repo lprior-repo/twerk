@@ -223,3 +223,32 @@ pub async fn delete_trigger_handler(
         Err(e) => Ok(error_response(e)),
     }
 }
+
+/// GET /api/v1/triggers
+///
+/// Lists all triggers.
+///
+/// # Errors
+/// Returns 500 for persistence errors.
+pub async fn list_triggers_handler(
+    State(state): State<AppState>,
+) -> Result<Response, ApiError> {
+    let triggers = match state.trigger_state.trigger_ds.list_triggers() {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::error!(error = %e, "failed to list triggers");
+            return Ok(error_response(e));
+        }
+    };
+
+    let views: Vec<TriggerView> = triggers.into_iter().map(TriggerView::from).collect();
+    match serde_json::to_value(views) {
+        Ok(json) => Ok((StatusCode::OK, axum::Json(json)).into_response()),
+        Err(e) => {
+            tracing::error!(error = %e, "failed to serialize triggers list");
+            Ok(error_response(TriggerUpdateError::Serialization(
+                SERIALIZATION_MSG.to_string(),
+            )))
+        }
+    }
+}

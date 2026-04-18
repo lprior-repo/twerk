@@ -402,24 +402,11 @@ fn rq_te_edge_not_found_empty_id() {
 }
 
 #[test]
-fn rq_te_edge_not_found_unicode_id_REJECTS_CJK() {
-    // BUG FOUND: trigger/types.rs uses is_ascii_alphanumeric() instead of is_alphanumeric()
-    // This causes CJK characters to be rejected even though id.rs accepts them
-    // via the macro which uses is_alphanumeric()
-    let result = TriggerId::new("日本語");
-    // The bug is that this should succeed but actually fails
-    // The error message format is: "trigger ID contains invalid character: 日"
+fn rq_te_edge_not_found_unicode_id_accepts_cjk() {
+    let result = TriggerId::new("日本語id");
     assert!(
-        result.is_err(),
-        "BUG: CJK chars rejected - should be accepted like id.rs"
-    );
-    let err = result.unwrap_err();
-    let err_msg = format!("{err}");
-    // Check for the actual error message format
-    assert!(
-        err_msg.contains("invalid character") || err_msg.contains("InvalidCharacter"),
-        "Should get InvalidCharacter error, got: {}",
-        err_msg
+        result.is_ok(),
+        "CJK chars should be accepted via is_alphanumeric()"
     );
 }
 

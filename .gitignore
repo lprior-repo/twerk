@@ -25,3 +25,10 @@ Thumbs.db
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Cargo-mutants output
+mutants.out*
+.mutants.toml.local
+
+# Gas Town runtime
+.runtime/

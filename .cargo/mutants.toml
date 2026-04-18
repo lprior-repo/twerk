@@ -1,0 +1,21 @@
+# cargo-mutants configuration for twerk-core mutation testing
+# See https://mutants.rs/ for documentation
+
+# Exclude non-production code from mutation
+exclude_globs = [
+    "**/fuzz/**",
+    "**/proofs/**",
+    "**/proptest-regressions/**",
+    "**/examples/**",
+]
+
+# Timeout settings (generous for CI)
+timeout_multiplier = 5.0
+build_timeout_multiplier = 3.0
+minimum_test_timeout = 30
+
+# Cap lints so warnings don't make mutants unviable
+cap_lints = true
+
+# Skip calls to common trivial methods
+skip_calls_defaults = true

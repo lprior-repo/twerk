@@ -110,9 +110,8 @@ impl InMemoryTriggerRegistry {
     pub(crate) fn validate_trigger_for_fire(&self, trigger: &Trigger) -> TriggerRegistryResult<()> {
         match trigger.state {
             TriggerState::Active => Ok(()),
-            TriggerState::Paused | TriggerState::Disabled => {
-                Err(TriggerError::TriggerDisabled(trigger.id.clone()))
-            }
+            TriggerState::Paused => Err(TriggerError::TriggerNotActive(trigger.state)),
+            TriggerState::Disabled => Err(TriggerError::TriggerDisabled(trigger.id.clone())),
             TriggerState::Error => Err(TriggerError::TriggerInErrorState(trigger.id.clone())),
         }
     }
@@ -123,20 +122,13 @@ impl InMemoryTriggerRegistry {
     ) -> TriggerRegistryResult<()> {
         match trigger.state {
             TriggerState::Active | TriggerState::Paused => Ok(()),
-            TriggerState::Disabled => Err(TriggerError::InvalidStateTransition(
-                TriggerState::default(),
-                TriggerState::Disabled,
+            TriggerState::Disabled => Err(TriggerError::InvalidConfiguration(
+                "new triggers cannot start in Disabled state".into(),
             )),
-            TriggerState::Error => Err(TriggerError::InvalidStateTransition(
-                TriggerState::default(),
-                TriggerState::Error,
+            TriggerState::Error => Err(TriggerError::InvalidConfiguration(
+                "new triggers cannot start in Error state".into(),
             )),
         }
-    }
-
-    pub(crate) fn insert_trigger(&self, trigger: Trigger) {
-        let mut triggers = self.triggers.write();
-        triggers.insert(trigger.id.clone(), trigger);
     }
 
     pub(crate) fn apply_state_transition(
@@ -158,13 +150,13 @@ impl TriggerRegistry for InMemoryTriggerRegistry {
     async fn register(&self, trigger: Trigger) -> TriggerRegistryResult<()> {
         self.check_datastore_available()?;
 
-        let triggers = self.triggers.write();
+        let mut triggers = self.triggers.write();
         if triggers.contains_key(&trigger.id) {
             return Err(TriggerError::AlreadyExists(trigger.id));
         }
 
         self.validate_trigger_for_registration(&trigger)?;
-        self.insert_trigger(trigger);
+        triggers.insert(trigger.id.clone(), trigger);
         Ok(())
     }
 

@@ -42,14 +42,15 @@ fn match_state_variant_for_fromstr(s: &str) -> Option<TriggerState> {
     }
 }
 
-/// Serde-friendly matching: accepts SCREAMING_SNAKE_CASE only (serde convention).
-/// Serialization outputs "Active" (PascalCase) but deserialization accepts only "ACTIVE".
+/// Serde-friendly matching: accepts PascalCase and UPPERCASE variants.
+/// Serialization outputs PascalCase ("Active"), deserialization also accepts
+/// UPPERCASE ("ACTIVE") for backward compatibility.
 fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
     match s {
-        "ACTIVE" => Some(TriggerState::Active),
-        "PAUSED" => Some(TriggerState::Paused),
-        "DISABLED" => Some(TriggerState::Disabled),
-        "ERROR" => Some(TriggerState::Error),
+        "ACTIVE" | "Active" => Some(TriggerState::Active),
+        "PAUSED" | "Paused" => Some(TriggerState::Paused),
+        "DISABLED" | "Disabled" => Some(TriggerState::Disabled),
+        "ERROR" | "Error" => Some(TriggerState::Error),
         _ => None,
     }
 }
@@ -57,10 +58,10 @@ fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
 impl std::fmt::Display for TriggerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TriggerState::Active => write!(f, "ACTIVE"),
-            TriggerState::Paused => write!(f, "PAUSED"),
-            TriggerState::Disabled => write!(f, "DISABLED"),
-            TriggerState::Error => write!(f, "ERROR"),
+            TriggerState::Active => write!(f, "Active"),
+            TriggerState::Paused => write!(f, "Paused"),
+            TriggerState::Disabled => write!(f, "Disabled"),
+            TriggerState::Error => write!(f, "Error"),
         }
     }
 }
@@ -72,17 +73,17 @@ impl std::str::FromStr for TriggerState {
     }
 }
 
-/// Custom serializer for TriggerState - outputs SCREAMING_SNAKE_CASE.
+/// Custom serializer for TriggerState - outputs PascalCase (matches Display).
 impl Serialize for TriggerState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let s = match self {
-            TriggerState::Active => "ACTIVE",
-            TriggerState::Paused => "PAUSED",
-            TriggerState::Disabled => "DISABLED",
-            TriggerState::Error => "ERROR",
+            TriggerState::Active => "Active",
+            TriggerState::Paused => "Paused",
+            TriggerState::Disabled => "Disabled",
+            TriggerState::Error => "Error",
         };
         serializer.serialize_str(s)
     }
@@ -187,13 +188,13 @@ pub enum TriggerError {
     InvalidTimezone(String),
 
     // --- State Machine (5) ---
-    #[error("invalid state transition: {0} -> {1}")]
+    #[error("invalid state transition: cannot transition from {0} to {1}")]
     InvalidStateTransition(TriggerState, TriggerState),
-    #[error("trigger in error state: {0}")]
+    #[error("trigger is in error state, manual resume required: {0}")]
     TriggerInErrorState(TriggerId),
-    #[error("trigger disabled: {0}")]
+    #[error("trigger is disabled: {0}")]
     TriggerDisabled(TriggerId),
-    #[error("trigger not active: {0}")]
+    #[error("trigger is not active (current state: {0})")]
     TriggerNotActive(TriggerState),
     #[error("invalid trigger configuration: {0}")]
     InvalidConfiguration(String),

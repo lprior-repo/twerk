@@ -277,10 +277,12 @@ fn port_deserialization_accepts_valid_port() {
 }
 
 #[test]
-fn port_deserialization_accepts_zero_via_transparent() {
-    // #[serde(transparent)] bypasses Port::new validation
-    let port: Port = serde_json::from_str("0").expect("Zero deserializes via transparent");
-    assert_eq!(port.value(), 0);
+fn port_deserialization_rejects_zero() {
+    let result: Result<Port, _> = serde_json::from_str("0");
+    assert!(
+        result.is_err(),
+        "Port 0 should be rejected by deserialization"
+    );
 }
 
 #[test]

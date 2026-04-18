@@ -28,6 +28,10 @@ pub enum WebhookUrlError {
     InvalidScheme(String),
     #[error("URL exceeds maximum length of 2048 characters")]
     UrlTooLong,
+    #[error("URL path contains unencoded spaces")]
+    SpaceInPath,
+    #[error("URL path contains control character (0x{0:02X})")]
+    ControlCharacterInPath(u8),
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,18 @@ fn validate_scheme(parsed: &url::Url) -> Result<(), WebhookUrlError> {
     }
 }
 
+fn validate_path(parsed: &url::Url, original: &str) -> Result<(), WebhookUrlError> {
+    if parsed.path().contains(' ') {
+        return Err(WebhookUrlError::SpaceInPath);
+    }
+    for b in original.bytes() {
+        if b == 0 || (b < 0x20 && b != 0x09) {
+            return Err(WebhookUrlError::ControlCharacterInPath(b));
+        }
+    }
+    Ok(())
+}
+
 impl WebhookUrl {
     /// Create a new `WebhookUrl`, returning an error if validation fails.
     ///
@@ -67,6 +83,7 @@ impl WebhookUrl {
         validate_length(&s)?;
         let parsed = validate_and_parse_url(&s)?;
         validate_scheme(&parsed)?;
+        validate_path(&parsed, &s)?;
         Ok(Self(s))
     }
 

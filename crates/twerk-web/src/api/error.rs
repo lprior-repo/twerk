@@ -66,16 +66,7 @@ impl From<twerk_infrastructure::datastore::Error> for ApiError {
             twerk_infrastructure::datastore::Error::NodeNotFound => {
                 Self::NotFound("node not found".to_string())
             }
-            twerk_infrastructure::datastore::Error::RoleNotFound
-            | twerk_infrastructure::datastore::Error::ContextNotFound
-            | twerk_infrastructure::datastore::Error::Database(_)
-            | twerk_infrastructure::datastore::Error::Serialization(_)
-            | twerk_infrastructure::datastore::Error::Encryption(_)
-            | twerk_infrastructure::datastore::Error::InvalidInput(_)
-            | twerk_infrastructure::datastore::Error::Transaction(_)
-            | twerk_infrastructure::datastore::Error::InvalidId(_) => {
-                Self::Internal(err.to_string())
-            }
+            _ => Self::Internal(err.to_string()),
         }
     }
 }
@@ -92,8 +83,27 @@ impl From<twerk_core::id::IdError> for ApiError {
     }
 }
 
+impl From<super::trigger_api::TriggerUpdateError> for ApiError {
+    fn from(err: super::trigger_api::TriggerUpdateError) -> Self {
+        match err {
+            super::trigger_api::TriggerUpdateError::InvalidIdFormat(msg)
+            | super::trigger_api::TriggerUpdateError::UnsupportedContentType(msg)
+            | super::trigger_api::TriggerUpdateError::MalformedJson(msg)
+            | super::trigger_api::TriggerUpdateError::ValidationFailed(msg)
+            | super::trigger_api::TriggerUpdateError::VersionConflict(msg) => Self::BadRequest(msg),
+            super::trigger_api::TriggerUpdateError::IdMismatch { .. } => {
+                Self::BadRequest("id mismatch".to_string())
+            }
+            super::trigger_api::TriggerUpdateError::TriggerNotFound(msg) => Self::NotFound(msg),
+            super::trigger_api::TriggerUpdateError::Persistence(msg)
+            | super::trigger_api::TriggerUpdateError::Serialization(msg) => Self::Internal(msg),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::trigger_api::TriggerUpdateError;
     use super::*;
     use axum::body::to_bytes;
     use axum::response::IntoResponse;
@@ -218,5 +228,83 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let body = extract_response_body(response).await;
         assert_eq!(body, r#"{"message":"Internal Server Error"}"#);
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_invalid_id_format() {
+        let err = TriggerUpdateError::InvalidIdFormat("bad$id".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(api_err, ApiError::BadRequest("bad$id".to_string()));
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_unsupported_content_type() {
+        let err = TriggerUpdateError::UnsupportedContentType("application/xml".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(api_err, ApiError::BadRequest("application/xml".to_string()));
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_malformed_json() {
+        let err = TriggerUpdateError::MalformedJson("unexpected token".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(
+            api_err,
+            ApiError::BadRequest("unexpected token".to_string())
+        );
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_validation_failed() {
+        let err = TriggerUpdateError::ValidationFailed("name is required".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(
+            api_err,
+            ApiError::BadRequest("name is required".to_string())
+        );
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_id_mismatch() {
+        let err = TriggerUpdateError::IdMismatch {
+            path_id: "trg_1".to_string(),
+            body_id: "trg_2".to_string(),
+        };
+        let api_err: ApiError = err.into();
+        assert_eq!(api_err, ApiError::BadRequest("id mismatch".to_string()));
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_trigger_not_found() {
+        let err = TriggerUpdateError::TriggerNotFound("trg_123".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(api_err, ApiError::NotFound("trg_123".to_string()));
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_version_conflict() {
+        let err = TriggerUpdateError::VersionConflict("optimistic lock".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(api_err, ApiError::BadRequest("optimistic lock".to_string()));
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_persistence() {
+        let err = TriggerUpdateError::Persistence("db connection lost".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(
+            api_err,
+            ApiError::Internal("db connection lost".to_string())
+        );
+    }
+
+    #[test]
+    fn from_trigger_update_error_maps_serialization() {
+        let err = TriggerUpdateError::Serialization("json encode failed".to_string());
+        let api_err: ApiError = err.into();
+        assert_eq!(
+            api_err,
+            ApiError::Internal("json encode failed".to_string())
+        );
     }
 }

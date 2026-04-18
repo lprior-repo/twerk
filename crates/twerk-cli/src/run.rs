@@ -85,7 +85,9 @@ pub async fn run_engine(mode: RunMode, hostname: Option<String>) -> Result<(), C
 
 fn validate_hostname(hostname: &str) -> Result<(), CliError> {
     if hostname.is_empty() {
-        return Err(CliError::InvalidHostname("hostname cannot be empty".to_string()));
+        return Err(CliError::InvalidHostname(
+            "hostname cannot be empty".to_string(),
+        ));
     }
     if hostname.contains("://") {
         return Err(CliError::InvalidHostname(

@@ -12,8 +12,173 @@ use twerk_core::webhook::Webhook;
 use twerk_infrastructure::broker::QueueInfo;
 
 use super::error::ApiError;
-use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
+use super::trigger_api::{Trigger, TriggerId, TriggerUpdateRequest, TriggerView};
 
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "example-task"}))]
+pub struct TaskSchema {
+    #[serde(flatten)]
+    pub inner: Task,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "example-scheduled-job"}))]
+pub struct ScheduledJobSchema {
+    #[serde(flatten)]
+    pub inner: ScheduledJob,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "example-trigger"}))]
+pub struct TriggerSchema {
+    #[serde(flatten)]
+    pub inner: Trigger,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "example-user"}))]
+pub struct UserSchema {
+    #[serde(flatten)]
+    pub inner: User,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "default", "size": 0, "subscribers": 0, "unacked": 0}))]
+pub struct QueueInfoSchema {
+    #[serde(flatten)]
+    pub inner: QueueInfo,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"name": "example-node", "status": "UP"}))]
+pub struct NodeSchema {
+    #[serde(flatten)]
+    pub inner: Node,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[schema(example = json!({"jobs": {"running": 0}, "tasks": {"running": 0}, "nodes": {"online": 0, "cpuPercent": 0.0}}))]
+pub struct MetricsSchema {
+    #[serde(flatten)]
+    pub inner: Metrics,
+}
+
+#[derive(utoipa::ToSchema)]
+#[schema(example = json!({"message": "error message"}))]
+pub struct ApiErrorSchema {
+    pub message: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Health check successful")
+    )
+)]
+pub fn health_path() {}
+
+#[utoipa::path(
+    get,
+    path = "/jobs",
+    responses(
+        (status = 200, description = "List jobs")
+    )
+)]
+pub fn list_jobs_path() {}
+
+#[utoipa::path(
+    get,
+    path = "/nodes",
+    responses(
+        (status = 200, description = "List of active nodes")
+    )
+)]
+pub fn list_nodes_path() {}
+
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "System metrics")
+    )
+)]
+pub fn get_metrics_path() {}
+
+#[utoipa::path(
+    post,
+    path = "/users",
+    responses(
+        (status = 200, description = "User created"),
+        (status = 400, description = "Missing username or password")
+    )
+)]
+pub fn create_user_path() {}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/triggers",
+    responses(
+        (status = 200, description = "List of triggers"),
+        (status = 500, description = "Persistence error")
+    )
+)]
+pub fn list_triggers_path() {}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/triggers",
+    responses(
+        (status = 201, description = "Trigger created"),
+        (status = 400, description = "Validation error")
+    )
+)]
+pub fn create_trigger_path() {}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    responses(
+        (status = 200, description = "Trigger found"),
+        (status = 404, description = "Trigger not found"),
+        (status = 400, description = "Invalid ID format")
+    )
+)]
+pub fn get_trigger_path() {}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    responses(
+        (status = 200, description = "Trigger updated"),
+        (status = 400, description = "Validation error or invalid request"),
+        (status = 404, description = "Trigger not found"),
+        (status = 409, description = "Version conflict")
+    )
+)]
+pub fn update_trigger_path() {}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    responses(
+        (status = 204, description = "Trigger deleted"),
+        (status = 404, description = "Trigger not found"),
+        (status = 400, description = "Invalid ID format")
+    )
+)]
+pub fn delete_trigger_path() {}
+
+#[allow(clippy::needless_for_each)]
 #[derive(utoipa::OpenApi)]
 #[openapi(
     components(schemas(

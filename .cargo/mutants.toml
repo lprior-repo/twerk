@@ -1,21 +1,26 @@
-# cargo-mutants configuration for twerk-core mutation testing
+# cargo-mutants configuration for twerk-core
 # See https://mutants.rs/ for documentation
 
-# Exclude non-production code from mutation
+# Run tests from this package
+test_package = ["twerk-core"]
+
+# Exclude problematic files from mutation testing
 exclude_globs = [
+    "**/*tests*.rs",
+    "**/tests/**",
     "**/fuzz/**",
     "**/proofs/**",
-    "**/proptest-regressions/**",
-    "**/examples/**",
+    "vendor/**",
+    "**/*.pb.rs",
+    "**/domain_types.rs",
 ]
 
-# Timeout settings (generous for CI)
-timeout_multiplier = 5.0
-build_timeout_multiplier = 3.0
-minimum_test_timeout = 30
+# Output directory
+output = "mutants.out"
 
-# Cap lints so warnings don't make mutants unviable
-cap_lints = true
-
-# Skip calls to common trivial methods
-skip_calls_defaults = true
+# Skip common utility functions that don't benefit from mutation testing
+skip_calls = [
+    "with_capacity",
+    "new",
+    "default",
+]

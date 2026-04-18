@@ -1563,3 +1563,810 @@ async fn delete_trigger_returns_400_for_invalid_id_format() {
     let body = body_to_json(response).await;
     assert_eq!(body["error"], "InvalidIdFormat");
 }
+
+// ============================================================================
+// GET /api/v1/triggers
+// ============================================================================
+
+#[tokio::test]
+async fn list_triggers_returns_empty_array_when_no_triggers() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/v1/triggers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert!(body.is_array());
+    assert!(body.as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn list_triggers_returns_triggers_when_exist() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/v1/triggers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert!(body.is_array());
+    let items = body.as_array().unwrap();
+    assert_eq!(items.len(), 2);
+}
+
+// ============================================================================
+// POST /api/v1/triggers
+// ============================================================================
+
+#[tokio::test]
+async fn create_trigger_returns_201_with_valid_request() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = body_to_json(response).await;
+    assert_eq!(body["name"], "test-trigger");
+    assert_eq!(body["event"], "test.event");
+    assert_eq!(body["action"], "test_action");
+    assert!(body["enabled"].as_bool().unwrap());
+    assert!(body["id"].is_string());
+}
+
+#[tokio::test]
+async fn create_trigger_returns_201_with_custom_id() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "id": "custom_trigger_id",
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = body_to_json(response).await;
+    assert_eq!(body["id"], "custom_trigger_id");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_without_name() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_without_event() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_without_action() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_with_blank_name() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "   ",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_with_unsupported_content_type() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(axum::body::Body::from("plain text body"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "UnsupportedContentType");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_with_invalid_json() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from("{invalid json"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "MalformedJson");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_with_invalid_id_format() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "id": "bad$id",
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "InvalidIdFormat");
+}
+
+#[tokio::test]
+async fn create_trigger_with_condition_and_metadata() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "condition": "x > 5",
+        "action": "test_action",
+        "metadata": {"key": "value"}
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = body_to_json(response).await;
+    assert_eq!(body["condition"], "x > 5");
+    assert_eq!(body["metadata"]["key"], "value");
+}
+
+#[tokio::test]
+async fn create_trigger_returns_400_with_non_ascii_metadata_key() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action",
+        "metadata": {"ключ": "value"}
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/v1/triggers")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+// ============================================================================
+// GET /api/v1/triggers/{id}
+// ============================================================================
+
+#[tokio::test]
+async fn get_trigger_returns_trigger_when_exists() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/v1/triggers/trg_test_1")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert_eq!(body["id"], "trg_test_1");
+    assert_eq!(body["name"], "test-trigger");
+}
+
+#[tokio::test]
+async fn get_trigger_returns_404_when_not_found() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/v1/triggers/non-existent-trigger")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "TriggerNotFound");
+}
+
+#[tokio::test]
+async fn get_trigger_returns_400_for_invalid_id_format() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/v1/triggers/bad$id")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "InvalidIdFormat");
+}
+
+// ============================================================================
+// PUT /api/v1/triggers/{id}
+// ============================================================================
+
+#[tokio::test]
+async fn update_trigger_returns_updated_trigger() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger-name",
+        "enabled": false,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert_eq!(body["name"], "updated-trigger-name");
+    assert_eq!(body["enabled"], false);
+    assert_eq!(body["event"], "updated.event");
+    assert_eq!(body["action"], "updated_action");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_404_when_not_found() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/non-existent-trigger")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "TriggerNotFound");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_for_invalid_id_format() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/bad$id")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "InvalidIdFormat");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_id_mismatch() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "id": "different_id",
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "IdMismatch");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_unsupported_content_type() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(axum::body::Body::from("plain text body"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "UnsupportedContentType");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_invalid_json() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from("{invalid json"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "MalformedJson");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_without_name() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_without_event() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_without_action() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_blank_name() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "   ",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action"
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_non_ascii_metadata_key() {
+    let state = setup_state().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action",
+        "metadata": {"ключ": "value"}
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+}
+
+#[tokio::test]
+async fn update_trigger_returns_400_with_version_zero() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let trigger_input = json!({
+        "name": "updated-trigger",
+        "enabled": true,
+        "event": "updated.event",
+        "action": "updated_action",
+        "version": 0
+    });
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("PUT")
+                .uri("/api/v1/triggers/trg_test_1")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_vec(&trigger_input).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "VersionConflict");
+}

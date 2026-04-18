@@ -32,6 +32,7 @@ bytes.workspace = true
 serde-saphyr.workspace = true
 utoipa.workspace = true
 itertools.workspace = true
+utoipa.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

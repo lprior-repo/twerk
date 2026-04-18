@@ -43,7 +43,17 @@ impl PaginationQuery {
 }
 
 /// GET /tasks/{id}
-///
+#[utoipa::path(
+    get,
+    path = "/tasks/{id}",
+    params(
+        ("id" = String, Path, description = "Task ID")
+    ),
+    responses(
+        (status = 200, description = "Task details"),
+        (status = 404, description = "Task not found")
+    )
+)]
 /// # Errors
 #[instrument(name = "get_task_handler", skip_all)]
 pub async fn get_task_handler(
@@ -63,7 +73,20 @@ pub async fn get_task_handler(
 }
 
 /// GET /tasks/{id}/log
-///
+#[utoipa::path(
+    get,
+    path = "/tasks/{id}/log",
+    params(
+        ("id" = String, Path, description = "Task ID"),
+        ("page" = Option<String>, Query, description = "Page number"),
+        ("size" = Option<String>, Query, description = "Page size (max 100)"),
+        ("q" = Option<String>, Query, description = "Search query")
+    ),
+    responses(
+        (status = 200, description = "Paginated task log entries"),
+        (status = 404, description = "Task not found")
+    )
+)]
 /// # Errors
 #[instrument(name = "get_task_log_handler", skip_all)]
 pub async fn get_task_log_handler(

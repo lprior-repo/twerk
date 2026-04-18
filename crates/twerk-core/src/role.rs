@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 pub const ROLE_PUBLIC: &str = "public";
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 pub struct Role {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<RoleId>,

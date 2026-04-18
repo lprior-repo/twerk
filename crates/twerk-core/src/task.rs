@@ -10,7 +10,7 @@ use std::str::FromStr;
 use time::OffsetDateTime;
 
 /// `TaskState` represents the list of states that a task can be in at any given moment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TaskState {
     #[default]
@@ -158,7 +158,7 @@ pub const TASK_STATE_ACTIVE: &[&str] = &[
 ];
 
 /// Task is the basic unit of work that a Worker can handle.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,12 +228,15 @@ pub struct Task {
     pub error: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub pre: Option<Vec<Task>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub post: Option<Vec<Task>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub sidecars: Option<Vec<Task>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -264,12 +267,15 @@ pub struct Task {
     pub r#if: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub parallel: Option<ParallelTask>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub each: Option<Box<EachTask>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub subjob: Option<SubJobTask>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,7 +312,7 @@ impl Task {
 }
 
 /// `TaskSummary` provides a summary view of a task.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -397,7 +403,7 @@ pub struct TaskLogPart {
 }
 
 /// `AutoDelete` defines automatic cleanup configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoDelete {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -405,7 +411,7 @@ pub struct AutoDelete {
 }
 
 /// `SubJobTask` represents a sub-job task configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubJobTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -418,6 +424,7 @@ pub struct SubJobTask {
     pub description: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub tasks: Option<Vec<Task>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -440,10 +447,11 @@ pub struct SubJobTask {
 }
 
 /// `ParallelTask` represents a task that runs other tasks in parallel.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ParallelTask {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub tasks: Option<Vec<Task>>,
 
     #[serde(default)]
@@ -451,7 +459,7 @@ pub struct ParallelTask {
 }
 
 /// `EachTask` represents a task that iterates over a list.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EachTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -461,6 +469,7 @@ pub struct EachTask {
     pub list: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(no_recursion)]
     pub task: Option<Box<Task>>,
 
     #[serde(default)]
@@ -477,7 +486,7 @@ pub struct EachTask {
 }
 
 /// `TaskRetry` defines retry configuration for a task.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskRetry {
     #[serde(default)]
@@ -488,7 +497,7 @@ pub struct TaskRetry {
 }
 
 /// `TaskLimits` defines resource limits for a task.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskLimits {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -499,7 +508,7 @@ pub struct TaskLimits {
 }
 
 /// Registry defines container registry credentials.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Registry {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -510,7 +519,7 @@ pub struct Registry {
 }
 
 /// Probe defines health check configuration for a task.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Probe {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -524,7 +533,7 @@ pub struct Probe {
 }
 
 /// Permission defines access permissions.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Permission {
     #[serde(skip_serializing_if = "Option::is_none")]

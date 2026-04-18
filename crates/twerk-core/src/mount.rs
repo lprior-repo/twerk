@@ -12,7 +12,7 @@ pub const MOUNT_TYPE_BIND: &str = mount_type::BIND;
 pub const MOUNT_TYPE_TMPFS: &str = mount_type::TMPFS;
 
 /// Mount represents a filesystem mount configuration.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Mount {
     #[serde(skip_serializing_if = "Option::is_none")]

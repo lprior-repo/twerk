@@ -171,7 +171,7 @@ pub fn job_event_from_state(job: &Job) -> Option<JobEvent> {
         JobState::Completed => Some(JobEvent::Completed(job.clone())),
         JobState::Failed => Some(JobEvent::Failed(job.clone())),
         JobState::Cancelled => Some(JobEvent::Cancelled(job.clone())),
-        _ => None,
+        JobState::Pending | JobState::Scheduled | JobState::Running | JobState::Restart => None,
     }
 }
 

@@ -208,3 +208,18 @@ pub async fn update_trigger_handler(
         Err(e) => Ok(error_response(e)),
     }
 }
+
+pub async fn delete_trigger_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let trigger_id = match TriggerId::parse(&id) {
+        Ok(tid) => tid,
+        Err(e) => return Ok(error_response(e)),
+    };
+
+    match state.trigger_state.trigger_ds.delete_trigger(&trigger_id) {
+        Ok(()) => Ok((StatusCode::NO_CONTENT, ()).into_response()),
+        Err(e) => Ok(error_response(e)),
+    }
+}

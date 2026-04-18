@@ -32,7 +32,7 @@ impl RetryLimit {
         Ok(Self(value))
     }
 
-    /// Create a new `RetryLimit` from an Option<u32>.
+    /// Create a new `RetryLimit` from an `Option<u32>`.
     ///
     /// # Errors
     /// Returns [`RetryLimitError::NoneNotAllowed`] if value is None.

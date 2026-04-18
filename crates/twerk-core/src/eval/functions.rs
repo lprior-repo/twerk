@@ -32,7 +32,9 @@ pub fn random_int_fn(args: &Value) -> Result<Value, String> {
         Err(_) => match args {
             Value::Empty => None,
             Value::Int(n) => Some(*n),
-            _ => return Err("randomInt requires a numeric argument".into()),
+            Value::Float(_) | Value::String(_) | Value::Boolean(_) | Value::Tuple(_) => {
+                return Err("randomInt requires a numeric argument".into())
+            }
         },
     };
 

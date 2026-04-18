@@ -95,7 +95,7 @@ impl JobContext {
     pub fn get(&self, key: &str) -> Option<&str> {
         match self {
             JobContext::Values(vals) => vals.get(key).map(String::as_str),
-            _ => None,
+            JobContext::Cancelled | JobContext::DeadlineExceeded => None,
         }
     }
 }
@@ -120,7 +120,7 @@ impl TaskContext {
     pub fn get(&self, key: &str) -> Option<&str> {
         match self {
             TaskContext::Values(vals) => vals.get(key).map(String::as_str),
-            _ => None,
+            TaskContext::Cancelled | TaskContext::DeadlineExceeded => None,
         }
     }
 }

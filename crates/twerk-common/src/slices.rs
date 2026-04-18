@@ -53,7 +53,7 @@ where
 /// assert_eq!(doubled, vec![2, 4, 6]);
 /// ```
 #[must_use]
-pub fn map_slice<T, U>(items: &[T], f: fn(T) -> U) -> Vec<U>
+pub fn map_slice<T, U>(items: &[T], f: impl Fn(T) -> U) -> Vec<U>
 where
     T: Clone,
 {

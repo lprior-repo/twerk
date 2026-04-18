@@ -10,7 +10,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
-/// Generates Display, FromStr, AsRef<str>, Deref<Target=str>, and
+/// Generates Display, FromStr, `AsRef<str>`, `Deref<Target=str>`, and
 /// validating Serialize/Deserialize for a string newtype.
 macro_rules! str_newtype_impls {
     ($ty:ident, $err:ty) => {

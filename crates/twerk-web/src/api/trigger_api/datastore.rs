@@ -73,6 +73,15 @@ impl InMemoryTriggerDatastore {
     pub fn set_fail_next_update(&self, should_fail: bool) -> bool {
         self.fail_next_update.swap(should_fail, Ordering::SeqCst)
     }
+
+    pub fn delete_trigger(&self, id: &TriggerId) -> Result<(), TriggerUpdateError> {
+        self.data
+            .lock()
+            .map_err(|_| TriggerUpdateError::Persistence(PERSISTENCE_MSG.to_string()))?
+            .remove(id.as_str())
+            .ok_or_else(|| TriggerUpdateError::TriggerNotFound(id.as_str().to_string()))?;
+        Ok(())
+    }
 }
 
 impl Default for InMemoryTriggerDatastore {

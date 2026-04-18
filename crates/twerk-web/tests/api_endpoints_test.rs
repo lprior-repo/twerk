@@ -25,6 +25,7 @@ use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
+use twerk_web::api::trigger_api::{InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId};
 use twerk_web::api::{create_router, AppState, Config};
 
 // ============================================================================
@@ -35,6 +36,36 @@ async fn setup_state() -> AppState {
     let ds = Arc::new(InMemoryDatastore::new());
     let broker = Arc::new(InMemoryBroker::new());
     AppState::new(broker, ds, Config::default())
+}
+
+fn trigger(id: &str) -> Trigger {
+    let now = time::OffsetDateTime::UNIX_EPOCH;
+    Trigger {
+        id: TriggerId::parse(id).expect("valid id"),
+        name: "test-trigger".to_string(),
+        enabled: true,
+        event: "test.event".to_string(),
+        condition: None,
+        action: "test_action".to_string(),
+        metadata: std::collections::HashMap::new(),
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+async fn setup_state_with_triggers() -> (AppState, Arc<InMemoryTriggerDatastore>) {
+    let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
+    trigger_ds.upsert(trigger("trg_test_1"));
+    trigger_ds.upsert(trigger("trg_test_2"));
+    let ds = Arc::new(InMemoryDatastore::new());
+    let broker = Arc::new(InMemoryBroker::new());
+    let state = AppState {
+        trigger_state: TriggerAppState {
+            trigger_ds: trigger_ds.clone(),
+        },
+        ..AppState::new(broker, ds, Config::default())
+    };
+    (state, trigger_ds)
 }
 
 async fn setup_state_with_jobs() -> (AppState, Arc<InMemoryDatastore>) {
@@ -1465,4 +1496,70 @@ async fn health_response_includes_version() {
     let body = body_to_json(response).await;
     assert!(body["version"].is_string());
     assert!(!body["version"].as_str().unwrap().is_empty());
+}
+
+// ============================================================================
+// DELETE /api/v1/triggers/{id}
+// ============================================================================
+
+#[tokio::test]
+async fn delete_trigger_returns_204_on_success() {
+    let (state, trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state.clone());
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/triggers/trg_test_1")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert!(trigger_ds.get_trigger_by_id(&TriggerId::parse("trg_test_1").unwrap()).is_err());
+}
+
+#[tokio::test]
+async fn delete_trigger_returns_404_when_not_found() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/triggers/non_existent_trigger")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "TriggerNotFound");
+}
+
+#[tokio::test]
+async fn delete_trigger_returns_400_for_invalid_id_format() {
+    let (state, _trigger_ds) = setup_state_with_triggers().await;
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/triggers/bad$id")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response).await;
+    assert_eq!(body["error"], "InvalidIdFormat");
 }

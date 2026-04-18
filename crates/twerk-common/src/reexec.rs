@@ -1,6 +1,6 @@
 //! Self-reexecution support for busybox-style init handlers.
 //!
-//! Handlers can be registered with a name and the argv[0] of the exec
+//! Handlers can be registered with a name and the `argv\[0\]` of the exec
 //! of the binary will be used to find and execute custom init paths.
 
 use std::collections::HashMap;
@@ -105,22 +105,13 @@ pub fn self_path() -> String {
 }
 
 /// Creates a `Command` that points to the current process's binary.
-/// On Linux, sets `pdeathsig` to `SIGTERM`.
+/// On Linux, creates a new process group for process cleanup safety.
 #[cfg(target_os = "linux")]
 #[must_use]
 pub fn command(args: &[String]) -> Command {
     let mut cmd = Command::new(self_path());
     cmd.args(args);
-    // Safe: SIGTERM is a valid signal number and pre_exec is the proper way to set pdeathsig
-    #[allow(deprecated)]
-    {
-        unsafe {
-            cmd.pre_exec(|| {
-                libc::signal(libc::SIGTERM, libc::SIG_DFL);
-                Ok(())
-            });
-        }
-    }
+    cmd.process_group(0);
     cmd
 }
 

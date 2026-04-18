@@ -31,7 +31,9 @@ fn as_numeric(v: &Value, name: &str) -> Result<f64, String> {
     match v {
         Value::Int(i) => Ok(*i as f64),
         Value::Float(f) => Ok(*f),
-        _ => Err(format!("{name} requires numeric arguments")),
+        Value::String(_) | Value::Boolean(_) | Value::Tuple(_) | Value::Empty => {
+            Err(format!("{name} requires numeric arguments"))
+        }
     }
 }
 
@@ -42,7 +44,11 @@ pub fn format_fn(args: &Value) -> Result<Value, String> {
         Ok(t) => t,
         Err(_) => match args {
             Value::String(s) => return Ok(Value::String(s.clone())),
-            _ => return Err("format requires at least a template argument".into()),
+            Value::Float(_)
+            | Value::Int(_)
+            | Value::Boolean(_)
+            | Value::Tuple(_)
+            | Value::Empty => return Err("format requires at least a template argument".into()),
         },
     };
     if parts.is_empty() {
@@ -62,7 +68,11 @@ pub fn format_fn(args: &Value) -> Result<Value, String> {
                 let json = eval_value_to_json(&parts[arg_idx]);
                 match &json {
                     serde_json::Value::String(s) => result.push_str(s),
-                    other => result.push_str(&other.to_string()),
+                    other @ serde_json::Value::Null
+                    | other @ serde_json::Value::Bool(_)
+                    | other @ serde_json::Value::Number(_)
+                    | other @ serde_json::Value::Array(_)
+                    | other @ serde_json::Value::Object(_) => result.push_str(&other.to_string()),
                 }
                 arg_idx += 1;
             } else {
@@ -98,7 +108,10 @@ pub fn array_fn(args: &Value) -> Result<Value, String> {
     match args {
         Value::Empty => Ok(Value::Tuple(Vec::new())),
         Value::Tuple(items) => Ok(Value::Tuple(items.clone())),
-        single => Ok(Value::Tuple(vec![single.clone()])),
+        single @ Value::String(_)
+        | single @ Value::Float(_)
+        | single @ Value::Int(_)
+        | single @ Value::Boolean(_) => Ok(Value::Tuple(vec![single.clone()])),
     }
 }
 
@@ -153,7 +166,11 @@ pub fn uuid_fn(args: &Value) -> Result<Value, String> {
     match args {
         Value::Empty => {}
         Value::Tuple(t) if t.is_empty() => {}
-        _ => return Err("uuid takes no arguments".into()),
+        Value::String(_)
+        | Value::Float(_)
+        | Value::Int(_)
+        | Value::Boolean(_)
+        | Value::Tuple(_) => return Err("uuid takes no arguments".into()),
     }
     Ok(Value::String(uuid::Uuid::new_v4().to_string()))
 }
@@ -274,7 +291,11 @@ pub fn array_length_fn(args: &Value) -> Result<Value, String> {
         Ok(t) => t,
         Err(_) => match args {
             Value::Empty => return Ok(Value::Int(0)),
-            _ => return Err("arrayLength: argument must be an array".into()),
+            Value::String(_)
+            | Value::Float(_)
+            | Value::Int(_)
+            | Value::Boolean(_)
+            | Value::Tuple(_) => return Err("arrayLength: argument must be an array".into()),
         },
     };
     Ok(Value::Int(items.len() as i64))
@@ -285,7 +306,11 @@ pub fn array_unique_fn(args: &Value) -> Result<Value, String> {
         Ok(t) => t,
         Err(_) => match args {
             Value::Empty => return Ok(Value::Tuple(Vec::new())),
-            _ => return Err("arrayUnique: argument must be an array".into()),
+            Value::String(_)
+            | Value::Float(_)
+            | Value::Int(_)
+            | Value::Boolean(_)
+            | Value::Tuple(_) => return Err("arrayUnique: argument must be an array".into()),
         },
     };
     let mut seen = Vec::new();

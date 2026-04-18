@@ -32,7 +32,12 @@ pub async fn handle_task_progress(
         TaskState::Pending => handle_pending_task(ds, broker, task).await,
         TaskState::Completed => handle_task_completed(ds, broker, task).await,
         TaskState::Failed => handle_error(ds, broker, task).await,
-        _ => {
+        TaskState::Created
+        | TaskState::Scheduled
+        | TaskState::Running
+        | TaskState::Cancelled
+        | TaskState::Stopped
+        | TaskState::Skipped => {
             let task_id = task
                 .id
                 .as_deref()

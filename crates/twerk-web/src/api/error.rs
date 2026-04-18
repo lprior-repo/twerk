@@ -66,7 +66,16 @@ impl From<twerk_infrastructure::datastore::Error> for ApiError {
             twerk_infrastructure::datastore::Error::NodeNotFound => {
                 Self::NotFound("node not found".to_string())
             }
-            _ => Self::Internal(err.to_string()),
+            twerk_infrastructure::datastore::Error::RoleNotFound
+            | twerk_infrastructure::datastore::Error::ContextNotFound
+            | twerk_infrastructure::datastore::Error::Database(_)
+            | twerk_infrastructure::datastore::Error::Serialization(_)
+            | twerk_infrastructure::datastore::Error::Encryption(_)
+            | twerk_infrastructure::datastore::Error::InvalidInput(_)
+            | twerk_infrastructure::datastore::Error::Transaction(_)
+            | twerk_infrastructure::datastore::Error::InvalidId(_) => {
+                Self::Internal(err.to_string())
+            }
         }
     }
 }

@@ -31,7 +31,7 @@ impl TaskCount {
         Ok(Self(value))
     }
 
-    /// Create a new `TaskCount` from an Option<u32>.
+    /// Create a new `TaskCount` from an `Option<u32>`.
     ///
     /// # Errors
     /// Returns [`TaskCountError::NoneNotAllowed`] if value is None.

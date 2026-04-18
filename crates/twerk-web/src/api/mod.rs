@@ -214,7 +214,8 @@ pub fn create_router(state: AppState) -> Router {
 
     router = router.route(
         "/api/v1/triggers/{id}",
-        put(trigger_api::update_trigger_handler),
+        put(trigger_api::update_trigger_handler)
+            .delete(trigger_api::delete_trigger_handler),
     );
 
     router.with_state(state)

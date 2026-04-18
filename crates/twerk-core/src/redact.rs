@@ -330,7 +330,7 @@ fn redact_job_tasks(job: crate::job::Job, secrets: &HashMap<String, String>) -> 
     }
 }
 
-/// Redact the job's own secrets map (values become [REDACTED]).
+/// Redact the job's own secrets map (values become `\[REDACTED\]`).
 fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
     let secrets = job.secrets.as_ref().map(|s| {
         s.keys()

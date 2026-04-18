@@ -35,8 +35,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Generate OpenAPI spec
-        run: cargo run -p twerk-web --bin openapi-gen --quiet
-        working-directory: crates/twerk-web
+        run: cargo run -p twerk-web --bin openapi-gen --quiet > openapi.json
 
       - name: Check for OpenAPI spec diff
         run: |
@@ -48,4 +47,3 @@ jobs:
             git diff openapi.json
             exit 1
           fi
-        working-directory: crates/twerk-web

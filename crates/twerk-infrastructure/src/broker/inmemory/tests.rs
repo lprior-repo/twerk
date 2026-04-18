@@ -78,7 +78,9 @@ async fn test_publish_heartbeat_stores_and_notifies() {
 
     broker.publish_heartbeat(node.clone()).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
@@ -135,7 +137,9 @@ async fn test_subscribe_for_heartbeats_sends_existing() {
 
     broker.subscribe_for_heartbeats(handler).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 2);
@@ -157,18 +161,17 @@ async fn test_publish_task_log_part_stores_and_notifies() {
 
     let received_clone = received.clone();
     let tx_clone = tx.clone();
-    let handler: super::super::TaskLogPartHandler =
-        Arc::new(move |part: TaskLogPart| {
-            let received = received_clone.clone();
-            let tx = tx_clone.clone();
-            Box::pin(async move {
-                received.write().await.push(part);
-                if let Some(tx) = tx.lock().unwrap().take() {
-                    let _ = tx.send(());
-                }
-                Ok(())
-            })
-        });
+    let handler: super::super::TaskLogPartHandler = Arc::new(move |part: TaskLogPart| {
+        let received = received_clone.clone();
+        let tx = tx_clone.clone();
+        Box::pin(async move {
+            received.write().await.push(part);
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(());
+            }
+            Ok(())
+        })
+    });
 
     broker.subscribe_for_task_log_part(handler).await.unwrap();
 
@@ -182,7 +185,9 @@ async fn test_publish_task_log_part_stores_and_notifies() {
 
     broker.publish_task_log_part(&part).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
@@ -225,26 +230,27 @@ async fn test_subscribe_for_task_log_part_sends_existing() {
 
     let received_clone = received.clone();
     let tx_clone = tx.clone();
-    let handler: super::super::TaskLogPartHandler =
-        Arc::new(move |part: TaskLogPart| {
-            let received = received_clone.clone();
-            let tx = tx_clone.clone();
-            let count = count_clone.clone();
-            Box::pin(async move {
-                received.write().await.push(part);
-                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                if count.load(std::sync::atomic::Ordering::SeqCst) == 2 {
-                    if let Some(tx) = tx.lock().unwrap().take() {
-                        let _ = tx.send(());
-                    }
+    let handler: super::super::TaskLogPartHandler = Arc::new(move |part: TaskLogPart| {
+        let received = received_clone.clone();
+        let tx = tx_clone.clone();
+        let count = count_clone.clone();
+        Box::pin(async move {
+            received.write().await.push(part);
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if count.load(std::sync::atomic::Ordering::SeqCst) == 2 {
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(());
                 }
-                Ok(())
-            })
-        });
+            }
+            Ok(())
+        })
+    });
 
     broker.subscribe_for_task_log_part(handler).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 2);
@@ -339,7 +345,9 @@ async fn test_publish_and_subscribe_for_task() {
 
     broker.publish_task(qname, &task).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
@@ -507,7 +515,9 @@ async fn test_publish_and_subscribe_for_job() {
 
     broker.publish_job(&job).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
@@ -525,46 +535,37 @@ async fn test_multiple_subscribers_for_job() {
     let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
     let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-    let make_handler =
-        |received: Arc<RwLock<Vec<twerk_core::job::Job>>>,
-         count: Arc<std::sync::atomic::AtomicUsize>,
-         tx: Arc<std::sync::Mutex<Option<oneshot::Sender<()>>>>|
-         -> super::super::JobHandler {
-            let received_clone = received.clone();
-            let tx_clone = tx.clone();
-            let count_clone = count.clone();
-            Arc::new(move |job: twerk_core::job::Job| {
-                let received = received_clone.clone();
-                let tx = tx_clone.clone();
-                let count = count_clone.clone();
-                Box::pin(async move {
-                    received.write().await.push(job.clone());
-                    let prev = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    if prev + 1 == 20 {
-                        if let Some(tx) = tx.lock().unwrap().take() {
-                            let _ = tx.send(());
-                        }
+    let make_handler = |received: Arc<RwLock<Vec<twerk_core::job::Job>>>,
+                        count: Arc<std::sync::atomic::AtomicUsize>,
+                        tx: Arc<std::sync::Mutex<Option<oneshot::Sender<()>>>>|
+     -> super::super::JobHandler {
+        let received_clone = received.clone();
+        let tx_clone = tx.clone();
+        let count_clone = count.clone();
+        Arc::new(move |job: twerk_core::job::Job| {
+            let received = received_clone.clone();
+            let tx = tx_clone.clone();
+            let count = count_clone.clone();
+            Box::pin(async move {
+                received.write().await.push(job.clone());
+                let prev = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if prev + 1 == 20 {
+                    if let Some(tx) = tx.lock().unwrap().take() {
+                        let _ = tx.send(());
                     }
-                    Ok(())
-                })
+                }
+                Ok(())
             })
-        };
+        })
+    };
 
     // Subscribe two handlers
     broker
-        .subscribe_for_jobs(make_handler(
-            received.clone(),
-            count.clone(),
-            tx.clone(),
-        ))
+        .subscribe_for_jobs(make_handler(received.clone(), count.clone(), tx.clone()))
         .await
         .unwrap();
     broker
-        .subscribe_for_jobs(make_handler(
-            received.clone(),
-            count.clone(),
-            tx.clone(),
-        ))
+        .subscribe_for_jobs(make_handler(received.clone(), count.clone(), tx.clone()))
         .await
         .unwrap();
 
@@ -629,7 +630,9 @@ async fn test_multiple_subscribers_for_job() {
     };
     broker.publish_job(&job10).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 20); // 10 jobs * 2 handlers
@@ -706,7 +709,9 @@ async fn test_subscribe_for_events() {
         .await
         .unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     // Both handlers should receive it (pattern match)
     let guard1 = received1.read().await;
@@ -757,7 +762,9 @@ async fn test_publish_and_subscribe_for_task_progress() {
 
     broker.publish_task_progress(&task).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);
@@ -837,7 +844,9 @@ async fn broker_publish_heartbeat_receives_handler() {
 
     broker.publish_heartbeat(node).await.unwrap();
 
-    wait_for_handler_notification(&mut rx).await.expect("Handler should notify");
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Handler should notify");
 
     let guard = received.read().await;
     assert_eq!(guard.len(), 1);

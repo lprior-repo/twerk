@@ -4,6 +4,12 @@ use tokio::signal::unix::{Signal, SignalKind};
 use tokio::sync::broadcast;
 use tracing::debug;
 
+enum SignalOrTermination {
+    Sigint,
+    Sigterm,
+    Termination,
+}
+
 /// Signal handler for graceful shutdown
 pub struct SignalHandler {
     sigint: Option<Signal>,
@@ -29,27 +35,10 @@ impl SignalHandler {
     /// channel message. Gracefully degrades if signal handler registration
     /// fails (e.g. in a constrained container).
     pub async fn wait_for_shutdown(&mut self) {
-        match (self.sigint.as_mut(), self.sigterm.as_mut()) {
-            (Some(sigint), Some(sigterm)) => {
-                tokio::select! {
-                    _ = sigint.recv() => {
-                        debug!("Received SIGINT signal");
-                    }
-                    _ = sigterm.recv() => {
-                        debug!("Received SIGTERM signal");
-                    }
-                    _ = self.terminate_rx.recv() => {
-                        debug!("Received termination signal");
-                    }
-                }
-            }
-            _ => {
-                // Signal handler registration failed (rare in containers);
-                // fall back to waiting solely on the programmatic channel.
-                debug!("Signal handlers unavailable, awaiting programmatic termination");
-                let _ = self.terminate_rx.recv().await;
-                debug!("Received termination signal");
-            }
+        if let (Some(sigint), Some(sigterm)) = (self.sigint.as_mut(), self.sigterm.as_mut()) {
+            wait_for_signal_or_termination(sigint, sigterm, &mut self.terminate_rx).await;
+        } else {
+            wait_for_termination_channel(&mut self.terminate_rx).await;
         }
     }
 }
@@ -62,24 +51,51 @@ pub async fn await_signal_or_channel(
 ) {
     match (sigint, sigterm) {
         (Some(mut sigint), Some(mut sigterm)) => {
-            tokio::select! {
-                _ = sigint.recv() => {
-                    debug!("Received SIGINT signal");
-                }
-                _ = sigterm.recv() => {
-                    debug!("Received SIGTERM signal");
-                }
-                _ = terminate_rx.recv() => {
-                    debug!("Received termination signal");
-                }
-            }
+            wait_for_signal_or_termination(&mut sigint, &mut sigterm, &mut terminate_rx).await;
         }
         _ => {
-            // Signal handler registration failed (rare in containers);
-            // fall back to waiting solely on the programmatic channel.
-            debug!("Signal handlers unavailable, awaiting programmatic termination");
-            let _ = terminate_rx.recv().await;
+            wait_for_termination_channel(&mut terminate_rx).await;
+        }
+    }
+}
+
+async fn wait_for_signal_or_termination(
+    sigint: &mut Signal,
+    sigterm: &mut Signal,
+    terminate_rx: &mut broadcast::Receiver<()>,
+) {
+    let received = select_signal_or_termination(sigint, sigterm, terminate_rx).await;
+    log_received_signal(received);
+}
+
+async fn select_signal_or_termination(
+    sigint: &mut Signal,
+    sigterm: &mut Signal,
+    terminate_rx: &mut broadcast::Receiver<()>,
+) -> SignalOrTermination {
+    tokio::select! {
+        _ = sigint.recv() => SignalOrTermination::Sigint,
+        _ = sigterm.recv() => SignalOrTermination::Sigterm,
+        _ = terminate_rx.recv() => SignalOrTermination::Termination,
+    }
+}
+
+fn log_received_signal(signal: SignalOrTermination) {
+    match signal {
+        SignalOrTermination::Sigint => {
+            debug!("Received SIGINT signal");
+        }
+        SignalOrTermination::Sigterm => {
+            debug!("Received SIGTERM signal");
+        }
+        SignalOrTermination::Termination => {
             debug!("Received termination signal");
         }
     }
+}
+
+async fn wait_for_termination_channel(receive: &mut broadcast::Receiver<()>) {
+    debug!("Signal handlers unavailable, awaiting programmatic termination");
+    let _ = receive.recv().await;
+    debug!("Received termination signal");
 }

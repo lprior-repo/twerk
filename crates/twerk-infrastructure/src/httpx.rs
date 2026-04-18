@@ -175,11 +175,9 @@ mod tests {
 
     fn get_available_addr() -> SocketAddr {
         use std::net::TcpListener as StdTcpListener;
-        let listener = StdTcpListener::bind("127.0.0.1:0")
-            .expect("failed to bind to random port for test");
-        listener
-            .local_addr()
-            .expect("failed to get local address")
+        let listener =
+            StdTcpListener::bind("127.0.0.1:0").expect("failed to bind to random port for test");
+        listener.local_addr().expect("failed to get local address")
     }
 
     #[tokio::test]

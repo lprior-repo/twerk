@@ -9,6 +9,15 @@ use twerk_core::task::Task;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
+struct SubtaskContext<'a> {
+    template: &'a Task,
+    job_ctx: &'a HashMap<String, serde_json::Value>,
+    var_name: &'a str,
+    job_id: &'a str,
+    task_id: &'a str,
+    now: time::OffsetDateTime,
+}
+
 impl Scheduler {
     /// Schedules tasks from an each-loop task definition.
     /// # Errors
@@ -103,6 +112,14 @@ impl Scheduler {
         now: time::OffsetDateTime,
     ) -> Result<()> {
         let var_name = "item";
+        let ctx = SubtaskContext {
+            template,
+            job_ctx,
+            var_name,
+            job_id,
+            task_id,
+            now,
+        };
 
         tracing::warn!(list_len = list.len(), "SPAWN_EACH_TASKS building subtasks");
 
@@ -110,44 +127,7 @@ impl Scheduler {
             .iter()
             .enumerate()
             .par_bridge()
-            .map(|(ix, item)| {
-                let cx = {
-                    let mut m = job_ctx.clone();
-                    // Insert index as a simple value (e.g., "0", "1", ...)
-                    m.insert(
-                        format!("{var_name}_index"),
-                        serde_json::Value::String(ix.to_string()),
-                    );
-                    // Flatten item.value into context:
-                    // - If value is an object with primitive properties, flatten them (e.g., value.start → value_start)
-                    // - If value is a primitive, insert as var_name directly
-                    if let Some(obj) = item.as_object() {
-                        for (k, v) in obj {
-                            let flat_key = format!("{var_name}_value_{k}");
-                            m.insert(flat_key, v.clone());
-                        }
-                        // Also insert the full value as var_name for complex access
-                        m.insert(var_name.to_string(), item.clone());
-                    } else {
-                        // Scalar value - insert as var_name and var_name_value
-                        m.insert(var_name.to_string(), item.clone());
-                        m.insert(format!("{var_name}_value"), item.clone());
-                    }
-                    m
-                };
-
-                let evaluated = evaluate_task(template, &cx)
-                    .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
-
-                Ok(Task {
-                    id: Some(new_short_uuid().into()),
-                    job_id: Some(job_id.to_string().into()),
-                    parent_id: Some(task_id.to_string().into()),
-                    state: twerk_core::task::TaskState::Pending,
-                    created_at: Some(now),
-                    ..evaluated
-                })
-            })
+            .map(|(ix, item)| Self::build_subtask(ix, item, &ctx))
             .collect::<Result<Vec<_>>>()?;
 
         tracing::warn!(
@@ -155,40 +135,91 @@ impl Scheduler {
             "SPAWN_EACH_TASKS subtasks built, creating in DB"
         );
 
-        if !subtasks.is_empty() {
-            self.ds.create_tasks(&subtasks).await?;
+        self.publish_and_handle_errors(&subtasks).await
+    }
 
-            tracing::warn!("SPAWN_EACH_TASKS DB insert OK, publishing to broker");
-            if let Err(e) = self
-                .broker
-                .publish_tasks(QUEUE_PENDING.to_string(), &subtasks)
-                .await
-            {
-                // Compensating rollback: tasks persisted but broker publish failed.
-                // Mark all orphaned tasks as FAILED concurrently to prevent zombie state.
-                let error_msg = format!("broker publish failed: {e}");
-                let compensating: Vec<_> = subtasks
-                    .iter()
-                    .filter_map(|s| s.id.as_deref())
-                    .map(|id| {
-                        let msg = error_msg.clone();
-                        self.ds.update_task(
-                            id,
-                            Box::new(move |t| {
-                                Ok(Task {
-                                    state: twerk_core::task::TaskState::Failed,
-                                    error: Some(msg),
-                                    ..t
-                                })
-                            }),
-                        )
-                    })
-                    .collect();
-                let _ = futures_util::future::join_all(compensating).await;
-                return Err(e);
+    fn build_subtask(ix: usize, item: &serde_json::Value, ctx: &SubtaskContext) -> Result<Task> {
+        let cx = Self::build_context(item, ctx.job_ctx, ctx.var_name, ix);
+
+        let evaluated = evaluate_task(ctx.template, &cx)
+            .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+
+        Ok(Task {
+            id: Some(new_short_uuid().into()),
+            job_id: Some(ctx.job_id.to_string().into()),
+            parent_id: Some(ctx.task_id.to_string().into()),
+            state: twerk_core::task::TaskState::Pending,
+            created_at: Some(ctx.now),
+            ..evaluated
+        })
+    }
+
+    fn build_context(
+        item: &serde_json::Value,
+        job_ctx: &HashMap<String, serde_json::Value>,
+        var_name: &str,
+        ix: usize,
+    ) -> HashMap<String, serde_json::Value> {
+        let mut m = job_ctx.clone();
+        m.insert(
+            format!("{var_name}_index"),
+            serde_json::Value::String(ix.to_string()),
+        );
+        if let Some(obj) = item.as_object() {
+            for (k, v) in obj {
+                let flat_key = format!("{var_name}_value_{k}");
+                m.insert(flat_key, v.clone());
             }
+            m.insert(var_name.to_string(), item.clone());
+        } else {
+            m.insert(var_name.to_string(), item.clone());
+            m.insert(format!("{var_name}_value"), item.clone());
+        }
+        m
+    }
+
+    async fn publish_and_handle_errors(
+        &self,
+        subtasks: &[Task],
+    ) -> Result<()> {
+        if subtasks.is_empty() {
+            return Ok(());
+        }
+
+        self.ds.create_tasks(subtasks).await?;
+
+        tracing::warn!("SPAWN_EACH_TASKS DB insert OK, publishing to broker");
+        if let Err(e) = self
+            .broker
+            .publish_tasks(QUEUE_PENDING.to_string(), subtasks)
+            .await
+        {
+            self.rollback_failed_tasks(subtasks, &e).await;
+            return Err(e);
         }
 
         Ok(())
+    }
+
+    async fn rollback_failed_tasks(&self, subtasks: &[Task], error: &anyhow::Error) {
+        let error_msg = format!("broker publish failed: {error}");
+        let compensating: Vec<_> = subtasks
+            .iter()
+            .filter_map(|s| s.id.as_deref())
+            .map(|id| {
+                let msg = error_msg.clone();
+                self.ds.update_task(
+                    id,
+                    Box::new(move |t| {
+                        Ok(Task {
+                            state: twerk_core::task::TaskState::Failed,
+                            error: Some(msg),
+                            ..t
+                        })
+                    }),
+                )
+            })
+            .collect();
+        let _ = futures_util::future::join_all(compensating).await;
     }
 }

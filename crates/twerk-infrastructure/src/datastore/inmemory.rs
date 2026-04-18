@@ -433,3 +433,241 @@ impl Default for InMemoryDatastore {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
+    use twerk_core::task::TaskState;
+
+    fn make_task(id: &str) -> Task {
+        Task {
+            id: Some(TaskId::new(id).unwrap()),
+            name: Some(format!("test-task-{id}")),
+            state: TaskState::default(),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_task() {
+        let ds = InMemoryDatastore::new();
+        let task = make_task("task1");
+        ds.create_task(&task).await.unwrap();
+        let retrieved = ds.get_task_by_id("task1").await.unwrap();
+        assert_eq!(retrieved.id, task.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_task_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds.get_task_by_id("nonexistent").await.unwrap_err();
+        assert!(matches!(err, DatastoreError::TaskNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_create_task_without_id_fails() {
+        let ds = InMemoryDatastore::new();
+        let task = Task::default();
+        let err = ds.create_task(&task).await.unwrap_err();
+        assert!(matches!(err, DatastoreError::InvalidInput(_)));
+    }
+
+    #[tokio::test]
+    async fn test_update_task() {
+        let ds = InMemoryDatastore::new();
+        let task = make_task("task1");
+        ds.create_task(&task).await.unwrap();
+
+        ds.update_task(
+            "task1",
+            Box::new(|mut t| {
+                t.name = Some("updated".to_string());
+                Ok(t)
+            }),
+        )
+        .await
+        .unwrap();
+
+        let retrieved = ds.get_task_by_id("task1").await.unwrap();
+        assert_eq!(retrieved.name, Some("updated".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_update_task_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds
+            .update_task("nonexistent", Box::new(|t| Ok(t)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, DatastoreError::TaskNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_node() {
+        let ds = InMemoryDatastore::new();
+        let node = twerk_core::node::Node {
+            id: Some(twerk_core::id::NodeId::new("node1").unwrap()),
+            name: Some("test-node".to_string()),
+            ..Default::default()
+        };
+        ds.create_node(&node).await.unwrap();
+        let retrieved = ds.get_node_by_id("node1").await.unwrap();
+        assert_eq!(retrieved.id, node.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_node_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds.get_node_by_id("nonexistent").await.unwrap_err();
+        assert!(matches!(err, DatastoreError::NodeNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_job() {
+        let ds = InMemoryDatastore::new();
+        let job = twerk_core::job::Job {
+            id: Some(twerk_core::id::JobId::new("550e8400-e29b-41d4-a716-446655440000").unwrap()),
+            name: Some("test-job".to_string()),
+            ..Default::default()
+        };
+        ds.create_job(&job).await.unwrap();
+        let retrieved = ds
+            .get_job_by_id("550e8400-e29b-41d4-a716-446655440000")
+            .await
+            .unwrap();
+        assert_eq!(retrieved.id, job.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_job_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds.get_job_by_id("nonexistent").await.unwrap_err();
+        assert!(matches!(err, DatastoreError::JobNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_user() {
+        let ds = InMemoryDatastore::new();
+        let user = twerk_core::user::User {
+            id: Some(twerk_core::id::UserId::new("user1").unwrap()),
+            username: Some("testuser".to_string()),
+            ..Default::default()
+        };
+        ds.create_user(&user).await.unwrap();
+        let retrieved = ds.get_user("testuser").await.unwrap();
+        assert_eq!(retrieved.username, Some("testuser".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_user_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds.get_user("nonexistent").await.unwrap_err();
+        assert!(matches!(err, DatastoreError::UserNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_role() {
+        let ds = InMemoryDatastore::new();
+        let role = twerk_core::role::Role {
+            id: Some(RoleId::new("role1").unwrap()),
+            name: Some("test-role".to_string()),
+            ..Default::default()
+        };
+        ds.create_role(&role).await.unwrap();
+        let retrieved = ds.get_role("role1").await.unwrap();
+        assert_eq!(retrieved.id, role.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_role_not_found() {
+        let ds = InMemoryDatastore::new();
+        let err = ds.get_role("nonexistent").await.unwrap_err();
+        assert!(matches!(err, DatastoreError::RoleNotFound));
+    }
+
+    #[tokio::test]
+    async fn test_get_roles() {
+        let ds = InMemoryDatastore::new();
+        let role1 = twerk_core::role::Role {
+            id: Some(RoleId::new("role1").unwrap()),
+            name: Some("role1".to_string()),
+            ..Default::default()
+        };
+        let role2 = twerk_core::role::Role {
+            id: Some(RoleId::new("role2").unwrap()),
+            name: Some("role2".to_string()),
+            ..Default::default()
+        };
+        ds.create_role(&role1).await.unwrap();
+        ds.create_role(&role2).await.unwrap();
+        let roles = ds.get_roles().await.unwrap();
+        assert_eq!(roles.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_active_nodes() {
+        let ds = InMemoryDatastore::new();
+        let node = twerk_core::node::Node {
+            id: Some(twerk_core::id::NodeId::new("node1").unwrap()),
+            name: Some("test-node".to_string()),
+            ..Default::default()
+        };
+        ds.create_node(&node).await.unwrap();
+        let nodes = ds.get_active_nodes().await.unwrap();
+        assert_eq!(nodes.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_active_tasks() {
+        let ds = InMemoryDatastore::new();
+        let task = make_task("task1");
+        ds.create_task(&task).await.unwrap();
+        let tasks = ds.get_active_tasks("nonexistent-job").await.unwrap();
+        assert!(tasks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_health_check() {
+        let ds = InMemoryDatastore::new();
+        ds.health_check().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_metrics() {
+        let ds = InMemoryDatastore::new();
+        let metrics = ds.get_metrics().await.unwrap();
+        assert_eq!(metrics.jobs.running, 0);
+        assert_eq!(metrics.tasks.running, 0);
+        assert_eq!(metrics.nodes.running, 0);
+    }
+
+    #[tokio::test]
+    async fn test_paginate() {
+        let items: Vec<i32> = (0..100).collect();
+        let page = InMemoryDatastore::paginate(items.clone(), 1, 10);
+        assert_eq!(page.items.len(), 10);
+        assert_eq!(page.total_items, 100);
+        assert_eq!(page.total_pages, 10);
+
+        let page2 = InMemoryDatastore::paginate(items, 2, 10);
+        assert_eq!(page2.items.len(), 10);
+        assert_eq!(page2.number, 2);
+    }
+
+    #[tokio::test]
+    async fn test_paginate_empty() {
+        let items: Vec<i32> = vec![];
+        let page = InMemoryDatastore::paginate(items, 1, 10);
+        assert!(page.items.is_empty());
+        assert_eq!(page.total_items, 0);
+        assert_eq!(page.total_pages, 0);
+    }
+
+    #[tokio::test]
+    async fn test_paginate_page_out_of_range() {
+        let items: Vec<i32> = (0..5).collect();
+        let page = InMemoryDatastore::paginate(items, 10, 10);
+        assert!(page.items.is_empty());
+    }
+}

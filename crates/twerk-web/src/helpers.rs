@@ -1,3 +1,4 @@
+use crate::api::{create_router, AppState, Config};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -5,7 +6,6 @@ use tokio::sync::oneshot;
 use tower::make::Shared;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
-use crate::api::{create_router, AppState, Config};
 
 pub struct TestServer {
     pub addr: SocketAddr,

@@ -184,7 +184,11 @@ pub async fn get_trigger_handler(
         Err(e) => return Ok(error_response(e)),
     };
 
-    let trigger = match state.trigger_state.trigger_ds.get_trigger_by_id(&trigger_id) {
+    let trigger = match state
+        .trigger_state
+        .trigger_ds
+        .get_trigger_by_id(&trigger_id)
+    {
         Ok(t) => t,
         Err(e) => return Ok(error_response(e)),
     };
@@ -288,9 +292,7 @@ pub async fn delete_trigger_handler(
         (status = 500, description = "Persistence error")
     )
 )]
-pub async fn list_triggers_handler(
-    State(state): State<AppState>,
-) -> Result<Response, ApiError> {
+pub async fn list_triggers_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let triggers = match state.trigger_state.trigger_ds.list_triggers() {
         Ok(t) => t,
         Err(e) => {

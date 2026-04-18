@@ -1520,7 +1520,9 @@ async fn delete_trigger_returns_204_on_success() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
-    assert!(trigger_ds.get_trigger_by_id(&TriggerId::parse("trg_test_1").unwrap()).is_err());
+    assert!(trigger_ds
+        .get_trigger_by_id(&TriggerId::parse("trg_test_1").unwrap())
+        .is_err());
 }
 
 #[tokio::test]

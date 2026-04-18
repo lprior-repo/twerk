@@ -111,20 +111,24 @@ pub async fn create_user_handler(
         .username
         .ok_or_else(|| ApiError::bad_request("username is required"))?;
     let username = Username::new(&username).map_err(|e| {
-        ApiError::bad_request(format!("invalid username: {}", username_error_to_string(&e)))
+        ApiError::bad_request(format!(
+            "invalid username: {}",
+            username_error_to_string(&e)
+        ))
     })?;
 
     let password = body
         .password
         .ok_or_else(|| ApiError::bad_request("password is required"))?;
     let password = Password::new(&password).map_err(|e| {
-        ApiError::bad_request(format!("invalid password: {}", password_error_to_string(&e)))
+        ApiError::bad_request(format!(
+            "invalid password: {}",
+            password_error_to_string(&e)
+        ))
     })?;
 
-    let password_hash =
-        bcrypt::hash(password.as_str(), bcrypt::DEFAULT_COST).map_err(|e| {
-            ApiError::internal(e.to_string())
-        })?;
+    let password_hash = bcrypt::hash(password.as_str(), bcrypt::DEFAULT_COST)
+        .map_err(|e| ApiError::internal(e.to_string()))?;
 
     let user_id = twerk_core::id::UserId::new(twerk_core::uuid::new_short_uuid())?;
 

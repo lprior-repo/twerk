@@ -20,4 +20,7 @@ pub use domain::{
     NAME_REQUIRED_MSG, SERIALIZATION_MSG, TRIGGER_FIELD_MAX_LEN, TRIGGER_ID_MAX_LEN,
     UPDATED_AT_BACKWARDS_MSG,
 };
-pub use handlers::{create_trigger_handler, delete_trigger_handler, get_trigger_handler, list_triggers_handler, update_trigger_handler};
+pub use handlers::{
+    create_trigger_handler, delete_trigger_handler, get_trigger_handler, list_triggers_handler,
+    update_trigger_handler,
+};

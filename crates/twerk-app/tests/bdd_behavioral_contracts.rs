@@ -13,19 +13,21 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use twerk_app::engine::broker::BrokerType;
+use twerk_app::engine::coordinator::hostenv::HostEnv;
+use twerk_app::engine::endpoints::EndpointRegistry;
+use twerk_app::engine::middleware::MiddlewareComposer;
+use twerk_app::engine::mounts::MountRegistry;
+use twerk_app::engine::providers::ProviderRegistry;
+use twerk_app::engine::worker::mounter::{
+    BindConfig, BindMounter, MountPolicy, TmpfsMounter, VolumeMounter,
+};
+use twerk_app::engine::worker::Limits;
 use twerk_app::engine::{
     BrokerProxy, Config, DatastoreProxy, EndpointHandler, Engine, JobEventType, JobHandlerError,
     JobListener, LogHandlerError, Middleware, Mode, NodeHandlerError, State, TaskEventType,
     TaskHandlerError,
 };
-use twerk_app::engine::worker::mounter::{BindConfig, BindMounter, MountPolicy, TmpfsMounter, VolumeMounter};
-use twerk_app::engine::worker::Limits;
-use twerk_app::engine::broker::BrokerType;
-use twerk_app::engine::endpoints::EndpointRegistry;
-use twerk_app::engine::middleware::MiddlewareComposer;
-use twerk_app::engine::mounts::MountRegistry;
-use twerk_app::engine::providers::ProviderRegistry;
-use twerk_app::engine::coordinator::hostenv::HostEnv;
 use twerk_core::job::{Job, JobState};
 use twerk_core::mount::Mount;
 use twerk_core::task::{Task, TaskState};
@@ -220,7 +222,9 @@ async fn submit_job_fails_in_worker_mode() {
     engine.start().await.unwrap();
 
     let err = engine.submit_job(make_job("j2"), vec![]).await.unwrap_err();
-    assert!(err.to_string().contains("not in coordinator/standalone mode"));
+    assert!(err
+        .to_string()
+        .contains("not in coordinator/standalone mode"));
 
     engine.terminate().await.unwrap();
 }
@@ -246,9 +250,13 @@ async fn registrations_ignored_when_running() {
     engine.register_job_middleware(Arc::new(|h| h));
     engine.register_node_middleware(Arc::new(|h| h));
     engine.register_log_middleware(Arc::new(|h| h));
-    engine.register_endpoint("GET", "/noop", Arc::new(|_p, _b| {
-        Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
-    }));
+    engine.register_endpoint(
+        "GET",
+        "/noop",
+        Arc::new(|_p, _b| {
+            Box::pin(async { axum::response::Response::new(axum::body::Body::empty()) })
+        }),
+    );
     engine.register_runtime(Box::new(twerk_app::engine::MockRuntime));
     engine.register_datastore_provider("noop", Box::new(InMemoryDatastore::new()));
     engine.register_broker_provider("noop", Box::new(InMemoryBroker::new()));
@@ -365,7 +373,9 @@ async fn datastore_proxy_works_after_init() {
 #[tokio::test]
 async fn datastore_proxy_works_after_set() {
     let proxy = DatastoreProxy::new();
-    proxy.set_datastore(Box::new(InMemoryDatastore::new())).await;
+    proxy
+        .set_datastore(Box::new(InMemoryDatastore::new()))
+        .await;
     proxy.health_check().await.unwrap();
 }
 
@@ -531,8 +541,12 @@ fn provider_registry_first_wins() {
 #[test]
 fn mount_registry_registers_per_runtime() {
     let mut reg = MountRegistry::new();
-    reg.register_mounter("docker", "bind", Box::new(BindMounter::new(BindConfig::default())))
-        .unwrap();
+    reg.register_mounter(
+        "docker",
+        "bind",
+        Box::new(BindMounter::new(BindConfig::default())),
+    )
+    .unwrap();
 
     assert!(reg.get_mounter("docker").is_some());
     assert!(reg.get_mounter("podman").is_none());
@@ -697,7 +711,10 @@ async fn hostenv_middleware_injects_on_statechange_running() {
     composed(Arc::new(()), TaskEventType::StateChange, &mut task).unwrap();
 
     let env = task.env.as_ref().unwrap();
-    assert_eq!(env.get("TWERK_BDD_TEST_VAR"), Some(&"test-value".to_string()));
+    assert_eq!(
+        env.get("TWERK_BDD_TEST_VAR"),
+        Some(&"test-value".to_string())
+    );
 
     std::env::remove_var("TWERK_BDD_TEST_VAR");
 }

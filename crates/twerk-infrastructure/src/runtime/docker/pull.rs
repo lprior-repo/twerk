@@ -137,7 +137,9 @@ pub async fn pull_image<S: std::hash::BuildHasher>(
 }
 
 async fn check_cache<S: std::hash::BuildHasher>(
-    images: &std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>>,
+    images: &std::sync::Arc<
+        tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>,
+    >,
     image: &str,
 ) -> Option<std::time::Instant> {
     let cache = images.read().await;
@@ -145,7 +147,9 @@ async fn check_cache<S: std::hash::BuildHasher>(
 }
 
 async fn update_cache<S: std::hash::BuildHasher>(
-    images: &std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>>,
+    images: &std::sync::Arc<
+        tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>,
+    >,
     image: &str,
 ) {
     let mut cache = images.write().await;

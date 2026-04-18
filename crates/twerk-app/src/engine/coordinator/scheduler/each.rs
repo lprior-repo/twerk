@@ -178,10 +178,7 @@ impl Scheduler {
         m
     }
 
-    async fn publish_and_handle_errors(
-        &self,
-        subtasks: &[Task],
-    ) -> Result<()> {
+    async fn publish_and_handle_errors(&self, subtasks: &[Task]) -> Result<()> {
         if subtasks.is_empty() {
             return Ok(());
         }

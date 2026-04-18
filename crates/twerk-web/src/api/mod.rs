@@ -216,8 +216,7 @@ pub fn create_router(state: AppState) -> Router {
 
     router = router.route(
         "/api/v1/triggers",
-        get(trigger_api::list_triggers_handler)
-            .post(trigger_api::create_trigger_handler),
+        get(trigger_api::list_triggers_handler).post(trigger_api::create_trigger_handler),
     );
 
     router = router.route(
@@ -362,7 +361,10 @@ mod trigger_update_unit_red_tests {
             id: None,
             version: Some(1),
         };
-        assert_eq!(validate_trigger_update("xyz", &req), Ok(TriggerId::from("xyz")));
+        assert_eq!(
+            validate_trigger_update("xyz", &req),
+            Ok(TriggerId::from("xyz"))
+        );
     }
 
     #[test]

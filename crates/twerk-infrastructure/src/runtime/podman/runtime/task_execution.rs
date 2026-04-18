@@ -146,7 +146,12 @@ impl PodmanRuntime {
         self.setup_workdir(&workdir, task).await?;
 
         let result = self
-            .execute_container(task, &workdir, &workdir.join("stdout"), &workdir.join("progress"))
+            .execute_container(
+                task,
+                &workdir,
+                &workdir.join("stdout"),
+                &workdir.join("progress"),
+            )
             .await;
 
         if let Err(e) = tokio::fs::remove_dir_all(&workdir).await {
@@ -156,7 +161,11 @@ impl PodmanRuntime {
         result
     }
 
-    async fn setup_workdir(&self, workdir: &std::path::Path, task: &CoreTask) -> Result<(), PodmanError> {
+    async fn setup_workdir(
+        &self,
+        workdir: &std::path::Path,
+        task: &CoreTask,
+    ) -> Result<(), PodmanError> {
         tokio::fs::create_dir_all(workdir)
             .await
             .map_err(|e| PodmanError::WorkdirCreation(e.to_string()))?;
@@ -167,9 +176,10 @@ impl PodmanRuntime {
         create_file_with_permissions(&progress_file, 0o777).await?;
 
         let entrypoint_path = workdir.join("entrypoint.sh");
-        let run_script = task.run.clone().unwrap_or_else(|| {
-            task.cmd.as_ref().map_or(String::new(), |cmd| cmd.join(" "))
-        });
+        let run_script = task
+            .run
+            .clone()
+            .unwrap_or_else(|| task.cmd.as_ref().map_or(String::new(), |cmd| cmd.join(" ")));
         tokio::fs::write(&entrypoint_path, &run_script)
             .await
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;

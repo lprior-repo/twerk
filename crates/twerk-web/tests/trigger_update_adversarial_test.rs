@@ -458,7 +458,11 @@ async fn adversarial_positive_version_mismatch_should_fail() {
     .await;
 
     // Version 5 does not match stored version 1, should return 409 Conflict
-    assert_eq!(status, StatusCode::CONFLICT, "version mismatch should return conflict");
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "version mismatch should return conflict"
+    );
 }
 
 // ========================================

@@ -170,9 +170,7 @@ impl Repository for InMemoryRepository {
             return Err(Error::InvalidId("task log part has no task_id".to_string()));
         }
         let mut logs = self.task_logs.write();
-        logs.entry(task_id_str)
-            .or_default()
-            .push(part.clone());
+        logs.entry(task_id_str).or_default().push(part.clone());
         Ok(())
     }
 

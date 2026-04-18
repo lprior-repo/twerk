@@ -142,9 +142,9 @@ mod tests {
         use axum::response::Response;
         use bytes::Bytes;
         use futures_util::FutureExt;
-        Arc::new(|_req: Parts, _body: Bytes| async move {
-            Response::builder().status(200).body("".into()).unwrap()
-        }.boxed())
+        Arc::new(|_req: Parts, _body: Bytes| {
+            async move { Response::builder().status(200).body("".into()).unwrap() }.boxed()
+        })
     }
 
     #[test]

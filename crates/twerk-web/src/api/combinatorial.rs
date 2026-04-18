@@ -203,7 +203,11 @@ impl CombinatorialGenerator {
                         content_types.into_iter().cartesian_product(variations)
                     {
                         let operation_id = op.operation_id.clone().unwrap_or_else(|| {
-                            format!("{}_{method}", path.replace('/', "_"), method = method.to_lowercase())
+                            format!(
+                                "{}_{method}",
+                                path.replace('/', "_"),
+                                method = method.to_lowercase()
+                            )
                         });
 
                         test_cases.push(TestCase {
@@ -240,11 +244,10 @@ impl CombinatorialGenerator {
         let mut variations = vec![InputVariation::ValidMinimal, InputVariation::ValidFull];
 
         if let Some(ref body) = operation.request_body {
-            let has_required = body.content.values().any(|mt| {
-                mt.schema
-                    .as_ref()
-                    .is_some_and(|s| !s.required.is_empty())
-            });
+            let has_required = body
+                .content
+                .values()
+                .any(|mt| mt.schema.as_ref().is_some_and(|s| !s.required.is_empty()));
 
             if has_required {
                 variations.push(InputVariation::InvalidMissingRequired);
@@ -358,9 +361,8 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
     let test_cases = generator.generate_test_matrix();
     let (title, version) = generator.spec_info();
 
-    let mut output = format!(
-        "//! Auto-generated combinatorial tests from OpenAPI spec: {title} v{version}\n",
-    );
+    let mut output =
+        format!("//! Auto-generated combinatorial tests from OpenAPI spec: {title} v{version}\n",);
     output.push_str("//!\n");
     output.push_str("//! This file is auto-generated. Do not edit manually.\n");
     output.push_str("//! Regenerate with: combinatorial_test_generator\n\n");
@@ -370,9 +372,7 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
     for tc in &test_cases {
         let test_name = format!(
             "test_{}_{}_{}",
-            tc.operation_id
-                .replace(['-', ' '], "_")
-                .to_lowercase(),
+            tc.operation_id.replace(['-', ' '], "_").to_lowercase(),
             tc.method.to_lowercase(),
             tc.input_variation
         );

@@ -5845,6 +5845,7 @@ dependencies = [
  "twerk-common",
  "ureq 2.12.1",
  "url",
+ "utoipa",
  "uuid",
  "zeroize",
 ]
@@ -5899,6 +5900,7 @@ dependencies = [
  "twerk-common",
  "twerk-core",
  "url",
+ "utoipa",
  "uuid",
 ]
 

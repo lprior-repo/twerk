@@ -4,6 +4,7 @@ use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
 use thiserror::Error;
+use utoipa::ToSchema;
 
 const MAX_ID_LENGTH: usize = 1000;
 
@@ -39,7 +40,11 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 
 macro_rules! define_id {
     ($name:ident) => {
+<<<<<<< HEAD
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
+=======
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
+>>>>>>> origin/tw-polecat/zeta
         #[serde(transparent)]
         #[schema(value_type = String)]
         pub struct $name(String);

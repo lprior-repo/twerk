@@ -17,6 +17,7 @@ use twerk_core::{
     task::{Task, TaskLogPart},
     user::User,
 };
+use utoipa::ToSchema;
 
 // Re-export Error from twerk-core to avoid duplication
 pub use twerk_core::repository::Error;
@@ -39,7 +40,7 @@ pub struct Options {
 }
 
 /// Page represents a paginated result set
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Page<T> {
     /// Items in the current page
     pub items: Vec<T>,

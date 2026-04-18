@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 use time::Duration;
+use utoipa::ToSchema;
 
 use crate::{
     job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary},
@@ -79,7 +80,7 @@ pub struct Options {
 }
 
 /// Page represents a paginated result set
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Page<T> {
     /// Items in the current page
     pub items: Vec<T>,

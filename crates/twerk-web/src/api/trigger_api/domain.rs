@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 
 pub const TRIGGER_ID_MIN_LEN: usize = 1;
 pub const TRIGGER_ID_MAX_LEN: usize = 1000;
@@ -23,7 +24,7 @@ pub const SERIALIZATION_MSG: &str = "failed to serialize response";
 // TriggerId
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(transparent)]
 pub struct TriggerId(String);
 
@@ -59,7 +60,7 @@ impl From<&str> for TriggerId {
 // Trigger types
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 pub struct TriggerUpdateRequest {
     pub name: String,
     pub enabled: bool,

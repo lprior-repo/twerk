@@ -38,7 +38,11 @@ parking_lot.workspace = true
 zeroize.workspace = true
 chrono-tz.workspace = true
 jmespath.workspace = true
+<<<<<<< HEAD
 utoipa = { workspace = true, features = ["time"] }
+=======
+utoipa.workspace = true
+>>>>>>> origin/tw-polecat/zeta
 
 [dev-dependencies]
 rstest.workspace = true

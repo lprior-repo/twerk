@@ -59,7 +59,7 @@ pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Respon
 }
 
 /// User creation body
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateUserBody {
     pub username: Option<String>,
     pub password: Option<String>,

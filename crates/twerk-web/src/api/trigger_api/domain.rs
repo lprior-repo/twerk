@@ -81,6 +81,7 @@ pub struct Trigger {
     pub condition: Option<String>,
     pub action: String,
     pub metadata: HashMap<String, String>,
+    pub version: u64,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -94,6 +95,7 @@ pub struct TriggerView {
     pub condition: Option<String>,
     pub action: String,
     pub metadata: HashMap<String, String>,
+    pub version: u64,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -108,6 +110,7 @@ impl From<Trigger> for TriggerView {
             condition: value.condition,
             action: value.action,
             metadata: value.metadata,
+            version: value.version,
             created_at: value.created_at,
             updated_at: value.updated_at,
         }
@@ -236,11 +239,19 @@ fn validate_timestamp_monotonicity(
 ///
 /// # Errors
 /// Returns validation errors for malformed fields or backward timestamps.
+/// Returns VersionConflict if the request version does not match the stored version.
 pub fn apply_trigger_update(
     current: Trigger,
     req: TriggerUpdateRequest,
     now_utc: OffsetDateTime,
 ) -> Result<Trigger, TriggerUpdateError> {
+    if let Some(req_version) = req.version {
+        if req_version != current.version {
+            return Err(TriggerUpdateError::VersionConflict(
+                "stale version supplied".to_string(),
+            ));
+        }
+    }
     validate_required_field(&req.name, NAME_REQUIRED_MSG, "name")?;
     validate_required_field(&req.event, EVENT_REQUIRED_MSG, "event")?;
     validate_required_field(&req.action, ACTION_REQUIRED_MSG, "action")?;
@@ -255,6 +266,7 @@ pub fn apply_trigger_update(
         condition: req.condition,
         action: normalize_required_field(&req.action),
         metadata: req.metadata.unwrap_or_default(),
+        version: current.version.saturating_add(1),
         created_at: current.created_at,
         updated_at: now_utc,
     })

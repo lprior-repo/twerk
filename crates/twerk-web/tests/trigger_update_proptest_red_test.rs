@@ -16,6 +16,7 @@ fn base_trigger() -> Trigger {
         condition: None,
         action: "old_action".to_string(),
         metadata: HashMap::new(),
+        version: 1,
         created_at: now,
         updated_at: now,
     }

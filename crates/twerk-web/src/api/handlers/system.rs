@@ -85,6 +85,15 @@ fn password_error_to_string(err: PasswordError) -> String {
 /// POST /users
 ///
 /// # Errors
+#[utoipa::path(
+    post,
+    path = "/users",
+    request_body = CreateUserBody,
+    responses(
+        (status = 200, description = "User created"),
+        (status = 400, description = "Missing username or password")
+    )
+)]
 #[instrument(name = "create_user_handler", skip_all)]
 pub async fn create_user_handler(
     State(state): State<AppState>,

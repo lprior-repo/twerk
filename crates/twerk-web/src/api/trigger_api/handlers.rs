@@ -163,6 +163,18 @@ fn prepare_update(
 ///
 /// # Errors
 /// Returns 404 if trigger not found, 400 if ID format invalid.
+#[utoipa::path(
+    get,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    responses(
+        (status = 200, description = "Trigger found", body = TriggerView),
+        (status = 404, description = "Trigger not found"),
+        (status = 400, description = "Invalid ID format")
+    )
+)]
 pub async fn get_trigger_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -188,6 +200,20 @@ pub async fn get_trigger_handler(
 ///
 /// # Errors
 /// Returns `ApiError` only for framework-level failures.
+#[utoipa::path(
+    put,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    request_body = TriggerUpdateRequest,
+    responses(
+        (status = 200, description = "Trigger updated", body = TriggerView),
+        (status = 400, description = "Validation error or invalid request"),
+        (status = 404, description = "Trigger not found"),
+        (status = 409, description = "Version conflict")
+    )
+)]
 pub async fn update_trigger_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -221,6 +247,18 @@ pub async fn update_trigger_handler(
     }
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/triggers/{id}",
+    params(
+        ("id" = String, Path, description = "Trigger ID")
+    ),
+    responses(
+        (status = 204, description = "Trigger deleted"),
+        (status = 404, description = "Trigger not found"),
+        (status = 400, description = "Invalid ID format")
+    )
+)]
 pub async fn delete_trigger_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -242,6 +280,14 @@ pub async fn delete_trigger_handler(
 ///
 /// # Errors
 /// Returns 500 for persistence errors.
+#[utoipa::path(
+    get,
+    path = "/api/v1/triggers",
+    responses(
+        (status = 200, description = "List of triggers", body = Vec<TriggerView>),
+        (status = 500, description = "Persistence error")
+    )
+)]
 pub async fn list_triggers_handler(
     State(state): State<AppState>,
 ) -> Result<Response, ApiError> {
@@ -269,6 +315,15 @@ pub async fn list_triggers_handler(
 ///
 /// # Errors
 /// Returns 201 on success, 400 for validation errors.
+#[utoipa::path(
+    post,
+    path = "/api/v1/triggers",
+    request_body = TriggerUpdateRequest,
+    responses(
+        (status = 201, description = "Trigger created", body = TriggerView),
+        (status = 400, description = "Validation error")
+    )
+)]
 pub async fn create_trigger_handler(
     State(state): State<AppState>,
     headers: HeaderMap,

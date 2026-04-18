@@ -257,6 +257,7 @@ pub async fn list_scheduled_jobs_handler(
         (status = 200, description = "Scheduled job found")
     )
 )]
+#[allow(clippy::missing_errors_doc)]
 #[instrument(name = "get_scheduled_job_handler", skip_all)]
 pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
@@ -281,6 +282,7 @@ pub async fn get_scheduled_job_handler(
         (status = 200, description = "Scheduled job paused")
     )
 )]
+#[allow(clippy::missing_errors_doc)]
 #[instrument(name = "pause_scheduled_job_handler", skip_all)]
 pub async fn pause_scheduled_job_handler(
     State(state): State<AppState>,
@@ -328,6 +330,7 @@ pub async fn pause_scheduled_job_handler(
         (status = 200, description = "Scheduled job resumed")
     )
 )]
+#[allow(clippy::missing_errors_doc)]
 #[instrument(name = "resume_scheduled_job_handler", skip_all)]
 pub async fn resume_scheduled_job_handler(
     State(state): State<AppState>,
@@ -375,6 +378,7 @@ pub async fn resume_scheduled_job_handler(
         (status = 200, description = "Scheduled job deleted")
     )
 )]
+#[allow(clippy::missing_errors_doc)]
 #[instrument(name = "delete_scheduled_job_handler", skip_all)]
 pub async fn delete_scheduled_job_handler(
     State(state): State<AppState>,

@@ -128,6 +128,8 @@ impl InMemoryTriggerDatastore {
         self.fail_next_update.swap(should_fail, Ordering::SeqCst)
     }
 
+    /// # Errors
+    /// Returns not-found or persistence errors.
     pub fn delete_trigger(&self, id: &TriggerId) -> Result<(), TriggerUpdateError> {
         self.data
             .lock()

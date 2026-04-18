@@ -1,3 +1,4 @@
+#![allow(clippy::needless_for_each)]
 use serde::Serialize;
 use twerk_core::job::{Job, ScheduledJob};
 use twerk_core::node::Node;
@@ -87,6 +88,7 @@ pub fn health_path() {}
 )]
 pub fn list_jobs_path() {}
 
+#[allow(clippy::needless_for_each)]
 #[derive(utoipa::OpenApi)]
 #[openapi(
     components(schemas(

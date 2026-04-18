@@ -1,10 +1,10 @@
-//! Combinatorial test generator from OpenAPI specification.
+//! Combinatorial test generator from `OpenAPI` specification.
 //!
-//! Generates exhaustive tests covering: endpoint × method × content-type × input-variation
+//! Generates exhaustive tests covering: endpoint x method x content-type x input-variation
 //!
 //! # Design
 //!
-//! This module reads an OpenAPI 3.0 specification and produces a comprehensive
+//! This module reads an `OpenAPI` 3.0 specification and produces a comprehensive
 //! test matrix that systematically covers all combinations of:
 //! - Endpoints (paths)
 //! - HTTP methods
@@ -163,21 +163,25 @@ pub struct CombinatorialGenerator {
 }
 
 impl CombinatorialGenerator {
+    #[must_use]
     pub fn from_spec(spec: OpenApiSpec) -> Self {
         Self { spec }
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         let spec: OpenApiSpec = serde_json::from_str(json)?;
         Ok(Self { spec })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub fn load_spec(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let json = std::fs::read_to_string(path)?;
         let spec: OpenApiSpec = serde_json::from_str(&json)?;
         Ok(Self { spec })
     }
 
+    #[must_use]
     pub fn generate_test_matrix(&self) -> Vec<TestCase> {
         let mut test_cases = Vec::new();
 
@@ -192,14 +196,14 @@ impl CombinatorialGenerator {
 
             for (method, operation) in methods {
                 if let Some(op) = operation {
-                    let content_types = self.extract_content_types(op);
-                    let variations = self.generate_input_variations(op);
+                    let content_types = Self::extract_content_types(op);
+                    let variations = Self::generate_input_variations(op);
 
                     for (content_type, variation) in
                         content_types.into_iter().cartesian_product(variations)
                     {
                         let operation_id = op.operation_id.clone().unwrap_or_else(|| {
-                            format!("{}_{}", method.to_lowercase(), path.replace('/', "_"))
+                            format!("{}_{method}", path.replace('/', "_"), method = method.to_lowercase())
                         });
 
                         test_cases.push(TestCase {
@@ -218,11 +222,11 @@ impl CombinatorialGenerator {
         test_cases
     }
 
-    fn extract_content_types(&self, operation: &Operation) -> Vec<String> {
+    fn extract_content_types(operation: &Operation) -> Vec<String> {
         let mut types = vec!["application/json".to_string()];
 
         if let Some(ref body) = operation.request_body {
-            for (content_type, _) in body.content.iter() {
+            for content_type in body.content.keys() {
                 if !types.contains(content_type) {
                     types.push(content_type.clone());
                 }
@@ -232,15 +236,14 @@ impl CombinatorialGenerator {
         types
     }
 
-    fn generate_input_variations(&self, operation: &Operation) -> Vec<InputVariation> {
+    fn generate_input_variations(operation: &Operation) -> Vec<InputVariation> {
         let mut variations = vec![InputVariation::ValidMinimal, InputVariation::ValidFull];
 
         if let Some(ref body) = operation.request_body {
             let has_required = body.content.values().any(|mt| {
                 mt.schema
                     .as_ref()
-                    .map(|s| !s.required.is_empty())
-                    .unwrap_or(false)
+                    .is_some_and(|s| !s.required.is_empty())
             });
 
             if has_required {
@@ -258,7 +261,7 @@ impl CombinatorialGenerator {
 
             for mt in body.content.values() {
                 if let Some(ref schema) = mt.schema {
-                    self.analyze_schema(
+                    Self::analyze_schema(
                         schema,
                         &mut has_string_field,
                         &mut has_explicit_bounds,
@@ -267,10 +270,7 @@ impl CombinatorialGenerator {
                 }
             }
 
-            if has_explicit_bounds {
-                variations.push(InputVariation::InvalidBoundaryMin);
-                variations.push(InputVariation::InvalidBoundaryMax);
-            } else if has_string_field {
+            if has_explicit_bounds || has_string_field {
                 variations.push(InputVariation::InvalidBoundaryMin);
                 variations.push(InputVariation::InvalidBoundaryMax);
             }
@@ -283,7 +283,6 @@ impl CombinatorialGenerator {
     }
 
     fn analyze_schema(
-        &self,
         schema: &Schema,
         has_string_field: &mut bool,
         has_explicit_bounds: &mut bool,
@@ -303,21 +302,24 @@ impl CombinatorialGenerator {
             *has_enum = true;
         }
         for prop in schema.properties.values() {
-            self.analyze_schema(prop, has_string_field, has_explicit_bounds, has_enum);
+            Self::analyze_schema(prop, has_string_field, has_explicit_bounds, has_enum);
         }
         if let Some(ref items) = schema.items {
-            self.analyze_schema(items, has_string_field, has_explicit_bounds, has_enum);
+            Self::analyze_schema(items, has_string_field, has_explicit_bounds, has_enum);
         }
     }
 
+    #[must_use]
     pub fn test_case_count(&self) -> usize {
         self.generate_test_matrix().len()
     }
 
+    #[must_use]
     pub fn get_endpoints(&self) -> Vec<String> {
         self.spec.paths.keys().cloned().collect()
     }
 
+    #[must_use]
     pub fn get_methods_for_endpoint(&self, path: &str) -> Vec<String> {
         self.spec
             .paths
@@ -344,18 +346,20 @@ impl CombinatorialGenerator {
             .unwrap_or_default()
     }
 
+    #[must_use]
     pub fn spec_info(&self) -> (&str, &str) {
         (&self.spec.info.title, &self.spec.info.version)
     }
 }
 
+#[allow(clippy::format_push_string)]
+#[must_use]
 pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
     let test_cases = generator.generate_test_matrix();
     let (title, version) = generator.spec_info();
 
     let mut output = format!(
-        "//! Auto-generated combinatorial tests from OpenAPI spec: {} v{}\n",
-        title, version
+        "//! Auto-generated combinatorial tests from OpenAPI spec: {title} v{version}\n",
     );
     output.push_str("//!\n");
     output.push_str("//! This file is auto-generated. Do not edit manually.\n");
@@ -367,8 +371,7 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
         let test_name = format!(
             "test_{}_{}_{}",
             tc.operation_id
-                .replace('-', "_")
-                .replace(' ', "_")
+                .replace(['-', ' '], "_")
                 .to_lowercase(),
             tc.method.to_lowercase(),
             tc.input_variation

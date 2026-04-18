@@ -90,7 +90,7 @@ impl AppState {
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_lines)]
 pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
 

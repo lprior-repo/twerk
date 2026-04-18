@@ -240,7 +240,7 @@ fn validate_timestamp_monotonicity(
 ///
 /// # Errors
 /// Returns validation errors for malformed fields or backward timestamps.
-/// Returns VersionConflict if the request version does not match the stored version.
+/// Returns `VersionConflict` if the request version does not match the stored version.
 pub fn apply_trigger_update(
     current: Trigger,
     req: TriggerUpdateRequest,

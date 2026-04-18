@@ -258,6 +258,7 @@ pub async fn update_trigger_handler(
         (status = 400, description = "Invalid ID format")
     )
 )]
+#[allow(clippy::missing_errors_doc)]
 pub async fn delete_trigger_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,

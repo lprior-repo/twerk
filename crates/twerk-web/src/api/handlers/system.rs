@@ -74,7 +74,7 @@ pub struct CreateUserBody {
     pub password: Option<String>,
 }
 
-fn username_error_to_string(err: UsernameError) -> String {
+fn username_error_to_string(err: &UsernameError) -> String {
     match err {
         UsernameError::Empty => "username cannot be empty".to_string(),
         UsernameError::LengthOutOfRange => "username must be 3-64 characters".to_string(),
@@ -84,7 +84,7 @@ fn username_error_to_string(err: UsernameError) -> String {
     }
 }
 
-fn password_error_to_string(err: PasswordError) -> String {
+fn password_error_to_string(err: &PasswordError) -> String {
     match err {
         PasswordError::Empty => "password cannot be empty".to_string(),
         PasswordError::TooShort => "password must be at least 8 characters".to_string(),
@@ -111,14 +111,14 @@ pub async fn create_user_handler(
         .username
         .ok_or_else(|| ApiError::bad_request("username is required"))?;
     let username = Username::new(&username).map_err(|e| {
-        ApiError::bad_request(format!("invalid username: {}", username_error_to_string(e)))
+        ApiError::bad_request(format!("invalid username: {}", username_error_to_string(&e)))
     })?;
 
     let password = body
         .password
         .ok_or_else(|| ApiError::bad_request("password is required"))?;
     let password = Password::new(&password).map_err(|e| {
-        ApiError::bad_request(format!("invalid password: {}", password_error_to_string(e)))
+        ApiError::bad_request(format!("invalid password: {}", password_error_to_string(&e)))
     })?;
 
     let password_hash =

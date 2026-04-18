@@ -26,14 +26,8 @@ pub enum WebhookUrlError {
     UrlParseError(String),
     #[error("invalid scheme: {0} (must be http or https)")]
     InvalidScheme(String),
-    #[error("URL has no host component")]
-    MissingHost,
     #[error("URL exceeds maximum length of 2048 characters")]
     UrlTooLong,
-    #[error("URL path contains unencoded spaces")]
-    SpaceInPath,
-    #[error("URL path contains control character (0x{0:02X})")]
-    ControlCharacterInPath(u8),
 }
 
 // ---------------------------------------------------------------------------
@@ -61,44 +55,18 @@ fn validate_scheme(parsed: &url::Url) -> Result<(), WebhookUrlError> {
     }
 }
 
-fn validate_host(parsed: &url::Url) -> Result<(), WebhookUrlError> {
-    // NOTE: MissingHost is logically unreachable because the `url` crate's parse()
-    // already rejects URLs with empty hosts (e.g., "http://" fails to parse).
-    // However, we keep this variant for API completeness and defensive programming
-    // in case the underlying URL library behavior changes.
-    parsed
-        .host()
-        .map_or(Err(WebhookUrlError::MissingHost), |_| Ok(()))
-}
-
-fn validate_path(parsed: &url::Url, original: &str) -> Result<(), WebhookUrlError> {
-    if parsed.path().contains(' ') {
-        return Err(WebhookUrlError::SpaceInPath);
-    }
-    for b in original.bytes() {
-        if b == 0 || (b < 0x20 && b != 0x09) {
-            return Err(WebhookUrlError::ControlCharacterInPath(b));
-        }
-    }
-    Ok(())
-}
-
 impl WebhookUrl {
     /// Create a new `WebhookUrl`, returning an error if validation fails.
     ///
     /// # Errors
     /// Returns [`WebhookUrlError::UrlParseError`] if the string fails to parse as a URL.
     /// Returns [`WebhookUrlError::InvalidScheme`] if the scheme is not http or https.
-    /// Returns [`WebhookUrlError::MissingHost`] if the URL has no host component.
     /// Returns [`WebhookUrlError::UrlTooLong`] if the URL exceeds 2048 characters.
-    /// Returns [`WebhookUrlError::SpaceInPath`] if the URL path contains unencoded spaces.
     pub fn new(url: impl Into<String>) -> Result<Self, WebhookUrlError> {
         let s = url.into();
         validate_length(&s)?;
         let parsed = validate_and_parse_url(&s)?;
         validate_scheme(&parsed)?;
-        validate_host(&parsed)?;
-        validate_path(&parsed, &s)?;
         Ok(Self(s))
     }
 

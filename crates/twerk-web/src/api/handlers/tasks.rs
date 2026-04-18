@@ -13,7 +13,7 @@ use tracing::instrument;
 
 /// Raw pagination query parameters — uses String types to avoid
 /// serde rejection errors when users send invalid input like `?page=abc`.
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default, utoipa::ToSchema)]
 pub struct RawPaginationQuery {
     pub page: Option<String>,
     pub size: Option<String>,
@@ -23,7 +23,7 @@ pub struct RawPaginationQuery {
 /// Typed pagination query parsed from raw strings.
 /// Invalid integer values silently become `None` rather than
 /// leaking raw serde/axum error messages to the user.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, utoipa::ToSchema)]
 pub struct PaginationQuery {
     pub page: Option<i64>,
     pub size: Option<i64>,
@@ -46,6 +46,7 @@ impl PaginationQuery {
 #[utoipa::path(
     get,
     path = "/tasks/{id}",
+    tag = "Tasks",
     params(
         ("id" = String, Path, description = "Task ID")
     ),
@@ -76,6 +77,7 @@ pub async fn get_task_handler(
 #[utoipa::path(
     get,
     path = "/tasks/{id}/log",
+    tag = "Tasks",
     params(
         ("id" = String, Path, description = "Task ID"),
         ("page" = Option<String>, Query, description = "Page number"),

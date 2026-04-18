@@ -10,9 +10,10 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// A search query string.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 #[serde(transparent)]
 pub struct SearchQuery(String);
 

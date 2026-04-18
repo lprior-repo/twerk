@@ -16,6 +16,7 @@ use utoipa::ToSchema;
 #[utoipa::path(
     get,
     path = "/health",
+    tag = "System",
     responses(
         (status = 200, description = "Service is healthy", body = Object),
         (status = 503, description = "Service is unhealthy", body = Object)
@@ -41,6 +42,7 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 #[utoipa::path(
     get,
     path = "/nodes",
+    tag = "System",
     responses(
         (status = 200, description = "List of active nodes")
     )
@@ -56,6 +58,7 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
 #[utoipa::path(
     get,
     path = "/metrics",
+    tag = "System",
     responses(
         (status = 200, description = "System metrics")
     )
@@ -97,6 +100,7 @@ fn password_error_to_string(err: &PasswordError) -> String {
 #[utoipa::path(
     post,
     path = "/users",
+    tag = "System",
     responses(
         (status = 200, description = "User created"),
         (status = 400, description = "Missing username or password")

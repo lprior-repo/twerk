@@ -166,6 +166,7 @@ fn prepare_update(
 #[utoipa::path(
     get,
     path = "/api/v1/triggers/{id}",
+    tag = "Triggers",
     params(
         ("id" = String, Path, description = "Trigger ID")
     ),
@@ -207,6 +208,7 @@ pub async fn get_trigger_handler(
 #[utoipa::path(
     put,
     path = "/api/v1/triggers/{id}",
+    tag = "Triggers",
     params(
         ("id" = String, Path, description = "Trigger ID")
     ),
@@ -253,6 +255,7 @@ pub async fn update_trigger_handler(
 #[utoipa::path(
     delete,
     path = "/api/v1/triggers/{id}",
+    tag = "Triggers",
     params(
         ("id" = String, Path, description = "Trigger ID")
     ),
@@ -287,6 +290,7 @@ pub async fn delete_trigger_handler(
 #[utoipa::path(
     get,
     path = "/api/v1/triggers",
+    tag = "Triggers",
     responses(
         (status = 200, description = "List of triggers"),
         (status = 500, description = "Persistence error")
@@ -320,6 +324,7 @@ pub async fn list_triggers_handler(State(state): State<AppState>) -> Result<Resp
 #[utoipa::path(
     post,
     path = "/api/v1/triggers",
+    tag = "Triggers",
     responses(
         (status = 201, description = "Trigger created"),
         (status = 400, description = "Validation error")

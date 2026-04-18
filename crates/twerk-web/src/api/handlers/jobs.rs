@@ -18,7 +18,7 @@ use crate::middleware::hooks::{on_read_job, on_read_job_summary};
 use tracing::instrument;
 
 /// Whether the create-job endpoint should block until the job completes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, utoipa::ToSchema)]
 pub enum WaitMode {
     #[default]
     Detached,
@@ -63,6 +63,7 @@ pub struct CreateJobQuery {
 #[utoipa::path(
     post,
     path = "/jobs",
+    tag = "Jobs",
     params(
         ("wait" = Option<String>, Query, description = "Whether to block until the job completes (true/false/blocking)")
     ),
@@ -202,6 +203,7 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 #[utoipa::path(
     get,
     path = "/jobs/{id}",
+    tag = "Jobs",
     params(
         ("id" = JobId, description = "The job ID")
     ),
@@ -241,6 +243,7 @@ pub async fn get_job_handler(
 #[utoipa::path(
     get,
     path = "/jobs",
+    tag = "Jobs",
     params(
         ("page" = Option<String>, Query, description = "Page number"),
         ("size" = Option<String>, Query, description = "Page size"),
@@ -281,6 +284,7 @@ pub async fn list_jobs_handler(
 #[utoipa::path(
     put,
     path = "/jobs/{id}/cancel",
+    tag = "Jobs",
     params(
         ("id" = JobId, description = "The job ID")
     ),
@@ -321,6 +325,7 @@ pub async fn cancel_job_handler(
 #[utoipa::path(
     put,
     path = "/jobs/{id}/restart",
+    tag = "Jobs",
     params(
         ("id" = JobId, description = "The job ID")
     ),
@@ -356,6 +361,7 @@ pub async fn restart_job_handler(
 #[utoipa::path(
     get,
     path = "/jobs/{id}/log",
+    tag = "Jobs",
     params(
         ("id" = JobId, description = "The job ID"),
         ("page" = Option<String>, Query, description = "Page number"),

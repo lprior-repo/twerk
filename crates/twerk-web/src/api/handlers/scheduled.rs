@@ -17,7 +17,7 @@ use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
 use tracing::instrument;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateScheduledJobBody {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -184,6 +184,7 @@ fn build_scheduled_job_event_value_from_sj(
 #[utoipa::path(
     post,
     path = "/scheduled-jobs",
+    tag = "ScheduledJobs",
     responses(
         (status = 200, description = "Scheduled job created")
     )
@@ -225,6 +226,7 @@ pub async fn create_scheduled_job_handler(
 #[utoipa::path(
     get,
     path = "/scheduled-jobs",
+    tag = "ScheduledJobs",
     responses(
         (status = 200, description = "List of scheduled jobs")
     )
@@ -252,6 +254,7 @@ pub async fn list_scheduled_jobs_handler(
 #[utoipa::path(
     get,
     path = "/scheduled-jobs/{id}",
+    tag = "ScheduledJobs",
     params(
         ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
     ),
@@ -277,6 +280,7 @@ pub async fn get_scheduled_job_handler(
 #[utoipa::path(
     put,
     path = "/scheduled-jobs/{id}/pause",
+    tag = "ScheduledJobs",
     params(
         ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
     ),
@@ -325,8 +329,9 @@ pub async fn pause_scheduled_job_handler(
 #[utoipa::path(
     put,
     path = "/scheduled-jobs/{id}/resume",
+    tag = "ScheduledJobs",
     params(
-        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+        ("id" = String, Path, description = "Scheduled Job ID")
     ),
     responses(
         (status = 200, description = "Scheduled job resumed")
@@ -373,8 +378,9 @@ pub async fn resume_scheduled_job_handler(
 #[utoipa::path(
     delete,
     path = "/scheduled-jobs/{id}",
+    tag = "ScheduledJobs",
     params(
-        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+        ("id" = String, Path, description = "Scheduled Job ID")
     ),
     responses(
         (status = 200, description = "Scheduled job deleted")

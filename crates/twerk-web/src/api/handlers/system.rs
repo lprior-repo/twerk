@@ -12,6 +12,14 @@ use super::{AppState, VERSION};
 use tracing::instrument;
 
 /// Health check handler
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Service is healthy", body = Object),
+        (status = 503, description = "Service is unhealthy", body = Object)
+    )
+)]
 #[instrument(name = "health_handler", skip_all)]
 pub async fn health_handler(State(state): State<AppState>) -> Response {
     let ds_ok = state.ds.health_check().await.is_ok();

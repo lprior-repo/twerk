@@ -27,6 +27,7 @@ use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 
+pub mod combinatorial;
 pub mod domain;
 pub mod error;
 pub mod handlers;

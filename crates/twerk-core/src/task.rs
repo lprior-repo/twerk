@@ -11,15 +11,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 /// `TaskState` represents the list of states that a task can be in at any given moment.
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TaskState {
     #[default]
@@ -167,15 +159,7 @@ pub const TASK_STATE_ACTIVE: &[&str] = &[
 ];
 
 /// Task is the basic unit of work that a Worker can handle.
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -332,15 +316,7 @@ impl Task {
 }
 
 /// `TaskSummary` provides a summary view of a task.
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct TaskSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -435,19 +411,7 @@ pub struct TaskLogPart {
 }
 
 /// `AutoDelete` defines automatic cleanup configuration.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct AutoDelete {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -455,19 +419,7 @@ pub struct AutoDelete {
 }
 
 /// `SubJobTask` represents a sub-job task configuration.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct SubJobTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -481,11 +433,7 @@ pub struct SubJobTask {
     pub description: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-<<<<<<< HEAD
     #[schema(no_recursion)]
-=======
-    #[schema(value_type = String)]
->>>>>>> origin/tw-polecat/upsilon
     pub tasks: Option<Vec<Task>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -509,27 +457,11 @@ pub struct SubJobTask {
 }
 
 /// `ParallelTask` represents a task that runs other tasks in parallel.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct ParallelTask {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(no_recursion)]
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ParallelTask {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = String)]
->>>>>>> origin/tw-polecat/upsilon
     pub tasks: Option<Vec<Task>>,
 
     #[serde(default)]
@@ -537,19 +469,7 @@ pub struct ParallelTask {
 }
 
 /// `EachTask` represents a task that iterates over a list.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct EachTask {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -559,11 +479,7 @@ pub struct EachTask {
     pub list: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-<<<<<<< HEAD
     #[schema(no_recursion)]
-=======
-    #[schema(value_type = String)]
->>>>>>> origin/tw-polecat/upsilon
     pub task: Option<Box<Task>>,
 
     #[serde(default)]
@@ -580,19 +496,7 @@ pub struct EachTask {
 }
 
 /// `TaskRetry` defines retry configuration for a task.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct TaskRetry {
     #[serde(default)]
@@ -603,19 +507,7 @@ pub struct TaskRetry {
 }
 
 /// `TaskLimits` defines resource limits for a task.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct TaskLimits {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -626,19 +518,7 @@ pub struct TaskLimits {
 }
 
 /// Registry defines container registry credentials.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct Registry {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -649,19 +529,7 @@ pub struct Registry {
 }
 
 /// Probe defines health check configuration for a task.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct Probe {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -675,19 +543,7 @@ pub struct Probe {
 }
 
 /// Permission defines access permissions.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct Permission {
     #[serde(skip_serializing_if = "Option::is_none")]

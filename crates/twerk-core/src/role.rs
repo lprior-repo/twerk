@@ -5,19 +5,7 @@ use utoipa::ToSchema;
 
 pub const ROLE_PUBLIC: &str = "public";
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
-=======
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/tau
-=======
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
->>>>>>> origin/tw-polecat/upsilon
-=======
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
->>>>>>> origin/tw-polecat/pi
 pub struct Role {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = String)]

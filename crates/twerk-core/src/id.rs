@@ -40,15 +40,7 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 
 macro_rules! define_id {
     ($name:ident) => {
-<<<<<<< HEAD
-<<<<<<< HEAD
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
-=======
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
->>>>>>> origin/tw-polecat/zeta
-=======
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
->>>>>>> origin/tw-polecat/pi
         #[serde(transparent)]
         #[schema(value_type = String)]
         pub struct $name(String);

@@ -63,19 +63,13 @@ pub struct CreateJobQuery {
 #[utoipa::path(
     post,
     path = "/jobs",
-<<<<<<< HEAD
     params(
         ("wait" = Option<String>, Query, description = "Whether to block until the job completes (true/false/blocking)")
     ),
     request_body(content = String, description = "Job definition as JSON or YAML", content_type = "application/json"),
     responses(
-        (status = 200, description = "Job created"),
+        (status = 200, description = "Job created", body = Job),
         (status = 400, description = "Invalid job definition or unsupported content type")
-=======
-    request_body = Job,
-    responses(
-        (status = 200, description = "Job created", body = Job)
->>>>>>> origin/tw-polecat/iota
     )
 )]
 #[instrument(name = "create_job_handler", skip_all)]
@@ -209,18 +203,11 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
     get,
     path = "/jobs/{id}",
     params(
-<<<<<<< HEAD
-        ("id" = String, Path, description = "Job ID")
-    ),
-    responses(
-        (status = 200, description = "Job found"),
-        (status = 404, description = "Job not found")
-=======
         ("id" = JobId, description = "The job ID")
     ),
     responses(
-        (status = 200, description = "Job found", body = Job)
->>>>>>> origin/tw-polecat/iota
+        (status = 200, description = "Job found", body = Job),
+        (status = 404, description = "Job not found")
     )
 )]
 #[instrument(name = "get_job_handler", skip_all)]
@@ -254,18 +241,13 @@ pub async fn get_job_handler(
 #[utoipa::path(
     get,
     path = "/jobs",
-<<<<<<< HEAD
     params(
         ("page" = Option<String>, Query, description = "Page number"),
         ("size" = Option<String>, Query, description = "Page size"),
         ("q" = Option<String>, Query, description = "Search query")
     ),
     responses(
-        (status = 200, description = "List of jobs")
-=======
-    responses(
         (status = 200, description = "List of jobs", body = Vec<Job>)
->>>>>>> origin/tw-polecat/iota
     )
 )]
 #[instrument(name = "list_jobs_handler", skip_all)]
@@ -300,18 +282,11 @@ pub async fn list_jobs_handler(
     put,
     path = "/jobs/{id}/cancel",
     params(
-<<<<<<< HEAD
-        ("id" = String, Path, description = "Job ID")
-    ),
-    responses(
-        (status = 200, description = "Job cancelled"),
-        (status = 400, description = "Job cannot be cancelled in its current state")
-=======
         ("id" = JobId, description = "The job ID")
     ),
     responses(
-        (status = 200, description = "Job cancelled", body = Job)
->>>>>>> origin/tw-polecat/iota
+        (status = 200, description = "Job cancelled", body = Job),
+        (status = 400, description = "Job cannot be cancelled in its current state")
     )
 )]
 #[instrument(name = "cancel_job_handler", skip_all)]
@@ -347,18 +322,11 @@ pub async fn cancel_job_handler(
     put,
     path = "/jobs/{id}/restart",
     params(
-<<<<<<< HEAD
-        ("id" = String, Path, description = "Job ID")
-    ),
-    responses(
-        (status = 200, description = "Job restarted"),
-        (status = 400, description = "Job cannot be restarted")
-=======
         ("id" = JobId, description = "The job ID")
     ),
     responses(
-        (status = 200, description = "Job restarted", body = Job)
->>>>>>> origin/tw-polecat/iota
+        (status = 200, description = "Job restarted", body = Job),
+        (status = 400, description = "Job cannot be restarted")
     )
 )]
 #[instrument(name = "restart_job_handler", skip_all)]
@@ -389,20 +357,13 @@ pub async fn restart_job_handler(
     get,
     path = "/jobs/{id}/log",
     params(
-<<<<<<< HEAD
-        ("id" = String, Path, description = "Job ID"),
+        ("id" = JobId, description = "The job ID"),
         ("page" = Option<String>, Query, description = "Page number"),
         ("size" = Option<String>, Query, description = "Page size")
     ),
     responses(
-        (status = 200, description = "Job log entries"),
+        (status = 200, description = "Job log parts", body = Vec<String>),
         (status = 404, description = "Job not found")
-=======
-        ("id" = JobId, description = "The job ID")
-    ),
-    responses(
-        (status = 200, description = "Job log parts", body = Vec<String>)
->>>>>>> origin/tw-polecat/iota
     )
 )]
 #[instrument(name = "get_job_log_handler", skip_all)]

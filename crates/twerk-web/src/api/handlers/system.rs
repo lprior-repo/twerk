@@ -68,11 +68,7 @@ pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Respon
 }
 
 /// User creation body
-<<<<<<< HEAD
 #[derive(Debug, Deserialize, ToSchema)]
-=======
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
->>>>>>> origin/tw-polecat/mu
 pub struct CreateUserBody {
     pub username: Option<String>,
     pub password: Option<String>,

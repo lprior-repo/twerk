@@ -16,6 +16,7 @@ use super::types::PodmanRuntime;
 
 impl PodmanRuntime {
     /// Execute container and handle logs.
+    #[allow(clippy::cognitive_complexity)]
     #[allow(clippy::too_many_lines)]
     pub(crate) async fn execute_container(
         &self,

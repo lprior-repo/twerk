@@ -115,19 +115,48 @@ pub async fn pull_image<S: std::hash::BuildHasher>(
     image: &str,
     _registry: Option<&Registry>,
 ) -> Result<(), DockerError> {
-    {
-        let cache = images.read().await;
-        if cache.contains_key(image) {
-            tracing::debug!(image, "image found in cache");
-            return Ok(());
-        }
-    }
-    if image_exists_locally(client, image).await? {
-        tracing::debug!(image, "image found locally");
-        let mut cache = images.write().await;
-        cache.insert(image.to_string(), std::time::Instant::now());
+    if check_cache(images, image).await.is_some() {
+        tracing::debug!(image, "image found in cache");
         return Ok(());
     }
+
+    if image_exists_locally(client, image).await? {
+        tracing::debug!(image, "image found locally");
+        update_cache(images, image).await;
+        return Ok(());
+    }
+
+    pull_image_from_registry(client, config, image).await?;
+
+    if config.image_verify {
+        verify_and_cleanup_on_failure(client, image).await?;
+    }
+
+    update_cache(images, image).await;
+    Ok(())
+}
+
+async fn check_cache<S: std::hash::BuildHasher>(
+    images: &std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>>,
+    image: &str,
+) -> Option<std::time::Instant> {
+    let cache = images.read().await;
+    cache.get(image).copied()
+}
+
+async fn update_cache<S: std::hash::BuildHasher>(
+    images: &std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, std::time::Instant, S>>>,
+    image: &str,
+) {
+    let mut cache = images.write().await;
+    cache.insert(image.to_string(), std::time::Instant::now());
+}
+
+async fn pull_image_from_registry(
+    client: &Docker,
+    config: &crate::runtime::docker::config::DockerConfig,
+    image: &str,
+) -> Result<(), DockerError> {
     tracing::debug!(image, "pulling image");
     let credentials = get_registry_credentials(config, image).await?;
     let options = CreateImageOptions {
@@ -136,23 +165,20 @@ pub async fn pull_image<S: std::hash::BuildHasher>(
     };
     let mut stream = client.create_image(Some(options), None, credentials);
     while let Some(result) = stream.next().await {
-        match result {
-            Ok(_) => {}
-            Err(e) => return Err(DockerError::image_pull(&e)),
+        if let Err(e) = result {
+            return Err(DockerError::image_pull(&e));
         }
     }
-    if config.image_verify {
-        if let Err(_e) = verify_image(client, image).await {
-            use bollard::query_parameters::RemoveImageOptions;
-            let _ = client
-                .remove_image(image, None::<RemoveImageOptions>, None::<DockerCredentials>)
-                .await;
-            return Err(DockerError::CorruptedImage(image.to_string()));
-        }
-    }
-    {
-        let mut cache = images.write().await;
-        cache.insert(image.to_string(), std::time::Instant::now());
+    Ok(())
+}
+
+async fn verify_and_cleanup_on_failure(client: &Docker, image: &str) -> Result<(), DockerError> {
+    if let Err(_e) = verify_image(client, image).await {
+        use bollard::query_parameters::RemoveImageOptions;
+        let _ = client
+            .remove_image(image, None::<RemoveImageOptions>, None::<DockerCredentials>)
+            .await;
+        return Err(DockerError::CorruptedImage(image.to_string()));
     }
     Ok(())
 }

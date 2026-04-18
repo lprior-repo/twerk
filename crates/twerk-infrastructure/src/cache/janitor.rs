@@ -27,23 +27,24 @@ pub async fn janitor_loop<K, V>(
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
     loop {
+        if check_shutdown(&shutdown_flag) {
+            tracing::debug!("Janitor thread shutting down");
+            break;
+        }
         tokio::select! {
             _ = ticker.tick() => {
-                if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                    tracing::debug!("Janitor thread shutting down");
-                    break;
-                }
-                let callback = on_evicted.lock().clone();
-                delete_expired_from_map(&items, callback);
-            }
-            () = tokio::task::yield_now() => {
-                if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                    tracing::debug!("Janitor thread shutting down");
-                    break;
+                if !check_shutdown(&shutdown_flag) {
+                    let callback = on_evicted.lock().clone();
+                    delete_expired_from_map(&items, callback);
                 }
             }
+            () = tokio::task::yield_now() => {}
         }
     }
+}
+
+fn check_shutdown(shutdown_flag: &std::sync::atomic::AtomicBool) -> bool {
+    shutdown_flag.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 /// Deletes all expired items from the given map and invokes callbacks.

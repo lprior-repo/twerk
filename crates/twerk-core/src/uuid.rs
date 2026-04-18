@@ -77,7 +77,6 @@ mod tests {
         for _ in 0..100 {
             let uid = new_short_uuid();
             assert_eq!(22, uid.len());
-            // Verify all characters are from the base57 alphabet
             for ch in uid.bytes() {
                 assert!(BASE57_ALPHABET.contains(&ch), "invalid char: {ch}");
             }
@@ -93,7 +92,6 @@ mod tests {
 
     #[test]
     fn test_encode_base57_deterministic() {
-        // Same input bytes must produce same output
         let bytes = [0xFF; 16];
         let a = encode_base57(&bytes);
         let b = encode_base57(&bytes);
@@ -103,12 +101,42 @@ mod tests {
 
     #[test]
     fn test_encode_base57_zero_bytes_padded() {
-        // All-zero UUID should be all padding character
         let bytes = [0u8; 16];
         let encoded = encode_base57(&bytes);
         assert_eq!(22, encoded.len());
-        // All-zero UUID encodes to all first-alphabet-char (with Go's algorithm
-        // the while loop doesn't execute, so result is 22 padding chars)
         assert!(encoded.chars().all(|c| c == BASE57_ALPHABET[0] as char));
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(1024))]
+
+        #[test]
+        fn test_encode_base57_deterministic_prop(bytes: [u8; 16]) {
+            let a = encode_base57(&bytes);
+            let b = encode_base57(&bytes);
+            proptest::prop_assert_eq!(a, b);
+        }
+
+        #[test]
+        fn test_encode_base57_length_prop(bytes: [u8; 16]) {
+            let encoded = encode_base57(&bytes);
+            proptest::prop_assert_eq!(22, encoded.len());
+        }
+
+        #[test]
+        fn test_encode_base57_alphabet_prop(bytes: [u8; 16]) {
+            let encoded = encode_base57(&bytes);
+            for ch in encoded.bytes() {
+                proptest::prop_assert!(BASE57_ALPHABET.contains(&ch), "invalid char: {}", ch);
+            }
+        }
+
+        #[test]
+        fn test_encode_base57_injective_prop(bytes_a: [u8; 16], bytes_b: [u8; 16]) {
+            proptest::prop_assume!(bytes_a != bytes_b);
+            let enc_a = encode_base57(&bytes_a);
+            let enc_b = encode_base57(&bytes_b);
+            proptest::prop_assert_ne!(enc_a, enc_b, "different inputs must not produce same encoding");
+        }
     }
 }

@@ -53,8 +53,8 @@ impl Username {
         }
 
         let mut chars = s.chars();
-        // SAFETY: len is in 3..=64, so s has at least 3 characters
-        let first = chars.next().expect("username has at least 3 characters");
+        #[allow(clippy::unwrap_used)]
+        let first = chars.next().unwrap();
         if !first.is_alphabetic() {
             return Err(UsernameError::InvalidCharacter);
         }

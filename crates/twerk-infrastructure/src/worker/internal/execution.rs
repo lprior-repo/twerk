@@ -86,24 +86,41 @@ async fn run_task_with_cancel(
     let task_id_str = t.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
     let timeout = t.timeout.clone();
 
-    if let Some(timeout_str) = timeout {
-        if let Some(dur) = parse_duration(&timeout_str) {
-            return tokio::select! {
-                result = runtime.run(t) => result,
-                _ = cancel_rx.recv() => {
-                    debug!("Task {} cancelled", task_id_str);
-                    Ok(())
-                },
-                () = sleep(dur) => {
-                    warn!("Task {} timed out after {}", task_id_str, timeout_str);
-                    let _ = runtime.stop(t).await;
-                    Err(anyhow::anyhow!("task timed out"))
-                }
-            };
+    if let Some(dur) = timeout.as_ref().and_then(|s| parse_duration(s)) {
+        run_with_timeout(t, runtime, cancel_rx, task_id_str, dur).await
+    } else {
+        run_without_timeout(t, runtime, cancel_rx, task_id_str).await
+    }
+}
+
+async fn run_with_timeout(
+    t: &Task,
+    runtime: Arc<dyn RuntimeTrait>,
+    cancel_rx: &mut broadcast::Receiver<()>,
+    task_id_str: &str,
+    dur: Duration,
+) -> Result<()> {
+    let timeout_str = t.timeout.clone().unwrap_or_default();
+    tokio::select! {
+        result = runtime.run(t) => result,
+        _ = cancel_rx.recv() => {
+            debug!("Task {} cancelled", task_id_str);
+            Ok(())
+        },
+        () = sleep(dur) => {
+            warn!("Task {} timed out after {}", task_id_str, timeout_str);
+            let _ = runtime.stop(t).await;
+            Err(anyhow::anyhow!("task timed out"))
         }
     }
+}
 
-    // No timeout
+async fn run_without_timeout(
+    t: &Task,
+    runtime: Arc<dyn RuntimeTrait>,
+    cancel_rx: &mut broadcast::Receiver<()>,
+    task_id_str: &str,
+) -> Result<()> {
     tokio::select! {
         result = runtime.run(t) => result,
         _ = cancel_rx.recv() => {

@@ -280,8 +280,11 @@ async fn test_postgres_all() {
     );
 
     // 4b. Test cascading cleanup
+    let j_cascade_id = Uuid::new_v4().to_string().replace('-', "");
+    let t_cascade_id = Uuid::new_v4().to_string().replace('-', "");
+    let l_cascade_id = Uuid::new_v4().to_string().replace('-', "");
     let j_cascade = Job {
-        id: Some("job_cascade".into()),
+        id: Some(j_cascade_id.clone().into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -294,8 +297,8 @@ async fn test_postgres_all() {
         .await
         .expect("failed to create job_cascade");
     let t_cascade = Task {
-        id: Some("task_cascade".into()),
-        job_id: Some("job_cascade".into()),
+        id: Some(t_cascade_id.clone().into()),
+        job_id: Some(j_cascade_id.clone().into()),
         created_at: Some(now),
         ..Task::default()
     };
@@ -303,8 +306,8 @@ async fn test_postgres_all() {
         .await
         .expect("failed to create task_cascade");
     let l_cascade = TaskLogPart {
-        id: Some("log_cascade".to_string()),
-        task_id: Some("task_cascade".into()),
+        id: Some(l_cascade_id.clone()),
+        task_id: Some(t_cascade_id.clone().into()),
         number: 1,
         contents: Some("log message".to_string()),
         created_at: Some(now),
@@ -314,16 +317,16 @@ async fn test_postgres_all() {
         .expect("failed to create log_cascade");
 
     // Delete job manually (simulating cleanup)
-    sqlx::query("DELETE FROM jobs WHERE id = 'job_cascade'")
+    sqlx::query(&format!("DELETE FROM jobs WHERE id = '{j_cascade_id}'"))
         .execute(ds.pool().unwrap())
         .await
         .expect("failed to delete job");
 
     // Check if task and logs are gone
-    let t_res = ds.get_task_by_id("task_cascade").await;
+    let t_res = ds.get_task_by_id(&t_cascade_id).await;
     assert!(t_res.is_err(), "task should be deleted by cascade");
     let l_res = ds
-        .get_task_log_parts("task_cascade", "", 1, 10)
+        .get_task_log_parts(&t_cascade_id, "", 1, 10)
         .await
         .expect("get logs failed");
     assert_eq!(l_res.items.len(), 0, "logs should be deleted by cascade");
@@ -422,7 +425,7 @@ async fn test_postgres_all() {
     // 8. Pagination
     for i in 0..15 {
         let j = Job {
-            id: Some(format!("job_pag_{i}").into()),
+            id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
             name: Some(format!("Job {i}")),
             created_by: Some(guest.clone()),
             tags: Some(vec![]),
@@ -462,7 +465,7 @@ async fn test_postgres_all() {
 
     // 11. Search
     let j_search = Job {
-        id: Some("job_search_1".into()),
+        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
         name: Some("Searchable Job".to_string()),
         description: Some("This is a searchable description".to_string()),
         created_by: Some(guest.clone()),
@@ -521,8 +524,9 @@ async fn test_postgres_all() {
     assert!(active_sjs.iter().any(|s| s.id == sj.id));
 
     // 13. Retention/Cleanup
+    let job_expired_id = Uuid::new_v4().to_string().replace('-', "");
     let j_expired = Job {
-        id: Some("job_expired".into()),
+        id: Some(job_expired_id.clone().into()),
         created_by: Some(guest.clone()),
         state: twerk_core::job::JobState::Completed,
         created_at: Some(now - Duration::days(400)),
@@ -538,18 +542,19 @@ async fn test_postgres_all() {
         .expect("failed to create expired job");
 
     // Verify it exists before cleanup
-    ds.get_job_by_id("job_expired")
+    ds.get_job_by_id(&job_expired_id)
         .await
         .expect("job should exist before cleanup");
 
     ds.cleanup().await.expect("cleanup failed");
 
-    let res = ds.get_job_by_id("job_expired").await;
+    let res = ds.get_job_by_id(&job_expired_id).await;
     assert!(res.is_err()); // Should be deleted
 
     // 14. Transactions
+    let job_tx_id = Uuid::new_v4().to_string().replace('-', "");
     let j_tx = Job {
-        id: Some("job_tx".into()),
+        id: Some(job_tx_id.clone().into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -575,12 +580,13 @@ async fn test_postgres_all() {
         .await;
 
     assert!(res.is_err());
-    let res_get = ds_clone.get_job_by_id("job_tx").await;
+    let res_get = ds_clone.get_job_by_id(&job_tx_id).await;
     assert!(res_get.is_err()); // Should NOT exist due to rollback
 
     // 15. Concurrency
+    let job_conc_id = Uuid::new_v4().to_string().replace('-', "");
     let j_conc = Job {
-        id: Some("job_conc".into()),
+        id: Some(job_conc_id.clone().into()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -596,9 +602,10 @@ async fn test_postgres_all() {
     let mut handles = vec![];
     for _ in 0..5 {
         let ds_c = ds.clone();
+        let job_conc_id_c = job_conc_id.clone();
         handles.push(tokio::spawn(async move {
             ds_c.update_job(
-                "job_conc",
+                &job_conc_id_c,
                 Box::new(move |mut j| {
                     j.position += 1;
                     Ok(j)
@@ -612,7 +619,7 @@ async fn test_postgres_all() {
         h.await.expect("task panicked");
     }
     let j_conc2 = ds
-        .get_job_by_id("job_conc")
+        .get_job_by_id(&job_conc_id)
         .await
         .expect("failed to get job_conc");
     assert_eq!(j_conc2.position, 5);

@@ -140,41 +140,36 @@ impl PodmanRuntime {
 
     /// Inner execution - setup workdir and run container.
     async fn do_run_inner(&self, task: &mut CoreTask) -> Result<(), PodmanError> {
-        // Setup work directory
         let task_id_str = task.id.as_ref().map_or("unknown", |id| id.as_str());
         let workdir = std::env::temp_dir().join("twerk").join(task_id_str);
-        tokio::fs::create_dir_all(&workdir)
+
+        self.setup_workdir(&workdir, task).await?;
+
+        let result = self
+            .execute_container(task, &workdir, &workdir.join("stdout"), &workdir.join("progress"))
+            .await;
+
+        if let Err(e) = tokio::fs::remove_dir_all(&workdir).await {
+            warn!("error removing workdir {:?}: {}", workdir, e);
+        }
+
+        result
+    }
+
+    async fn setup_workdir(&self, workdir: &std::path::Path, task: &CoreTask) -> Result<(), PodmanError> {
+        tokio::fs::create_dir_all(workdir)
             .await
             .map_err(|e| PodmanError::WorkdirCreation(e.to_string()))?;
 
-        // Create output and progress files
         let output_file = workdir.join("stdout");
+        create_file_with_permissions(&output_file, 0o777).await?;
         let progress_file = workdir.join("progress");
+        create_file_with_permissions(&progress_file, 0o777).await?;
 
-        tokio::fs::File::create(&output_file)
-            .await
-            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-        #[cfg(unix)]
-        tokio::fs::set_permissions(&output_file, PermissionsExt::from_mode(0o777))
-            .await
-            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-
-        tokio::fs::File::create(&progress_file)
-            .await
-            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-        #[cfg(unix)]
-        tokio::fs::set_permissions(&progress_file, PermissionsExt::from_mode(0o777))
-            .await
-            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-
-        // Write entrypoint script
         let entrypoint_path = workdir.join("entrypoint.sh");
-        let run_script = if let Some(ref run) = task.run {
-            run.clone()
-        } else {
+        let run_script = task.run.clone().unwrap_or_else(|| {
             task.cmd.as_ref().map_or(String::new(), |cmd| cmd.join(" "))
-        };
-
+        });
         tokio::fs::write(&entrypoint_path, &run_script)
             .await
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
@@ -183,38 +178,50 @@ impl PodmanRuntime {
             .await
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
 
-        // Write task files
-        if let Some(ref files) = task.files {
-            if !files.is_empty() {
-                let files_dir = workdir.join("workdir");
-                tokio::fs::create_dir_all(&files_dir)
+        write_task_files(workdir, &task.files).await?;
+
+        Ok(())
+    }
+}
+
+async fn create_file_with_permissions(
+    path: &std::path::Path,
+    mode: u32,
+) -> Result<(), PodmanError> {
+    tokio::fs::File::create(path)
+        .await
+        .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
+    #[cfg(unix)]
+    tokio::fs::set_permissions(path, PermissionsExt::from_mode(mode))
+        .await
+        .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
+    Ok(())
+}
+
+async fn write_task_files(
+    workdir: &std::path::Path,
+    files: &Option<std::collections::HashMap<String, String>>,
+) -> Result<(), PodmanError> {
+    if let Some(ref files) = files {
+        if files.is_empty() {
+            return Ok(());
+        }
+        let files_dir = workdir.join("workdir");
+        tokio::fs::create_dir_all(&files_dir)
+            .await
+            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
+
+        for (filename, contents) in files {
+            let file_path = files_dir.join(filename);
+            if let Some(parent) = file_path.parent() {
+                tokio::fs::create_dir_all(parent)
                     .await
                     .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-
-                for (filename, contents) in files {
-                    let file_path = files_dir.join(filename);
-                    if let Some(parent) = file_path.parent() {
-                        tokio::fs::create_dir_all(parent)
-                            .await
-                            .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-                    }
-                    tokio::fs::write(&file_path, contents)
-                        .await
-                        .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
-                }
             }
+            tokio::fs::write(&file_path, contents)
+                .await
+                .map_err(|e| PodmanError::FileWrite(e.to_string()))?;
         }
-
-        // Execute container
-        let result = self
-            .execute_container(task, &workdir, &output_file, &progress_file)
-            .await;
-
-        // Cleanup workdir
-        if let Err(e) = tokio::fs::remove_dir_all(&workdir).await {
-            warn!("error removing workdir {:?}: {}", workdir, e);
-        }
-
-        result
     }
+    Ok(())
 }

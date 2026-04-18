@@ -78,6 +78,7 @@ impl TracingWriter {
     /// Write a log entry.
     ///
     /// The entire contents are logged as a single log line.
+    #[allow(clippy::cognitive_complexity)]
     pub fn write(&self, contents: &str) {
         let line = contents.trim_end();
         if line.is_empty() {

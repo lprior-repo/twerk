@@ -13,6 +13,7 @@ use twerk_core::user::User;
 use twerk_core::validation::{validate_cron, validate_job};
 
 use super::super::error::ApiError;
+use super::super::redact::{redact_scheduled_job, redact_scheduled_job_summary};
 use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
 use tracing::instrument;
@@ -215,7 +216,8 @@ pub async fn create_scheduled_job_handler(
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let summary = new_scheduled_job_summary(&sj);
+    let mut summary = new_scheduled_job_summary(&sj);
+    redact_scheduled_job_summary(&mut summary);
     Ok((StatusCode::OK, axum::Json(summary)).into_response())
 }
 
@@ -240,12 +242,15 @@ pub async fn list_scheduled_jobs_handler(
     let size = parse_size(qp.size, 10, 20);
     let current_user = extract_current_user(&req);
 
-    let result = state
+    let mut result = state
         .ds
         .get_scheduled_jobs(&current_user, page, size)
         .await
         .map_err(ApiError::from)?;
 
+    for sj in &mut result.items {
+        redact_scheduled_job_summary(sj);
+    }
     Ok(axum::Json(result).into_response())
 }
 
@@ -265,12 +270,13 @@ pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,
 ) -> Result<Response, ApiError> {
-    let sj = state
+    let mut sj = state
         .ds
         .get_scheduled_job_by_id(&id)
         .await
         .map_err(ApiError::from)?;
 
+    redact_scheduled_job(&mut sj);
     Ok(axum::Json(sj).into_response())
 }
 

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use twerk_core::job::{Job, JobSummary};
+use twerk_core::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use twerk_core::task::{Task, TaskLogPart};
 
 const REDACTED_STR: &str = "[REDACTED]";
@@ -64,6 +64,40 @@ pub fn redact_job_summary(summary: &mut JobSummary) {
     // But JobSummary.inputs usually doesn't contain secrets unless they were passed as inputs.
 
     // For now, let's just redact based on keys for JobSummary if needed.
+    if let Some(ref mut inputs) = summary.inputs {
+        *inputs = redact_vars_by_key_only(inputs);
+    }
+}
+
+pub fn redact_scheduled_job(sj: &mut ScheduledJob) {
+    let secrets = sj.secrets.clone().unwrap_or_default();
+
+    if let Some(ref mut inputs) = sj.inputs {
+        *inputs = redact_vars(inputs, &secrets);
+    }
+
+    if let Some(ref mut webhooks) = sj.webhooks {
+        for w in webhooks {
+            if let Some(ref mut headers) = w.headers {
+                *headers = redact_vars(headers, &secrets);
+            }
+        }
+    }
+
+    if let Some(ref mut tasks) = sj.tasks {
+        for t in tasks {
+            redact_task_internal(t, &secrets);
+        }
+    }
+
+    if let Some(ref mut sj_secrets) = sj.secrets {
+        for v in sj_secrets.values_mut() {
+            *v = REDACTED_STR.to_string();
+        }
+    }
+}
+
+pub fn redact_scheduled_job_summary(summary: &mut ScheduledJobSummary) {
     if let Some(ref mut inputs) = summary.inputs {
         *inputs = redact_vars_by_key_only(inputs);
     }

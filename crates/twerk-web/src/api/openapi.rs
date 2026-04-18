@@ -1,4 +1,5 @@
 #![allow(clippy::needless_for_each)]
+use serde::Serialize;
 use twerk_core::id::{JobId, ScheduledJobId, TaskId};
 use twerk_core::job::{
     Job, JobContext, JobDefaults, JobSchedule, JobState, JobSummary, ScheduledJob,
@@ -12,7 +13,8 @@ use twerk_core::webhook::Webhook;
 use twerk_infrastructure::broker::QueueInfo;
 
 use super::error::ApiError;
-use super::trigger_api::{Trigger, TriggerId, TriggerUpdateRequest, TriggerView};
+use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
+use twerk_core::trigger::Trigger;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[schema(example = json!({"name": "example-task"}))]

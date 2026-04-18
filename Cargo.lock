@@ -5897,6 +5897,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "twerk-openapi-gen"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "twerk-web",
+]
+
+[[package]]
 name = "twerk-web"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,15 @@
+[package]
+name = "twerk-openapi-gen"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "twerk-openapi-gen"
+path = "src/main.rs"
+
+[dependencies]
+twerk-web.workspace = true
+serde_json.workspace = true

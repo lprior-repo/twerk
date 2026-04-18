@@ -57,13 +57,13 @@ pub enum CliError {
 
 impl From<DsnError> for CliError {
     fn from(e: DsnError) -> Self {
-        CliError::Migration(e.to_string())
+        Self::Migration(e.to_string())
     }
 }
 
 impl From<EndpointError> for CliError {
     fn from(e: EndpointError) -> Self {
-        CliError::InvalidEndpoint(e.to_string())
+        Self::InvalidEndpoint(e.to_string())
     }
 }
 

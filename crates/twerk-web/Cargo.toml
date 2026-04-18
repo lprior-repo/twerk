@@ -34,6 +34,7 @@ itertools.workspace = true
 utoipa.workspace = true
 utoipa.workspace = true
 utoipa-axum.workspace = true
+utoipa.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

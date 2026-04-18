@@ -31,6 +31,7 @@ pub mod combinatorial;
 pub mod domain;
 pub mod error;
 pub mod handlers;
+pub mod openapi;
 pub mod redact;
 pub mod trigger_api;
 pub mod types;

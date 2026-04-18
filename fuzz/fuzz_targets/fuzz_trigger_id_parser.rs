@@ -1,7 +1,16 @@
 #![no_main]
 
+use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
+use twerk_web::api::trigger_api::TriggerId;
 
-fuzz_target!(|_data: &[u8]| {
-    panic!("RED: fuzz target for TriggerId parser pending implementation");
+#[derive(arbitrary::Arbitrary)]
+struct TriggerIdInput<'a> {
+    data: &'a [u8],
+}
+
+fuzz_target!(|input: TriggerIdInput| {
+    if let Ok(s) = std::str::from_utf8(input.data) {
+        let _ = TriggerId::parse(s);
+    }
 });

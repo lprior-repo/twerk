@@ -9,6 +9,16 @@ pub fn var_with_twerk_prefix(key: &str) -> Option<String> {
     env::var(&env_key).ok().filter(|value| !value.is_empty())
 }
 
+struct EnvVarGuard<'a> {
+    key: &'a str,
+}
+
+impl<'a> Drop for EnvVarGuard<'a> {
+    fn drop(&mut self) {
+        env::remove_var(self.key);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -19,10 +29,10 @@ mod tests {
         let env_key = format!("TWERK_{}", key.to_uppercase().replace('.', "_"));
         let test_value = "test_value_123";
         env::set_var(&env_key, test_value);
+        let _guard = EnvVarGuard { key: &env_key };
         let result = var_with_twerk_prefix(key);
         assert!(result.is_some());
         assert_eq!(result.unwrap(), test_value);
-        env::remove_var(&env_key);
     }
 
     #[test]

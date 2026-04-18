@@ -6,6 +6,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 
+use super::super::domain::{Password, PasswordError, Username, UsernameError};
 use super::super::error::ApiError;
 use super::{AppState, VERSION};
 use tracing::instrument;
@@ -64,6 +65,23 @@ pub struct CreateUserBody {
     pub password: Option<String>,
 }
 
+fn username_error_to_string(err: UsernameError) -> String {
+    match err {
+        UsernameError::Empty => "username cannot be empty".to_string(),
+        UsernameError::LengthOutOfRange => "username must be 3-64 characters".to_string(),
+        UsernameError::InvalidCharacter => {
+            "username must start with a letter and contain only alphanumeric characters, underscores, or hyphens".to_string()
+        }
+    }
+}
+
+fn password_error_to_string(err: PasswordError) -> String {
+    match err {
+        PasswordError::Empty => "password cannot be empty".to_string(),
+        PasswordError::TooShort => "password must be at least 8 characters".to_string(),
+    }
+}
+
 /// POST /users
 ///
 /// # Errors
@@ -74,19 +92,28 @@ pub async fn create_user_handler(
 ) -> Result<Response, ApiError> {
     let username = body
         .username
-        .ok_or_else(|| ApiError::bad_request("missing username"))?;
+        .ok_or_else(|| ApiError::bad_request("username is required"))?;
+    let username = Username::new(&username).map_err(|e| {
+        ApiError::bad_request(format!("invalid username: {}", username_error_to_string(e)))
+    })?;
+
     let password = body
         .password
-        .ok_or_else(|| ApiError::bad_request("missing password"))?;
+        .ok_or_else(|| ApiError::bad_request("password is required"))?;
+    let password = Password::new(&password).map_err(|e| {
+        ApiError::bad_request(format!("invalid password: {}", password_error_to_string(e)))
+    })?;
 
-    let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+    let password_hash =
+        bcrypt::hash(password.as_str(), bcrypt::DEFAULT_COST).map_err(|e| {
+            ApiError::internal(e.to_string())
+        })?;
 
     let user_id = twerk_core::id::UserId::new(twerk_core::uuid::new_short_uuid())?;
 
     let user = twerk_core::user::User {
         id: Some(user_id),
-        username: Some(username),
+        username: Some(username.as_str().to_string()),
         password_hash: Some(password_hash),
         ..Default::default()
     };

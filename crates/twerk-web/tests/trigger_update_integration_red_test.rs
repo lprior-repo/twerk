@@ -248,42 +248,6 @@ async fn update_trigger_handler_returns_500_persistence_when_datastore_update_fa
 }
 
 #[tokio::test]
-async fn update_trigger_handler_returns_500_serialization_when_response_encoding_fails() {
-    let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_abc")).unwrap();
-    let app = create_router(build_state(trigger_ds));
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .method("PUT")
-                .uri("/api/v1/triggers/trg_abc")
-                .header(header::CONTENT_TYPE, "application/json")
-                .header("x-force-serialization-error", "true")
-                .body(Body::from(
-                    serde_json::to_vec(&body_ok("trg_abc")).expect("serialize"),
-                ))
-                .expect("request"),
-        )
-        .await
-        .expect("response");
-    let status = response.status();
-    let bytes = response
-        .into_body()
-        .collect()
-        .await
-        .expect("body")
-        .to_bytes();
-    let body: Value = serde_json::from_slice(&bytes).expect("json");
-
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(
-        body,
-        json!({"error":"Serialization","message":"failed to serialize response"})
-    );
-}
-
-#[tokio::test]
 async fn update_trigger_handler_returns_200_and_trigger_view_equal_to_committed_trigger() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("trg_abc")).unwrap();

@@ -129,21 +129,8 @@ fn parse_content_type(headers: &HeaderMap) -> Result<String, TriggerUpdateError>
     Ok(content_type)
 }
 
-/// Check for forced serialization error or version conflict.
-fn check_version_constraints(
-    headers: &HeaderMap,
-    req: &TriggerUpdateRequest,
-) -> Option<TriggerUpdateError> {
-    if headers
-        .get("x-force-serialization-error")
-        .and_then(|v| v.to_str().ok())
-        == Some("true")
-    {
-        return Some(TriggerUpdateError::Serialization(
-            SERIALIZATION_MSG.to_string(),
-        ));
-    }
-
+/// Check for version conflict.
+fn check_version_constraints(req: &TriggerUpdateRequest) -> Option<TriggerUpdateError> {
     if req.version == Some(0) {
         return Some(TriggerUpdateError::VersionConflict(
             "stale version supplied".to_string(),
@@ -168,7 +155,7 @@ fn prepare_update(
     let _content_type = parse_content_type(headers)?;
     let req = decode_trigger_update_request(body)?;
     let trigger_id = validate_trigger_update(path_id, &req)?;
-    check_version_constraints(headers, &req).map_or(Ok(()), Err)?;
+    check_version_constraints(&req).map_or(Ok(()), Err)?;
     Ok((trigger_id, req))
 }
 

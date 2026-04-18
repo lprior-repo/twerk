@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 
 // ---------------------------------------------------------------------------
 // JobState enum
@@ -20,7 +21,7 @@ use time::OffsetDateTime;
 /// - `Running` -> `Completed` | `Failed` | `Cancelled`
 /// - `Failed` | `Cancelled` -> `Restart`
 /// - `Restart` -> `Pending`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum JobState {
     #[default]
@@ -176,7 +177,7 @@ pub fn job_event_from_state(job: &Job) -> Option<JobEvent> {
 }
 
 /// State for a [`ScheduledJob`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ScheduledJobState {
     #[default]
@@ -223,7 +224,7 @@ pub const SCHEDULED_JOB_STATE_ACTIVE: &str = "ACTIVE";
 pub const SCHEDULED_JOB_STATE_PAUSED: &str = "PAUSED";
 
 /// Job represents a job in the system.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Job {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -292,7 +293,7 @@ impl Job {
 }
 
 /// `ScheduledJob` represents a scheduled job.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledJob {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -330,7 +331,7 @@ pub struct ScheduledJob {
 }
 
 /// `JobSchedule` defines a job schedule.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JobSchedule {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -340,7 +341,7 @@ pub struct JobSchedule {
 }
 
 /// `JobSummary` provides a summary view of a job.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JobSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -382,7 +383,7 @@ pub struct JobSummary {
 }
 
 /// `ScheduledJobSummary` provides a summary view of a scheduled job.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledJobSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -406,7 +407,7 @@ pub struct ScheduledJobSummary {
 }
 
 /// `JobContext` holds contextual information for a job.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JobContext {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -452,7 +453,7 @@ impl JobContext {
 }
 
 /// `JobDefaults` defines default values for job tasks.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JobDefaults {
     #[serde(skip_serializing_if = "Option::is_none")]

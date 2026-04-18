@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 pub mod mount_type {
     pub const VOLUME: &str = "volume";
@@ -12,7 +13,7 @@ pub const MOUNT_TYPE_BIND: &str = mount_type::BIND;
 pub const MOUNT_TYPE_TMPFS: &str = mount_type::TMPFS;
 
 /// Mount represents a filesystem mount configuration.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Mount {
     #[serde(skip_serializing_if = "Option::is_none")]

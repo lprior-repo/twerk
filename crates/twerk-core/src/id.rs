@@ -139,6 +139,18 @@ impl JobId {
     }
 }
 
+impl utoipa::PartialSchema for JobId {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <String as utoipa::PartialSchema>::schema()
+    }
+}
+
+impl utoipa::ToSchema for JobId {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("string")
+    }
+}
+
 impl From<String> for JobId {
     fn from(s: String) -> Self {
         Self(s)
@@ -191,6 +203,30 @@ define_id!(ScheduledJobId);
 define_id!(UserId);
 define_id!(RoleId);
 
+// Implement PartialSchema and ToSchema for all ID types
+// This allows them to be used in structs with #[derive(ToSchema)]
+macro_rules! impl_partial_schema_for_id {
+    ($name:ident) => {
+        impl utoipa::PartialSchema for $name {
+            fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+                <String as utoipa::PartialSchema>::schema()
+            }
+        }
+
+        impl utoipa::ToSchema for $name {
+            fn name() -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Borrowed("string")
+            }
+        }
+    };
+}
+
+impl_partial_schema_for_id!(TaskId);
+impl_partial_schema_for_id!(NodeId);
+impl_partial_schema_for_id!(ScheduledJobId);
+impl_partial_schema_for_id!(UserId);
+impl_partial_schema_for_id!(RoleId);
+
 // =========================================================================
 // TriggerId — hand-written (NOT using define_id!) to enforce 3-64 length
 // =========================================================================
@@ -211,6 +247,18 @@ impl<'de> Deserialize<'de> for TriggerId {
     {
         let s: String = String::deserialize(deserializer)?;
         Self::new(s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl utoipa::PartialSchema for TriggerId {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <String as utoipa::PartialSchema>::schema()
+    }
+}
+
+impl utoipa::ToSchema for TriggerId {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("string")
     }
 }
 

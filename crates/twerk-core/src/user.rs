@@ -1,6 +1,7 @@
 use crate::id::UserId;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 
 pub type UsernameKey = &'static str;
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,7 +10,7 @@ pub struct UsernameValue(pub String);
 pub const USER_GUEST: &str = "guest";
 pub const USERNAME: UsernameKey = "username";
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]

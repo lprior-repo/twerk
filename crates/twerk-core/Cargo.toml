@@ -38,6 +38,7 @@ parking_lot.workspace = true
 zeroize.workspace = true
 chrono-tz.workspace = true
 jmespath.workspace = true
+utoipa = { workspace = true, features = ["time", "rc_schema"] }
 
 [dev-dependencies]
 rstest.workspace = true

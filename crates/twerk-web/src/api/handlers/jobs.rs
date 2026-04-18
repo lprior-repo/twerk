@@ -18,7 +18,7 @@ use crate::middleware::hooks::{on_read_job, on_read_job_summary};
 use tracing::instrument;
 
 /// Whether the create-job endpoint should block until the job completes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, utoipa::ToSchema)]
 pub enum WaitMode {
     #[default]
     Detached,
@@ -52,7 +52,7 @@ impl<'de> Deserialize<'de> for WaitMode {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default, utoipa::ToSchema)]
 pub struct CreateJobQuery {
     pub wait: Option<WaitMode>,
 }

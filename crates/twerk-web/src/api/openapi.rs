@@ -1,107 +1,101 @@
 #![allow(clippy::needless_for_each)]
-use serde::Serialize;
-use twerk_core::job::{Job, ScheduledJob};
-use twerk_core::node::Node;
+use crate::api::error::ApiError;
+use crate::api::handlers::jobs::{CreateJobQuery, WaitMode};
+use crate::api::handlers::scheduled::CreateScheduledJobBody;
+use crate::api::handlers::system::CreateUserBody;
+use crate::api::trigger_api::domain::{TriggerId, TriggerUpdateRequest, TriggerView};
+use twerk_core::id::{JobId, NodeId, ScheduledJobId, TaskId, UserId};
+use twerk_core::job::{
+    Job, JobDefaults, JobState, JobSummary, ScheduledJob, ScheduledJobState, ScheduledJobSummary,
+};
+use twerk_core::mount::Mount;
+use twerk_core::node::{Node, NodeStatus};
+use twerk_core::role::Role;
 use twerk_core::stats::Metrics;
-use twerk_core::task::Task;
+use twerk_core::task::{AutoDelete, Permission, Probe, Registry};
+use twerk_core::task::{Task, TaskLogPart, TaskState};
 use twerk_core::trigger::Trigger;
 use twerk_core::user::User;
+use twerk_core::webhook::Webhook;
 use twerk_infrastructure::broker::QueueInfo;
+use twerk_infrastructure::datastore::Page;
+use utoipa::OpenApi;
 
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-job"}))]
-pub struct JobSchema {
-    #[serde(flatten)]
-    pub inner: Job,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-task"}))]
-pub struct TaskSchema {
-    #[serde(flatten)]
-    pub inner: Task,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-scheduled-job"}))]
-pub struct ScheduledJobSchema {
-    #[serde(flatten)]
-    pub inner: ScheduledJob,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-trigger"}))]
-pub struct TriggerSchema {
-    #[serde(flatten)]
-    pub inner: Trigger,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-user"}))]
-pub struct UserSchema {
-    #[serde(flatten)]
-    pub inner: User,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "default", "size": 0, "subscribers": 0, "unacked": 0}))]
-pub struct QueueInfoSchema {
-    #[serde(flatten)]
-    pub inner: QueueInfo,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"name": "example-node", "status": "UP"}))]
-pub struct NodeSchema {
-    #[serde(flatten)]
-    pub inner: Node,
-}
-
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({"jobs": {"running": 0}, "tasks": {"running": 0}, "nodes": {"online": 0, "cpuPercent": 0.0}}))]
-pub struct MetricsSchema {
-    #[serde(flatten)]
-    pub inner: Metrics,
-}
-
-#[derive(utoipa::ToSchema)]
-#[schema(example = json!({"message": "error message"}))]
-pub struct ApiErrorSchema {
-    pub message: String,
-}
-
-#[utoipa::path(
-    get,
-    path = "/health",
-    responses(
-        (status = 200, description = "Health check successful")
-    )
-)]
-pub fn health_path() {}
-
-#[utoipa::path(
-    get,
-    path = "/jobs",
-    responses(
-        (status = 200, description = "List jobs")
-    )
-)]
-pub fn list_jobs_path() {}
-
-#[allow(clippy::needless_for_each)]
-#[derive(utoipa::OpenApi)]
+#[derive(OpenApi)]
 #[openapi(
+    paths(
+        super::handlers::system::health_handler,
+        super::handlers::system::list_nodes_handler,
+        super::handlers::system::get_metrics_handler,
+        super::handlers::system::create_user_handler,
+        super::handlers::jobs::create_job_handler,
+        super::handlers::jobs::list_jobs_handler,
+        super::handlers::jobs::get_job_handler,
+        super::handlers::jobs::cancel_job_handler,
+        super::handlers::jobs::restart_job_handler,
+        super::handlers::jobs::get_job_log_handler,
+        super::handlers::tasks::get_task_handler,
+        super::handlers::tasks::get_task_log_handler,
+        super::handlers::scheduled::create_scheduled_job_handler,
+        super::handlers::scheduled::list_scheduled_jobs_handler,
+        super::handlers::scheduled::get_scheduled_job_handler,
+        super::handlers::scheduled::pause_scheduled_job_handler,
+        super::handlers::scheduled::resume_scheduled_job_handler,
+        super::handlers::scheduled::delete_scheduled_job_handler,
+        super::handlers::queues::list_queues_handler,
+        super::handlers::queues::get_queue_handler,
+        super::handlers::queues::delete_queue_handler,
+        super::trigger_api::handlers::list_triggers_handler,
+        super::trigger_api::handlers::create_trigger_handler,
+        super::trigger_api::handlers::get_trigger_handler,
+        super::trigger_api::handlers::update_trigger_handler,
+        super::trigger_api::handlers::delete_trigger_handler,
+    ),
     components(schemas(
-        JobSchema,
-        TaskSchema,
-        ScheduledJobSchema,
-        TriggerSchema,
-        UserSchema,
-        QueueInfoSchema,
-        NodeSchema,
-        MetricsSchema,
-        ApiErrorSchema
+        Job,
+        JobSummary,
+        ScheduledJob,
+        ScheduledJobSummary,
+        JobState,
+        ScheduledJobState,
+        JobDefaults,
+        Task,
+        TaskLogPart,
+        TaskState,
+        Node,
+        NodeStatus,
+        Metrics,
+        User,
+        Trigger,
+        TriggerView,
+        TriggerUpdateRequest,
+        TriggerId,
+        JobId,
+        TaskId,
+        NodeId,
+        UserId,
+        ScheduledJobId,
+        Permission,
+        Mount,
+        AutoDelete,
+        Probe,
+        Webhook,
+        Registry,
+        Role,
+        QueueInfo,
+        Page<JobSummary>,
+        Page<ScheduledJobSummary>,
+        Page<TaskLogPart>,
+        ApiError,
+        CreateUserBody,
+        CreateScheduledJobBody,
+        CreateJobQuery,
+        WaitMode,
     )),
-    paths(health_path, list_jobs_path)
+    info(
+        title = "Twerk API",
+        version = env!("CARGO_PKG_VERSION"),
+        description = "Task scheduling and job queue management API",
+    )
 )]
 pub struct ApiDoc;

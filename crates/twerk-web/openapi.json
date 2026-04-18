@@ -1,626 +1,165 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.0",
   "info": {
-    "title": "Twerk Web API",
-    "description": "REST API for the Twerk job scheduling system",
+    "title": "Twerk API",
+    "description": "Task scheduling and job queue management API",
+    "contact": {
+      "name": "Twerk Contributors"
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    },
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/triggers": {
+      "get": {
+        "tags": [
+          "super::trigger_api::handlers"
+        ],
+        "summary": "GET /api/v1/triggers",
+        "description": "Lists all triggers.\n\n# Errors\nReturns 500 for persistence errors.",
+        "operationId": "list_triggers_handler",
+        "responses": {
+          "200": {
+            "description": "List of triggers"
+          },
+          "500": {
+            "description": "Persistence error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "super::trigger_api::handlers"
+        ],
+        "summary": "POST /api/v1/triggers",
+        "description": "# Errors\nReturns 201 on success, 400 for validation errors.",
+        "operationId": "create_trigger_handler",
+        "responses": {
+          "201": {
+            "description": "Trigger created"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/triggers/{id}": {
+      "get": {
+        "tags": [
+          "super::trigger_api::handlers"
+        ],
+        "summary": "GET /api/v1/triggers/{id}",
+        "description": "# Errors\nReturns 404 if trigger not found, 400 if ID format invalid.",
+        "operationId": "get_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger found"
+          },
+          "400": {
+            "description": "Invalid ID format"
+          },
+          "404": {
+            "description": "Trigger not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "super::trigger_api::handlers"
+        ],
+        "summary": "Handler for `PUT /api/v1/triggers/{id}`.",
+        "description": "# Errors\nReturns `ApiError` only for framework-level failures.",
+        "operationId": "update_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger updated"
+          },
+          "400": {
+            "description": "Validation error or invalid request"
+          },
+          "404": {
+            "description": "Trigger not found"
+          },
+          "409": {
+            "description": "Version conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "super::trigger_api::handlers"
+        ],
+        "operationId": "delete_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trigger deleted"
+          },
+          "400": {
+            "description": "Invalid ID format"
+          },
+          "404": {
+            "description": "Trigger not found"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
-        "operationId": "healthCheck",
-        "summary": "Health check endpoint",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tasks/{id}": {
-      "get": {
-        "operationId": "getTask",
-        "summary": "Get a task by ID",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
+        "tags": [
+          "super::handlers::system"
         ],
+        "summary": "Health check handler",
+        "operationId": "health_handler",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Service is healthy",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Task"
+                  "type": "object"
                 }
               }
             }
           },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/tasks/{id}/log": {
-      "get": {
-        "operationId": "getTaskLog",
-        "summary": "Get task log",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskLogResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/jobs": {
-      "get": {
-        "operationId": "listJobs",
-        "summary": "List jobs",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobListResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createJob",
-        "summary": "Create a new job",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JobInput"
-              }
-            },
-            "text/yaml": {
-              "schema": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          }
-        }
-      }
-    },
-    "/jobs/{id}": {
-      "get": {
-        "operationId": "getJob",
-        "summary": "Get a job by ID",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Job"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/jobs/{id}/log": {
-      "get": {
-        "operationId": "getJobLog",
-        "summary": "Get job log",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskLogResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/jobs/{id}/cancel": {
-      "put": {
-        "operationId": "cancelJob",
-        "summary": "Cancel a job",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/jobs/{id}/restart": {
-      "put": {
-        "operationId": "restartJob",
-        "summary": "Restart a job",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs": {
-      "get": {
-        "operationId": "listScheduledJobs",
-        "summary": "List scheduled jobs",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJobListResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "createScheduledJob",
-        "summary": "Create a scheduled job",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScheduledJobInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJobSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}": {
-      "get": {
-        "operationId": "getScheduledJob",
-        "summary": "Get a scheduled job by ID",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJob"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/pause": {
-      "put": {
-        "operationId": "pauseScheduledJob",
-        "summary": "Pause a scheduled job",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/resume": {
-      "put": {
-        "operationId": "resumeScheduledJob",
-        "summary": "Resume a scheduled job",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}": {
-      "delete": {
-        "operationId": "deleteScheduledJob",
-        "summary": "Delete a scheduled job",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/queues": {
-      "get": {
-        "operationId": "listQueues",
-        "summary": "List queues",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/QueueInfo"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/queues/{name}": {
-      "get": {
-        "operationId": "getQueue",
-        "summary": "Get queue info",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueueInfo"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteQueue",
-        "summary": "Delete a queue",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/nodes": {
-      "get": {
-        "operationId": "listNodes",
-        "summary": "List nodes",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/NodeInfo"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "operationId": "getMetrics",
-        "summary": "Get metrics",
-        "responses": {
-          "200": {
-            "description": "OK",
+          "503": {
+            "description": "Service is unhealthy",
             "content": {
               "application/json": {
                 "schema": {
@@ -632,70 +171,38 @@
         }
       }
     },
-    "/users": {
-      "post": {
-        "operationId": "createUser",
-        "summary": "Create a user",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request"
-          }
-        }
-      }
-    },
-    "/api/v1/triggers": {
+    "/jobs": {
       "get": {
-        "operationId": "listTriggers",
-        "summary": "List triggers",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "post": {
-        "operationId": "createTrigger",
-        "summary": "Create a trigger",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request"
-          }
-        }
-      }
-    },
-    "/api/v1/triggers/{id}": {
-      "get": {
-        "operationId": "getTrigger",
-        "summary": "Get a trigger by ID",
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "GET /jobs",
+        "description": "# Errors",
+        "operationId": "list_jobs_handler",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -703,54 +210,314 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
+            "description": "List of jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
           }
         }
       },
+      "post": {
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "POST /jobs",
+        "description": "# Errors",
+        "operationId": "create_job_handler",
+        "parameters": [
+          {
+            "name": "wait",
+            "in": "query",
+            "description": "Whether to block until the job completes (true/false/blocking)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Job definition as JSON or YAML",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid job definition or unsupported content type"
+          }
+        }
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "GET /jobs/{id}",
+        "description": "# Errors",
+        "operationId": "get_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/cancel": {
       "put": {
-        "operationId": "updateTrigger",
-        "summary": "Update a trigger",
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "PUT /jobs/{id}/cancel",
+        "description": "# Errors",
+        "operationId": "cancel_job_handler",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Job cannot be cancelled in its current state"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/log": {
+      "get": {
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "GET /jobs/{id}/log",
+        "description": "# Errors",
+        "operationId": "get_job_log_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job log parts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/restart": {
+      "put": {
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "PUT /jobs/{id}/restart",
+        "description": "# Errors",
+        "operationId": "restart_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job restarted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Job cannot be restarted"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "GET /metrics\n# Errors",
+        "operationId": "get_metrics_handler",
+        "responses": {
+          "200": {
+            "description": "System metrics"
+          }
+        }
+      }
+    },
+    "/nodes": {
+      "get": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "GET /nodes\n# Errors",
+        "operationId": "list_nodes_handler",
+        "responses": {
+          "200": {
+            "description": "List of active nodes"
+          }
+        }
+      }
+    },
+    "/queues": {
+      "get": {
+        "tags": [
+          "super::handlers::queues"
+        ],
+        "summary": "GET /queues",
+        "description": "# Errors",
+        "operationId": "list_queues_handler",
+        "responses": {
+          "200": {
+            "description": "List of queues"
+          }
+        }
+      }
+    },
+    "/queues/{name}": {
+      "get": {
+        "tags": [
+          "super::handlers::queues"
+        ],
+        "summary": "GET /queues/{name}",
+        "description": "# Errors",
+        "operationId": "get_queue_handler",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Queue name",
             "required": true,
             "schema": {
               "type": "string"
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerUpdateRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request"
+            "description": "Queue info"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Queue not found"
           }
         }
       },
       "delete": {
-        "operationId": "deleteTrigger",
-        "summary": "Delete a trigger",
+        "tags": [
+          "super::handlers::queues"
+        ],
+        "summary": "DELETE /queues/{name}",
+        "description": "# Errors",
+        "operationId": "delete_queue_handler",
         "parameters": [
           {
-            "name": "id",
+            "name": "name",
             "in": "path",
+            "description": "Queue name",
             "required": true,
             "schema": {
               "type": "string"
@@ -758,14 +525,231 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "description": "Bad Request"
+          "200": {
+            "description": "Queue deleted"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs": {
+      "get": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "summary": "GET /scheduled-jobs",
+        "description": "# Errors",
+        "operationId": "list_scheduled_jobs_handler",
+        "responses": {
+          "200": {
+            "description": "List of scheduled jobs"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "summary": "POST /scheduled-jobs",
+        "description": "# Errors",
+        "operationId": "create_scheduled_job_handler",
+        "responses": {
+          "200": {
+            "description": "Scheduled job created"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "operationId": "get_scheduled_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Scheduled job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "operationId": "delete_scheduled_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Scheduled job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job deleted"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs/{id}/pause": {
+      "put": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "operationId": "pause_scheduled_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Scheduled job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job paused"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs/{id}/resume": {
+      "put": {
+        "tags": [
+          "super::handlers::scheduled"
+        ],
+        "operationId": "resume_scheduled_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Scheduled job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job resumed"
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::tasks"
+        ],
+        "summary": "GET /tasks/{id}\n# Errors",
+        "operationId": "get_task_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Task ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Task not found"
+          }
+        }
+      }
+    },
+    "/tasks/{id}/log": {
+      "get": {
+        "tags": [
+          "super::handlers::tasks"
+        ],
+        "summary": "GET /tasks/{id}/log\n# Errors",
+        "operationId": "get_task_log_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Task ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size (max 100)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated task log entries"
+          },
+          "404": {
+            "description": "Task not found"
+          }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "POST /users",
+        "description": "# Errors",
+        "operationId": "create_user_handler",
+        "responses": {
+          "200": {
+            "description": "User created"
+          },
+          "400": {
+            "description": "Missing username or password"
           }
         }
       }
@@ -773,276 +757,2019 @@
   },
   "components": {
     "schemas": {
-      "HealthResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          }
-        }
-      },
-      "Task": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          }
-        }
-      },
-      "TaskLogResponse": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "object"
+      "ApiError": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "BadRequest"
+            ],
+            "properties": {
+              "BadRequest": {
+                "type": "string"
+              }
             }
           },
-          "total_items": {
-            "type": "integer"
+          {
+            "type": "object",
+            "required": [
+              "NotFound"
+            ],
+            "properties": {
+              "NotFound": {
+                "type": "string"
+              }
+            }
           },
-          "total_pages": {
-            "type": "integer"
+          {
+            "type": "object",
+            "required": [
+              "Internal"
+            ],
+            "properties": {
+              "Internal": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "AutoDelete": {
+        "type": "object",
+        "description": "`AutoDelete` defines automatic cleanup configuration.",
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
-      "JobInput": {
+      "CreateJobQuery": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
+          "wait": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WaitMode"
+              }
+            ]
+          }
+        }
+      },
+      "CreateScheduledJobBody": {
+        "type": "object",
+        "properties": {
+          "auto_delete": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoDelete"
+              }
+            ]
+          },
+          "cron": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaults": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobDefaults"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "secrets": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
           "tasks": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
-              "$ref": "#/components/schemas/TaskInput"
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "webhooks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Webhook"
             }
           }
         }
       },
-      "TaskInput": {
+      "CreateUserBody": {
         "type": "object",
+        "description": "User creation body",
         "properties": {
-          "name": {
-            "type": "string"
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "image": {
-            "type": "string"
-          },
-          "run": {
-            "type": "string"
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
       "Job": {
         "type": "object",
+        "description": "Job represents a job in the system.",
         "properties": {
-          "id": {
-            "type": "string"
+          "autoDelete": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoDelete"
+              }
+            ]
           },
-          "name": {
-            "type": "string"
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
-          "state": {
-            "type": "string"
+          "context": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobContext"
+              }
+            ]
           },
-          "tasks": {
-            "type": "array",
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "defaults": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobDefaults"
+              }
+            ]
+          },
+          "deleteAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution": {
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
               "$ref": "#/components/schemas/Task"
             }
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parentId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobSchedule"
+              }
+            ]
+          },
+          "secrets": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "taskCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tasks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "webhooks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Webhook"
+            }
           }
         }
+      },
+      "JobContext": {
+        "type": "object",
+        "description": "`JobContext` holds contextual information for a job.",
+        "properties": {
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "job": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tasks": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "JobDefaults": {
+        "type": "object",
+        "description": "`JobDefaults` defines default values for job tasks.",
+        "properties": {
+          "limits": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaskLimits"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "queue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaskRetry"
+              }
+            ]
+          },
+          "timeout": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "JobMetrics": {
+        "type": "object",
+        "description": "`JobMetrics` holds metrics about twerk jobs.",
+        "required": [
+          "running"
+        ],
+        "properties": {
+          "running": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "JobSchedule": {
+        "type": "object",
+        "description": "`JobSchedule` defines a job schedule.",
+        "properties": {
+          "cron": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          }
+        }
+      },
+      "JobState": {
+        "type": "string",
+        "description": "State machine for a [`Job`].\n\nValid transitions:\n- `Pending` -> `Scheduled`\n- `Scheduled` -> `Running`\n- `Running` -> `Completed` | `Failed` | `Cancelled`\n- `Failed` | `Cancelled` -> `Restart`\n- `Restart` -> `Pending`",
+        "enum": [
+          "PENDING",
+          "SCHEDULED",
+          "RUNNING",
+          "CANCELLED",
+          "COMPLETED",
+          "FAILED",
+          "RESTART"
+        ]
       },
       "JobSummary": {
         "type": "object",
+        "description": "`JobSummary` provides a summary view of a job.",
         "properties": {
-          "id": {
-            "type": "string"
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
-          "name": {
-            "type": "string"
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
-          "state": {
-            "type": "string"
-          }
-        }
-      },
-      "JobListResponse": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/JobSummary"
-            }
-          },
-          "total_items": {
-            "type": "integer"
-          },
-          "total_pages": {
-            "type": "integer"
-          }
-        }
-      },
-      "ScheduledJobInput": {
-        "type": "object",
-        "required": ["cron", "tasks"],
-        "properties": {
-          "name": {
-            "type": "string"
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
           },
           "description": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "cron": {
-            "type": "string"
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "tasks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TaskInput"
-            }
-          }
-        }
-      },
-      "ScheduledJob": {
-        "type": "object",
-        "properties": {
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "id": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "cron": {
-            "type": "string"
+          "parentId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobSchedule"
+              }
+            ]
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "state": {
-            "type": "string"
+            "$ref": "#/components/schemas/JobState"
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "taskCount": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
-      "ScheduledJobSummary": {
+      "Metrics": {
         "type": "object",
+        "description": "Metrics holds aggregated metrics across all twerk components.",
+        "required": [
+          "jobs",
+          "tasks",
+          "nodes"
+        ],
+        "properties": {
+          "jobs": {
+            "$ref": "#/components/schemas/JobMetrics"
+          },
+          "nodes": {
+            "$ref": "#/components/schemas/NodeMetrics"
+          },
+          "tasks": {
+            "$ref": "#/components/schemas/TaskMetrics"
+          }
+        }
+      },
+      "Mount": {
+        "type": "object",
+        "description": "Mount represents a filesystem mount configuration.",
         "properties": {
           "id": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "name": {
-            "type": "string"
+          "opts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
-          "cron": {
-            "type": "string"
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
-      "ScheduledJobListResponse": {
+      "Node": {
         "type": "object",
+        "properties": {
+          "cpuPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "hostname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "lastHeartbeatAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "queue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NodeStatus"
+              }
+            ]
+          },
+          "taskCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NodeMetrics": {
+        "type": "object",
+        "description": "`NodeMetrics` holds metrics about twerk nodes.",
+        "required": [
+          "online",
+          "cpuPercent"
+        ],
+        "properties": {
+          "cpuPercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "online": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "NodeStatus": {
+        "type": "string",
+        "enum": [
+          "UP",
+          "DOWN",
+          "OFFLINE"
+        ]
+      },
+      "Page_JobSummary": {
+        "type": "object",
+        "description": "Page represents a paginated result set",
+        "required": [
+          "items",
+          "number",
+          "size",
+          "total_pages",
+          "total_items"
+        ],
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ScheduledJobSummary"
-            }
+              "type": "object",
+              "description": "`JobSummary` provides a summary view of a job.",
+              "properties": {
+                "completedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "createdAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "createdBy": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "error": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "failedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/string"
+                    }
+                  ]
+                },
+                "inputs": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  }
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "parentId": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/string"
+                    }
+                  ]
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "progress": {
+                  "type": "number",
+                  "format": "double"
+                },
+                "result": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "schedule": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobSchedule"
+                    }
+                  ]
+                },
+                "startedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "state": {
+                  "$ref": "#/components/schemas/JobState"
+                },
+                "tags": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "taskCount": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            },
+            "description": "Items in the current page"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Current page number"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Page size"
           },
           "total_items": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items"
           },
           "total_pages": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of pages"
           }
         }
       },
-      "StatusResponse": {
+      "Page_ScheduledJobSummary": {
         "type": "object",
+        "description": "Page represents a paginated result set",
+        "required": [
+          "items",
+          "number",
+          "size",
+          "total_pages",
+          "total_items"
+        ],
         "properties": {
-          "status": {
-            "type": "string"
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "`ScheduledJobSummary` provides a summary view of a scheduled job.",
+              "properties": {
+                "createdAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "createdBy": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  ]
+                },
+                "cron": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/string"
+                    }
+                  ]
+                },
+                "inputs": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  }
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "$ref": "#/components/schemas/ScheduledJobState"
+                },
+                "tags": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "description": "Items in the current page"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Current page number"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Page size"
+          },
+          "total_items": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of pages"
+          }
+        }
+      },
+      "Page_TaskLogPart": {
+        "type": "object",
+        "description": "Page represents a paginated result set",
+        "required": [
+          "items",
+          "number",
+          "size",
+          "total_pages",
+          "total_items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "`TaskLogPart` represents a part of a task's log output.",
+              "properties": {
+                "contents": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "taskId": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Items in the current page"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Current page number"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Page size"
+          },
+          "total_items": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of pages"
+          }
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "description": "Permission defines access permissions.",
+        "properties": {
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Role"
+              }
+            ]
+          },
+          "user": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          }
+        }
+      },
+      "Probe": {
+        "type": "object",
+        "description": "Probe defines health check configuration for a task.",
+        "properties": {
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timeout": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
       "QueueInfo": {
         "type": "object",
+        "required": [
+          "name",
+          "size",
+          "subscribers",
+          "unacked"
+        ],
         "properties": {
           "name": {
             "type": "string"
           },
           "size": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int32"
+          },
+          "subscribers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unacked": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
-      "NodeInfo": {
+      "Registry": {
+        "type": "object",
+        "description": "Registry defines container registry credentials.",
+        "properties": {
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Role": {
         "type": "object",
         "properties": {
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "id": {
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
-      "UserInput": {
+      "ScheduledJob": {
         "type": "object",
-        "required": ["username", "password"],
+        "description": "`ScheduledJob` represents a scheduled job.",
         "properties": {
-          "username": {
-            "type": "string"
+          "autoDelete": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoDelete"
+              }
+            ]
           },
-          "password": {
-            "type": "string"
-          }
-        }
-      },
-      "TriggerInput": {
-        "type": "object",
-        "required": ["name", "event", "action"],
-        "properties": {
-          "name": {
-            "type": "string"
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
-          "enabled": {
-            "type": "boolean"
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
           },
-          "event": {
-            "type": "string"
+          "cron": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "condition": {
-            "type": "string"
+          "defaults": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JobDefaults"
+              }
+            ]
           },
-          "action": {
-            "type": "string"
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "metadata": {
-            "type": "object",
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "secrets": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "$ref": "#/components/schemas/ScheduledJobState"
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "tasks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "webhooks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Webhook"
+            }
+          }
+        }
+      },
+      "ScheduledJobState": {
+        "type": "string",
+        "description": "State for a [`ScheduledJob`].",
+        "enum": [
+          "ACTIVE",
+          "PAUSED"
+        ]
+      },
+      "ScheduledJobSummary": {
+        "type": "object",
+        "description": "`ScheduledJobSummary` provides a summary view of a scheduled job.",
+        "properties": {
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "cron": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ScheduledJobState"
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
               "type": "string"
             }
           }
         }
+      },
+      "Task": {
+        "type": "object",
+        "description": "Task is the basic unit of work that a Worker can handle.",
+        "properties": {
+          "cmd": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "each": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EachTask"
+              }
+            ]
+          },
+          "entrypoint": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "files": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "gpus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "if": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "limits": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaskLimits"
+              }
+            ]
+          },
+          "mounts": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Mount"
+            }
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "networks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "nodeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/string"
+              }
+            ]
+          },
+          "parallel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ParallelTask"
+              }
+            ]
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "post": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "pre": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "probe": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Probe"
+              }
+            ]
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "queue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redelivered": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "registry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Registry"
+              }
+            ]
+          },
+          "result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaskRetry"
+              }
+            ]
+          },
+          "run": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scheduledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sidecars": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TaskState"
+          },
+          "subjob": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SubJobTask"
+              }
+            ]
+          },
+          "tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeout": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "var": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workdir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TaskLimits": {
+        "type": "object",
+        "description": "`TaskLimits` defines resource limits for a task.",
+        "properties": {
+          "cpus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memory": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TaskLogPart": {
+        "type": "object",
+        "description": "`TaskLogPart` represents a part of a task's log output.",
+        "properties": {
+          "contents": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskId": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskMetrics": {
+        "type": "object",
+        "description": "`TaskMetrics` holds metrics about twerk tasks.",
+        "required": [
+          "running"
+        ],
+        "properties": {
+          "running": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TaskRetry": {
+        "type": "object",
+        "description": "`TaskRetry` defines retry configuration for a task.",
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TaskState": {
+        "type": "string",
+        "description": "`TaskState` represents the list of states that a task can be in at any given moment.",
+        "enum": [
+          "CREATED",
+          "PENDING",
+          "SCHEDULED",
+          "RUNNING",
+          "CANCELLED",
+          "STOPPED",
+          "COMPLETED",
+          "FAILED",
+          "SKIPPED"
+        ]
+      },
+      "Trigger": {
+        "type": "object",
+        "description": "A trigger entity with state and variant information.",
+        "required": [
+          "id",
+          "state",
+          "variant"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TriggerState"
+          },
+          "variant": {
+            "$ref": "#/components/schemas/TriggerVariant"
+          }
+        }
+      },
+      "TriggerId": {
+        "type": "string"
+      },
+      "TriggerState": {
+        "type": "string",
+        "description": "The runtime state of a trigger.",
+        "enum": [
+          "Active",
+          "Paused",
+          "Disabled",
+          "Error"
+        ]
       },
       "TriggerUpdateRequest": {
         "type": "object",
+        "required": [
+          "name",
+          "enabled",
+          "event",
+          "action"
+        ],
         "properties": {
-          "id": {
+          "action": {
             "type": "string"
           },
-          "name": {
-            "type": "string"
+          "condition": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "enabled": {
             "type": "boolean"
@@ -1050,22 +2777,181 @@
           "event": {
             "type": "string"
           },
-          "condition": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "name": {
             "type": "string"
           },
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TriggerVariant": {
+        "type": "string",
+        "description": "The type/kind of a trigger.",
+        "enum": [
+          "Cron",
+          "Webhook",
+          "Polling"
+        ]
+      },
+      "TriggerView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "event",
+          "action",
+          "metadata",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
           "action": {
+            "type": "string"
+          },
+          "condition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "event": {
+            "type": "string"
+          },
+          "id": {
             "type": "string"
           },
           "metadata": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
             }
           },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
           "version": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "WaitMode": {
+        "type": "string",
+        "description": "Whether the create-job endpoint should block until the job completes.",
+        "enum": [
+          "Detached",
+          "Blocking"
+        ]
+      },
+      "Webhook": {
+        "type": "object",
+        "description": "Webhook defines webhook notification configuration.",
+        "properties": {
+          "event": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "if": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "string": {
+        "type": "string"
       }
     }
   }

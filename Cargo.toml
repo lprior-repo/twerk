@@ -101,7 +101,7 @@ jmespath = "0.5"
 
 # OpenAPI
 utoipa = { version = "5.4", features = ["time"] }
-utoipa = "5.4"
+utoipa-axum = "0.2"
 
 # Scheduling
 tokio-cron-scheduler = "0.15"
@@ -117,9 +117,3 @@ proptest = "1.5"
 # Logging
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-
-# OpenAPI
-utoipa = "5"
-utoipa-axum = "0.2"
-utoipa = "4"
-utoipa = "3"

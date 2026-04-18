@@ -1,0 +1,37 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())
+@@ -288,33 +288,17 @@
+         size: i64,
+     ) -> Result<Page<JobSummary>> {
+         let jobs = self.jobs.read();
+         let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();
+         Ok(Self::paginate_vec(summaries, page, size))
+     }
+ 
+     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
+-        let id_str = sj
+-            .id
+-            .as_ref()
+-            .map(|id| id.as_str().to_string())
+-            .unwrap_or_default();
+-        if id_str.is_empty() {
+-            return Err(Error::InvalidId("scheduled job has no id".to_string()));
+-        }
+-        let mut sjs = self.scheduled_jobs.write();
+-        if sjs.contains_key(&id_str) {
+-            return Err(Error::Database(format!(
+-                "scheduled job {} already exists",
+-                id_str
+-            )));
+-        }
+-        sjs.insert(id_str, sj.clone());
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {
+         let sjs = self.scheduled_jobs.read();
+         Ok(sjs
+             .values()
+             .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)
+             .cloned()

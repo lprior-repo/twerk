@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/repository.rs
++++ replace <impl From<crate::id::IdError> for Error>::from -> Self with Default::default()
+@@ -56,17 +56,17 @@
+     Transaction(String),
+ 
+     #[error("invalid ID: {0}")]
+     InvalidId(String),
+ }
+ 
+ impl From<crate::id::IdError> for Error {
+     fn from(e: crate::id::IdError) -> Self {
+-        Error::InvalidId(e.to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Configuration options for Repository
+ #[derive(Clone, Default)]
+ pub struct Options {
+     pub logs_retention_duration: Duration,
+     pub jobs_retention_duration: Duration,

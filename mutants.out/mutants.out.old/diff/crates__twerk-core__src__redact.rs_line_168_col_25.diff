@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field mounts from struct crate::task::Task expression in redact_task_mounts
+@@ -160,17 +160,17 @@
+         mounts
+             .iter()
+             .map(|m| crate::mount::Mount {
+                 opts: m.opts.as_ref().map(|o| redact_vars(o, secrets)),
+                 ..m.clone()
+             })
+             .collect()
+     });
+-    crate::task::Task { mounts, ..task }
++    crate::task::Task {  /* ~ changed by cargo-mutants ~ */ ..task }
+ }
+ 
+ /// Redact registry password on a task.
+ fn redact_task_registry(task: crate::task::Task) -> crate::task::Task {
+     let registry = task.registry.as_ref().map(|r| crate::task::Registry {
+         password: r.password.as_ref().map(|_| REDACTED_STR.to_string()),
+         ..r.clone()
+     });

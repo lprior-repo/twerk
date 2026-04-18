@@ -1,0 +1,29 @@
+--- crates/twerk-core/src/redact.rs
++++ replace redact_task_pre_post_sidecars -> crate::task::Task with Default::default()
+@@ -225,25 +225,17 @@
+     crate::task::Task { parallel, ..task }
+ }
+ 
+ /// Redact pre, post, and sidecar nested tasks.
+ fn redact_task_pre_post_sidecars(
+     task: crate::task::Task,
+     secrets: &HashMap<String, String>,
+ ) -> crate::task::Task {
+-    let pre = redact_nested_tasks(task.pre.clone(), secrets);
+-    let post = redact_nested_tasks(task.post.clone(), secrets);
+-    let sidecars = redact_nested_tasks(task.sidecars.clone(), secrets);
+-    crate::task::Task {
+-        pre,
+-        post,
+-        sidecars,
+-        ..task
+-    }
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ // ---------------------------------------------------------------------------
+ // Public API - pure functions, take by-value, return new instance
+ // ---------------------------------------------------------------------------
+ 
+ /// Redacts a task and all its nested tasks recursively.
+ ///

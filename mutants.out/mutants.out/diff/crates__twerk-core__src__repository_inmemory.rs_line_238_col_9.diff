@@ -1,0 +1,34 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())
+@@ -230,30 +230,17 @@
+                     .map(|s| s.as_ref() == "UP")
+                     .unwrap_or(false)
+             })
+             .cloned()
+             .collect())
+     }
+ 
+     async fn create_job(&self, job: &Job) -> Result<()> {
+-        let id_str = job
+-            .id
+-            .as_ref()
+-            .map(|id| id.as_str().to_string())
+-            .unwrap_or_default();
+-        if id_str.is_empty() {
+-            return Err(Error::InvalidId("job has no id".to_string()));
+-        }
+-        let mut jobs = self.jobs.write();
+-        if jobs.contains_key(&id_str) {
+-            return Err(Error::Database(format!("job {} already exists", id_str)));
+-        }
+-        jobs.insert(id_str, job.clone());
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn update_job(
+         &self,
+         id: &str,
+         modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,
+     ) -> Result<()> {
+         let mut jobs = self.jobs.write();

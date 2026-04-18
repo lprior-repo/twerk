@@ -1,0 +1,34 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())
+@@ -182,30 +182,17 @@
+         size: i64,
+     ) -> Result<Page<TaskLogPart>> {
+         let logs = self.task_logs.read();
+         let parts = logs.get(task_id).cloned().unwrap_or_default();
+         Ok(Self::paginate_vec(parts, page, size))
+     }
+ 
+     async fn create_node(&self, node: &Node) -> Result<()> {
+-        let id_str = node
+-            .id
+-            .as_ref()
+-            .map(|id| id.as_str().to_string())
+-            .unwrap_or_default();
+-        if id_str.is_empty() {
+-            return Err(Error::InvalidId("node has no id".to_string()));
+-        }
+-        let mut nodes = self.nodes.write();
+-        if nodes.contains_key(&id_str) {
+-            return Err(Error::Database(format!("node {} already exists", id_str)));
+-        }
+-        nodes.insert(id_str, node.clone());
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn update_node(
+         &self,
+         id: &str,
+         modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>,
+     ) -> Result<()> {
+         let mut nodes = self.nodes.write();

@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete ! in redact_task_log_parts
+@@ -275,17 +275,17 @@
+         return parts;
+     }
+     parts
+         .into_iter()
+         .map(|part| {
+             let contents = part.contents.as_ref().map(|c| {
+                 secrets
+                     .values()
+-                    .filter(|sv| !sv.is_empty())
++                    .filter(|sv|  /* ~ changed by cargo-mutants ~ */sv.is_empty())
+                     .fold(c.clone(), |acc, sv| acc.replace(sv, REDACTED_STR))
+             });
+             crate::task::TaskLogPart { contents, ..part }
+         })
+         .collect()
+ }
+ 
+ /// Redact job inputs, webhooks, context, and tasks.

@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace >= with < in parse_go_duration
+@@ -236,17 +236,17 @@
+         if i == start {
+             // No digits found.
+             return Err(GoDurationError::ParseNumber(start));
+         }
+         let num_str = &s[start..i];
+         let is_float = num_str.contains('.');
+ 
+         // Determine the unit.
+-        if i >= bytes.len() {
++        if i < /* ~ changed by cargo-mutants ~ */ bytes.len() {
+             return Err(GoDurationError::NoUnit(start));
+         }
+ 
+         let (unit_len, multiplier): (usize, u128) = if s[i..].starts_with("ns") {
+             (2, 1)
+         } else if s[i..].starts_with("us") {
+             (2, 1_000)
+         } else if s[i..].starts_with("\u{00b5}s") {

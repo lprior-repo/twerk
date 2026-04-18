@@ -1,0 +1,23 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))
+@@ -176,19 +176,17 @@
+ 
+     async fn get_task_log_parts(
+         &self,
+         task_id: &str,
+         _q: &str,
+         page: i64,
+         size: i64,
+     ) -> Result<Page<TaskLogPart>> {
+-        let logs = self.task_logs.read();
+-        let parts = logs.get(task_id).cloned().unwrap_or_default();
+-        Ok(Self::paginate_vec(parts, page, size))
++        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn create_node(&self, node: &Node) -> Result<()> {
+         let id_str = node
+             .id
+             .as_ref()
+             .map(|id| id.as_str().to_string())
+             .unwrap_or_default();

@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace <impl FromStr for CronExpression>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -129,17 +129,17 @@
+         f.write_str(&self.0)
+     }
+ }
+ 
+ impl FromStr for CronExpression {
+     type Err = CronError;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+-        Self::new(s)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ // ---------------------------------------------------------------------------
+ // GoDuration
+ // ---------------------------------------------------------------------------
+ 
+ /// A parsed Go-style duration string (e.g. `"30s"`, `"1h30m"`, `"2d"`).

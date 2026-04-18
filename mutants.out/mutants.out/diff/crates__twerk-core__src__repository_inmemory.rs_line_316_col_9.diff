@@ -1,0 +1,26 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])
+@@ -308,22 +308,17 @@
+                 id_str
+             )));
+         }
+         sjs.insert(id_str, sj.clone());
+         Ok(())
+     }
+ 
+     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {
+-        let sjs = self.scheduled_jobs.read();
+-        Ok(sjs
+-            .values()
+-            .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)
+-            .cloned()
+-            .collect())
++        Ok(vec![]) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn get_scheduled_jobs(
+         &self,
+         _current_user: &str,
+         page: i64,
+         size: i64,
+     ) -> Result<Page<ScheduledJobSummary>> {

@@ -1,0 +1,25 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())
+@@ -340,21 +340,17 @@
+         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)
+     }
+ 
+     async fn update_scheduled_job(
+         &self,
+         id: &str,
+         modify: Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob> + Send>,
+     ) -> Result<()> {
+-        let mut sjs = self.scheduled_jobs.write();
+-        let sj = sjs.get_mut(id).ok_or(Error::ScheduledJobNotFound)?;
+-        let updated = modify(sj.clone())?;
+-        *sj = updated;
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn delete_scheduled_job(&self, id: &str) -> Result<()> {
+         let mut sjs = self.scheduled_jobs.write();
+         sjs.remove(id).ok_or(Error::ScheduledJobNotFound)?;
+         Ok(())
+     }
+ 

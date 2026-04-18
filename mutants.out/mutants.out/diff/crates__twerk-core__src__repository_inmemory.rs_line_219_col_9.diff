@@ -1,0 +1,22 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())
+@@ -211,18 +211,17 @@
+         let mut nodes = self.nodes.write();
+         let node = nodes.get_mut(id).ok_or(Error::NodeNotFound)?;
+         let updated = modify(node.clone())?;
+         *node = updated;
+         Ok(())
+     }
+ 
+     async fn get_node_by_id(&self, id: &str) -> Result<Node> {
+-        let nodes = self.nodes.read();
+-        nodes.get(id).cloned().ok_or(Error::NodeNotFound)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn get_active_nodes(&self) -> Result<Vec<Node>> {
+         let nodes = self.nodes.read();
+         Ok(nodes
+             .values()
+             .filter(|n| {
+                 n.status

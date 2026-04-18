@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace <impl AsRef<str> for QueueName>::as_ref -> &str with "xyzzy"
+@@ -71,17 +71,17 @@
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+         Self::new(s)
+     }
+ }
+ 
+ impl AsRef<str> for QueueName {
+     fn as_ref(&self) -> &str {
+-        &self.0
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Deref for QueueName {
+     type Target = str;
+ 
+     fn deref(&self) -> &Self::Target {
+         &self.0

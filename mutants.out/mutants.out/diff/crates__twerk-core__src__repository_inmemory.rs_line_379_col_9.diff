@@ -1,0 +1,26 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())
+@@ -371,22 +371,17 @@
+         if users.contains_key(&id_str) {
+             return Err(Error::Database(format!("user {} already exists", id_str)));
+         }
+         users.insert(id_str, user.clone());
+         Ok(())
+     }
+ 
+     async fn get_user(&self, username: &str) -> Result<User> {
+-        let users = self.users.read();
+-        users
+-            .values()
+-            .find(|u| u.username.as_deref() == Some(username))
+-            .cloned()
+-            .ok_or(Error::UserNotFound)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn create_role(&self, role: &Role) -> Result<()> {
+         let id_str = role
+             .id
+             .as_ref()
+             .map(|id| id.as_str().to_string())
+             .unwrap_or_default();

@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field tasks from struct crate::job::JobContext expression in redact_job_inputs_webhooks_context
+@@ -302,17 +302,17 @@
+                 ..w.clone()
+             })
+             .collect()
+     });
+ 
+     let context = job.context.as_ref().map(|ctx| crate::job::JobContext {
+         inputs: ctx.inputs.as_ref().map(|i| redact_vars(i, secrets)),
+         secrets: ctx.secrets.as_ref().map(|s| redact_vars(s, secrets)),
+-        tasks: ctx.tasks.as_ref().map(|t| redact_vars(t, secrets)),
++         /* ~ changed by cargo-mutants ~ */
+         ..ctx.clone()
+     });
+ 
+     crate::job::Job {
+         inputs,
+         context,
+         webhooks,
+         ..job

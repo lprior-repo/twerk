@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace CronExpression::as_str -> &str with ""
+@@ -115,17 +115,17 @@
+         let s = expr.into();
+         cron::Schedule::from_str(&s).map_err(|e| CronError::InvalidExpression(e.to_string()))?;
+         Ok(Self(s))
+     }
+ 
+     /// View the cron expression as a string slice.
+     #[must_use]
+     pub fn as_str(&self) -> &str {
+-        &self.0
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for CronExpression {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(&self.0)
+     }
+ }

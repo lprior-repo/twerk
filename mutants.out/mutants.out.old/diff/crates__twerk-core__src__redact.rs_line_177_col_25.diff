@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field registry from struct crate::task::Task expression in redact_task_registry
+@@ -169,17 +169,17 @@
+ }
+ 
+ /// Redact registry password on a task.
+ fn redact_task_registry(task: crate::task::Task) -> crate::task::Task {
+     let registry = task.registry.as_ref().map(|r| crate::task::Registry {
+         password: r.password.as_ref().map(|_| REDACTED_STR.to_string()),
+         ..r.clone()
+     });
+-    crate::task::Task { registry, ..task }
++    crate::task::Task {  /* ~ changed by cargo-mutants ~ */ ..task }
+ }
+ 
+ /// Redact subjob secrets and webhook headers on a task.
+ fn redact_task_subjob(
+     task: crate::task::Task,
+     secrets: &HashMap<String, String>,
+ ) -> crate::task::Task {
+     let subjob = task.subjob.as_ref().map(|sj| {

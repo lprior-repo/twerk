@@ -1,0 +1,23 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new())
+@@ -282,19 +282,17 @@
+ 
+     async fn get_jobs(
+         &self,
+         _current_user: &str,
+         _q: &str,
+         page: i64,
+         size: i64,
+     ) -> Result<Page<JobSummary>> {
+-        let jobs = self.jobs.read();
+-        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();
+-        Ok(Self::paginate_vec(summaries, page, size))
++        Ok(Page::new()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
+         let id_str = sj
+             .id
+             .as_ref()
+             .map(|id| id.as_str().to_string())
+             .unwrap_or_default();

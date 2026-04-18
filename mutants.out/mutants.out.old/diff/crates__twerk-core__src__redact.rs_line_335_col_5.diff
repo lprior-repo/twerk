@@ -1,0 +1,26 @@
+--- crates/twerk-core/src/redact.rs
++++ replace redact_job_secrets -> crate::job::Job with Default::default()
+@@ -327,22 +327,17 @@
+         tasks,
+         execution,
+         ..job
+     }
+ }
+ 
+ /// Redact the job's own secrets map (values become `\[REDACTED\]`).
+ fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
+-    let secrets = job.secrets.as_ref().map(|s| {
+-        s.keys()
+-            .map(|k| (k.clone(), REDACTED_STR.to_string()))
+-            .collect()
+-    });
+-    crate::job::Job { secrets, ..job }
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Redacts a job and all its tasks.
+ ///
+ /// Takes ownership and returns a new redacted job.
+ #[must_use]
+ pub fn redact_job(job: crate::job::Job) -> crate::job::Job {
+     let secrets = job.secrets.clone().unwrap_or_default();

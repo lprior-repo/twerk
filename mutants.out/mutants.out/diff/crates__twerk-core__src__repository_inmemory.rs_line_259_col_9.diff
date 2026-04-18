@@ -1,0 +1,25 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())
+@@ -251,21 +251,17 @@
+         Ok(())
+     }
+ 
+     async fn update_job(
+         &self,
+         id: &str,
+         modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,
+     ) -> Result<()> {
+-        let mut jobs = self.jobs.write();
+-        let job = jobs.get_mut(id).ok_or(Error::JobNotFound)?;
+-        let updated = modify(job.clone())?;
+-        *job = updated;
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn get_job_by_id(&self, id: &str) -> Result<Job> {
+         let jobs = self.jobs.read();
+         jobs.get(id).cloned().ok_or(Error::JobNotFound)
+     }
+ 
+     async fn get_job_log_parts(

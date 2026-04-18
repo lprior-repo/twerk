@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace > with >= in <impl Repository for InMemoryRepository>::get_next_task
+@@ -148,17 +148,17 @@
+                 t.job_id
+                     .as_ref()
+                     .map(|j| j.as_str() == job_id_str)
+                     .unwrap_or(false)
+                     && t.parent_id
+                         .as_ref()
+                         .map(|p| p.as_str() == parent_task_id)
+                         .unwrap_or(false)
+-                    && t.position > parent_position
++                    && t.position >= /* ~ changed by cargo-mutants ~ */ parent_position
+             })
+             .min_by_key(|t| t.position)
+             .cloned()
+             .ok_or(Error::TaskNotFound)?)
+     }
+ 
+     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {
+         let task_id_str = part

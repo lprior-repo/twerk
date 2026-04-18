@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace * with / in parse_go_duration
+@@ -277,17 +277,17 @@
+                 clippy::cast_precision_loss
+             )]
+             let result = (val * multiplier as f64) as u128;
+             result
+         } else {
+             let val: u64 = num_str
+                 .parse()
+                 .map_err(|_| GoDurationError::ParseNumber(start))?;
+-            u128::from(val) * multiplier
++            u128::from(val) / /* ~ changed by cargo-mutants ~ */ multiplier
+         };
+ 
+         // Safe: nanos won't exceed u64::MAX for any reasonable duration string
+         total += Duration::from_nanos(u64::try_from(nanos).unwrap_or(u64::MAX));
+         i += unit_len;
+     }
+ 
+     Ok(total)

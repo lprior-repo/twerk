@@ -1,0 +1,34 @@
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())
+@@ -64,30 +64,17 @@
+             total_items,
+         }
+     }
+ }
+ 
+ #[async_trait]
+ impl Repository for InMemoryRepository {
+     async fn create_task(&self, task: &Task) -> Result<()> {
+-        let id_str = task
+-            .id
+-            .as_ref()
+-            .map(|id| id.as_str().to_string())
+-            .unwrap_or_default();
+-        if id_str.is_empty() {
+-            return Err(Error::InvalidId("task has no id".to_string()));
+-        }
+-        let mut tasks = self.tasks.write();
+-        if tasks.contains_key(&id_str) {
+-            return Err(Error::Database(format!("task {} already exists", id_str)));
+-        }
+-        tasks.insert(id_str, task.clone());
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn update_task(
+         &self,
+         id: &str,
+         modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,
+     ) -> Result<()> {
+         let mut tasks = self.tasks.write();

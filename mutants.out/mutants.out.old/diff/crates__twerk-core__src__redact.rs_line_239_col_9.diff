@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field sidecars from struct crate::task::Task expression in redact_task_pre_post_sidecars
+@@ -231,17 +231,17 @@
+     secrets: &HashMap<String, String>,
+ ) -> crate::task::Task {
+     let pre = redact_nested_tasks(task.pre.clone(), secrets);
+     let post = redact_nested_tasks(task.post.clone(), secrets);
+     let sidecars = redact_nested_tasks(task.sidecars.clone(), secrets);
+     crate::task::Task {
+         pre,
+         post,
+-        sidecars,
++         /* ~ changed by cargo-mutants ~ */
+         ..task
+     }
+ }
+ 
+ // ---------------------------------------------------------------------------
+ // Public API - pure functions, take by-value, return new instance
+ // ---------------------------------------------------------------------------
+ 

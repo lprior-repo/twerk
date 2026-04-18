@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field subjob from struct crate::task::Task expression in redact_task_subjob
+@@ -197,17 +197,17 @@
+                 .collect()
+         });
+         crate::task::SubJobTask {
+             secrets: secrets_map,
+             webhooks,
+             ..sj.clone()
+         }
+     });
+-    crate::task::Task { subjob, ..task }
++    crate::task::Task {  /* ~ changed by cargo-mutants ~ */ ..task }
+ }
+ 
+ /// Recursively redact a vector of tasks.
+ fn redact_nested_tasks(
+     tasks: Option<Vec<crate::task::Task>>,
+     secrets: &HashMap<String, String>,
+ ) -> Option<Vec<crate::task::Task>> {
+     tasks.map(|ts| ts.into_iter().map(|t| redact_task(t, secrets)).collect())

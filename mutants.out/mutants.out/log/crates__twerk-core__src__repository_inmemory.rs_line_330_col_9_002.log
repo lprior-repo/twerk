@@ -1,0 +1,366 @@
+
+*** crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new(Default::default()))
+
+*** mutation diff:
+--- crates/twerk-core/src/repository_inmemory.rs
++++ replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new(Default::default()))
+@@ -322,22 +322,17 @@
+     }
+ 
+     async fn get_scheduled_jobs(
+         &self,
+         _current_user: &str,
+         page: i64,
+         size: i64,
+     ) -> Result<Page<ScheduledJobSummary>> {
+-        let sjs = self.scheduled_jobs.read();
+-        let summaries: Vec<ScheduledJobSummary> = sjs
+-            .values()
+-            .map(crate::job::new_scheduled_job_summary)
+-            .collect();
+-        Ok(Self::paginate_vec(summaries, page, size))
++        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {
+         let sjs = self.scheduled_jobs.read();
+         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)
+     }
+ 
+     async fn update_scheduled_job(
+
+
+*** /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=twerk-core@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh cfg-if v1.0.4
+       Fresh memchr v2.8.0
+       Fresh version_check v0.9.5
+       Fresh itoa v1.0.18
+       Fresh smallvec v1.15.1
+       Fresh hashbrown v0.16.1
+       Fresh equivalent v1.0.2
+       Fresh stable_deref_trait v1.2.1
+       Fresh pin-project-lite v0.2.17
+       Fresh regex-syntax v0.8.10
+       Fresh scopeguard v1.2.0
+       Fresh autocfg v1.5.0
+       Fresh bytes v1.11.1
+       Fresh futures-core v0.3.32
+       Fresh litemap v0.8.2
+       Fresh writeable v0.6.2
+       Fresh proc-macro2 v1.0.106
+       Fresh aho-corasick v1.1.4
+       Fresh lock_api v0.4.14
+       Fresh tracing-core v0.1.36
+       Fresh find-msvc-tools v0.1.9
+       Fresh allocator-api2 v0.2.21
+       Fresh shlex v1.3.0
+       Fresh zeroize v1.8.2
+       Fresh ucd-trie v0.1.7
+       Fresh once_cell v1.21.4
+       Fresh adler2 v2.0.1
+       Fresh utf8_iter v1.0.4
+       Fresh quote v1.0.45
+       Fresh typenum v1.19.0
+       Fresh zerocopy v0.8.48
+       Fresh zmij v1.0.21
+       Fresh libc v0.2.184
+       Fresh crunchy v0.2.4
+       Fresh crossbeam-utils v0.8.21
+       Fresh cc v1.2.58
+       Fresh simd-adler32 v0.3.9
+       Fresh subtle v2.6.1
+       Fresh pest v2.8.6
+       Fresh slab v0.4.12
+       Fresh linux-raw-sys v0.12.1
+       Fresh log v0.4.29
+       Fresh rustls-pki-types v1.14.0
+       Fresh http v1.4.0
+       Fresh encoding_rs v0.8.35
+       Fresh arraydeque v0.5.1
+       Fresh fnv v1.0.7
+       Fresh cpufeatures v0.2.17
+       Fresh syn v2.0.117
+       Fresh getrandom v0.3.4
+       Fresh generic-array v0.14.7
+       Fresh bitflags v2.11.0
+       Fresh parking_lot_core v0.9.12
+       Fresh tiny-keccak v2.0.2
+       Fresh getrandom v0.2.17
+       Fresh errno v0.3.14
+       Fresh mio v1.2.0
+       Fresh socket2 v0.6.3
+       Fresh num-traits v0.2.19
+       Fresh miniz_oxide v0.8.9
+       Fresh icu_properties_data v2.2.0
+       Fresh ppv-lite86 v0.2.21
+       Fresh getrandom v0.4.2
+       Fresh icu_normalizer_data v2.2.0
+       Fresh pest_meta v2.8.6
+       Fresh percent-encoding v2.3.2
+       Fresh crossbeam-epoch v0.9.18
+       Fresh iana-time-zone v0.1.65
+       Fresh winnow v0.7.15
+       Fresh winnow v1.0.1
+       Fresh minimal-lexical v0.2.1
+       Fresh untrusted v0.9.0
+       Fresh serde_derive v1.0.228
+       Fresh synstructure v0.13.2
+       Fresh rand_core v0.6.4
+       Fresh zerovec-derive v0.11.3
+       Fresh displaydoc v0.2.5
+       Fresh ahash v0.8.12
+       Fresh tracing-attributes v0.1.31
+       Fresh rand_core v0.9.5
+       Fresh inout v0.1.4
+       Fresh const-random-macro v0.1.16
+       Fresh signal-hook-registry v1.4.8
+       Fresh tokio-macros v2.6.1
+       Fresh parking_lot v0.12.5
+       Fresh rustix v1.1.4
+       Fresh serde_core v1.0.228
+       Fresh thiserror-impl v2.0.18
+       Fresh pest_generator v2.8.6
+       Fresh form_urlencoded v1.2.2
+       Fresh futures-sink v0.3.32
+       Fresh either v1.15.0
+       Fresh semver v1.0.27
+       Fresh gimli v0.32.3
+       Fresh toml_write v0.1.2
+       Fresh deunicode v1.6.2
+       Fresh crossbeam-deque v0.8.6
+       Fresh toml_parser v1.1.2+spec-1.1.0
+       Fresh object v0.37.3
+       Fresh nom v7.1.3
+       Fresh serde v1.0.228
+       Fresh zerofrom-derive v0.1.7
+       Fresh yoke-derive v0.8.2
+       Fresh crypto-common v0.1.7
+       Fresh hashbrown v0.14.5
+       Fresh tracing v0.1.44
+       Fresh const-random v0.1.18
+       Fresh tokio v1.50.0
+       Fresh rand_chacha v0.9.0
+       Fresh addr2line v0.25.1
+       Fresh serde_json v1.0.149
+       Fresh rustc_version v0.4.1
+       Fresh thiserror v2.0.18
+       Fresh slug v0.1.6
+       Fresh ring v0.17.14
+       Fresh pest_derive v2.8.6
+       Fresh http-body v1.0.1
+       Fresh indexmap v2.13.0
+       Fresh lazy_static v1.5.0
+       Fresh toml_datetime v1.1.1+spec-1.1.0
+       Fresh opaque-debug v0.3.1
+       Fresh atomic-waker v1.1.2
+       Fresh powerfmt v0.2.0
+       Fresh unicode-segmentation v1.13.2
+       Fresh unicode-width v0.2.2
+       Fresh base64 v0.22.1
+       Fresh option-ext v0.2.0
+       Fresh siphasher v1.0.2
+       Fresh base64 v0.21.7
+       Fresh zerofrom v0.1.7
+       Fresh cipher v0.4.4
+       Fresh serde_spanned v0.6.9
+       Fresh dlv-list v0.5.2
+       Fresh toml_datetime v0.6.11
+       Fresh hashlink v0.8.4
+       Fresh universal-hash v0.5.1
+       Fresh chrono v0.4.44
+       Fresh tokio-util v0.7.18
+       Fresh rand v0.9.4
+       Fresh rustc-demangle v0.1.27
+       Fresh phf_shared v0.12.1
+       Fresh toml_edit v0.25.10+spec-1.1.0
+       Fresh deranged v0.5.8
+       Fresh ron v0.8.1
+       Fresh tracing-serde v0.2.0
+       Fresh crc32fast v1.5.0
+       Fresh convert_case v0.6.0
+       Fresh sharded-slab v0.1.7
+       Fresh json5 v0.4.1
+       Fresh rustls-webpki v0.103.12
+       Fresh dirs-sys v0.5.0
+       Fresh rayon-core v1.13.0
+       Fresh httparse v1.10.1
+       Fresh futures-macro v0.3.32
+       Fresh block-buffer v0.10.4
+       Fresh async-trait v0.1.89
+       Fresh matchers v0.2.0
+       Fresh yoke v0.8.2
+       Fresh toml_edit v0.22.27
+       Fresh ordered-multimap v0.7.3
+       Fresh h2 v0.4.13
+       Fresh yaml-rust2 v0.8.1
+       Fresh backtrace v0.3.76
+       Fresh polyval v0.6.2
+       Fresh tracing-log v0.2.0
+       Fresh webpki-roots v1.0.6
+       Fresh regex-automata v0.4.14
+       Fresh thread_local v1.1.9
+       Fresh futures-channel v0.3.32
+       Fresh num-conv v0.2.1
+       Fresh fastrand v2.3.0
+       Fresh nu-ansi-term v0.50.3
+       Fresh futures-task v0.3.32
+       Fresh byteorder v1.5.0
+       Fresh httpdate v1.0.3
+       Fresh is_ci v1.2.0
+       Fresh triomphe v0.1.15
+       Fresh unicode-linebreak v0.1.5
+       Fresh pathdiff v0.2.3
+       Fresh time-core v0.1.8
+       Fresh proc-macro-crate v3.5.0
+       Fresh dirs v6.0.0
+       Fresh ctr v0.9.2
+       Fresh owo-colors v4.3.0
+       Fresh aes v0.8.4
+       Fresh anyhow v1.0.102
+       Fresh flate2 v1.1.9
+       Fresh rustls v0.23.37
+       Fresh digest v0.10.7
+       Fresh zerovec v0.11.6
+       Fresh zerotrie v0.2.4
+       Fresh rust-ini v0.20.0
+       Fresh toml v0.8.23
+       Fresh ghash v0.5.1
+       Fresh webpki-roots v0.26.11
+       Fresh blowfish v0.9.1
+       Fresh regex v1.12.3
+       Fresh time v0.3.47
+       Fresh backtrace-ext v0.2.1
+       Fresh futures-util v0.3.32
+       Fresh archery v1.2.2
+       Fresh tracing-subscriber v0.3.23
+       Fresh hyper v1.9.0
+       Fresh textwrap v0.16.2
+       Fresh supports-color v3.0.2
+       Fresh tempfile v3.27.0
+       Fresh phf v0.12.1
+       Fresh rayon v1.11.0
+       Fresh dashmap v6.1.0
+       Fresh aead v0.5.2
+       Fresh terminal_size v0.4.4
+       Fresh itertools v0.14.0
+       Fresh uuid v1.23.0
+       Fresh utoipa-gen v5.4.0
+       Fresh miette-derive v7.6.0
+       Fresh wait-timeout v0.2.1
+       Fresh hostname v0.4.2
+       Fresh quick-error v1.2.3
+       Fresh bit-vec v0.8.0
+       Fresh tinystr v0.8.3
+       Fresh potential_utf v0.1.5
+       Fresh config v0.14.1
+       Fresh tap v1.0.1
+       Fresh supports-hyperlinks v3.2.0
+       Fresh ryu v1.0.23
+       Fresh unicode-width v0.1.14
+       Fresh anstyle v1.0.14
+       Fresh relative-path v1.9.3
+       Fresh supports-unicode v3.0.0
+       Fresh glob v0.3.3
+       Fresh aes-gcm v0.10.3
+       Fresh jmespath v0.5.0
+       Fresh rpds v1.2.0
+       Fresh hyper-util v0.1.20
+       Fresh sysinfo v0.33.1
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh chrono-tz v0.10.4
+       Fresh utoipa v5.4.0
+       Fresh bcrypt v0.17.1
+       Fresh sha2 v0.10.9
+       Fresh cron v0.12.1
+       Fresh http-body-util v0.1.3
+       Fresh assert-json-diff v2.0.2
+       Fresh saphyr-parser-bw v0.0.611
+       Fresh rand_xorshift v0.4.0
+       Fresh encoding_rs_io v0.1.7
+       Fresh nohash-hasher v0.2.0
+       Fresh md5 v0.7.0
+       Fresh futures-timer v3.0.3
+       Fresh unarray v0.1.4
+       Fresh evalexpr v13.1.0
+       Fresh icu_locale_core v2.2.0
+       Fresh icu_collections v2.2.0
+       Fresh serde_urlencoded v0.7.1
+       Fresh annotate-snippets v0.12.15
+       Fresh twerk-common v0.1.0 (/tmp/cargo-mutants-twerk-B2H5W2.tmp/crates/twerk-common)
+       Fresh rstest_macros v0.26.1
+       Fresh miette v7.6.0
+       Fresh colored v3.1.1
+       Fresh similar v2.7.0
+       Fresh proptest v1.11.0
+       Fresh icu_provider v2.2.0
+       Fresh mockito v1.7.2
+       Fresh serde-saphyr v0.0.23
+       Fresh rstest v0.26.1
+       Fresh icu_properties v2.2.0
+       Fresh icu_normalizer v2.2.0
+       Fresh idna_adapter v1.2.1
+       Fresh idna v1.1.0
+       Fresh url v2.5.8
+       Fresh ureq v2.12.1
+       Dirty twerk-core v0.1.0 (/tmp/cargo-mutants-twerk-B2H5W2.tmp/crates/twerk-core): couldn't read metadata for file `target/debug/deps/libtwerk_core-544e6a024db2d1b4.rlib`
+   Compiling twerk-core v0.1.0 (/tmp/cargo-mutants-twerk-B2H5W2.tmp/crates/twerk-core)
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=50802dbbdba559ab -C extra-filename=-544e6a024db2d1b4 --out-dir /tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rmeta --extern async_trait=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rmeta --extern bcrypt=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rmeta --extern chrono_tz=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libchrono_tz-bc9d0d0a75821ce1.rmeta --extern cron=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libcron-995434bb9252de4c.rmeta --extern evalexpr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rmeta --extern futures_util=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rmeta --extern indexmap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libindexmap-3667f5f17a4f08c2.rmeta --extern itertools=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libitertools-9616422d2d47965e.rmeta --extern jmespath=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libjmespath-5f8851ba50edc168.rmeta --extern md5=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmd5-c791339f81a2cb66.rmeta --extern once_cell=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rmeta --extern parking_lot=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libparking_lot-0135b696ccd46a55.rmeta --extern rand=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librand-bc7827e7a4eae81e.rmeta --extern regex=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rmeta --extern rpds=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rmeta --extern serde=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde-802a1b2e970da237.rmeta --extern serde_json=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_json-972a1480801fc63a.rmeta --extern sha2=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsha2-74092b36f341e847.rmeta --extern sysinfo=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rmeta --extern tap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rmeta --extern thiserror=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rmeta --extern time=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtime-196f18bf9fa74f1b.rmeta --extern tokio=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rmeta --extern tracing=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rmeta --extern twerk_common=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtwerk_common-3aa7cf4ed966f653.rmeta --extern ureq=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libureq-3a81d14857c417d8.rmeta --extern url=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/liburl-541c0bb4decab7d0.rmeta --extern utoipa=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libutoipa-a99425e2be649e4c.rmeta --extern uuid=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libuuid-4295ac7aeee4f70d.rmeta --extern zeroize=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libzeroize-276d451ec0cf710d.rmeta -L native=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+     Running `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fc7405493d9cb32b -C extra-filename=-b9a0648353df1010 --out-dir /tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern chrono_tz=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libchrono_tz-bc9d0d0a75821ce1.rlib --extern cron=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libcron-995434bb9252de4c.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern indexmap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libindexmap-3667f5f17a4f08c2.rlib --extern itertools=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern jmespath=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libjmespath-5f8851ba50edc168.rlib --extern md5=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmd5-c791339f81a2cb66.rlib --extern mockito=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmockito-687a96cd407aa971.rlib --extern once_cell=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern parking_lot=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libparking_lot-0135b696ccd46a55.rlib --extern proptest=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libproptest-801641ce600cbb9c.rlib --extern rand=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librand-bc7827e7a4eae81e.rlib --extern regex=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librstest-6f1e323c7445e9ec.rlib --extern serde=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde-802a1b2e970da237.rlib --extern serde_saphyr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_saphyr-0061ba527495a858.rlib --extern serde_json=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_json-972a1480801fc63a.rlib --extern sha2=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtime-196f18bf9fa74f1b.rlib --extern tokio=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtwerk_common-3aa7cf4ed966f653.rlib --extern ureq=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libureq-3a81d14857c417d8.rlib --extern url=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/liburl-541c0bb4decab7d0.rlib --extern utoipa=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libutoipa-a99425e2be649e4c.rlib --extern uuid=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libuuid-4295ac7aeee4f70d.rlib --extern zeroize=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libzeroize-276d451ec0cf710d.rlib -L native=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/build/ring-6089c7b813dde48e/out`
+warning: unexpected `cfg` condition name: `kani`
+   --> crates/twerk-core/src/domain/webhook_url/tests.rs:312:11
+    |
+312 |     #[cfg(kani)]
+    |           ^^^^
+    |
+    = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
+    = help: consider using a Cargo feature instead
+    = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+             [lints.rust]
+             unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+    = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(kani)");` to the top of the `build.rs`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+error[E0599]: no function or associated item named `new` found for struct `Page<T>` in the current scope
+   --> crates/twerk-core/src/repository_inmemory.rs:330:18
+    |
+330 |         Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+    |                  ^^^ function or associated item not found in `Page<_>`
+    |
+   ::: crates/twerk-core/src/repository.rs:84:1
+    |
+ 84 | pub struct Page<T> {
+    | ------------------ function or associated item `new` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `new`, perhaps you need to implement one of them:
+            candidate #1: `Bit`
+            candidate #2: `KeyInit`
+            candidate #3: `KeyIvInit`
+            candidate #4: `UniformSampler`
+            candidate #5: `VariableOutput`
+            candidate #6: `VariableOutputCore`
+            candidate #7: `parking_lot_core::thread_parker::ThreadParkerT`
+            candidate #8: `ring::aead::BoundKey`
+            candidate #9: `sha2::Digest`
+help: there is a method `ne` with a similar name
+    |
+330 -         Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+330 +         Ok(Page::ne(Default::default())) /* ~ changed by cargo-mutants ~ */
+    |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `twerk-core` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=50802dbbdba559ab -C extra-filename=-544e6a024db2d1b4 --out-dir /tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rmeta --extern async_trait=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rmeta --extern bcrypt=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rmeta --extern chrono_tz=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libchrono_tz-bc9d0d0a75821ce1.rmeta --extern cron=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libcron-995434bb9252de4c.rmeta --extern evalexpr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rmeta --extern futures_util=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rmeta --extern indexmap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libindexmap-3667f5f17a4f08c2.rmeta --extern itertools=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libitertools-9616422d2d47965e.rmeta --extern jmespath=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libjmespath-5f8851ba50edc168.rmeta --extern md5=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmd5-c791339f81a2cb66.rmeta --extern once_cell=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rmeta --extern parking_lot=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libparking_lot-0135b696ccd46a55.rmeta --extern rand=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librand-bc7827e7a4eae81e.rmeta --extern regex=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rmeta --extern rpds=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rmeta --extern serde=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde-802a1b2e970da237.rmeta --extern serde_json=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_json-972a1480801fc63a.rmeta --extern sha2=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsha2-74092b36f341e847.rmeta --extern sysinfo=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rmeta --extern tap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rmeta --extern thiserror=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rmeta --extern time=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtime-196f18bf9fa74f1b.rmeta --extern tokio=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rmeta --extern tracing=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rmeta --extern twerk_common=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtwerk_common-3aa7cf4ed966f653.rmeta --extern ureq=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libureq-3a81d14857c417d8.rmeta --extern url=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/liburl-541c0bb4decab7d0.rmeta --extern utoipa=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libutoipa-a99425e2be649e4c.rmeta --extern uuid=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libuuid-4295ac7aeee4f70d.rmeta --extern zeroize=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libzeroize-276d451ec0cf710d.rmeta -L native=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/build/ring-6089c7b813dde48e/out` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+warning: `twerk-core` (lib test) generated 1 warning
+error: could not compile `twerk-core` (lib test) due to 1 previous error; 1 warning emitted
+
+Caused by:
+  process didn't exit successfully: `sccache /home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name twerk_core --edition=2021 crates/twerk-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fc7405493d9cb32b -C extra-filename=-b9a0648353df1010 --out-dir /tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps --extern aes_gcm=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libaes_gcm-b1c57fc8fd7492ef.rlib --extern async_trait=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libasync_trait-dbb82fc2b51ca00f.so --extern base64=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbase64-5ec41e4236db44dc.rlib --extern bcrypt=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libbcrypt-ae6e3a7bb77e2580.rlib --extern chrono_tz=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libchrono_tz-bc9d0d0a75821ce1.rlib --extern cron=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libcron-995434bb9252de4c.rlib --extern evalexpr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libevalexpr-dd35edcca96b9926.rlib --extern futures_util=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libfutures_util-0fb4cc1be39c36d9.rlib --extern indexmap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libindexmap-3667f5f17a4f08c2.rlib --extern itertools=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libitertools-9616422d2d47965e.rlib --extern jmespath=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libjmespath-5f8851ba50edc168.rlib --extern md5=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmd5-c791339f81a2cb66.rlib --extern mockito=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libmockito-687a96cd407aa971.rlib --extern once_cell=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libonce_cell-62dad8624c32d39d.rlib --extern parking_lot=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libparking_lot-0135b696ccd46a55.rlib --extern proptest=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libproptest-801641ce600cbb9c.rlib --extern rand=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librand-bc7827e7a4eae81e.rlib --extern regex=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libregex-4ce209d2a6748fda.rlib --extern rpds=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librpds-eba4f2e2baa20904.rlib --extern rstest=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/librstest-6f1e323c7445e9ec.rlib --extern serde=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde-802a1b2e970da237.rlib --extern serde_saphyr=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_saphyr-0061ba527495a858.rlib --extern serde_json=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libserde_json-972a1480801fc63a.rlib --extern sha2=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsha2-74092b36f341e847.rlib --extern sysinfo=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libsysinfo-312af2f87c9267b0.rlib --extern tap=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern thiserror=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern time=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtime-196f18bf9fa74f1b.rlib --extern tokio=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtokio-3eb7cc64e63d88d1.rlib --extern tracing=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtracing-d7364fd6bd300cdd.rlib --extern twerk_common=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libtwerk_common-3aa7cf4ed966f653.rlib --extern ureq=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libureq-3a81d14857c417d8.rlib --extern url=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/liburl-541c0bb4decab7d0.rlib --extern utoipa=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libutoipa-a99425e2be649e4c.rlib --extern uuid=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libuuid-4295ac7aeee4f70d.rlib --extern zeroize=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/deps/libzeroize-276d451ec0cf710d.rlib -L native=/tmp/cargo-mutants-twerk-B2H5W2.tmp/target/debug/build/ring-6089c7b813dde48e/out` (exit status: 1)
+
+*** result: Failure(101)

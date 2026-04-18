@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/redact.rs
++++ delete field parallel from struct crate::task::Task expression in redact_task_parallel
+@@ -217,17 +217,17 @@
+ fn redact_task_parallel(
+     task: crate::task::Task,
+     secrets: &HashMap<String, String>,
+ ) -> crate::task::Task {
+     let parallel = task.parallel.as_ref().map(|p| crate::task::ParallelTask {
+         tasks: redact_nested_tasks(p.tasks.clone(), secrets),
+         ..p.clone()
+     });
+-    crate::task::Task { parallel, ..task }
++    crate::task::Task {  /* ~ changed by cargo-mutants ~ */ ..task }
+ }
+ 
+ /// Redact pre, post, and sidecar nested tasks.
+ fn redact_task_pre_post_sidecars(
+     task: crate::task::Task,
+     secrets: &HashMap<String, String>,
+ ) -> crate::task::Task {
+     let pre = redact_nested_tasks(task.pre.clone(), secrets);

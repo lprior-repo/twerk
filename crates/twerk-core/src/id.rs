@@ -39,7 +39,7 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 
 macro_rules! define_id {
     ($name:ident) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
         #[serde(transparent)]
         pub struct $name(String);
 
@@ -114,7 +114,7 @@ macro_rules! define_id {
 // =========================================================================
 
 /// Validated identifier for a job, must be a valid RFC 4122 UUID.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(transparent)]
 pub struct JobId(pub String);
 
@@ -200,7 +200,7 @@ define_id!(RoleId);
 /// Construction via [`TriggerId::new`] enforces:
 /// - Length 3..=64 characters (inclusive)
 /// - Characters: `[a-zA-Z0-9_-]` (plus Unicode alphanumeric per Rust's `is_alphanumeric()`)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default, utoipa::ToSchema)]
 #[serde(transparent)]
 pub struct TriggerId(pub String);
 

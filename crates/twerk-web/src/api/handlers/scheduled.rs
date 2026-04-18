@@ -179,6 +179,13 @@ fn build_scheduled_job_event_value_from_sj(
 /// POST /scheduled-jobs
 ///
 /// # Errors
+#[utoipa::path(
+    post,
+    path = "/scheduled-jobs",
+    responses(
+        (status = 200, description = "Scheduled job created")
+    )
+)]
 #[instrument(name = "create_scheduled_job_handler", skip_all)]
 pub async fn create_scheduled_job_handler(
     State(state): State<AppState>,
@@ -213,6 +220,13 @@ pub async fn create_scheduled_job_handler(
 /// GET /scheduled-jobs
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/scheduled-jobs",
+    responses(
+        (status = 200, description = "List of scheduled jobs")
+    )
+)]
 #[instrument(name = "list_scheduled_jobs_handler", skip_all)]
 pub async fn list_scheduled_jobs_handler(
     State(state): State<AppState>,
@@ -236,6 +250,16 @@ pub async fn list_scheduled_jobs_handler(
 /// GET /scheduled-jobs/{id}
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/scheduled-jobs/{id}",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job found")
+    )
+)]
 #[instrument(name = "get_scheduled_job_handler", skip_all)]
 pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
@@ -253,6 +277,16 @@ pub async fn get_scheduled_job_handler(
 /// PUT /scheduled-jobs/{id}/pause
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/scheduled-jobs/{id}/pause",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job paused")
+    )
+)]
 #[instrument(name = "pause_scheduled_job_handler", skip_all)]
 pub async fn pause_scheduled_job_handler(
     State(state): State<AppState>,
@@ -293,6 +327,16 @@ pub async fn pause_scheduled_job_handler(
 /// PUT /scheduled-jobs/{id}/resume
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/scheduled-jobs/{id}/resume",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job resumed")
+    )
+)]
 #[instrument(name = "resume_scheduled_job_handler", skip_all)]
 pub async fn resume_scheduled_job_handler(
     State(state): State<AppState>,
@@ -333,6 +377,16 @@ pub async fn resume_scheduled_job_handler(
 /// DELETE /scheduled-jobs/{id}
 ///
 /// # Errors
+#[utoipa::path(
+    delete,
+    path = "/scheduled-jobs/{id}",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job deleted")
+    )
+)]
 #[instrument(name = "delete_scheduled_job_handler", skip_all)]
 pub async fn delete_scheduled_job_handler(
     State(state): State<AppState>,

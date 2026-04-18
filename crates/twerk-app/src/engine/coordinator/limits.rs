@@ -78,11 +78,23 @@ impl BodyLimitConfig {
 /// Body size limiting middleware that enforces maximum content length.
 /// # Errors
 /// Returns `StatusCode::PAYLOAD_TOO_LARGE` if content length exceeds limit.
+/// Returns `StatusCode::LENGTH_REQUIRED` if Transfer-Encoding: chunked is present.
 pub async fn body_limit_middleware(
     axum::extract::State(config): axum::extract::State<BodyLimitConfig>,
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    let is_chunked = request
+        .headers()
+        .get(header::TRANSFER_ENCODING)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.eq_ignore_ascii_case("chunked"))
+        .unwrap_or(false);
+
+    if is_chunked {
+        return Err(StatusCode::LENGTH_REQUIRED);
+    }
+
     let content_length = request
         .headers()
         .get(header::CONTENT_LENGTH)

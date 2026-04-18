@@ -39,7 +39,7 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 
 macro_rules! define_id {
     ($name:ident) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
         #[serde(transparent)]
         pub struct $name(String);
 
@@ -114,7 +114,7 @@ macro_rules! define_id {
 // =========================================================================
 
 /// Validated identifier for a job, must be a valid RFC 4122 UUID.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(transparent)]
 pub struct JobId(pub String);
 

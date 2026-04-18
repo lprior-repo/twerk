@@ -82,7 +82,7 @@ pub enum WebhookError {
 }
 
 /// Webhook defines webhook notification configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Webhook {
     #[serde(skip_serializing_if = "Option::is_none")]

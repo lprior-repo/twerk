@@ -15,7 +15,7 @@
 pub mod data;
 pub mod data_tests;
 pub mod in_memory;
-// pub mod tests; // Has pre-existing compilation errors - disabled
+pub mod tests;
 pub mod r#trait;
 pub mod types;
 

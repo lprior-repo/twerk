@@ -3,8 +3,8 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::too_many_lines)]
 
-use std::sync::Arc;
 use axum::routing::get;
+use std::sync::Arc;
 use tower::ServiceExt;
 use twerk_app::engine::coordinator::auth::{
     basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig,
@@ -18,8 +18,9 @@ async fn ok_handler() -> &'static str {
 async fn test_valid_basic_auth_credentials_pass() {
     use async_trait::async_trait;
     use axum::http::{header, StatusCode};
-    use twerk_core::user::User;
     use base64::{engine::general_purpose::STANDARD, Engine};
+    use tower::ServiceExt;
+    use twerk_core::user::User;
 
     struct MockDatastore {
         user: User,
@@ -33,107 +34,258 @@ async fn test_valid_basic_auth_credentials_pass() {
 
     #[async_trait]
     impl twerk_infrastructure::datastore::Datastore for MockDatastore {
-        async fn create_task(&self, _task: &twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_task(
+            &self,
+            _task: &twerk_core::task::Task,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_task(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_task(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::task::Task,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::task::Task>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_task_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+        async fn get_task_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
             unimplemented!()
         }
-        async fn get_active_tasks(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+        async fn get_active_tasks(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
-        async fn get_all_tasks_for_job(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+        async fn get_all_tasks_for_job(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
-        async fn get_next_task(&self, _parent_task_id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+        async fn get_next_task(
+            &self,
+            _parent_task_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
             unimplemented!()
         }
-        async fn create_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_task_log_part(
+            &self,
+            _part: &twerk_core::task::TaskLogPart,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_task_log_parts(&self, _task_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> {
+        async fn get_task_log_parts(
+            &self,
+            _task_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
             unimplemented!()
         }
-        async fn create_node(&self, _node: &twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_node(
+            &self,
+            _node: &twerk_core::node::Node,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_node(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_node(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::node::Node,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::node::Node>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_node_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> {
+        async fn get_node_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> {
             unimplemented!()
         }
-        async fn get_active_nodes(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> {
+        async fn get_active_nodes(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> {
             unimplemented!()
         }
-        async fn create_job(&self, _job: &twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_job(
+            &self,
+            _job: &twerk_core::job::Job,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::Job,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::Job>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> {
+        async fn get_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> {
             unimplemented!()
         }
-        async fn get_job_log_parts(&self, _job_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> {
+        async fn get_job_log_parts(
+            &self,
+            _job_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
             unimplemented!()
         }
-        async fn get_jobs(&self, _current_user: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>> {
+        async fn get_jobs(
+            &self,
+            _current_user: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>,
+        > {
             unimplemented!()
         }
-        async fn create_scheduled_job(&self, _sj: &twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_scheduled_job(
+            &self,
+            _sj: &twerk_core::job::ScheduledJob,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_active_scheduled_jobs(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> {
+        async fn get_active_scheduled_jobs(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> {
             unimplemented!()
         }
-        async fn get_scheduled_jobs(&self, _current_user: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>> {
+        async fn get_scheduled_jobs(
+            &self,
+            _current_user: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>,
+        > {
             unimplemented!()
         }
-        async fn get_scheduled_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> {
+        async fn get_scheduled_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> {
             unimplemented!()
         }
-        async fn update_scheduled_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_scheduled_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::ScheduledJob,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn delete_scheduled_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn delete_scheduled_job(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn create_user(&self, _user: &twerk_core::user::User) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_user(
+            &self,
+            _user: &twerk_core::user::User,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_user(&self, username: &str) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> {
+        async fn get_user(
+            &self,
+            username: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> {
             if username == "testuser" {
                 Ok(self.user.clone())
             } else {
                 Err(twerk_infrastructure::datastore::Error::UserNotFound)
             }
         }
-        async fn create_role(&self, _role: &twerk_core::role::Role) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_role(
+            &self,
+            _role: &twerk_core::role::Role,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_role(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> {
+        async fn get_role(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> {
             unimplemented!()
         }
-        async fn get_roles(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+        async fn get_roles(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+        async fn get_user_roles(
+            &self,
+            _user_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
-        async fn assign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn assign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn unassign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn unassign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_metrics(&self) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> {
+        async fn get_metrics(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> {
             unimplemented!()
         }
-        async fn with_tx(&self, _f: Box<dyn for<'a> FnOnce(&'a dyn twerk_infrastructure::datastore::Datastore) -> futures_util::future::BoxFuture<'a, twerk_infrastructure::datastore::Result<()>> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn with_tx(
+            &self,
+            _f: Box<
+                dyn for<'a> FnOnce(
+                        &'a dyn twerk_infrastructure::datastore::Datastore,
+                    ) -> futures_util::future::BoxFuture<
+                        'a,
+                        twerk_infrastructure::datastore::Result<()>,
+                    > + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
         async fn health_check(&self) -> twerk_infrastructure::datastore::Result<()> {
@@ -152,11 +304,11 @@ async fn test_valid_basic_auth_credentials_pass() {
     let datastore = Arc::new(MockDatastore::new(user));
     let config = BasicAuthConfig::new(datastore.clone());
 
-    let app = axum::Router::new()
-        .route("/test", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
+    let app = axum::Router::new().route("/test", get(ok_handler)).layer(
+        axum::middleware::from_fn_with_state(config, |st, req, next| {
             Box::pin(async move { basic_auth_middleware(st, req, next).await })
-        }));
+        }),
+    );
 
     let credentials = STANDARD.encode(format!("testuser:{password}"));
 
@@ -179,8 +331,9 @@ async fn test_valid_basic_auth_credentials_pass() {
 async fn test_invalid_basic_auth_credentials_return_401() {
     use async_trait::async_trait;
     use axum::http::{header, StatusCode};
-    use twerk_core::user::User;
     use base64::{engine::general_purpose::STANDARD, Engine};
+    use tower::ServiceExt;
+    use twerk_core::user::User;
 
     struct MockDatastore {
         user: User,
@@ -194,107 +347,258 @@ async fn test_invalid_basic_auth_credentials_return_401() {
 
     #[async_trait]
     impl twerk_infrastructure::datastore::Datastore for MockDatastore {
-        async fn create_task(&self, _task: &twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_task(
+            &self,
+            _task: &twerk_core::task::Task,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_task(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_task(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::task::Task,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::task::Task>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_task_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+        async fn get_task_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
             unimplemented!()
         }
-        async fn get_active_tasks(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+        async fn get_active_tasks(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
-        async fn get_all_tasks_for_job(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+        async fn get_all_tasks_for_job(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
             unimplemented!()
         }
-        async fn get_next_task(&self, _parent_task_id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+        async fn get_next_task(
+            &self,
+            _parent_task_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
             unimplemented!()
         }
-        async fn create_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_task_log_part(
+            &self,
+            _part: &twerk_core::task::TaskLogPart,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_task_log_parts(&self, _task_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> {
+        async fn get_task_log_parts(
+            &self,
+            _task_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
             unimplemented!()
         }
-        async fn create_node(&self, _node: &twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_node(
+            &self,
+            _node: &twerk_core::node::Node,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_node(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_node(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::node::Node,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::node::Node>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_node_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> {
+        async fn get_node_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> {
             unimplemented!()
         }
-        async fn get_active_nodes(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> {
+        async fn get_active_nodes(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> {
             unimplemented!()
         }
-        async fn create_job(&self, _job: &twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_job(
+            &self,
+            _job: &twerk_core::job::Job,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn update_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::Job,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::Job>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> {
+        async fn get_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> {
             unimplemented!()
         }
-        async fn get_job_log_parts(&self, _job_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> {
+        async fn get_job_log_parts(
+            &self,
+            _job_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
             unimplemented!()
         }
-        async fn get_jobs(&self, _current_user: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>> {
+        async fn get_jobs(
+            &self,
+            _current_user: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>,
+        > {
             unimplemented!()
         }
-        async fn create_scheduled_job(&self, _sj: &twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_scheduled_job(
+            &self,
+            _sj: &twerk_core::job::ScheduledJob,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_active_scheduled_jobs(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> {
+        async fn get_active_scheduled_jobs(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> {
             unimplemented!()
         }
-        async fn get_scheduled_jobs(&self, _current_user: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>> {
+        async fn get_scheduled_jobs(
+            &self,
+            _current_user: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>,
+        > {
             unimplemented!()
         }
-        async fn get_scheduled_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> {
+        async fn get_scheduled_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> {
             unimplemented!()
         }
-        async fn update_scheduled_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn update_scheduled_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::ScheduledJob,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn delete_scheduled_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn delete_scheduled_job(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn create_user(&self, _user: &twerk_core::user::User) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_user(
+            &self,
+            _user: &twerk_core::user::User,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_user(&self, username: &str) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> {
+        async fn get_user(
+            &self,
+            username: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> {
             if username == "testuser" {
                 Ok(self.user.clone())
             } else {
                 Err(twerk_infrastructure::datastore::Error::UserNotFound)
             }
         }
-        async fn create_role(&self, _role: &twerk_core::role::Role) -> twerk_infrastructure::datastore::Result<()> {
+        async fn create_role(
+            &self,
+            _role: &twerk_core::role::Role,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_role(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> {
+        async fn get_role(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> {
             unimplemented!()
         }
-        async fn get_roles(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+        async fn get_roles(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+        async fn get_user_roles(
+            &self,
+            _user_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
             unimplemented!()
         }
-        async fn assign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn assign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn unassign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        async fn unassign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
-        async fn get_metrics(&self) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> {
+        async fn get_metrics(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> {
             unimplemented!()
         }
-        async fn with_tx(&self, _f: Box<dyn for<'a> FnOnce(&'a dyn twerk_infrastructure::datastore::Datastore) -> futures_util::future::BoxFuture<'a, twerk_infrastructure::datastore::Result<()>> + Send>) -> twerk_infrastructure::datastore::Result<()> {
+        async fn with_tx(
+            &self,
+            _f: Box<
+                dyn for<'a> FnOnce(
+                        &'a dyn twerk_infrastructure::datastore::Datastore,
+                    ) -> futures_util::future::BoxFuture<
+                        'a,
+                        twerk_infrastructure::datastore::Result<()>,
+                    > + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
         async fn health_check(&self) -> twerk_infrastructure::datastore::Result<()> {
@@ -313,11 +617,11 @@ async fn test_invalid_basic_auth_credentials_return_401() {
     let datastore = Arc::new(MockDatastore::new(user));
     let config = BasicAuthConfig::new(datastore.clone());
 
-    let app = axum::Router::new()
-        .route("/test", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
+    let app = axum::Router::new().route("/test", get(ok_handler)).layer(
+        axum::middleware::from_fn_with_state(config, |st, req, next| {
             Box::pin(async move { basic_auth_middleware(st, req, next).await })
-        }));
+        }),
+    );
 
     let credentials = STANDARD.encode("testuser:wrongpassword");
 
@@ -339,56 +643,276 @@ async fn test_invalid_basic_auth_credentials_return_401() {
 #[tokio::test]
 async fn test_missing_basic_auth_credentials_return_401() {
     use axum::http::StatusCode;
+    use tower::ServiceExt;
     use twerk_infrastructure::datastore::Error as DatastoreError;
 
     struct MockDatastore;
 
     #[async_trait::async_trait]
     impl twerk_infrastructure::datastore::Datastore for MockDatastore {
-        async fn create_task(&self, _task: &twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn update_task(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::task::Task) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> + Send>) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_task_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> { unimplemented!() }
-        async fn get_active_tasks(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> { unimplemented!() }
-        async fn get_all_tasks_for_job(&self, _job_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> { unimplemented!() }
-        async fn get_next_task(&self, _parent_task_id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> { unimplemented!() }
-        async fn create_task_log_part(&self, _part: &twerk_core::task::TaskLogPart) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_task_log_parts(&self, _task_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> { unimplemented!() }
-        async fn create_node(&self, _node: &twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn update_node(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::node::Node) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> + Send>) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_node_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> { unimplemented!() }
-        async fn get_active_nodes(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> { unimplemented!() }
-        async fn create_job(&self, _job: &twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn update_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::Job) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> + Send>) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> { unimplemented!() }
-        async fn get_job_log_parts(&self, _job_id: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>> { unimplemented!() }
-        async fn get_jobs(&self, _current_user: &str, _q: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>> { unimplemented!() }
-        async fn create_scheduled_job(&self, _sj: &twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_active_scheduled_jobs(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> { unimplemented!() }
-        async fn get_scheduled_jobs(&self, _current_user: &str, _page: i64, _size: i64) -> twerk_infrastructure::datastore::Result<twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>> { unimplemented!() }
-        async fn get_scheduled_job_by_id(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> { unimplemented!() }
-        async fn update_scheduled_job(&self, _id: &str, _modify: Box<dyn FnOnce(twerk_core::job::ScheduledJob) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> + Send>) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn delete_scheduled_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn create_user(&self, _user: &twerk_core::user::User) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_user(&self, _username: &str) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> { Err(DatastoreError::UserNotFound) }
-        async fn create_role(&self, _role: &twerk_core::role::Role) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_role(&self, _id: &str) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> { unimplemented!() }
-        async fn get_roles(&self) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> { unimplemented!() }
-        async fn get_user_roles(&self, _user_id: &str) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> { unimplemented!() }
-        async fn assign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn unassign_role(&self, _user_id: &str, _role_id: &str) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn get_metrics(&self) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> { unimplemented!() }
-        async fn with_tx(&self, _f: Box<dyn for<'a> FnOnce(&'a dyn twerk_infrastructure::datastore::Datastore) -> futures_util::future::BoxFuture<'a, twerk_infrastructure::datastore::Result<()>> + Send>) -> twerk_infrastructure::datastore::Result<()> { unimplemented!() }
-        async fn health_check(&self) -> twerk_infrastructure::datastore::Result<()> { Ok(()) }
+        async fn create_task(
+            &self,
+            _task: &twerk_core::task::Task,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn update_task(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::task::Task,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::task::Task>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_task_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+            unimplemented!()
+        }
+        async fn get_active_tasks(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+            unimplemented!()
+        }
+        async fn get_all_tasks_for_job(
+            &self,
+            _job_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::task::Task>> {
+            unimplemented!()
+        }
+        async fn get_next_task(
+            &self,
+            _parent_task_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::task::Task> {
+            unimplemented!()
+        }
+        async fn create_task_log_part(
+            &self,
+            _part: &twerk_core::task::TaskLogPart,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_task_log_parts(
+            &self,
+            _task_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
+            unimplemented!()
+        }
+        async fn create_node(
+            &self,
+            _node: &twerk_core::node::Node,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn update_node(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::node::Node,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::node::Node>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_node_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::node::Node> {
+            unimplemented!()
+        }
+        async fn get_active_nodes(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::node::Node>> {
+            unimplemented!()
+        }
+        async fn create_job(
+            &self,
+            _job: &twerk_core::job::Job,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn update_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::Job,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::Job>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::Job> {
+            unimplemented!()
+        }
+        async fn get_job_log_parts(
+            &self,
+            _job_id: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::task::TaskLogPart>,
+        > {
+            unimplemented!()
+        }
+        async fn get_jobs(
+            &self,
+            _current_user: &str,
+            _q: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>,
+        > {
+            unimplemented!()
+        }
+        async fn create_scheduled_job(
+            &self,
+            _sj: &twerk_core::job::ScheduledJob,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_active_scheduled_jobs(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::job::ScheduledJob>> {
+            unimplemented!()
+        }
+        async fn get_scheduled_jobs(
+            &self,
+            _current_user: &str,
+            _page: i64,
+            _size: i64,
+        ) -> twerk_infrastructure::datastore::Result<
+            twerk_infrastructure::datastore::Page<twerk_core::job::ScheduledJobSummary>,
+        > {
+            unimplemented!()
+        }
+        async fn get_scheduled_job_by_id(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob> {
+            unimplemented!()
+        }
+        async fn update_scheduled_job(
+            &self,
+            _id: &str,
+            _modify: Box<
+                dyn FnOnce(
+                        twerk_core::job::ScheduledJob,
+                    )
+                        -> twerk_infrastructure::datastore::Result<twerk_core::job::ScheduledJob>
+                    + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn delete_scheduled_job(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn create_user(
+            &self,
+            _user: &twerk_core::user::User,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_user(
+            &self,
+            _username: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::user::User> {
+            Err(DatastoreError::UserNotFound)
+        }
+        async fn create_role(
+            &self,
+            _role: &twerk_core::role::Role,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_role(
+            &self,
+            _id: &str,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::role::Role> {
+            unimplemented!()
+        }
+        async fn get_roles(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+            unimplemented!()
+        }
+        async fn get_user_roles(
+            &self,
+            _user_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<Vec<twerk_core::role::Role>> {
+            unimplemented!()
+        }
+        async fn assign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn unassign_role(
+            &self,
+            _user_id: &str,
+            _role_id: &str,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn get_metrics(
+            &self,
+        ) -> twerk_infrastructure::datastore::Result<twerk_core::stats::Metrics> {
+            unimplemented!()
+        }
+        async fn with_tx(
+            &self,
+            _f: Box<
+                dyn for<'a> FnOnce(
+                        &'a dyn twerk_infrastructure::datastore::Datastore,
+                    ) -> futures_util::future::BoxFuture<
+                        'a,
+                        twerk_infrastructure::datastore::Result<()>,
+                    > + Send,
+            >,
+        ) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
+        async fn health_check(&self) -> twerk_infrastructure::datastore::Result<()> {
+            Ok(())
+        }
     }
 
     let datastore: Arc<dyn twerk_infrastructure::datastore::Datastore> = Arc::new(MockDatastore);
     let config = BasicAuthConfig::new(datastore);
 
-    let app = axum::Router::new()
-        .route("/test", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
+    let app = axum::Router::new().route("/test", get(ok_handler)).layer(
+        axum::middleware::from_fn_with_state(config, |st, req, next| {
             Box::pin(async move { basic_auth_middleware(st, req, next).await })
-        }));
+        }),
+    );
 
     let response = app
         .oneshot(
@@ -412,9 +936,10 @@ async fn test_valid_api_key_passes() {
 
     let app = axum::Router::new()
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(
@@ -439,9 +964,10 @@ async fn test_invalid_api_key_returns_401() {
 
     let app = axum::Router::new()
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(
@@ -466,9 +992,10 @@ async fn test_missing_api_key_returns_401() {
 
     let app = axum::Router::new()
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(
@@ -494,9 +1021,10 @@ async fn test_request_matching_skip_path_bypasses_auth() {
     let app = axum::Router::new()
         .route("/health", get(ok_handler))
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(
@@ -520,9 +1048,10 @@ async fn test_api_key_in_query_param_passes() {
 
     let app = axum::Router::new()
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(
@@ -548,9 +1077,10 @@ async fn test_wildcard_skip_path_matching() {
     let app = axum::Router::new()
         .route("/healthz", get(ok_handler))
         .route("/api/endpoint", get(ok_handler))
-        .layer(axum::middleware::from_fn_with_state(config, |st, req, next| {
-            Box::pin(async move { key_auth_middleware(st, req, next).await })
-        }));
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
+        ));
 
     let response = app
         .oneshot(

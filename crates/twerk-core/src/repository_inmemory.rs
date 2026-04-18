@@ -8,7 +8,7 @@ use crate::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use crate::node::Node;
 use crate::repository::{Error, Options, Page, Repository, Result};
 use crate::role::Role;
-use crate::stats::{Metrics, NodeMetrics, JobMetrics, TaskMetrics};
+use crate::stats::{JobMetrics, Metrics, NodeMetrics, TaskMetrics};
 use crate::task::{Task, TaskLogPart, TaskState};
 use crate::user::User;
 
@@ -42,14 +42,20 @@ impl InMemoryRepository {
         }
     }
 
-
-
     fn paginate_vec<T: Clone>(items: Vec<T>, page: i64, size: i64) -> Page<T> {
         let total_items = items.len() as i64;
-        let total_pages = if size > 0 { (total_items + size - 1) / size } else { 0 };
+        let total_pages = if size > 0 {
+            (total_items + size - 1) / size
+        } else {
+            0
+        };
         let start = ((page - 1) * size) as usize;
         let end = (start + size as usize).min(items.len());
-        let page_items: Vec<T> = if start < items.len() { items[start..end].to_vec() } else { Vec::new() };
+        let page_items: Vec<T> = if start < items.len() {
+            items[start..end].to_vec()
+        } else {
+            Vec::new()
+        };
         Page {
             items: page_items,
             number: page,
@@ -63,7 +69,11 @@ impl InMemoryRepository {
 #[async_trait]
 impl Repository for InMemoryRepository {
     async fn create_task(&self, task: &Task) -> Result<()> {
-        let id_str = task.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = task
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("task has no id".to_string()));
         }
@@ -98,7 +108,10 @@ impl Repository for InMemoryRepository {
         Ok(tasks
             .values()
             .filter(|t| {
-                t.job_id.as_ref().map(|j| j.as_str() == job_id_str).unwrap_or(false)
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
                     && t.state.is_active()
             })
             .cloned()
@@ -110,7 +123,12 @@ impl Repository for InMemoryRepository {
         let job_id_str = job_id.to_string();
         Ok(tasks
             .values()
-            .filter(|t| t.job_id.as_ref().map(|j| j.as_str() == job_id_str).unwrap_or(false))
+            .filter(|t| {
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
+            })
             .cloned()
             .collect())
     }
@@ -118,13 +136,23 @@ impl Repository for InMemoryRepository {
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {
         let tasks = self.tasks.read();
         let parent = tasks.get(parent_task_id).ok_or(Error::TaskNotFound)?;
-        let job_id_str = parent.job_id.as_ref().map(|j| j.as_str().to_string()).unwrap_or_default();
+        let job_id_str = parent
+            .job_id
+            .as_ref()
+            .map(|j| j.as_str().to_string())
+            .unwrap_or_default();
         let parent_position = parent.position;
         Ok(tasks
             .values()
             .filter(|t| {
-                t.job_id.as_ref().map(|j| j.as_str() == job_id_str).unwrap_or(false)
-                    && t.parent_id.as_ref().map(|p| p.as_str() == parent_task_id).unwrap_or(false)
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
+                    && t.parent_id
+                        .as_ref()
+                        .map(|p| p.as_str() == parent_task_id)
+                        .unwrap_or(false)
                     && t.position > parent_position
             })
             .min_by_key(|t| t.position)
@@ -133,12 +161,18 @@ impl Repository for InMemoryRepository {
     }
 
     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {
-        let task_id_str = part.task_id.as_ref().map(|t| t.as_str().to_string()).unwrap_or_default();
+        let task_id_str = part
+            .task_id
+            .as_ref()
+            .map(|t| t.as_str().to_string())
+            .unwrap_or_default();
         if task_id_str.is_empty() {
             return Err(Error::InvalidId("task log part has no task_id".to_string()));
         }
         let mut logs = self.task_logs.write();
-        logs.entry(task_id_str).or_default().push(part.clone());
+        logs.entry(task_id_str)
+            .or_insert_with(Vec::new)
+            .push(part.clone());
         Ok(())
     }
 
@@ -155,7 +189,11 @@ impl Repository for InMemoryRepository {
     }
 
     async fn create_node(&self, node: &Node) -> Result<()> {
-        let id_str = node.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = node
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("node has no id".to_string()));
         }
@@ -189,14 +227,21 @@ impl Repository for InMemoryRepository {
         Ok(nodes
             .values()
             .filter(|n| {
-                n.status.as_ref().map(|s| s.as_ref() == "UP").unwrap_or(false)
+                n.status
+                    .as_ref()
+                    .map(|s| s.as_ref() == "UP")
+                    .unwrap_or(false)
             })
             .cloned()
             .collect())
     }
 
     async fn create_job(&self, job: &Job) -> Result<()> {
-        let id_str = job.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = job
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("job has no id".to_string()));
         }
@@ -245,21 +290,25 @@ impl Repository for InMemoryRepository {
         size: i64,
     ) -> Result<Page<JobSummary>> {
         let jobs = self.jobs.read();
-        let summaries: Vec<JobSummary> = jobs
-            .values()
-            .map(crate::job::new_job_summary)
-            .collect();
+        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();
         Ok(Self::paginate_vec(summaries, page, size))
     }
 
     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
-        let id_str = sj.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = sj
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("scheduled job has no id".to_string()));
         }
         let mut sjs = self.scheduled_jobs.write();
         if sjs.contains_key(&id_str) {
-            return Err(Error::Database(format!("scheduled job {} already exists", id_str)));
+            return Err(Error::Database(format!(
+                "scheduled job {} already exists",
+                id_str
+            )));
         }
         sjs.insert(id_str, sj.clone());
         Ok(())
@@ -312,7 +361,11 @@ impl Repository for InMemoryRepository {
     }
 
     async fn create_user(&self, user: &User) -> Result<()> {
-        let id_str = user.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = user
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("user has no id".to_string()));
         }
@@ -334,7 +387,11 @@ impl Repository for InMemoryRepository {
     }
 
     async fn create_role(&self, role: &Role) -> Result<()> {
-        let id_str = role.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let id_str = role
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("role has no id".to_string()));
         }
@@ -362,7 +419,14 @@ impl Repository for InMemoryRepository {
         let role_ids = user_roles.get(user_id).cloned().unwrap_or_default();
         Ok(roles
             .values()
-            .filter(|r| role_ids.contains(&r.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default()))
+            .filter(|r| {
+                role_ids.contains(
+                    &r.id
+                        .as_ref()
+                        .map(|id| id.as_str().to_string())
+                        .unwrap_or_default(),
+                )
+            })
             .cloned()
             .collect())
     }
@@ -389,17 +453,40 @@ impl Repository for InMemoryRepository {
         let tasks = self.tasks.read();
         let nodes = self.nodes.read();
 
-        let jobs_running = jobs.values().filter(|j| j.state == crate::job::JobState::Running).count() as i32;
-        let tasks_running = tasks.values().filter(|t| t.state == TaskState::Running).count() as i32;
-        let nodes_online = nodes.values().filter(|n| n.status.as_ref().map(|s| s.as_ref() == "UP").unwrap_or(false)).count() as i32;
-        let avg_cpu = nodes.values()
+        let jobs_running = jobs
+            .values()
+            .filter(|j| j.state == crate::job::JobState::Running)
+            .count() as i32;
+        let tasks_running = tasks
+            .values()
+            .filter(|t| t.state == TaskState::Running)
+            .count() as i32;
+        let nodes_online = nodes
+            .values()
+            .filter(|n| {
+                n.status
+                    .as_ref()
+                    .map(|s| s.as_ref() == "UP")
+                    .unwrap_or(false)
+            })
+            .count() as i32;
+        let avg_cpu = nodes
+            .values()
             .filter_map(|n| n.cpu_percent)
-            .fold(0.0, |acc, cpu| acc + cpu) / nodes.len().max(1) as f64;
+            .fold(0.0, |acc, cpu| acc + cpu)
+            / nodes.len().max(1) as f64;
 
         Ok(Metrics {
-            jobs: JobMetrics { running: jobs_running },
-            tasks: TaskMetrics { running: tasks_running },
-            nodes: NodeMetrics { running: nodes_online, cpu_percent: avg_cpu },
+            jobs: JobMetrics {
+                running: jobs_running,
+            },
+            tasks: TaskMetrics {
+                running: tasks_running,
+            },
+            nodes: NodeMetrics {
+                running: nodes_online,
+                cpu_percent: avg_cpu,
+            },
         })
     }
 
@@ -412,7 +499,9 @@ impl Repository for InMemoryRepository {
                 + Send,
         >,
     ) -> Result<()> {
-        Err(Error::Transaction("in-memory repository does not support transactions".to_string()))
+        Err(Error::Transaction(
+            "in-memory repository does not support transactions".to_string(),
+        ))
     }
 
     async fn health_check(&self) -> Result<()> {
@@ -423,7 +512,7 @@ impl Repository for InMemoryRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::id::{JobId, NodeId, TaskId, UserId, RoleId, ScheduledJobId};
+    use crate::id::{JobId, NodeId, RoleId, ScheduledJobId, TaskId, UserId};
     use time::OffsetDateTime;
 
     fn create_test_task(id: &str, job_id: Option<&JobId>, state: TaskState) -> Task {
@@ -487,11 +576,29 @@ mod tests {
     async fn get_active_tasks() {
         let repo = InMemoryRepository::new(Options::default());
         let job_id = JobId::new("550e8400-e29b-41d4-a716-446655440000").unwrap();
-        
-        repo.create_task(&create_test_task("task-1", Some(&job_id), TaskState::Running)).await.unwrap();
-        repo.create_task(&create_test_task("task-2", Some(&job_id), TaskState::Completed)).await.unwrap();
-        repo.create_task(&create_test_task("task-3", Some(&job_id), TaskState::Pending)).await.unwrap();
-        
+
+        repo.create_task(&create_test_task(
+            "task-1",
+            Some(&job_id),
+            TaskState::Running,
+        ))
+        .await
+        .unwrap();
+        repo.create_task(&create_test_task(
+            "task-2",
+            Some(&job_id),
+            TaskState::Completed,
+        ))
+        .await
+        .unwrap();
+        repo.create_task(&create_test_task(
+            "task-3",
+            Some(&job_id),
+            TaskState::Pending,
+        ))
+        .await
+        .unwrap();
+
         let active = repo.get_active_tasks(job_id.as_str()).await.unwrap();
         assert_eq!(active.len(), 2);
     }
@@ -508,10 +615,25 @@ mod tests {
     #[tokio::test]
     async fn get_active_nodes() {
         let repo = InMemoryRepository::new(Options::default());
-        repo.create_node(&create_test_node("node-1", Some(crate::node::NodeStatus::UP))).await.unwrap();
-        repo.create_node(&create_test_node("node-2", Some(crate::node::NodeStatus::DOWN))).await.unwrap();
-        repo.create_node(&create_test_node("node-3", Some(crate::node::NodeStatus::UP))).await.unwrap();
-        
+        repo.create_node(&create_test_node(
+            "node-1",
+            Some(crate::node::NodeStatus::UP),
+        ))
+        .await
+        .unwrap();
+        repo.create_node(&create_test_node(
+            "node-2",
+            Some(crate::node::NodeStatus::DOWN),
+        ))
+        .await
+        .unwrap();
+        repo.create_node(&create_test_node(
+            "node-3",
+            Some(crate::node::NodeStatus::UP),
+        ))
+        .await
+        .unwrap();
+
         let active = repo.get_active_nodes().await.unwrap();
         assert_eq!(active.len(), 2);
     }
@@ -521,7 +643,10 @@ mod tests {
         let repo = InMemoryRepository::new(Options::default());
         let job = create_test_job("550e8400-e29b-41d4-a716-446655440000");
         repo.create_job(&job).await.unwrap();
-        let retrieved = repo.get_job_by_id("550e8400-e29b-41d4-a716-446655440000").await.unwrap();
+        let retrieved = repo
+            .get_job_by_id("550e8400-e29b-41d4-a716-446655440000")
+            .await
+            .unwrap();
         assert_eq!(retrieved.id, job.id);
     }
 
@@ -584,11 +709,11 @@ mod tests {
         let role = create_test_role("admin");
         repo.create_user(&user).await.unwrap();
         repo.create_role(&role).await.unwrap();
-        
+
         repo.assign_role("uid-1", "rid-1").await.unwrap();
         let roles = repo.get_user_roles("uid-1").await.unwrap();
         assert_eq!(roles.len(), 1);
-        
+
         repo.unassign_role("uid-1", "rid-1").await.unwrap();
         let roles = repo.get_user_roles("uid-1").await.unwrap();
         assert_eq!(roles.len(), 0);
@@ -645,12 +770,17 @@ mod tests {
         let repo = InMemoryRepository::new(Options::default());
         let task = create_test_task("task-1", None, TaskState::Created);
         repo.create_task(&task).await.unwrap();
-        
-        repo.update_task("task-1", Box::new(|mut t| {
-            t.state = TaskState::Running;
-            Ok(t)
-        })).await.unwrap();
-        
+
+        repo.update_task(
+            "task-1",
+            Box::new(|mut t| {
+                t.state = TaskState::Running;
+                Ok(t)
+            }),
+        )
+        .await
+        .unwrap();
+
         let updated = repo.get_task_by_id("task-1").await.unwrap();
         assert_eq!(updated.state, TaskState::Running);
     }
@@ -660,12 +790,17 @@ mod tests {
         let repo = InMemoryRepository::new(Options::default());
         let node = create_test_node("node-1", Some(crate::node::NodeStatus::UP));
         repo.create_node(&node).await.unwrap();
-        
-        repo.update_node("node-1", Box::new(|mut n| {
-            n.status = Some(crate::node::NodeStatus::DOWN);
-            Ok(n)
-        })).await.unwrap();
-        
+
+        repo.update_node(
+            "node-1",
+            Box::new(|mut n| {
+                n.status = Some(crate::node::NodeStatus::DOWN);
+                Ok(n)
+            }),
+        )
+        .await
+        .unwrap();
+
         let updated = repo.get_node_by_id("node-1").await.unwrap();
         assert_eq!(updated.status, Some(crate::node::NodeStatus::DOWN));
     }
@@ -679,12 +814,17 @@ mod tests {
             ..Default::default()
         };
         repo.create_scheduled_job(&sj).await.unwrap();
-        
-        repo.update_scheduled_job("sj-1", Box::new(|mut s| {
-            s.state = crate::job::ScheduledJobState::Paused;
-            Ok(s)
-        })).await.unwrap();
-        
+
+        repo.update_scheduled_job(
+            "sj-1",
+            Box::new(|mut s| {
+                s.state = crate::job::ScheduledJobState::Paused;
+                Ok(s)
+            }),
+        )
+        .await
+        .unwrap();
+
         let updated = repo.get_scheduled_job_by_id("sj-1").await.unwrap();
         assert_eq!(updated.state, crate::job::ScheduledJobState::Paused);
     }

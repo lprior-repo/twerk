@@ -9,6 +9,15 @@ use twerk_core::task::Task;
 use twerk_core::uuid::new_short_uuid;
 use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
+struct SubtaskContext<'a> {
+    template: &'a Task,
+    job_ctx: &'a HashMap<String, serde_json::Value>,
+    var_name: &'a str,
+    job_id: &'a str,
+    task_id: &'a str,
+    now: time::OffsetDateTime,
+}
+
 impl Scheduler {
     /// Schedules tasks from an each-loop task definition.
     /// # Errors
@@ -102,43 +111,103 @@ impl Scheduler {
         job_id: &str,
         now: time::OffsetDateTime,
     ) -> Result<()> {
+        let var_name = "item";
+        let ctx = SubtaskContext {
+            template,
+            job_ctx,
+            var_name,
+            job_id,
+            task_id,
+            now,
+        };
+
         tracing::warn!(list_len = list.len(), "SPAWN_EACH_TASKS building subtasks");
 
-        let subtasks = build_subtasks(template, job_ctx, task_id, job_id, list, now)?;
+        let subtasks: Vec<_> = list
+            .iter()
+            .enumerate()
+            .par_bridge()
+            .map(|(ix, item)| Self::build_subtask(ix, item, &ctx))
+            .collect::<Result<Vec<_>>>()?;
 
         tracing::warn!(
             count = subtasks.len(),
             "SPAWN_EACH_TASKS subtasks built, creating in DB"
         );
 
-        if !subtasks.is_empty() {
-            self.ds.create_tasks(&subtasks).await?;
-            self.publish_and_handle_failure(&subtasks).await?;
-        }
-
-        Ok(())
+        self.publish_and_handle_errors(&subtasks).await
     }
 
-    async fn publish_and_handle_failure(&self, subtasks: &[Task]) -> Result<()> {
+    fn build_subtask(ix: usize, item: &serde_json::Value, ctx: &SubtaskContext) -> Result<Task> {
+        let cx = Self::build_context(item, ctx.job_ctx, ctx.var_name, ix);
+
+        let evaluated = evaluate_task(ctx.template, &cx)
+            .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+
+        Ok(Task {
+            id: Some(new_short_uuid().into()),
+            job_id: Some(ctx.job_id.to_string().into()),
+            parent_id: Some(ctx.task_id.to_string().into()),
+            state: twerk_core::task::TaskState::Pending,
+            created_at: Some(ctx.now),
+            ..evaluated
+        })
+    }
+
+    fn build_context(
+        item: &serde_json::Value,
+        job_ctx: &HashMap<String, serde_json::Value>,
+        var_name: &str,
+        ix: usize,
+    ) -> HashMap<String, serde_json::Value> {
+        let mut m = job_ctx.clone();
+        m.insert(
+            format!("{var_name}_index"),
+            serde_json::Value::String(ix.to_string()),
+        );
+        if let Some(obj) = item.as_object() {
+            for (k, v) in obj {
+                let flat_key = format!("{var_name}_value_{k}");
+                m.insert(flat_key, v.clone());
+            }
+            m.insert(var_name.to_string(), item.clone());
+        } else {
+            m.insert(var_name.to_string(), item.clone());
+            m.insert(format!("{var_name}_value"), item.clone());
+        }
+        m
+    }
+
+    async fn publish_and_handle_errors(
+        &self,
+        subtasks: &[Task],
+    ) -> Result<()> {
+        if subtasks.is_empty() {
+            return Ok(());
+        }
+
+        self.ds.create_tasks(subtasks).await?;
+
         tracing::warn!("SPAWN_EACH_TASKS DB insert OK, publishing to broker");
         if let Err(e) = self
             .broker
             .publish_tasks(QUEUE_PENDING.to_string(), subtasks)
             .await
         {
-            let error_msg = format!("broker publish failed: {e}");
-            self.rollback_subtasks(subtasks, &error_msg).await;
+            self.rollback_failed_tasks(subtasks, &e).await;
             return Err(e);
         }
+
         Ok(())
     }
 
-    async fn rollback_subtasks(&self, subtasks: &[Task], error_msg: &str) {
+    async fn rollback_failed_tasks(&self, subtasks: &[Task], error: &anyhow::Error) {
+        let error_msg = format!("broker publish failed: {error}");
         let compensating: Vec<_> = subtasks
             .iter()
             .filter_map(|s| s.id.as_deref())
             .map(|id| {
-                let msg = error_msg.to_string();
+                let msg = error_msg.clone();
                 self.ds.update_task(
                     id,
                     Box::new(move |t| {
@@ -152,65 +221,5 @@ impl Scheduler {
             })
             .collect();
         let _ = futures_util::future::join_all(compensating).await;
-    }
-}
-
-fn build_subtasks(
-    template: &Task,
-    job_ctx: &HashMap<String, serde_json::Value>,
-    task_id: &str,
-    job_id: &str,
-    list: &[serde_json::Value],
-    now: time::OffsetDateTime,
-) -> Result<Vec<Task>> {
-    let var_name = "item";
-
-    let subtasks: Vec<_> = list
-        .iter()
-        .enumerate()
-        .par_bridge()
-        .map(|(ix, item)| build_single_subtask(template, job_ctx, task_id, job_id, var_name, ix, item, now))
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(subtasks)
-}
-
-fn build_single_subtask(
-    template: &Task,
-    job_ctx: &HashMap<String, serde_json::Value>,
-    task_id: &str,
-    job_id: &str,
-    var_name: &str,
-    ix: usize,
-    item: &serde_json::Value,
-    now: time::OffsetDateTime,
-) -> Result<Task> {
-    let mut cx = job_ctx.clone();
-    cx.insert(format!("{var_name}_index"), serde_json::Value::String(ix.to_string()));
-    flatten_item_to_context(var_name, item, &mut cx);
-
-    let evaluated = evaluate_task(template, &cx)
-        .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
-
-    Ok(Task {
-        id: Some(new_short_uuid().into()),
-        job_id: Some(job_id.to_string().into()),
-        parent_id: Some(task_id.to_string().into()),
-        state: twerk_core::task::TaskState::Pending,
-        created_at: Some(now),
-        ..evaluated
-    })
-}
-
-fn flatten_item_to_context(var_name: &str, item: &serde_json::Value, cx: &mut HashMap<String, serde_json::Value>) {
-    if let Some(obj) = item.as_object() {
-        for (k, v) in obj {
-            let flat_key = format!("{var_name}_value_{k}");
-            cx.insert(flat_key, v.clone());
-        }
-        cx.insert(var_name.to_string(), item.clone());
-    } else {
-        cx.insert(var_name.to_string(), item.clone());
-        cx.insert(format!("{var_name}_value"), item.clone());
     }
 }

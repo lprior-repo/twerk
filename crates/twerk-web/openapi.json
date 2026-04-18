@@ -1,7 +1,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> origin/tw-polecat/theta
+=======
+>>>>>>> origin/tw-polecat/epsilon
 {
   "openapi": "3.0.3",
   "info": {
@@ -756,6 +759,7 @@
             "name": "id",
             "in": "path",
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
      Running `target/debug/openapi-gen`
@@ -798,6 +802,8 @@
 >>>>>>> origin/tw-polecat/alpha
 =======
 >>>>>>> origin/tw-polecat/theta
+=======
+>>>>>>> origin/tw-polecat/epsilon
             "required": true,
             "schema": {
               "type": "string"
@@ -808,8 +814,11 @@
           "204": {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> origin/tw-polecat/theta
+=======
+>>>>>>> origin/tw-polecat/epsilon
             "description": "No Content"
           },
           "400": {
@@ -1120,6 +1129,7 @@
       }
     }
   }
+<<<<<<< HEAD
 <<<<<<< HEAD
 }
 =======
@@ -1488,3 +1498,6 @@
 =======
 }
 >>>>>>> origin/tw-polecat/theta
+=======
+}
+>>>>>>> origin/tw-polecat/epsilon

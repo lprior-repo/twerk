@@ -1,0 +1,32 @@
+[package]
+exclude = [
+    "vendor/**",
+    "target/**",
+    "fuzz/**",
+    "benchmarks/**",
+    "examples/**",
+    "website/**",
+    "pokemon-server/**",
+    "twerk-9td/**",
+    "twerk-ctz/**",
+    "twerk-database/**",
+    "twerk-twi/**",
+]
+
+[report]
+show_unviable = false
+show_timeout = false
+
+[filter]
+dont_mutate = [
+    "**/vendor/**",
+    "**/gen/**",
+    "**/generated/**",
+]
+
+[run]
+timeout_secs = 300
+test_timeout_secs = 120
+
+[tool.cargo-mutants]
+version = "27.0"

@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn webhook_url_as_url_host_is_always_some() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        assert!(url.as_url().host().is_some());
+        assert!(url.as_url().unwrap().host().is_some());
     }
 
     // -------------------------------------------------------------------------
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn webhook_url_new_returns_ok_when_path_is_root() {
         let url = WebhookUrl::new("https://example.com/").unwrap();
-        assert_eq!(url.as_url().path(), "/");
+        assert_eq!(url.as_url().unwrap().path(), "/");
     }
 
     // -------------------------------------------------------------------------

@@ -60,6 +60,18 @@ pub struct CreateJobQuery {
 /// POST /jobs
 ///
 /// # Errors
+#[utoipa::path(
+    post,
+    path = "/jobs",
+    params(
+        ("wait" = Option<String>, Query, description = "Whether to block until the job completes (true/false/blocking)")
+    ),
+    request_body(content = String, description = "Job definition as JSON or YAML", content_type = "application/json"),
+    responses(
+        (status = 200, description = "Job created"),
+        (status = 400, description = "Invalid job definition or unsupported content type")
+    )
+)]
 #[instrument(name = "create_job_handler", skip_all)]
 pub async fn create_job_handler(
     State(state): State<AppState>,
@@ -187,6 +199,17 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 /// GET /jobs/{id}
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs/{id}",
+    params(
+        ("id" = String, Path, description = "Job ID")
+    ),
+    responses(
+        (status = 200, description = "Job found"),
+        (status = 404, description = "Job not found")
+    )
+)]
 #[instrument(name = "get_job_handler", skip_all)]
 pub async fn get_job_handler(
     State(state): State<AppState>,
@@ -215,6 +238,18 @@ pub async fn get_job_handler(
 /// GET /jobs
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs",
+    params(
+        ("page" = Option<String>, Query, description = "Page number"),
+        ("size" = Option<String>, Query, description = "Page size"),
+        ("q" = Option<String>, Query, description = "Search query")
+    ),
+    responses(
+        (status = 200, description = "List of jobs")
+    )
+)]
 #[instrument(name = "list_jobs_handler", skip_all)]
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
@@ -243,6 +278,17 @@ pub async fn list_jobs_handler(
 /// PUT /jobs/{id}/cancel
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/jobs/{id}/cancel",
+    params(
+        ("id" = String, Path, description = "Job ID")
+    ),
+    responses(
+        (status = 200, description = "Job cancelled"),
+        (status = 400, description = "Job cannot be cancelled in its current state")
+    )
+)]
 #[instrument(name = "cancel_job_handler", skip_all)]
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
@@ -272,6 +318,17 @@ pub async fn cancel_job_handler(
 /// PUT /jobs/{id}/restart
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/jobs/{id}/restart",
+    params(
+        ("id" = String, Path, description = "Job ID")
+    ),
+    responses(
+        (status = 200, description = "Job restarted"),
+        (status = 400, description = "Job cannot be restarted")
+    )
+)]
 #[instrument(name = "restart_job_handler", skip_all)]
 pub async fn restart_job_handler(
     State(state): State<AppState>,
@@ -296,6 +353,19 @@ pub async fn restart_job_handler(
 /// GET /jobs/{id}/log
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs/{id}/log",
+    params(
+        ("id" = String, Path, description = "Job ID"),
+        ("page" = Option<String>, Query, description = "Page number"),
+        ("size" = Option<String>, Query, description = "Page size")
+    ),
+    responses(
+        (status = 200, description = "Job log entries"),
+        (status = 404, description = "Job not found")
+    )
+)]
 #[instrument(name = "get_job_log_handler", skip_all)]
 pub async fn get_job_log_handler(
     State(state): State<AppState>,

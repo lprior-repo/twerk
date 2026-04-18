@@ -73,6 +73,9 @@ pub fn r#match(pattern: &str, s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prop_assert;
+    use proptest::prop_assert_eq;
+    use proptest::prop_assume;
 
     #[test]
     fn test_wildcard_match_exact() {
@@ -99,5 +102,48 @@ mod tests {
     fn test_wildcard_match_multiple_stars() {
         assert!(wildcard_match("*:*", "foo:bar"));
         assert!(wildcard_match("a*b*c", "axbxc"));
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn test_wildcard_match_deterministic(pattern: String, s: String) {
+            let result1 = wildcard_match(&pattern, &s);
+            let result2 = wildcard_match(&pattern, &s);
+            prop_assert_eq!(result1, result2, "wildcard_match must be deterministic");
+        }
+
+        #[test]
+        fn test_wildcard_match_reflexivity(s: String) {
+            prop_assume!(!s.contains('*'), "s must not contain wildcard character");
+            prop_assert!(wildcard_match(&s, &s), "non-wildcard string should match itself");
+        }
+
+        #[test]
+        fn test_wildcard_match_star_at_boundaries(s: String) {
+            let pattern_start = format!("*{}", s);
+            let pattern_end = format!("{}*", s);
+            let pattern_both = format!("*{}*", s);
+            prop_assert!(wildcard_match(&pattern_start, &s), "star at start should match");
+            prop_assert!(wildcard_match(&pattern_end, &s), "star at end should match");
+            prop_assert!(wildcard_match(&pattern_both, &s), "stars at both boundaries should match");
+        }
+
+        #[test]
+        fn test_wildcard_match_empty_string(pattern: String) {
+            if pattern.is_empty() {
+                prop_assert!(wildcard_match(&pattern, ""), "empty pattern should match empty string");
+            } else if pattern == "*" {
+                prop_assert!(wildcard_match(&pattern, ""), "star pattern should match empty string");
+            } else if !pattern.contains('*') {
+                prop_assert!(!wildcard_match(&pattern, ""), "non-star pattern should not match empty string");
+            }
+        }
+
+        #[test]
+        fn test_wildcard_match_star_matches_anything(pattern: String, s: String) {
+            let star_pattern = "*";
+            prop_assert!(wildcard_match(star_pattern, &s), "star should match anything");
+            prop_assert!(wildcard_match(star_pattern, ""), "star should match empty string");
+        }
     }
 }

@@ -5794,6 +5794,7 @@ dependencies = [
  "itertools 0.14.0",
  "libc",
  "once_cell",
+ "proptest",
  "rand 0.9.4",
  "regex",
  "serde",

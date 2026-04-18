@@ -30,6 +30,8 @@ base64.workspace = true
 time.workspace = true
 bytes.workspace = true
 serde-saphyr.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
@@ -43,3 +45,8 @@ rstest.workspace = true
 proptest.workspace = true
 rand.workspace = true
 rand_chacha = "0.9"
+
+[[bin]]
+name = "openapi-gen"
+path = "src/bin/openapi_gen.rs"
+required-features = []

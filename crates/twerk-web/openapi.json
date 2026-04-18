@@ -1,0 +1,407 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Running `target/debug/openapi-gen`
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "description": "Task scheduling and job queue management API",
+    "title": "Twerk API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/triggers": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "List of triggers"
+          }
+        },
+        "summary": "List triggers"
+      },
+      "post": {
+        "responses": {
+          "201": {
+            "description": "Trigger created"
+          }
+        },
+        "summary": "Create trigger"
+      }
+    },
+    "/api/v1/triggers/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trigger deleted"
+          }
+        },
+        "summary": "Delete trigger"
+      },
+      "get": {
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger details"
+          }
+        },
+        "summary": "Get trigger"
+      },
+      "put": {
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger updated"
+          }
+        },
+        "summary": "Update trigger"
+      }
+    },
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Health check response"
+          }
+        },
+        "summary": "Health check"
+      }
+    },
+    "/jobs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "List of jobs"
+          }
+        },
+        "summary": "List jobs"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Job created"
+          }
+        },
+        "summary": "Create job"
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job details"
+          }
+        },
+        "summary": "Get job by ID"
+      }
+    },
+    "/jobs/{id}/cancel": {
+      "put": {
+        "parameters": [
+          {
+            "description": "Job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job cancelled"
+          }
+        },
+        "summary": "Cancel job"
+      }
+    },
+    "/jobs/{id}/log": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job log"
+          }
+        },
+        "summary": "Get job log"
+      }
+    },
+    "/jobs/{id}/restart": {
+      "put": {
+        "parameters": [
+          {
+            "description": "Job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job restarted"
+          }
+        },
+        "summary": "Restart job"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "System metrics"
+          }
+        },
+        "summary": "Get system metrics"
+      }
+    },
+    "/nodes": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "List of active nodes"
+          }
+        },
+        "summary": "List active nodes"
+      }
+    },
+    "/queues": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "List of queues"
+          }
+        },
+        "summary": "List queues"
+      }
+    },
+    "/queues/{name}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Queue name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue deleted"
+          }
+        },
+        "summary": "Delete queue"
+      },
+      "get": {
+        "parameters": [
+          {
+            "description": "Queue name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue info"
+          }
+        },
+        "summary": "Get queue info"
+      }
+    },
+    "/scheduled-jobs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "List of scheduled jobs"
+          }
+        },
+        "summary": "List scheduled jobs"
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Scheduled job created"
+          }
+        },
+        "summary": "Create scheduled job"
+      }
+    },
+    "/scheduled-jobs/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job deleted"
+          }
+        },
+        "summary": "Delete scheduled job"
+      }
+    },
+    "/scheduled-jobs/{id}/pause": {
+      "put": {
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job paused"
+          }
+        },
+        "summary": "Pause scheduled job"
+      }
+    },
+    "/scheduled-jobs/{id}/resume": {
+      "put": {
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduled job resumed"
+          }
+        },
+        "summary": "Resume scheduled job"
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Task ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details"
+          }
+        },
+        "summary": "Get task by ID"
+      }
+    },
+    "/tasks/{id}/log": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Task ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task log"
+          }
+        },
+        "summary": "Get task log"
+      }
+    },
+    "/users": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "User created"
+          }
+        },
+        "summary": "Create user"
+      }
+    }
+  }
+}

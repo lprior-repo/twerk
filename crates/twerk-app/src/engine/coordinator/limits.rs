@@ -88,8 +88,7 @@ pub async fn body_limit_middleware(
         .headers()
         .get(header::TRANSFER_ENCODING)
         .and_then(|v| v.to_str().ok())
-        .map(|v| v.eq_ignore_ascii_case("chunked"))
-        .unwrap_or(false);
+        .is_some_and(|v| v.eq_ignore_ascii_case("chunked"));
 
     if is_chunked {
         return Err(StatusCode::LENGTH_REQUIRED);

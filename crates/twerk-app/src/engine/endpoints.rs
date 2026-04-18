@@ -27,8 +27,7 @@ fn is_pattern(path: &str) -> bool {
 }
 
 fn match_pattern(template: &str, path: &str) -> Option<HashMap<String, String>> {
-    if template.ends_with('*') {
-        let prefix = &template[..template.len() - 1];
+    if let Some(prefix) = template.strip_suffix('*') {
         if path.starts_with(prefix) {
             return Some(HashMap::new());
         }
@@ -41,8 +40,8 @@ fn match_pattern(template: &str, path: &str) -> Option<HashMap<String, String>> 
     }
     let mut params = HashMap::new();
     for (t, p) in template_parts.iter().zip(path_parts.iter()) {
-        if t.starts_with(':') {
-            params.insert(t[1..].to_string(), p.to_string());
+        if let Some(stripped) = t.strip_prefix(':') {
+            params.insert(stripped.to_string(), p.to_string());
         } else if *t != *p {
             return None;
         }

@@ -99,6 +99,9 @@ cron = "0.12"
 chrono-tz = "0.10"
 jmespath = "0.5"
 
+# OpenAPI
+utoipa = "5.4"
+
 # Scheduling
 tokio-cron-scheduler = "0.15"
 

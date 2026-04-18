@@ -46,6 +46,7 @@ fn trigger(id: &str) -> Trigger {
         condition: None,
         action: "test_action".to_string(),
         metadata: std::collections::HashMap::new(),
+        version: 1,
         created_at: now,
         updated_at: now,
     }

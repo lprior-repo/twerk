@@ -60,7 +60,11 @@ impl From<&str> for TriggerId {
 // Trigger types
 // ---------------------------------------------------------------------------
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
+=======
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, utoipa::ToSchema)]
+>>>>>>> origin/tw-polecat/mu
 pub struct TriggerUpdateRequest {
     pub name: String,
     pub enabled: bool,
@@ -87,7 +91,7 @@ pub struct Trigger {
     pub updated_at: OffsetDateTime,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct TriggerView {
     pub id: String,
     pub name: String,

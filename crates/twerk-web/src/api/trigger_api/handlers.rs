@@ -206,7 +206,6 @@ pub async fn get_trigger_handler(
     params(
         ("id" = String, Path, description = "Trigger ID")
     ),
-    request_body = TriggerUpdateRequest,
     responses(
         (status = 200, description = "Trigger updated"),
         (status = 400, description = "Validation error or invalid request"),
@@ -318,7 +317,6 @@ pub async fn list_triggers_handler(
 #[utoipa::path(
     post,
     path = "/api/v1/triggers",
-    request_body = TriggerUpdateRequest,
     responses(
         (status = 201, description = "Trigger created"),
         (status = 400, description = "Validation error")

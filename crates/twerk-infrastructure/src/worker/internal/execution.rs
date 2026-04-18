@@ -179,6 +179,8 @@ fn parse_duration(s: &str) -> Option<Duration> {
 
 #[cfg(test)]
 mod tests {
+    #![deny(clippy::unwrap_used)]
+    #![deny(clippy::expect_used)]
     use super::*;
 
     #[test]
@@ -203,8 +205,10 @@ mod tests {
 
         apply_limits(&mut task, &limits);
 
-        assert!(task.limits.is_some());
-        let task_limits = task.limits.unwrap();
+        let task_limits = match task.limits {
+            Some(limits) => limits,
+            None => panic!("apply_limits should set limits on empty task"),
+        };
         assert_eq!(task_limits.cpus, Some("2".to_string()));
         assert_eq!(task_limits.memory, Some("1g".to_string()));
         assert_eq!(task.timeout, Some("10m".to_string()));
@@ -229,7 +233,10 @@ mod tests {
         apply_limits(&mut modified_task, &limits);
 
         // CPU should remain as set
-        let task_limits = modified_task.limits.as_ref().unwrap();
+        let task_limits = match modified_task.limits.as_ref() {
+            Some(limits) => limits,
+            None => panic!("limits should be set after apply_limits"),
+        };
         assert_eq!(task_limits.cpus, Some("4".to_string()));
         // Memory should get default
         assert_eq!(task_limits.memory, Some("1g".to_string()));

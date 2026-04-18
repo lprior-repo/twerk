@@ -12,7 +12,7 @@ use thiserror::Error;
 ///
 /// Unlike the Priority type in domain_types, this is a simple u32 wrapper
 /// with no upper bound restriction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "RetryLimit should be used; it validates at construction"]
 pub struct RetryLimit(u32);

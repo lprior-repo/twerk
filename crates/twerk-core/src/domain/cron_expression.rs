@@ -15,7 +15,7 @@ use thiserror::Error;
 /// - Supported special characters: `*`, `?`, `-`, `,`, `/`
 /// - Supported day names: `MON-SUN` (case-insensitive)
 /// - Supported month names: `JAN-DEC` (case-insensitive)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "CronExpression should be used; it validates at construction"]
 pub struct CronExpression(String);

@@ -16,7 +16,7 @@ use thiserror::Error;
 /// - No port number (reject `:` character explicitly)
 /// - Case-insensitive but preserved as-is
 /// - Labels cannot be all-numeric (to avoid ambiguity with IP addresses)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "Hostname should be used; it validates at construction"]
 pub struct Hostname(String);

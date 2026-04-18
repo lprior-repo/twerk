@@ -18,7 +18,7 @@ use thiserror::Error;
 /// A validated queue identifier.
 ///
 /// Rules: 1-128 characters, lowercase ASCII alphanumeric, hyphens, underscores, dots.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "QueueName should be used; it validates at construction"]
 pub struct QueueName(String);
@@ -93,7 +93,7 @@ impl Deref for QueueName {
 // ---------------------------------------------------------------------------
 
 /// A validated cron expression.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "CronExpression should be used; it validates at construction"]
 pub struct CronExpression(String);
@@ -145,7 +145,7 @@ impl FromStr for CronExpression {
 /// A parsed Go-style duration string (e.g. `"30s"`, `"1h30m"`, `"2d"`).
 ///
 /// The original string representation is preserved for serialisation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "GoDuration should be used; it validates at construction"]
 pub struct GoDuration(String);
@@ -300,7 +300,7 @@ fn parse_go_duration(s: &str) -> Result<Duration, GoDurationError> {
 /// A validated job/Task priority value (0-9).
 ///
 /// Lower values = higher priority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "Priority should be used; it validates at construction"]
 pub struct Priority(i64);
@@ -343,7 +343,7 @@ impl fmt::Display for Priority {
 // ---------------------------------------------------------------------------
 
 /// A validated task retry limit (1-10).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "RetryLimit should be used; it validates at construction"]
 pub struct RetryLimit(i64);

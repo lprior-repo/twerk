@@ -11,7 +11,7 @@ use thiserror::Error;
 /// A validated task progress percentage (0.0-100.0).
 ///
 /// Progress values must be in the percentage range [0.0, 100.0] and not NaN.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "Progress should be used; it validates at construction"]
 pub struct Progress(f64);

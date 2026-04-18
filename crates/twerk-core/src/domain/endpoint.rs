@@ -66,7 +66,6 @@ impl Endpoint {
     ///
     /// # Safety
     /// The caller must ensure the string is a valid http/https URL.
-    #[must_use]
     pub fn new_unchecked(endpoint: impl Into<String>) -> Self {
         Self(endpoint.into())
     }

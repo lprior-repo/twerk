@@ -44,7 +44,6 @@ impl Dsn {
     ///
     /// # Safety
     /// The caller must ensure the string is a valid PostgreSQL DSN.
-    #[must_use]
     pub fn new_unchecked(dsn: impl Into<String>) -> Self {
         Self(dsn.into())
     }

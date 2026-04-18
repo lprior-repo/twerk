@@ -100,7 +100,6 @@ impl WebhookUrl {
     /// # Errors
     /// Returns [`WebhookUrlError::UrlParseError`] if the internal string fails to parse.
     /// This should never occur if the instance was constructed via [`WebhookUrl::new`].
-    #[must_use]
     pub fn as_url(&self) -> Result<url::Url, WebhookUrlError> {
         url::Url::parse(&self.0).map_err(|e| WebhookUrlError::UrlParseError(e.to_string()))
     }

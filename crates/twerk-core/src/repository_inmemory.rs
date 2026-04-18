@@ -171,7 +171,7 @@ impl Repository for InMemoryRepository {
         }
         let mut logs = self.task_logs.write();
         logs.entry(task_id_str)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(part.clone());
         Ok(())
     }

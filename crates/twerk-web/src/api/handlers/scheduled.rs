@@ -16,8 +16,9 @@ use super::super::error::ApiError;
 use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
 use tracing::instrument;
+use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateScheduledJobBody {
     pub name: Option<String>,
     pub description: Option<String>,

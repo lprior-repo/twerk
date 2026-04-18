@@ -10,6 +10,7 @@ use super::super::redact::redact_task_log_parts;
 use super::{parse_page, parse_size, AppState};
 use crate::middleware::hooks::on_read_task;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 /// Raw pagination query parameters — uses String types to avoid
 /// serde rejection errors when users send invalid input like `?page=abc`.
@@ -23,7 +24,7 @@ pub struct RawPaginationQuery {
 /// Typed pagination query parsed from raw strings.
 /// Invalid integer values silently become `None` rather than
 /// leaking raw serde/axum error messages to the user.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ToSchema)]
 pub struct PaginationQuery {
     pub page: Option<i64>,
     pub size: Option<i64>,

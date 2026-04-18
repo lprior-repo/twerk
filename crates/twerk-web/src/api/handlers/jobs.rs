@@ -9,6 +9,7 @@ use serde_json::json;
 use tokio::sync::broadcast::error::RecvError;
 use twerk_core::id::JobId;
 use twerk_core::job::{new_job_summary, Job, JobEvent, JobState};
+use utoipa::ToSchema;
 
 use super::super::error::ApiError;
 use super::super::redact::redact_task_log_parts;
@@ -18,7 +19,7 @@ use crate::middleware::hooks::{on_read_job, on_read_job_summary};
 use tracing::instrument;
 
 /// Whether the create-job endpoint should block until the job completes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ToSchema)]
 pub enum WaitMode {
     #[default]
     Detached,
@@ -52,7 +53,7 @@ impl<'de> Deserialize<'de> for WaitMode {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default, ToSchema)]
 pub struct CreateJobQuery {
     pub wait: Option<WaitMode>,
 }

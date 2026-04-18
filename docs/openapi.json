@@ -5,6 +5,26 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "responses": {
+          "200": {
+            "description": "User created"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs/{id}/pause": {
+      "put": {
+        "summary": "Pause scheduled job",
+        "responses": {
+          "200": {
+            "description": "Scheduled job paused"
+          }
+        }
+      }
+    },
     "/queues/{name}": {
       "get": {
         "summary": "Get queue by name",
@@ -23,22 +43,68 @@
         }
       }
     },
-    "/jobs/{id}/restart": {
-      "put": {
-        "summary": "Restart job",
+    "/api/v1/triggers": {
+      "get": {
+        "summary": "List triggers",
         "responses": {
           "200": {
-            "description": "Job restarted"
+            "description": "List of triggers"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create trigger",
+        "responses": {
+          "200": {
+            "description": "Trigger created"
           }
         }
       }
     },
-    "/queues": {
-      "get": {
-        "summary": "List queues",
+    "/scheduled-jobs/{id}/resume": {
+      "put": {
+        "summary": "Resume scheduled job",
         "responses": {
           "200": {
-            "description": "List of queues"
+            "description": "Scheduled job resumed"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/cancel": {
+      "post": {
+        "summary": "Cancel job",
+        "responses": {
+          "200": {
+            "description": "Job cancelled"
+          }
+        }
+      },
+      "put": {
+        "summary": "Cancel job",
+        "responses": {
+          "200": {
+            "description": "Job cancelled"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Get metrics",
+        "responses": {
+          "200": {
+            "description": "Metrics data"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/log": {
+      "get": {
+        "summary": "Get job log",
+        "responses": {
+          "200": {
+            "description": "Job log"
           }
         }
       }
@@ -49,6 +115,72 @@
         "responses": {
           "200": {
             "description": "List of nodes"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs/{id}": {
+      "get": {
+        "summary": "Get scheduled job by ID",
+        "responses": {
+          "200": {
+            "description": "Scheduled job found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete scheduled job",
+        "responses": {
+          "200": {
+            "description": "Scheduled job deleted"
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "summary": "Get task by ID",
+        "responses": {
+          "200": {
+            "description": "Task found"
+          }
+        }
+      }
+    },
+    "/jobs/{id}/restart": {
+      "put": {
+        "summary": "Restart job",
+        "responses": {
+          "200": {
+            "description": "Job restarted"
+          }
+        }
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "summary": "Get job by ID",
+        "responses": {
+          "200": {
+            "description": "Job found"
+          }
+        }
+      }
+    },
+    "/scheduled-jobs": {
+      "get": {
+        "summary": "List scheduled jobs",
+        "responses": {
+          "200": {
+            "description": "List of scheduled jobs"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create scheduled job",
+        "responses": {
+          "200": {
+            "description": "Scheduled job created"
           }
         }
       }
@@ -97,30 +229,12 @@
         }
       }
     },
-    "/jobs/{id}/log": {
+    "/health": {
       "get": {
-        "summary": "Get job log",
+        "summary": "Health check",
         "responses": {
           "200": {
-            "description": "Job log"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs": {
-      "get": {
-        "summary": "List scheduled jobs",
-        "responses": {
-          "200": {
-            "description": "List of scheduled jobs"
-          }
-        }
-      },
-      "post": {
-        "summary": "Create scheduled job",
-        "responses": {
-          "200": {
-            "description": "Scheduled job created"
+            "description": "OK"
           }
         }
       }
@@ -135,126 +249,12 @@
         }
       }
     },
-    "/scheduled-jobs/{id}": {
+    "/queues": {
       "get": {
-        "summary": "Get scheduled job by ID",
+        "summary": "List queues",
         "responses": {
           "200": {
-            "description": "Scheduled job found"
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete scheduled job",
-        "responses": {
-          "200": {
-            "description": "Scheduled job deleted"
-          }
-        }
-      }
-    },
-    "/users": {
-      "post": {
-        "summary": "Create user",
-        "responses": {
-          "200": {
-            "description": "User created"
-          }
-        }
-      }
-    },
-    "/jobs/{id}/cancel": {
-      "post": {
-        "summary": "Cancel job",
-        "responses": {
-          "200": {
-            "description": "Job cancelled"
-          }
-        }
-      },
-      "put": {
-        "summary": "Cancel job",
-        "responses": {
-          "200": {
-            "description": "Job cancelled"
-          }
-        }
-      }
-    },
-    "/api/v1/triggers": {
-      "get": {
-        "summary": "List triggers",
-        "responses": {
-          "200": {
-            "description": "List of triggers"
-          }
-        }
-      },
-      "post": {
-        "summary": "Create trigger",
-        "responses": {
-          "200": {
-            "description": "Trigger created"
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "summary": "Get metrics",
-        "responses": {
-          "200": {
-            "description": "Metrics data"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/pause": {
-      "put": {
-        "summary": "Pause scheduled job",
-        "responses": {
-          "200": {
-            "description": "Scheduled job paused"
-          }
-        }
-      }
-    },
-    "/jobs/{id}": {
-      "get": {
-        "summary": "Get job by ID",
-        "responses": {
-          "200": {
-            "description": "Job found"
-          }
-        }
-      }
-    },
-    "/tasks/{id}": {
-      "get": {
-        "summary": "Get task by ID",
-        "responses": {
-          "200": {
-            "description": "Task found"
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/resume": {
-      "put": {
-        "summary": "Resume scheduled job",
-        "responses": {
-          "200": {
-            "description": "Scheduled job resumed"
-          }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "responses": {
-          "200": {
-            "description": "OK"
+            "description": "List of queues"
           }
         }
       }

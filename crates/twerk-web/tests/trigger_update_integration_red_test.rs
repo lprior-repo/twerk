@@ -22,6 +22,7 @@ fn trigger(id: &str) -> Trigger {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::from([("k".to_string(), "v".to_string())]),
+        version: 1,
         created_at: now,
         updated_at: now,
     }
@@ -326,15 +327,18 @@ async fn update_trigger_handler_keeps_same_mutable_state_when_same_request_appli
     .await;
     assert_eq!(first_status, StatusCode::OK);
     assert_eq!(first_body["id"], json!("trg_abc"));
+    let first_version = first_body["version"].as_u64().expect("version as u64");
     let after_first = trigger_ds
         .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
         .expect("trigger");
 
+    let mut second_request = body_ok("trg_abc");
+    second_request["version"] = json!(first_version);
     let (second_status, second_body) = send_put(
         app_two,
         "/api/v1/triggers/trg_abc",
         "application/json",
-        Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
+        Body::from(serde_json::to_vec(&second_request).expect("serialize")),
     )
     .await;
     assert_eq!(second_status, StatusCode::OK);

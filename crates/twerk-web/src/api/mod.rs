@@ -262,6 +262,7 @@ mod trigger_update_unit_red_tests {
             condition: None,
             action: "old_action".to_string(),
             metadata: HashMap::from([("old".to_string(), "value".to_string())]),
+            version: 1,
             created_at: now,
             updated_at: now,
         }

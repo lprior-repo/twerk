@@ -25,6 +25,7 @@ fn trigger(id: &str) -> Trigger {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::from([("k".to_string(), "v".to_string())]),
+        version: 1,
         created_at: now,
         updated_at: now,
     }
@@ -307,6 +308,7 @@ async fn adversarial_created_at_immutable_on_update() {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::new(),
+        version: 1,
         created_at: original_time,
         updated_at: original_time,
     };
@@ -348,6 +350,7 @@ async fn adversarial_updated_at_advances_on_update() {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::new(),
+        version: 1,
         created_at: original_time,
         updated_at: original_time,
     };
@@ -355,7 +358,7 @@ async fn adversarial_updated_at_advances_on_update() {
     let app = create_router(build_state(trigger_ds.clone()));
 
     // First update
-    let (status1, _) = send_put(
+    let (status1, body1) = send_put(
         app.clone(),
         "/api/v1/triggers/trg_abc",
         "application/json",
@@ -363,6 +366,7 @@ async fn adversarial_updated_at_advances_on_update() {
     )
     .await;
     assert_eq!(status1, StatusCode::OK);
+    let first_version = body1["version"].as_u64().expect("version as u64");
 
     let after_first = trigger_ds
         .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
@@ -372,6 +376,7 @@ async fn adversarial_updated_at_advances_on_update() {
     // Second update with different data to force a new updated_at
     let mut body2 = body_ok("trg_abc");
     body2["name"] = json!("updated_differently");
+    body2["version"] = json!(first_version);
     let (status2, _) = send_put(
         app,
         "/api/v1/triggers/trg_abc",
@@ -427,10 +432,10 @@ async fn adversarial_whitespace_only_name_should_fail() {
 }
 
 // ========================================
-// ADVERSARIAL TEST 10: Positive version should succeed (not treated as conflict)
+// ADVERSARIAL TEST 10: Version mismatch should fail with 409 Conflict
 // ========================================
 #[tokio::test]
-async fn adversarial_positive_version_should_succeed() {
+async fn adversarial_positive_version_mismatch_should_fail() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("trg_abc")).unwrap();
     let app = create_router(build_state(trigger_ds));
@@ -452,8 +457,8 @@ async fn adversarial_positive_version_should_succeed() {
     )
     .await;
 
-    // Version 5 is positive and should not trigger conflict
-    assert_eq!(status, StatusCode::OK, "positive version should succeed");
+    // Version 5 does not match stored version 1, should return 409 Conflict
+    assert_eq!(status, StatusCode::CONFLICT, "version mismatch should return conflict");
 }
 
 // ========================================

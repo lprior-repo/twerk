@@ -60,6 +60,7 @@ impl InMemoryTriggerDatastore {
             condition: req.condition,
             action: req.action.trim().to_string(),
             metadata: req.metadata.unwrap_or_default(),
+            version: 1,
             created_at: now_utc,
             updated_at: now_utc,
         };
@@ -162,6 +163,7 @@ mod tests {
             condition: None,
             action: "test-action".to_string(),
             metadata: HashMap::new(),
+            version: 1,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),
         }

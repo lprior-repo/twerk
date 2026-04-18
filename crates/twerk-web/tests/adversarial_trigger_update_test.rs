@@ -23,6 +23,7 @@ fn trigger(id: &str) -> Trigger {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::from([("k".to_string(), "v".to_string())]),
+        version: 1,
         created_at: now,
         updated_at: now,
     }
@@ -778,6 +779,7 @@ async fn adversarial_very_old_timestamp() {
         condition: Some("x == 1".to_string()),
         action: "before_action".to_string(),
         metadata: std::collections::HashMap::new(),
+        version: 1,
         created_at: old_time,
         updated_at: old_time,
     };

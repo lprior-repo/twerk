@@ -283,7 +283,7 @@ mod tests {
                 let result = WebhookUrl::new(url);
                 prop_assert!(result.is_ok());
                 let url_obj = result.unwrap();
-                let parsed = url_obj.as_url();
+                let parsed = url_obj.as_url().unwrap();
                 prop_assert!(parsed.scheme() == "http" || parsed.scheme() == "https");
                 prop_assert!(parsed.host().is_some());
             }

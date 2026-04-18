@@ -5,6 +5,7 @@
 
 use axum::routing::get;
 use std::sync::Arc;
+use tower::ServiceExt;
 use twerk_app::engine::coordinator::auth::{
     basic_auth_middleware, key_auth_middleware, BasicAuthConfig, KeyAuthConfig,
 };

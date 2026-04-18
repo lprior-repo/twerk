@@ -129,6 +129,24 @@ pub struct TestCase {
     pub operation_id: String,
     pub description: String,
     pub input_variation: InputVariation,
+    pub auth_state: AuthState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AuthState {
+    NoAuth,
+    BasicAuth,
+    KeyAuth,
+}
+
+impl std::fmt::Display for AuthState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AuthState::NoAuth => write!(f, "no_auth"),
+            AuthState::BasicAuth => write!(f, "basic_auth"),
+            AuthState::KeyAuth => write!(f, "key_auth"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -185,6 +203,8 @@ impl CombinatorialGenerator {
     pub fn generate_test_matrix(&self) -> Vec<TestCase> {
         let mut test_cases = Vec::new();
 
+        let auth_states = vec![AuthState::NoAuth, AuthState::BasicAuth, AuthState::KeyAuth];
+
         for (path, path_item) in &self.spec.paths {
             let methods = [
                 ("GET", &path_item.get),
@@ -210,14 +230,17 @@ impl CombinatorialGenerator {
                             )
                         });
 
-                        test_cases.push(TestCase {
-                            endpoint: path.clone(),
-                            method: method.to_string(),
-                            content_type: Some(content_type),
-                            operation_id,
-                            description: op.summary.clone().unwrap_or_default(),
-                            input_variation: variation,
-                        });
+                        for auth_state in &auth_states {
+                            test_cases.push(TestCase {
+                                endpoint: path.clone(),
+                                method: method.to_string(),
+                                content_type: Some(content_type.clone()),
+                                operation_id: operation_id.clone(),
+                                description: op.summary.clone().unwrap_or_default(),
+                                input_variation: variation.clone(),
+                                auth_state: auth_state.clone(),
+                            });
+                        }
                     }
                 }
             }
@@ -371,10 +394,11 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
 
     for tc in &test_cases {
         let test_name = format!(
-            "test_{}_{}_{}",
+            "test_{}_{}_{}_{}",
             tc.operation_id.replace(['-', ' '], "_").to_lowercase(),
             tc.method.to_lowercase(),
-            tc.input_variation
+            tc.input_variation,
+            tc.auth_state
         );
 
         output.push_str(&format!(
@@ -387,6 +411,7 @@ async fn {}() {{
         operation_id: "{}",
         description: "{}",
         input_variation: InputVariation::{},
+        auth_state: AuthState::{},
     }};
     // Test implementation would go here
     let _ = test_case;
@@ -398,7 +423,8 @@ async fn {}() {{
             tc.content_type.as_deref().unwrap_or("none"),
             tc.operation_id,
             tc.description,
-            variant_name(&tc.input_variation)
+            variant_name(&tc.input_variation),
+            auth_variant_name(&tc.auth_state)
         ));
     }
 
@@ -415,6 +441,14 @@ fn variant_name(v: &InputVariation) -> &'static str {
         InputVariation::InvalidBoundaryMin => "InvalidBoundaryMin",
         InputVariation::InvalidBoundaryMax => "InvalidBoundaryMax",
         InputVariation::InvalidEnum => "InvalidEnum",
+    }
+}
+
+fn auth_variant_name(a: &AuthState) -> &'static str {
+    match a {
+        AuthState::NoAuth => "NoAuth",
+        AuthState::BasicAuth => "BasicAuth",
+        AuthState::KeyAuth => "KeyAuth",
     }
 }
 
@@ -472,9 +506,15 @@ mod tests {
         let gen = CombinatorialGenerator::from_json(json).unwrap();
         let cases = gen.generate_test_matrix();
 
-        assert_eq!(cases.len(), 7);
+        assert_eq!(cases.len(), 21);
         assert!(cases.iter().all(|tc| tc.endpoint == "/jobs"));
         assert!(cases.iter().all(|tc| tc.method == "POST"));
+
+        let auth_states: Vec<_> = cases.iter().map(|tc| &tc.auth_state).unique().collect();
+        assert_eq!(auth_states.len(), 3);
+        assert!(auth_states.contains(&&AuthState::NoAuth));
+        assert!(auth_states.contains(&&AuthState::BasicAuth));
+        assert!(auth_states.contains(&&AuthState::KeyAuth));
     }
 
     #[test]

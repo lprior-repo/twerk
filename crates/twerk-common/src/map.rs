@@ -206,17 +206,214 @@ mod tests {
         let m2 = m1.clone();
         m2.set("key2".to_string(), 200);
 
-        // Both maps share the same underlying storage
-        // key1 is set in m1, key2 is set in m2
         let v1 = m1.get(&"key1".to_string());
         let v2 = m2.get(&"key2".to_string());
         assert_eq!(Some(100), v1);
         assert_eq!(Some(200), v2);
 
-        // Both can access both keys since they share storage
         let v1_key2 = m1.get(&"key2".to_string());
         let v2_key1 = m2.get(&"key1".to_string());
         assert_eq!(Some(200), v1_key2);
         assert_eq!(Some(100), v2_key1);
+    }
+
+    #[test]
+    fn test_empty_string_key() {
+        let m = Map::<String, i32>::new();
+        m.set("".to_string(), 1);
+        m.set("normal".to_string(), 2);
+
+        assert_eq!(Some(1), m.get(&"".to_string()));
+        assert_eq!(Some(2), m.get(&"normal".to_string()));
+
+        m.delete("".to_string());
+        assert!(m.get(&"".to_string()).is_none());
+        assert_eq!(Some(2), m.get(&"normal".to_string()));
+    }
+
+    #[test]
+    fn test_special_characters_in_key() {
+        let m = Map::<String, String>::new();
+        m.set("key with spaces".to_string(), "value1".to_string());
+        m.set("key\twith\ttabs".to_string(), "value2".to_string());
+        m.set("key\nwith\nnewlines".to_string(), "value3".to_string());
+        m.set("key\0with\0nulls".to_string(), "value4".to_string());
+        m.set("".to_string(), "empty key".to_string());
+        m.set("🚀".to_string(), "emoji value".to_string());
+
+        assert_eq!(
+            Some("value1".to_string()),
+            m.get(&"key with spaces".to_string())
+        );
+        assert_eq!(
+            Some("value2".to_string()),
+            m.get(&"key\twith\ttabs".to_string())
+        );
+        assert_eq!(
+            Some("value3".to_string()),
+            m.get(&"key\nwith\nnewlines".to_string())
+        );
+        assert_eq!(
+            Some("value4".to_string()),
+            m.get(&"key\0with\0nulls".to_string())
+        );
+        assert_eq!(Some("empty key".to_string()), m.get(&"".to_string()));
+        assert_eq!(Some("emoji value".to_string()), m.get(&"🚀".to_string()));
+    }
+
+    #[test]
+    fn test_special_characters_in_value() {
+        let m = Map::<String, String>::new();
+        m.set("key1".to_string(), "value with spaces".to_string());
+        m.set("key2".to_string(), "value\twith\ttabs".to_string());
+        m.set("key3".to_string(), "value\nwith\nnewlines".to_string());
+        m.set("key4".to_string(), "value\0with\nulls".to_string());
+        m.set("key5".to_string(), "".to_string());
+        m.set("key6".to_string(), "🚀 emoji".to_string());
+
+        assert_eq!(
+            Some("value with spaces".to_string()),
+            m.get(&"key1".to_string())
+        );
+        assert_eq!(
+            Some("value\twith\ttabs".to_string()),
+            m.get(&"key2".to_string())
+        );
+        assert_eq!(
+            Some("value\nwith\nnewlines".to_string()),
+            m.get(&"key3".to_string())
+        );
+        assert_eq!(
+            Some("value\0with\nulls".to_string()),
+            m.get(&"key4".to_string())
+        );
+        assert_eq!(Some("".to_string()), m.get(&"key5".to_string()));
+        assert_eq!(Some("🚀 emoji".to_string()), m.get(&"key6".to_string()));
+    }
+
+    #[test]
+    fn test_very_long_key_and_value() {
+        let m = Map::<String, String>::new();
+        let long_key = "k".repeat(100_000);
+        let long_value = "v".repeat(100_000);
+
+        m.set(long_key.clone(), long_value.clone());
+
+        assert_eq!(Some(long_value.clone()), m.get(&long_key));
+    }
+
+    #[test]
+    fn test_many_small_entries() {
+        let m = Map::<String, i32>::new();
+
+        for i in 0..1000 {
+            m.set(format!("key{}", i), i);
+        }
+
+        for i in 0..1000 {
+            assert_eq!(Some(i), m.get(&format!("key{}", i)));
+        }
+    }
+
+    #[test]
+    fn test_delete_during_iterate() {
+        let m = Map::<String, i32>::new();
+        m.set("k1".to_string(), 1);
+        m.set("k2".to_string(), 2);
+        m.set("k3".to_string(), 3);
+
+        let mut count = 0;
+        m.iterate(|k, _v| {
+            count += 1;
+            if k == "k2" {
+                m.delete(k);
+            }
+        });
+
+        assert_eq!(3, count);
+        assert!(m.get(&"k2".to_string()).is_none());
+        assert_eq!(Some(1), m.get(&"k1".to_string()));
+        assert_eq!(Some(3), m.get(&"k3".to_string()));
+    }
+
+    #[test]
+    fn test_concurrent_delete_during_iterate() {
+        use std::thread;
+
+        let m = Arc::new(Map::<String, i32>::new());
+        m.set("k1".to_string(), 1);
+        m.set("k2".to_string(), 2);
+        m.set("k3".to_string(), 3);
+        m.set("k4".to_string(), 4);
+        m.set("k5".to_string(), 5);
+
+        let m_clone = Arc::clone(&m);
+        let handle = thread::spawn(move || {
+            m_clone.delete("k3".to_string());
+            m_clone.delete("k5".to_string());
+        });
+
+        let mut observed_keys = Vec::new();
+        m.iterate(|k, _v| {
+            observed_keys.push(k);
+        });
+
+        let _ = handle.join();
+
+        assert!(observed_keys.contains(&"k1".to_string()));
+        assert!(observed_keys.contains(&"k2".to_string()));
+        assert!(observed_keys.contains(&"k4".to_string()));
+    }
+
+    #[test]
+    fn test_concurrent_access_during_iteration() {
+        use std::thread;
+
+        let m = Arc::new(Map::<String, i32>::new());
+        for i in 0..100 {
+            m.set(format!("key{}", i), i);
+        }
+
+        let m_clone = Arc::clone(&m);
+        let writer_handle = thread::spawn(move || {
+            for i in 100..200 {
+                m_clone.set(format!("key{}", i), i);
+            }
+        });
+
+        let mut sum = 0;
+        m.iterate(|_k, v| {
+            sum += v;
+        });
+
+        let _ = writer_handle.join();
+
+        assert_eq!(Some(199), m.get(&"key199".to_string()));
+    }
+
+    #[test]
+    fn test_iterate_empty_map() {
+        let m = Map::<String, i32>::new();
+        let mut count = 0;
+        m.iterate(|_k, _v| {
+            count += 1;
+        });
+        assert_eq!(0, count);
+    }
+
+    #[test]
+    fn test_iterate_after_clear() {
+        let m = Map::<String, i32>::new();
+        m.set("k1".to_string(), 1);
+        m.set("k2".to_string(), 2);
+
+        m.delete("k1".to_string());
+        m.delete("k2".to_string());
+
+        let mut count = 0;
+        m.iterate(|_k, _v| {
+            count += 1;
+        });
+        assert_eq!(0, count);
     }
 }

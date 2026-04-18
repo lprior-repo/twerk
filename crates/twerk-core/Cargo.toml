@@ -39,10 +39,14 @@ zeroize.workspace = true
 chrono-tz.workspace = true
 jmespath.workspace = true
 <<<<<<< HEAD
+<<<<<<< HEAD
 utoipa = { workspace = true, features = ["time"] }
 =======
 utoipa.workspace = true
 >>>>>>> origin/tw-polecat/zeta
+=======
+utoipa = { workspace = true, features = ["time", "rc_schema"] }
+>>>>>>> origin/tw-polecat/tau
 
 [dev-dependencies]
 rstest.workspace = true

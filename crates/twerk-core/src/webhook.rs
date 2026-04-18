@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use utoipa::ToSchema;
 
 /// Default maximum number of retry attempts.
 /// Go: `webhookDefaultMaxAttempts = 5`
@@ -82,7 +83,11 @@ pub enum WebhookError {
 }
 
 /// Webhook defines webhook notification configuration.
+<<<<<<< HEAD
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
+=======
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
+>>>>>>> origin/tw-polecat/tau
 #[serde(rename_all = "camelCase")]
 pub struct Webhook {
     #[serde(skip_serializing_if = "Option::is_none")]

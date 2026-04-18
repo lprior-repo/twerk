@@ -4,7 +4,7 @@ use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
 use thiserror::Error;
-use utoipa::ToSchema;
+// ToSchema is implemented via impl_partial_schema_for_id macro below
 
 const MAX_ID_LENGTH: usize = 1000;
 
@@ -40,9 +40,8 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 
 macro_rules! define_id {
     ($name:ident) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
         #[serde(transparent)]
-        #[schema(value_type = String)]
         pub struct $name(String);
 
         impl $name {
@@ -116,9 +115,8 @@ macro_rules! define_id {
 // =========================================================================
 
 /// Validated identifier for a job, must be a valid RFC 4122 UUID.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(transparent)]
-#[schema(value_type = String)]
 pub struct JobId(pub String);
 
 impl JobId {
@@ -239,7 +237,7 @@ impl_partial_schema_for_id!(RoleId);
 /// Construction via [`TriggerId::new`] enforces:
 /// - Length 3..=64 characters (inclusive)
 /// - Characters: `[a-zA-Z0-9_-]` (plus Unicode alphanumeric per Rust's `is_alphanumeric()`)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default, utoipa::ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
 #[serde(transparent)]
 pub struct TriggerId(pub String);
 

@@ -35,7 +35,7 @@ impl AsRef<str> for NodeStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
     #[serde(default, skip_serializing_if = "Option::is_none")]

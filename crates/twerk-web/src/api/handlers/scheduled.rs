@@ -251,20 +251,6 @@ pub async fn list_scheduled_jobs_handler(
     get,
     path = "/scheduled-jobs/{id}",
     params(
-        ("id" = String, Path, description = "Scheduled job ID")
-    ),
-    responses(
-        (status = 200, description = "Scheduled job details"),
-        (status = 404, description = "Scheduled job not found")
-    )
-)]
-/// GET /scheduled-jobs/{id}
-///
-/// # Errors
-#[utoipa::path(
-    get,
-    path = "/scheduled-jobs/{id}",
-    params(
         ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
     ),
     responses(
@@ -285,21 +271,6 @@ pub async fn get_scheduled_job_handler(
     Ok(axum::Json(sj).into_response())
 }
 
-#[utoipa::path(
-    put,
-    path = "/scheduled-jobs/{id}/pause",
-    params(
-        ("id" = String, Path, description = "Scheduled job ID")
-    ),
-    responses(
-        (status = 200, description = "Scheduled job paused"),
-        (status = 404, description = "Scheduled job not found"),
-        (status = 400, description = "Scheduled job is not active")
-    )
-)]
-/// PUT /scheduled-jobs/{id}/pause
-///
-/// # Errors
 #[utoipa::path(
     put,
     path = "/scheduled-jobs/{id}/pause",
@@ -351,21 +322,6 @@ pub async fn pause_scheduled_job_handler(
     put,
     path = "/scheduled-jobs/{id}/resume",
     params(
-        ("id" = String, Path, description = "Scheduled job ID")
-    ),
-    responses(
-        (status = 200, description = "Scheduled job resumed"),
-        (status = 404, description = "Scheduled job not found"),
-        (status = 400, description = "Scheduled job is not paused")
-    )
-)]
-/// PUT /scheduled-jobs/{id}/resume
-///
-/// # Errors
-#[utoipa::path(
-    put,
-    path = "/scheduled-jobs/{id}/resume",
-    params(
         ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
     ),
     responses(
@@ -409,20 +365,6 @@ pub async fn resume_scheduled_job_handler(
     Ok(status_ok_response())
 }
 
-#[utoipa::path(
-    delete,
-    path = "/scheduled-jobs/{id}",
-    params(
-        ("id" = String, Path, description = "Scheduled job ID")
-    ),
-    responses(
-        (status = 200, description = "Scheduled job deleted"),
-        (status = 404, description = "Scheduled job not found")
-    )
-)]
-/// DELETE /scheduled-jobs/{id}
-///
-/// # Errors
 #[utoipa::path(
     delete,
     path = "/scheduled-jobs/{id}",

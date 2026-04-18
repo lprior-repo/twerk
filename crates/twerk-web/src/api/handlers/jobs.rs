@@ -1,7 +1,7 @@
 //! Job handlers - API endpoints for job operations.
 
 use axum::body::Bytes;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -60,6 +60,14 @@ pub struct CreateJobQuery {
 /// POST /jobs
 ///
 /// # Errors
+#[utoipa::path(
+    post,
+    path = "/jobs",
+    request_body = Job,
+    responses(
+        (status = 200, description = "Job created", body = Job)
+    )
+)]
 #[instrument(name = "create_job_handler", skip_all)]
 pub async fn create_job_handler(
     State(state): State<AppState>,
@@ -187,10 +195,20 @@ async fn create_job_no_wait(state: AppState, job: Job) -> Result<Response, ApiEr
 /// GET /jobs/{id}
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs/{id}",
+    params(
+        ("id" = JobId, description = "The job ID")
+    ),
+    responses(
+        (status = 200, description = "Job found", body = Job)
+    )
+)]
 #[instrument(name = "get_job_handler", skip_all)]
 pub async fn get_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<JobId>,
+    AxumPath(id): AxumPath<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -215,6 +233,13 @@ pub async fn get_job_handler(
 /// GET /jobs
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs",
+    responses(
+        (status = 200, description = "List of jobs", body = Vec<Job>)
+    )
+)]
 #[instrument(name = "list_jobs_handler", skip_all)]
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
@@ -243,10 +268,20 @@ pub async fn list_jobs_handler(
 /// PUT /jobs/{id}/cancel
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/jobs/{id}/cancel",
+    params(
+        ("id" = JobId, description = "The job ID")
+    ),
+    responses(
+        (status = 200, description = "Job cancelled", body = Job)
+    )
+)]
 #[instrument(name = "cancel_job_handler", skip_all)]
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<JobId>,
+    AxumPath(id): AxumPath<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -272,10 +307,20 @@ pub async fn cancel_job_handler(
 /// PUT /jobs/{id}/restart
 ///
 /// # Errors
+#[utoipa::path(
+    put,
+    path = "/jobs/{id}/restart",
+    params(
+        ("id" = JobId, description = "The job ID")
+    ),
+    responses(
+        (status = 200, description = "Job restarted", body = Job)
+    )
+)]
 #[instrument(name = "restart_job_handler", skip_all)]
 pub async fn restart_job_handler(
     State(state): State<AppState>,
-    Path(id): Path<JobId>,
+    AxumPath(id): AxumPath<JobId>,
 ) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -296,10 +341,20 @@ pub async fn restart_job_handler(
 /// GET /jobs/{id}/log
 ///
 /// # Errors
+#[utoipa::path(
+    get,
+    path = "/jobs/{id}/log",
+    params(
+        ("id" = JobId, description = "The job ID")
+    ),
+    responses(
+        (status = 200, description = "Job log parts", body = Vec<String>)
+    )
+)]
 #[instrument(name = "get_job_log_handler", skip_all)]
 pub async fn get_job_log_handler(
     State(state): State<AppState>,
-    Path(id): Path<JobId>,
+    AxumPath(id): AxumPath<JobId>,
     Query(raw): Query<RawPaginationQuery>,
 ) -> Result<Response, ApiError> {
     let qp = PaginationQuery::from_raw(raw);

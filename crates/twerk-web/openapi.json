@@ -340,6 +340,40 @@
             "description": "Job cannot be cancelled in its current state"
           }
         }
+      },
+      "post": {
+        "tags": [
+          "super::handlers::jobs"
+        ],
+        "summary": "POST /jobs/{id}/cancel",
+        "description": "# Errors",
+        "operationId": "cancel_job_handler_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Job cannot be cancelled in its current state"
+          }
+        }
       }
     },
     "/jobs/{id}/log": {

@@ -294,6 +294,35 @@ pub async fn cancel_job_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,
 ) -> Result<Response, ApiError> {
+    cancel_job_impl(state, id).await
+}
+
+/// POST /jobs/{id}/cancel
+///
+/// # Errors
+#[utoipa::path(
+    post,
+    path = "/jobs/{id}/cancel",
+    params(
+        ("id" = JobId, description = "The job ID")
+    ),
+    responses(
+        (status = 200, description = "Job cancelled", body = Job),
+        (status = 400, description = "Job cannot be cancelled in its current state")
+    )
+)]
+#[instrument(name = "cancel_job_handler_post", skip_all)]
+pub async fn cancel_job_handler_post(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<JobId>,
+) -> Result<Response, ApiError> {
+    cancel_job_impl(state, id).await
+}
+
+async fn cancel_job_impl(
+    state: AppState,
+    id: JobId,
+) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if matches!(

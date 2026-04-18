@@ -32,6 +32,7 @@ use utoipa::OpenApi;
         super::handlers::jobs::list_jobs_handler,
         super::handlers::jobs::get_job_handler,
         super::handlers::jobs::cancel_job_handler,
+        super::handlers::jobs::cancel_job_handler_post,
         super::handlers::jobs::restart_job_handler,
         super::handlers::jobs::get_job_log_handler,
         super::handlers::tasks::get_task_handler,

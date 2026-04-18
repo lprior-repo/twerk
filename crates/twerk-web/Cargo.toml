@@ -30,6 +30,7 @@ base64.workspace = true
 time.workspace = true
 bytes.workspace = true
 serde-saphyr.workspace = true
+itertools.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

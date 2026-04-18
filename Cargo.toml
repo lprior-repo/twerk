@@ -121,3 +121,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 utoipa = "5"
 utoipa-axum = "0.2"
 utoipa = "4"
+utoipa = "3"

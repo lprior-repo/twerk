@@ -701,10 +701,10 @@ async fn adversarial_multiple_field_errors() {
     assert!(message.contains("name") || message.contains("event") || message.contains("action"));
 }
 
-// Test 21: ID at maximum length boundary (1000 chars)
+// Test 21: ID at maximum length boundary (64 chars)
 #[tokio::test]
 async fn adversarial_id_max_boundary() {
-    let max_id = "a".repeat(1000);
+    let max_id = "a".repeat(64);
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger(&max_id)).unwrap();
     let app = create_router(build_state(trigger_ds));
@@ -730,7 +730,7 @@ async fn adversarial_id_max_boundary() {
     assert_eq!(
         status,
         StatusCode::OK,
-        "Max length ID (1000 chars) should be accepted"
+        "Max length ID (64 chars) should be accepted"
     );
 }
 

@@ -38,7 +38,7 @@ fn request(name: String, event: String, action: String) -> TriggerUpdateRequest 
 proptest! {
     #[test]
     fn validate_trigger_update_valid_domain_success_holds_for_generated_inputs(
-        path_id in "[A-Za-z0-9_-]{1,16}",
+        path_id in "[A-Za-z0-9_-]{3,16}",
         name in "[A-Za-z0-9_-]{1,32}",
         event in "[A-Za-z0-9_.-]{1,32}",
         action in "[A-Za-z0-9_.-]{1,32}"
@@ -49,8 +49,8 @@ proptest! {
 
     #[test]
     fn validate_trigger_update_id_mismatch_always_fails_deterministically(
-        path_id in "[A-Za-z0-9_-]{1,16}",
-        body_id in "[A-Za-z0-9_-]{1,16}"
+        path_id in "[A-Za-z0-9_-]{3,16}",
+        body_id in "[A-Za-z0-9_-]{3,16}"
     ) {
         prop_assume!(path_id != body_id);
         let mut req = request("n".to_string(), "e".to_string(), "a".to_string());
@@ -63,7 +63,7 @@ proptest! {
 
     #[test]
     fn validate_trigger_update_blank_after_trim_rejection_is_field_specific(
-        path_id in "[A-Za-z0-9_-]{1,16}",
+        path_id in "[A-Za-z0-9_-]{3,16}",
         blank in "[ \t\n]{1,4}"
     ) {
         let req = request(blank, "ok".to_string(), "ok".to_string());
@@ -75,7 +75,7 @@ proptest! {
 
     #[test]
     fn validate_trigger_update_metadata_key_safety_rejects_invalid_keys(
-        path_id in "[A-Za-z0-9_-]{1,16}"
+        path_id in "[A-Za-z0-9_-]{3,16}"
     ) {
         let mut req = request("ok".to_string(), "ok".to_string(), "ok".to_string());
         req.metadata = Some(HashMap::from([("ключ".to_string(), "v".to_string())]));
@@ -87,8 +87,8 @@ proptest! {
 
     #[test]
     fn validate_trigger_update_boundary_stability_accepts_max_length_values(
-        path_id in "[A-Za-z0-9_-]{1,16}",
-        len in 1usize..65usize
+        path_id in "[A-Za-z0-9_-]{3,16}",
+        len in 3usize..65usize
     ) {
         let s = "x".repeat(len);
         let req = request(s.clone(), s.clone(), s);
@@ -100,7 +100,7 @@ proptest! {
 
     #[test]
     fn validate_trigger_update_boundary_stability_rejects_max_plus_one_values(
-        path_id in "[A-Za-z0-9_-]{1,16}",
+        path_id in "[A-Za-z0-9_-]{3,16}",
         len in 65usize..66usize
     ) {
         let s = "x".repeat(len);

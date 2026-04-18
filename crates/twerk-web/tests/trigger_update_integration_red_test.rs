@@ -355,13 +355,13 @@ async fn update_trigger_handler_preserves_preupdate_state_when_modify_closure_re
 
 #[tokio::test]
 async fn update_trigger_handler_accepts_min_path_id_length_when_id_length_equals_min() {
-    let id = "a";
+    let id = "aaa";
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger(id)).unwrap();
     let app = create_router(build_state(trigger_ds));
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/a",
+        "/api/v1/triggers/aaa",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok(id)).expect("serialize")),
     )

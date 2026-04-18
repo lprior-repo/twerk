@@ -351,7 +351,7 @@ mod trigger_update_unit_red_tests {
     }
 
     #[test]
-    fn validate_trigger_update_accepts_required_fields_when_length_equals_min_one() {
+    fn validate_trigger_update_accepts_required_fields_when_length_equals_min_three() {
         let req = TriggerUpdateRequest {
             name: "n".to_string(),
             enabled: true,
@@ -362,7 +362,7 @@ mod trigger_update_unit_red_tests {
             id: None,
             version: Some(1),
         };
-        assert_eq!(validate_trigger_update("x", &req), Ok(TriggerId::from("x")));
+        assert_eq!(validate_trigger_update("xyz", &req), Ok(TriggerId::from("xyz")));
     }
 
     #[test]

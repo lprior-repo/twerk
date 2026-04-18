@@ -8,8 +8,8 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
-pub const TRIGGER_ID_MIN_LEN: usize = 1;
-pub const TRIGGER_ID_MAX_LEN: usize = 1000;
+pub const TRIGGER_ID_MIN_LEN: usize = 3;
+pub const TRIGGER_ID_MAX_LEN: usize = 64;
 pub const TRIGGER_FIELD_MAX_LEN: usize = 64;
 
 pub const NAME_REQUIRED_MSG: &str = "name must be non-empty after trim";
@@ -37,7 +37,7 @@ impl TriggerId {
         let len = raw.len();
         let has_valid_chars = raw
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-');
         if !(TRIGGER_ID_MIN_LEN..=TRIGGER_ID_MAX_LEN).contains(&len) || !has_valid_chars {
             return Err(TriggerUpdateError::InvalidIdFormat(raw.to_string()));
         }

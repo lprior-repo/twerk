@@ -42,6 +42,7 @@ fn claim_2_default_datastore_type() {
 
 #[test]
 fn claim_3_setup_logging_accepts_valid_level() {
+    std::env::remove_var("TWERK_LOGGING_LEVEL");
     std::env::set_var("TWERK_LOGGING_LEVEL", "debug");
     let result = twerk_cli::cli::setup_logging();
     std::env::remove_var("TWERK_LOGGING_LEVEL");

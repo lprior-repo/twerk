@@ -51,7 +51,7 @@ fn parse_create_body(content_type: &str, body: &[u8]) -> Result<CreateScheduledJ
         "application/json" => {
             serde_json::from_slice(body).map_err(|e| ApiError::bad_request(e.to_string()))
         }
-        "text/yaml" | "application/x-yaml" => super::super::yaml::from_slice(body),
+        "text/yaml" | "application/x-yaml" | "application/yaml" => super::super::yaml::from_slice(body),
         _ => Err(ApiError::bad_request("unsupported content type")),
     }
 }

@@ -88,7 +88,6 @@ fn password_error_to_string(err: PasswordError) -> String {
 #[utoipa::path(
     post,
     path = "/users",
-    request_body = CreateUserBody,
     responses(
         (status = 200, description = "User created"),
         (status = 400, description = "Missing username or password")

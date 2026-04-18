@@ -40,6 +40,7 @@ chrono-tz.workspace = true
 jmespath.workspace = true
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 utoipa = { workspace = true, features = ["time"] }
 =======
 utoipa.workspace = true
@@ -47,6 +48,9 @@ utoipa.workspace = true
 =======
 utoipa = { workspace = true, features = ["time", "rc_schema"] }
 >>>>>>> origin/tw-polecat/tau
+=======
+utoipa = { version = "5.4.0", features = ["time"] }
+>>>>>>> origin/tw-polecat/upsilon
 
 [dev-dependencies]
 rstest.workspace = true

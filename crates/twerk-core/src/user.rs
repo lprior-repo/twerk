@@ -11,13 +11,18 @@ pub const USER_GUEST: &str = "guest";
 pub const USERNAME: UsernameKey = "username";
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 =======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 >>>>>>> origin/tw-polecat/tau
+=======
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
+>>>>>>> origin/tw-polecat/upsilon
 #[serde(rename_all = "camelCase")]
 pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = String)]
     pub id: Option<UserId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

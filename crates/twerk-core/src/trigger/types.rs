@@ -21,7 +21,7 @@ pub use crate::id::{IdError as TriggerIdError, JobId, TriggerId};
 // =============================================================================
 
 /// The runtime state of a trigger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, utoipa::ToSchema)]
 pub enum TriggerState {
     #[default]
     Active, // Can fire, retains resources
@@ -117,7 +117,7 @@ impl<'de> Deserialize<'de> for TriggerState {
 }
 
 /// Error type for TriggerState parsing failures.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ParseTriggerStateError(pub String);
 
 impl std::fmt::Display for ParseTriggerStateError {
@@ -133,7 +133,7 @@ impl std::error::Error for ParseTriggerStateError {}
 // =============================================================================
 
 /// The type/kind of a trigger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum TriggerVariant {
     Cron,    // Cron expression-based scheduling

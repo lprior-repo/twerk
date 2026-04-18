@@ -10,7 +10,7 @@ use std::str::FromStr;
 use time::OffsetDateTime;
 
 /// `TaskState` represents the list of states that a task can be in at any given moment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TaskState {
     #[default]
@@ -306,7 +306,7 @@ impl Task {
 }
 
 /// `TaskSummary` provides a summary view of a task.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSummary {
     #[serde(skip_serializing_if = "Option::is_none")]

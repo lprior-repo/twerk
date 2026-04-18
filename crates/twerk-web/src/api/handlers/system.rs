@@ -28,7 +28,13 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 }
 
 /// GET /nodes
-///
+#[utoipa::path(
+    get,
+    path = "/nodes",
+    responses(
+        (status = 200, description = "List of active nodes")
+    )
+)]
 /// # Errors
 #[instrument(name = "list_nodes_handler", skip_all)]
 pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
@@ -37,7 +43,13 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
 }
 
 /// GET /metrics
-///
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "System metrics")
+    )
+)]
 /// # Errors
 #[instrument(name = "get_metrics_handler", skip_all)]
 pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Response, ApiError> {

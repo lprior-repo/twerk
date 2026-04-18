@@ -8,6 +8,13 @@ use super::super::error::ApiError;
 use super::AppState;
 use tracing::instrument;
 
+#[utoipa::path(
+    get,
+    path = "/queues",
+    responses(
+        (status = 200, description = "List of queues")
+    )
+)]
 /// GET /queues
 ///
 /// # Errors
@@ -21,6 +28,17 @@ pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Respon
     Ok(axum::Json(queues).into_response())
 }
 
+#[utoipa::path(
+    get,
+    path = "/queues/{name}",
+    params(
+        ("name" = String, Path, description = "Queue name")
+    ),
+    responses(
+        (status = 200, description = "Queue info"),
+        (status = 404, description = "Queue not found")
+    )
+)]
 /// GET /queues/{name}
 ///
 /// # Errors
@@ -38,6 +56,16 @@ pub async fn get_queue_handler(
     Ok(axum::Json(queue).into_response())
 }
 
+#[utoipa::path(
+    delete,
+    path = "/queues/{name}",
+    params(
+        ("name" = String, Path, description = "Queue name")
+    ),
+    responses(
+        (status = 200, description = "Queue deleted")
+    )
+)]
 /// DELETE /queues/{name}
 ///
 /// # Errors

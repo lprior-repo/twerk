@@ -101,6 +101,7 @@ jmespath = "0.5"
 
 # OpenAPI
 utoipa = { version = "5.4", features = ["time"] }
+utoipa = "5.4"
 
 # Scheduling
 tokio-cron-scheduler = "0.15"

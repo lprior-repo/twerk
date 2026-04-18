@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> origin/tw-polecat/theta
 {
   "openapi": "3.0.3",
   "info": {
@@ -752,6 +755,7 @@
           {
             "name": "id",
             "in": "path",
+<<<<<<< HEAD
 =======
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
      Running `target/debug/openapi-gen`
@@ -792,6 +796,8 @@
             "in": "path",
             "name": "id",
 >>>>>>> origin/tw-polecat/alpha
+=======
+>>>>>>> origin/tw-polecat/theta
             "required": true,
             "schema": {
               "type": "string"
@@ -801,6 +807,9 @@
         "responses": {
           "204": {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> origin/tw-polecat/theta
             "description": "No Content"
           },
           "400": {
@@ -1111,6 +1120,7 @@
       }
     }
   }
+<<<<<<< HEAD
 }
 =======
             "description": "Trigger deleted"
@@ -1475,3 +1485,6 @@
   }
 }
 >>>>>>> origin/tw-polecat/alpha
+=======
+}
+>>>>>>> origin/tw-polecat/theta

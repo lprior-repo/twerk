@@ -116,3 +116,7 @@ proptest = "1.5"
 # Logging
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# OpenAPI
+utoipa = "5"
+utoipa-axum = "0.2"

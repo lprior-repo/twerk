@@ -1,0 +1,51 @@
+name: OpenAPI Sync Check
+
+on:
+  pull_request:
+    paths:
+      - crates/twerk-web/**
+      - .github/workflows/openapi-sync.yml
+  push:
+    branches:
+      - main
+    paths:
+      - crates/twerk-web/**
+      - .github/workflows/openapi-sync.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openapi-sync:
+    name: OpenAPI spec sync check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Generate OpenAPI spec
+        run: cargo run -p twerk-web --bin openapi-gen --quiet
+        working-directory: crates/twerk-web
+
+      - name: Check for OpenAPI spec diff
+        run: |
+          if ! git diff --exit-code openapi.json; then
+            echo "ERROR: openapi.json is out of sync!"
+            echo "Run 'cargo run -p twerk-web --bin openapi-gen > crates/twerk-web/openapi.json' to update."
+            echo ""
+            echo "Diff:"
+            git diff openapi.json
+            exit 1
+          fi
+        working-directory: crates/twerk-web

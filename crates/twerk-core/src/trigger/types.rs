@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for TriggerState {
             type Value = TriggerState;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("a TriggerState string (ACTIVE, PAUSED, DISABLED, ERROR)")
+                formatter.write_str("a TriggerState string (Active, ACTIVE, Paused, PAUSED, Disabled, DISABLED, Error, ERROR)")
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>

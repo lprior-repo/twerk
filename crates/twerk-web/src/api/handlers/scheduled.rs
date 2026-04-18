@@ -15,6 +15,7 @@ use twerk_core::validation::{validate_cron, validate_job};
 use super::super::error::ApiError;
 use super::tasks::{PaginationQuery, RawPaginationQuery};
 use super::{default_user, extract_current_user, parse_page, parse_size, AppState};
+use crate::api::redact::{redact_scheduled_job, redact_scheduled_job_summary};
 use tracing::instrument;
 
 #[derive(Debug, Deserialize)]
@@ -181,6 +182,9 @@ fn build_scheduled_job_event_value_from_sj(
 /// POST /scheduled-jobs
 ///
 /// # Errors
+///
+/// # Panics
+/// Panics if `sj.id` is `None`, which should never happen as `build_scheduled_job` always sets it.
 #[utoipa::path(
     post,
     path = "/scheduled-jobs",
@@ -206,16 +210,25 @@ pub async fn create_scheduled_job_handler(
         .await
         .map_err(ApiError::from)?;
 
+    let created = state
+        .ds
+        .get_scheduled_job_by_id(sj.id.as_ref().expect("id must be set"))
+        .await
+        .map_err(ApiError::from)?;
+
+    let mut created_redacted = created;
+    redact_scheduled_job(&mut created_redacted);
+
     state
         .broker
         .publish_event(
             "scheduled.job".to_string(),
-            build_scheduled_job_event_value_from_sj(&sj)?,
+            build_scheduled_job_event_value_from_sj(&created_redacted)?,
         )
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
 
-    let summary = new_scheduled_job_summary(&sj);
+    let summary = new_scheduled_job_summary(&created_redacted);
     Ok((StatusCode::OK, axum::Json(summary)).into_response())
 }
 
@@ -240,12 +253,15 @@ pub async fn list_scheduled_jobs_handler(
     let size = parse_size(qp.size, 10, 20);
     let current_user = extract_current_user(&req);
 
-    let result = state
+    let mut result = state
         .ds
         .get_scheduled_jobs(&current_user, page, size)
         .await
         .map_err(ApiError::from)?;
 
+    for sj in &mut result.items {
+        redact_scheduled_job_summary(sj);
+    }
     Ok(axum::Json(result).into_response())
 }
 
@@ -265,12 +281,13 @@ pub async fn get_scheduled_job_handler(
     State(state): State<AppState>,
     Path(id): Path<ScheduledJobId>,
 ) -> Result<Response, ApiError> {
-    let sj = state
+    let mut sj = state
         .ds
         .get_scheduled_job_by_id(&id)
         .await
         .map_err(ApiError::from)?;
 
+    redact_scheduled_job(&mut sj);
     Ok(axum::Json(sj).into_response())
 }
 

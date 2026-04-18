@@ -41,6 +41,7 @@ macro_rules! define_id {
     ($name:ident) => {
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
         #[serde(transparent)]
+        #[schema(value_type = String)]
         pub struct $name(String);
 
         impl $name {
@@ -116,6 +117,7 @@ macro_rules! define_id {
 /// Validated identifier for a job, must be a valid RFC 4122 UUID.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 #[serde(transparent)]
+#[schema(value_type = String)]
 pub struct JobId(pub String);
 
 impl JobId {

@@ -12,6 +12,7 @@ pub const USERNAME: UsernameKey = "username";
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
 =======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
@@ -19,6 +20,9 @@ pub const USERNAME: UsernameKey = "username";
 =======
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ToSchema)]
 >>>>>>> origin/tw-polecat/upsilon
+=======
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, utoipa::ToSchema)]
+>>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]

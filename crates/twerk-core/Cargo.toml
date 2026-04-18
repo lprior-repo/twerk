@@ -41,6 +41,7 @@ jmespath.workspace = true
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 utoipa = { workspace = true, features = ["time"] }
 =======
 utoipa.workspace = true
@@ -51,6 +52,9 @@ utoipa = { workspace = true, features = ["time", "rc_schema"] }
 =======
 utoipa = { version = "5.4.0", features = ["time"] }
 >>>>>>> origin/tw-polecat/upsilon
+=======
+utoipa = { workspace = true, features = ["time"] }
+>>>>>>> origin/tw-polecat/pi
 
 [dev-dependencies]
 rstest.workspace = true

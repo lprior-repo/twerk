@@ -14,10 +14,14 @@ pub const MOUNT_TYPE_TMPFS: &str = mount_type::TMPFS;
 
 /// Mount represents a filesystem mount configuration.
 <<<<<<< HEAD
+<<<<<<< HEAD
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, utoipa::ToSchema)]
 =======
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ToSchema)]
 >>>>>>> origin/tw-polecat/tau
+=======
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ToSchema)]
+>>>>>>> origin/tw-polecat/pi
 #[serde(rename_all = "camelCase")]
 pub struct Mount {
     #[serde(skip_serializing_if = "Option::is_none")]

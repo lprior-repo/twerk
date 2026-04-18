@@ -41,10 +41,14 @@ fn validate_id(s: &str) -> Result<(), IdError> {
 macro_rules! define_id {
     ($name:ident) => {
 <<<<<<< HEAD
+<<<<<<< HEAD
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
 =======
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
 >>>>>>> origin/tw-polecat/zeta
+=======
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default, utoipa::ToSchema)]
+>>>>>>> origin/tw-polecat/pi
         #[serde(transparent)]
         #[schema(value_type = String)]
         pub struct $name(String);
@@ -243,7 +247,7 @@ impl_partial_schema_for_id!(RoleId);
 /// Construction via [`TriggerId::new`] enforces:
 /// - Length 3..=64 characters (inclusive)
 /// - Characters: `[a-zA-Z0-9_-]` (plus Unicode alphanumeric per Rust's `is_alphanumeric()`)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default, utoipa::ToSchema)]
 #[serde(transparent)]
 pub struct TriggerId(pub String);
 

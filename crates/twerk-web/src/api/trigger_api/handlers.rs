@@ -170,7 +170,7 @@ fn prepare_update(
         ("id" = String, Path, description = "Trigger ID")
     ),
     responses(
-        (status = 200, description = "Trigger found", body = TriggerView),
+        (status = 200, description = "Trigger found"),
         (status = 404, description = "Trigger not found"),
         (status = 400, description = "Invalid ID format")
     )
@@ -208,7 +208,7 @@ pub async fn get_trigger_handler(
     ),
     request_body = TriggerUpdateRequest,
     responses(
-        (status = 200, description = "Trigger updated", body = TriggerView),
+        (status = 200, description = "Trigger updated"),
         (status = 400, description = "Validation error or invalid request"),
         (status = 404, description = "Trigger not found"),
         (status = 409, description = "Version conflict")
@@ -284,7 +284,7 @@ pub async fn delete_trigger_handler(
     get,
     path = "/api/v1/triggers",
     responses(
-        (status = 200, description = "List of triggers", body = Vec<TriggerView>),
+        (status = 200, description = "List of triggers"),
         (status = 500, description = "Persistence error")
     )
 )]
@@ -320,7 +320,7 @@ pub async fn list_triggers_handler(
     path = "/api/v1/triggers",
     request_body = TriggerUpdateRequest,
     responses(
-        (status = 201, description = "Trigger created", body = TriggerView),
+        (status = 201, description = "Trigger created"),
         (status = 400, description = "Validation error")
     )
 )]

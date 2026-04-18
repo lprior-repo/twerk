@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Metrics holds aggregated metrics across all twerk components.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Metrics {
     #[serde(rename = "jobs")]
     pub jobs: JobMetrics,
@@ -12,21 +13,21 @@ pub struct Metrics {
 }
 
 /// `JobMetrics` holds metrics about twerk jobs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct JobMetrics {
     #[serde(rename = "running")]
     pub running: i32,
 }
 
 /// `TaskMetrics` holds metrics about twerk tasks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct TaskMetrics {
     #[serde(rename = "running")]
     pub running: i32,
 }
 
 /// `NodeMetrics` holds metrics about twerk nodes.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct NodeMetrics {
     #[serde(rename = "online")]
     pub running: i32,

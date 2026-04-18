@@ -1,12 +1,13 @@
 use crate::id::NodeId;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
+use utoipa::ToSchema;
 
 pub const LAST_HEARTBEAT_TIMEOUT: Duration = Duration::minutes(5);
 pub const HEARTBEAT_RATE: Duration = Duration::seconds(30);
 pub const NODE_STATUS_UP: &str = "UP";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub enum NodeStatus {
     #[default]
     UP,

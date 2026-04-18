@@ -10,6 +10,7 @@ use super::super::domain::{Password, PasswordError, Username, UsernameError};
 use super::super::error::ApiError;
 use super::{AppState, VERSION};
 use tracing::instrument;
+use utoipa::ToSchema;
 
 /// Health check handler
 #[instrument(name = "health_handler", skip_all)]
@@ -59,7 +60,7 @@ pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<Respon
 }
 
 /// User creation body
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateUserBody {
     pub username: Option<String>,
     pub password: Option<String>,

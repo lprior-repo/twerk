@@ -3,10 +3,11 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use thiserror::Error;
 use tracing::error;
+use utoipa::ToSchema;
 
 const INTERNAL_ERROR_MSG: &str = "Internal Server Error";
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq, ToSchema)]
 pub enum ApiError {
     #[error("{0}")]
     BadRequest(String),

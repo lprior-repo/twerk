@@ -9,10 +9,12 @@ pub fn var_with_twerk_prefix(key: &str) -> Option<String> {
     env::var(&env_key).ok().filter(|value| !value.is_empty())
 }
 
+#[cfg(test)]
 struct EnvVarGuard<'a> {
     key: &'a str,
 }
 
+#[cfg(test)]
 impl<'a> Drop for EnvVarGuard<'a> {
     fn drop(&mut self) {
         env::remove_var(self.key);

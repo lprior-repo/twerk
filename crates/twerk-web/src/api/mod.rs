@@ -226,10 +226,7 @@ pub fn create_router(state: AppState) -> Router {
             .delete(trigger_api::delete_trigger_handler),
     );
 
-    router = router.route(
-        "/openapi.json",
-        get(serve_openapi_spec),
-    );
+    router = router.route("/openapi.json", get(serve_openapi_spec));
 
     router.with_state(state)
 }

@@ -319,10 +319,7 @@ pub async fn cancel_job_handler_post(
     cancel_job_impl(state, id).await
 }
 
-async fn cancel_job_impl(
-    state: AppState,
-    id: JobId,
-) -> Result<Response, ApiError> {
+async fn cancel_job_impl(state: AppState, id: JobId) -> Result<Response, ApiError> {
     let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if matches!(

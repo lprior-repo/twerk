@@ -1,0 +1,53 @@
+# =============================================================================
+# QA Step 1: Health Check & Bootstrap Verification
+# =============================================================================
+# PURPOSE: Verify the system boots, health endpoint responds, and
+#           infrastructure (Postgres + RabbitMQ) is reachable.
+# API ENDPOINTS EXERCISED:
+#   GET /health                    — system health (postgres + rabbitmq checks)
+#   GET /openapi.json              — OpenAPI spec served
+# CLI COMMANDS EXERCISED:
+#   twerk health --endpoint http://localhost:8000
+#   twerk run standalone
+#   twerk migration --yes
+# EXPECTED: 200 with {"status":"UP"} when both DS and broker are healthy,
+#           503 with {"status":"DOWN"} when either is unreachable.
+# RUN:
+#   curl -sf http://localhost:8000/health | jq .
+#   curl -sf http://localhost:8000/openapi.json | jq '.info'
+# =============================================================================
+
+name: qa-01-health-bootstrap
+description: "QA Step 1: Verify health endpoint and OpenAPI spec are reachable"
+tasks:
+  - name: verify health endpoint
+    image: curlimages/curl:latest
+    run: |
+      echo "--- QA Step 1: Health Check ---"
+      RESPONSE=$(curl -sf -w "\n%{http_code}" http://localhost:8000/health)
+      HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+      BODY=$(echo "$RESPONSE" | sed '$d')
+      echo "HTTP Status: $HTTP_CODE"
+      echo "Body: $BODY"
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "PASS: Health endpoint returned 200"
+      elif [ "$HTTP_CODE" = "503" ]; then
+        echo "FAIL: Health endpoint returned 503 - infrastructure is DOWN"
+        exit 1
+      else
+        echo "FAIL: Unexpected status code $HTTP_CODE"
+        exit 1
+      fi
+
+  - name: verify openapi spec
+    image: curlimages/curl:latest
+    run: |
+      echo "--- Verifying OpenAPI spec ---"
+      HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:8000/openapi.json)
+      echo "OpenAPI HTTP Status: $HTTP_CODE"
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "PASS: OpenAPI spec served"
+      else
+        echo "FAIL: OpenAPI spec not available ($HTTP_CODE)"
+        exit 1
+      fi

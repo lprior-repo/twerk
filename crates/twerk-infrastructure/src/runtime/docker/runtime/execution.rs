@@ -66,62 +66,117 @@ pub(super) async fn run(
 
     // Prepare mounts
     let mut mounted_mounts = Vec::new();
+    let mut mount_error = None;
     if let Some(ref mounts) = task.mounts {
         for mnt in mounts {
             let mut mnt = mnt.clone();
             mnt.id = Some(new_uuid());
             if let Err(e) = mounter.mount(&mnt).await {
-                return Err(DockerError::Mount(e));
+                mount_error = Some(DockerError::Mount(e));
+                break;
             }
             mounted_mounts.push(mnt);
         }
     }
     task.mounts = Some(mounted_mounts.clone());
 
-    // Execute pre-tasks
-    let pre_tasks: Vec<Task> = if let Some(ref pre) = task.pre {
-        pre.clone()
+    // Run all task phases, collecting the first error
+    let result = if mount_error.is_some() {
+        mount_error
     } else {
-        Vec::new()
+        run_phases(&client, &config, &pull_tx, &mounter, task, &mounted_mounts)
+            .await
+            .err()
     };
-    for mut pre_task in pre_tasks {
-        pre_task.id = Some(TaskId::new(new_uuid())?);
-        pre_task.mounts = Some(mounted_mounts.clone());
-        pre_task.networks = task.networks.clone();
-        pre_task.limits = task.limits.clone();
-        run_task(&client, &config, &pull_tx, &mounter, &mut pre_task).await?;
-    }
 
-    // Run the actual task
-    run_task(&client, &config, &pull_tx, &mounter, task).await?;
-
-    // Execute post-tasks
-    let post_tasks: Vec<Task> = if let Some(ref post) = task.post {
-        post.clone()
-    } else {
-        Vec::new()
-    };
-    for mut post_task in post_tasks {
-        post_task.id = Some(TaskId::new(new_uuid())?);
-        post_task.mounts = Some(mounted_mounts.clone());
-        post_task.networks = task.networks.clone();
-        post_task.limits = task.limits.clone();
-        run_task(&client, &config, &pull_tx, &mounter, &mut post_task).await?;
-    }
-
-    // Clean up mounts
-    for mnt in mounted_mounts {
-        if let Err(e) = mounter.unmount(&mnt).await {
+    // Clean up mounts (always, even on error)
+    for mnt in &mounted_mounts {
+        if let Err(e) = mounter.unmount(mnt).await {
             tracing::error!(error = %e, mount = ?mnt, "error unmounting");
         }
     }
 
-    // Clean up network
+    // Clean up network (always, even on error)
     if let Some(ref id) = network_id {
         network::remove_network(&client, id).await;
     }
 
+    match result {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+async fn run_phases(
+    client: &bollard::Docker,
+    config: &DockerConfig,
+    pull_tx: &mpsc::Sender<PullRequest>,
+    mounter: &Arc<dyn Mounter>,
+    task: &mut Task,
+    mounted_mounts: &[twerk_core::mount::Mount],
+) -> Result<(), DockerError> {
+    let pre_tasks: Vec<Task> = task.pre.clone().unwrap_or_default();
+    for mut pre_task in pre_tasks {
+        pre_task.id = Some(TaskId::new(new_uuid())?);
+        pre_task.mounts = Some(mounted_mounts.to_vec());
+        pre_task.networks = task.networks.clone();
+        pre_task.limits = task.limits.clone();
+        run_task(client, config, pull_tx, mounter, &mut pre_task).await?;
+    }
+
+    run_task(client, config, pull_tx, mounter, task).await?;
+
+    let post_tasks: Vec<Task> = task.post.clone().unwrap_or_default();
+    for mut post_task in post_tasks {
+        post_task.id = Some(TaskId::new(new_uuid())?);
+        post_task.mounts = Some(mounted_mounts.to_vec());
+        post_task.networks = task.networks.clone();
+        post_task.limits = task.limits.clone();
+        run_task(client, config, pull_tx, mounter, &mut post_task).await?;
+    }
+
     Ok(())
+}
+
+async fn remove_container_and_volume(
+    client: &bollard::Docker,
+    container_id: &str,
+    volume_name: Option<&str>,
+    label: &str,
+) {
+    if let Err(e) = client
+        .remove_container(
+            container_id,
+            Some(RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            }),
+        )
+        .await
+    {
+        tracing::warn!(error = %e, container_id = %container_id, "failed to remove {label} container");
+    }
+
+    if let Some(volume) = volume_name {
+        for attempt in 0..3 {
+            if attempt > 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(100 * 2u64.pow(attempt - 1)))
+                    .await;
+            }
+            match client
+                .remove_volume(volume, Some(RemoveVolumeOptions { force: true }))
+                .await
+            {
+                Ok(()) => break,
+                Err(e) if attempt < 2 => {
+                    tracing::debug!(error = %e, volume = %volume, attempt, "retrying {label} volume removal");
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, volume = %volume, "failed to remove {label} volume after 3 attempts");
+                }
+            }
+        }
+    }
 }
 
 /// Runs a single task (main, pre, or post).
@@ -140,6 +195,8 @@ async fn run_task(
 
     let container_id = container.id.clone();
     let twerkdir_source = container.twerkdir_source.clone();
+
+    let mut sidecar_ids: Vec<(String, Option<String>)> = Vec::new();
 
     let result = async {
         // Start sidecars
@@ -161,29 +218,7 @@ async fn run_task(
                     .await
                     .map_err(|e| DockerError::ContainerStart(e.to_string()))?;
 
-                // Defer sidecar removal
-                let sc = client.clone();
-                tokio::spawn(async move {
-                    let remove_container = sc.remove_container(
-                        &sidecar_id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    );
-                    if let Some(source) = sidecar_twerkdir {
-                        let remove_volume = sc.remove_volume(&source, None::<RemoveVolumeOptions>);
-                        let (res_c, res_v) = tokio::join!(remove_container, remove_volume);
-                        if let Err(e) = res_c {
-                            tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
-                        }
-                        if let Err(e) = res_v {
-                            tracing::warn!(error = %e, volume = %source, "failed to remove sidecar volume");
-                        }
-                    } else if let Err(e) = remove_container.await {
-                        tracing::warn!(error = %e, container_id = %sidecar_id, "failed to remove sidecar container");
-                    }
-                });
+                sidecar_ids.push((sidecar_id, sidecar_twerkdir));
             }
         }
 
@@ -196,26 +231,13 @@ async fn run_task(
     }
     .await;
 
-    // Clean up main container
-    let remove_container = client.remove_container(
-        &container_id,
-        Some(RemoveContainerOptions {
-            force: true,
-            ..Default::default()
-        }),
-    );
-    if let Some(source) = twerkdir_source {
-        let remove_volume = client.remove_volume(&source, None::<RemoveVolumeOptions>);
-        let (res_c, res_v) = tokio::join!(remove_container, remove_volume);
-        if let Err(e) = res_c {
-            tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
-        }
-        if let Err(e) = res_v {
-            tracing::warn!(error = %e, volume = %source, "failed to remove main volume");
-        }
-    } else if let Err(e) = remove_container.await {
-        tracing::warn!(error = %e, container_id = %container_id, "failed to remove main container");
+    // Clean up sidecars (awaited, not fire-and-forget)
+    for (sc_id, sc_twerkdir) in sidecar_ids {
+        remove_container_and_volume(client, &sc_id, sc_twerkdir.as_deref(), "sidecar").await;
     }
+
+    // Clean up main container
+    remove_container_and_volume(client, &container_id, twerkdir_source.as_deref(), "main").await;
 
     result
 }

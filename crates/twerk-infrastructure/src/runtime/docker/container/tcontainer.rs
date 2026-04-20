@@ -252,10 +252,27 @@ impl Tcontainer {
             .map_err(|e| DockerError::ContainerRemove(e.to_string()))?;
 
         if let Some(ref source) = self.torkdir.source {
-            self.client
-                .remove_volume(source, Some(RemoveVolumeOptions { force: true }))
-                .await
-                .map_err(|e| DockerError::VolumeRemove(e.to_string()))?;
+            for attempt in 0..3 {
+                if attempt > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(
+                        100 * 2u64.pow(attempt - 1),
+                    ))
+                    .await;
+                }
+                match self
+                    .client
+                    .remove_volume(source, Some(RemoveVolumeOptions { force: true }))
+                    .await
+                {
+                    Ok(()) => break,
+                    Err(e) if attempt < 2 => {
+                        tracing::debug!(error = %e, volume = %source, attempt, "retrying volume removal");
+                    }
+                    Err(e) => {
+                        return Err(DockerError::VolumeRemove(e.to_string()));
+                    }
+                }
+            }
         }
 
         self.mounter

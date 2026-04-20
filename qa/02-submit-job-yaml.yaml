@@ -1,0 +1,29 @@
+# =============================================================================
+# QA Step 2: Submit Job via YAML Content-Type
+# =============================================================================
+# PURPOSE: Verify the primary end-user flow — submit a job using
+#           Content-Type: text/yaml and confirm it returns a job ID.
+# API ENDPOINTS EXERCISED:
+#   POST /jobs                     — create job (YAML body)
+#   GET  /jobs/{id}                — fetch created job
+# VALIDATION:
+#   - POST returns 200 with id + state field
+#   - GET /jobs/{id} returns same id, state is SCHEDULED/RUNNING/COMPLETED
+# RUN:
+#   JOB_ID=$(curl -sf -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/02-submit-job-yaml.yaml | jq -r '.id')
+#   echo "Job ID: $JOB_ID"
+#   curl -sf http://localhost:8000/jobs/$JOB_ID | jq .
+# =============================================================================
+
+name: qa-02-submit-yaml
+description: "QA Step 2: Submit a job via YAML content-type and verify round-trip"
+output: "{{ tasks.greeting }}"
+tasks:
+  - name: generate greeting
+    var: greeting
+    image: ubuntu:mantic
+    run: |
+      echo "--- QA Step 2: YAML Job Submission ---"
+      echo -n "hello from yaml job" > $TORK_OUTPUT

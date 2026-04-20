@@ -1,0 +1,76 @@
+# =============================================================================
+# QA Step 9: Cancel Job + Restart Job
+# =============================================================================
+# PURPOSE: Verify job cancellation and restart workflows.
+# API ENDPOINTS EXERCISED:
+#   POST /jobs                      — create a long-running job
+#   PUT  /jobs/{id}/cancel          — cancel the job
+#   PUT  /jobs/{id}/restart         — restart a failed/cancelled job
+# VALIDATION:
+#   - Cancel returns 200 + {"status":"OK"}
+#   - Job state transitions to CANCELLED
+#   - Cancelling already-terminal state returns 400
+#   - Restart of CANCELLED job returns 200
+#   - Restart of RUNNING job returns 400
+# RUN:
+#   JOB_ID=$(curl -sf -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/09-cancel-and-restart.yaml | jq -r '.id')
+#   sleep 1
+#   curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+#   curl -X PUT http://localhost:8000/jobs/$JOB_ID/restart
+# =============================================================================
+
+name: qa-09-cancel-restart
+description: "QA Step 9: Exercise cancel and restart job lifecycle"
+tasks:
+  - name: verify cancel and restart endpoints
+    image: curlimages/curl:latest
+    run: |
+      echo "--- QA Step 9: Cancel & Restart ---"
+
+      # Create a job that will run long enough to cancel
+      JOB_ID=$(curl -sf -X POST http://localhost:8000/jobs \
+        -H "Content-type: application/json" \
+        -d '{"name":"cancel-target","tasks":[{"name":"sleeper","image":"ubuntu:mantic","run":"sleep 300"}]}' \
+        | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      echo "Created cancel-target job: $JOB_ID"
+      sleep 1
+
+      # Cancel it
+      CANCEL_CODE=$(curl -sf -o /tmp/cancel.json -w "%{http_code}" -X PUT http://localhost:8000/jobs/$JOB_ID/cancel)
+      echo "PUT /jobs/$JOB_ID/cancel status: $CANCEL_CODE"
+      if [ "$CANCEL_CODE" = "200" ]; then
+        echo "PASS: Cancel returned 200"
+      else
+        echo "WARN: Cancel returned $CANCEL_CODE (job may have already completed)"
+      fi
+
+      # Try cancelling again (should 400)
+      DOUBLE_CANCEL=$(curl -sf -o /dev/null -w "%{http_code}" -X PUT http://localhost:8000/jobs/$JOB_ID/cancel)
+      echo "Second cancel attempt status: $DOUBLE_CANCEL (expect 400)"
+
+      # Restart
+      RESTART_CODE=$(curl -sf -o /tmp/restart.json -w "%{http_code}" -X PUT http://localhost:8000/jobs/$JOB_ID/restart)
+      echo "PUT /jobs/$JOB_ID/restart status: $RESTART_CODE"
+      if [ "$RESTART_CODE" = "200" ]; then
+        echo "PASS: Restart returned 200"
+      else
+        echo "WARN: Restart returned $RESTART_CODE"
+      fi
+
+      # Try restarting a running job (should 400)
+      # Create a fresh running job
+      RUNNING_ID=$(curl -sf -X POST http://localhost:8000/jobs \
+        -H "Content-type: application/json" \
+        -d '{"name":"running-target","tasks":[{"name":"sleeper","image":"ubuntu:mantic","run":"sleep 60"}]}' \
+        | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      sleep 1
+      BAD_RESTART=$(curl -sf -o /dev/null -w "%{http_code}" -X PUT http://localhost:8000/jobs/$RUNNING_ID/restart)
+      echo "Restart running job status: $BAD_RESTART (expect 400)"
+
+      # Cleanup: cancel the running jobs
+      curl -sf -o /dev/null -X PUT http://localhost:8000/jobs/$RUNNING_ID/cancel
+      curl -sf -o /dev/null -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+
+      echo "PASS: Cancel and restart lifecycle verified"

@@ -76,8 +76,8 @@ pub async fn delete_queue_handler(
 ) -> Result<Response, ApiError> {
     state
         .broker
-        .delete_queue(name)
+        .delete_queue(name.clone())
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .map_err(|_| ApiError::not_found(format!("queue {name} not found")))?;
     Ok(StatusCode::OK.into_response())
 }

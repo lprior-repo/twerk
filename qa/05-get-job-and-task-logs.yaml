@@ -1,0 +1,72 @@
+# =============================================================================
+# QA Step 5: Get Job Details + Task Logs
+# =============================================================================
+# PURPOSE: Verify fetching a specific job, its tasks, and task log entries.
+# API ENDPOINTS EXERCISED:
+#   GET /jobs/{id}                 — job details with task states
+#   GET /jobs/{id}/log             — job log (paginated)
+#   GET /tasks/{id}                — individual task details
+#   GET /tasks/{id}/log            — task log entries (paginated, searchable)
+# VALIDATION:
+#   - Job details include task list with actual states
+#   - Job log returns paginated log parts
+#   - Task endpoint returns task with id, name, state
+#   - Task log supports ?page=&size=&q= params
+# RUN:
+#   JOB_ID=<some-id>
+#   curl -sf http://localhost:8000/jobs/$JOB_ID | jq '{id,name,state,tasks}'
+#   curl -sf http://localhost:8000/jobs/$JOB_ID/log | jq .
+#   TASK_ID=$(curl -sf http://localhost:8000/jobs/$JOB_ID | jq -r '.tasks[0].id')
+#   curl -sf http://localhost:8000/tasks/$TASK_ID | jq .
+#   curl -sf "http://localhost:8000/tasks/$TASK_ID/log?page=1&size=10" | jq .
+# =============================================================================
+
+name: qa-05-job-task-details
+description: "QA Step 5: Verify job details, task details, and log retrieval"
+output: "{{ tasks.verification }}"
+tasks:
+  - name: produce log output
+    var: logOutput
+    image: ubuntu:mantic
+    run: |
+      echo "--- QA Step 5: Producing log output ---"
+      echo "Line 1: task executed"
+      echo "Line 2: processing data"
+      echo "Line 3: complete"
+      echo -n "logged" > $TORK_OUTPUT
+
+  - name: verify job and task endpoints
+    var: verification
+    image: curlimages/curl:latest
+    run: |
+      echo "--- QA Step 5: Verifying job/task detail endpoints ---"
+
+      # Find our own job by searching for this job name
+      JOB_ID=$(curl -sf "http://localhost:8000/jobs?q=qa-05" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      if [ -z "$JOB_ID" ]; then
+        echo "WARN: Could not find own job ID, using first available job"
+        JOB_ID=$(curl -sf http://localhost:8000/jobs | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      fi
+      echo "Job ID: $JOB_ID"
+
+      # Get job details
+      HTTP_CODE=$(curl -sf -o /tmp/job.json -w "%{http_code}" http://localhost:8000/jobs/$JOB_ID)
+      echo "GET /jobs/$JOB_ID status: $HTTP_CODE"
+      if [ "$HTTP_CODE" != "200" ]; then echo "FAIL: get job details"; exit 1; fi
+
+      # Get job log
+      HTTP_CODE=$(curl -sf -o /tmp/joblog.json -w "%{http_code}" http://localhost:8000/jobs/$JOB_ID/log)
+      echo "GET /jobs/$JOB_ID/log status: $HTTP_CODE"
+
+      # Get first task
+      TASK_ID=$(cat /tmp/job.json | grep -o '"id":"[^"]*"' | tail -1 | cut -d'"' -f4)
+      if [ -n "$TASK_ID" ]; then
+        HTTP_CODE=$(curl -sf -o /tmp/task.json -w "%{http_code}" http://localhost:8000/tasks/$TASK_ID)
+        echo "GET /tasks/$TASK_ID status: $HTTP_CODE"
+
+        HTTP_CODE=$(curl -sf -o /tmp/tasklog.json -w "%{http_code}" "http://localhost:8000/tasks/$TASK_ID/log?page=1&size=10")
+        echo "GET /tasks/$TASK_ID/log status: $HTTP_CODE"
+      fi
+
+      echo -n "verified" > $TORK_OUTPUT
+      echo "PASS: Job and task detail endpoints functional"

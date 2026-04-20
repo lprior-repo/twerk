@@ -1,5 +1,6 @@
 //! Queue consumption and management for the in-memory broker.
 
+use anyhow::anyhow;
 use super::super::{BoxedFuture, QueueInfo};
 use super::InMemoryBroker;
 
@@ -28,14 +29,15 @@ pub(crate) fn queues(broker: &InMemoryBroker) -> BoxedFuture<Vec<QueueInfo>> {
 
 /// Get information about a specific queue.
 pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<QueueInfo> {
-    let size = broker
-        .tasks
-        .get(&qname)
-        .map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
-    let subscribers = broker
-        .handlers
-        .get(&qname)
-        .map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
+    let task_entry = broker.tasks.get(&qname);
+    let handler_entry = broker.handlers.get(&qname);
+
+    if task_entry.is_none() && handler_entry.is_none() {
+        return Box::pin(async move { Err(anyhow!("queue {qname} not found")) });
+    }
+
+    let size = task_entry.map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
+    let subscribers = handler_entry.map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
     Box::pin(async move {
         Ok(QueueInfo {
             name: qname,
@@ -49,6 +51,15 @@ pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<
 /// Delete a queue.
 #[allow(clippy::needless_pass_by_value)]
 pub(crate) fn delete_queue(broker: &InMemoryBroker, qname: String) -> BoxedFuture<()> {
+    let task_entry = broker.tasks.get(&qname);
+    let handler_entry = broker.handlers.get(&qname);
+
+    if task_entry.is_none() && handler_entry.is_none() {
+        return Box::pin(async move { Err(anyhow!("queue {qname} not found")) });
+    }
+
+    drop(task_entry);
+    drop(handler_entry);
     broker.tasks.remove(&qname);
     broker.handlers.remove(&qname);
     Box::pin(async { Ok(()) })

@@ -320,7 +320,7 @@ pub async fn cancel_job_handler_post(
 }
 
 async fn cancel_job_impl(state: AppState, id: JobId) -> Result<Response, ApiError> {
-    let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
+    let job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if matches!(
         job.state,
@@ -331,7 +331,18 @@ async fn cancel_job_impl(state: AppState, id: JobId) -> Result<Response, ApiErro
         ));
     }
 
-    job.state = JobState::Cancelled;
+    state
+        .ds
+        .update_job(
+            id.as_ref(),
+            Box::new(|mut j| {
+                j.state = JobState::Cancelled;
+                Ok(j)
+            }),
+        )
+        .await
+        .map_err(ApiError::from)?;
+
     state
         .broker
         .publish_job(&job)
@@ -360,13 +371,24 @@ pub async fn restart_job_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,
 ) -> Result<Response, ApiError> {
-    let mut job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
+    let job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     if !matches!(job.state, JobState::Failed | JobState::Cancelled) {
         return Err(ApiError::bad_request("job cannot be restarted"));
     }
 
-    job.state = JobState::Restart;
+    state
+        .ds
+        .update_job(
+            id.as_ref(),
+            Box::new(|mut j| {
+                j.state = JobState::Restart;
+                Ok(j)
+            }),
+        )
+        .await
+        .map_err(ApiError::from)?;
+
     state
         .broker
         .publish_job(&job)

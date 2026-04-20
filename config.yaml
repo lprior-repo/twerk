@@ -21,7 +21,7 @@ queue.type = "classic"
 type = "postgres"
 
 [datastore.postgres]
-dsn = "postgres://twerk:twerk@localhost:5433/twerk"
+dsn = "postgres://twerk:twerk@localhost:5432/twerk?sslmode=disable"
 max_open_conns = 25
 max_idle_conns = 25
 conn_max_lifetime = "1h"

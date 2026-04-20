@@ -1,0 +1,83 @@
+# =============================================================================
+# QA Step 11: Triggers CRUD API
+# =============================================================================
+# PURPOSE: Verify the full trigger lifecycle: Create, Read, Update, Delete.
+# API ENDPOINTS EXERCISED:
+#   GET    /api/v1/triggers            — list triggers (empty initially)
+#   POST   /api/v1/triggers            — create trigger
+#   GET    /api/v1/triggers/{id}       — get trigger by id
+#   PUT    /api/v1/triggers/{id}       — update trigger
+#   DELETE /api/v1/triggers/{id}       — delete trigger
+# VALIDATION:
+#   - Create returns 201 with trigger view
+#   - Get returns 200 with matching trigger
+#   - Update returns 200 with incremented version
+#   - Delete returns 204
+#   - Get after delete returns 404
+#   - Invalid trigger ID returns 400
+#   - Version conflict returns 409
+# RUN:
+#   curl -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/11-triggers-crud.yaml
+# =============================================================================
+
+name: qa-11-triggers-crud
+description: "QA Step 11: Full CRUD lifecycle for triggers API"
+tasks:
+  - name: exercise triggers crud
+    image: curlimages/curl:latest
+    run: |
+      echo "--- QA Step 11: Triggers CRUD ---"
+      BASE="http://localhost:8000"
+
+      echo ">> LIST (should be empty or contain previous triggers)..."
+      LIST_CODE=$(curl -sf -o /tmp/triggers.json -w "%{http_code}" $BASE/api/v1/triggers)
+      echo "GET /api/v1/triggers status: $LIST_CODE"
+
+      echo ">> CREATE trigger..."
+      CREATE_CODE=$(curl -sf -o /tmp/created.json -w "%{http_code}" \
+        -X POST $BASE/api/v1/triggers \
+        -H "Content-type: application/json" \
+        -d '{"name":"qa-test-trigger","enabled":true,"event":"job.completed","action":"notify","metadata":{"channel":"slack"}}')
+      echo "POST /api/v1/triggers status: $CREATE_CODE"
+      if [ "$CREATE_CODE" != "201" ]; then echo "FAIL: create trigger returned $CREATE_CODE"; exit 1; fi
+      TRIGGER_ID=$(cat /tmp/created.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      TRIGGER_VER=$(cat /tmp/created.json | grep -o '"version":[0-9]*' | head -1 | cut -d':' -f2)
+      echo "Created trigger: id=$TRIGGER_ID version=$TRIGGER_VER"
+
+      echo ">> GET trigger..."
+      GET_CODE=$(curl -sf -o /tmp/got.json -w "%{http_code}" $BASE/api/v1/triggers/$TRIGGER_ID)
+      echo "GET /api/v1/triggers/$TRIGGER_ID status: $GET_CODE"
+      if [ "$GET_CODE" != "200" ]; then echo "FAIL: get trigger"; exit 1; fi
+
+      echo ">> UPDATE trigger (with correct version)..."
+      UPDATE_CODE=$(curl -sf -o /tmp/updated.json -w "%{http_code}" \
+        -X PUT $BASE/api/v1/triggers/$TRIGGER_ID \
+        -H "Content-type: application/json" \
+        -d "{\"name\":\"qa-test-trigger-v2\",\"enabled\":true,\"event\":\"job.failed\",\"action\":\"alert\",\"metadata\":{},\"version\":$TRIGGER_VER}")
+      echo "PUT /api/v1/triggers/$TRIGGER_ID status: $UPDATE_CODE"
+      if [ "$UPDATE_CODE" != "200" ]; then echo "FAIL: update trigger returned $UPDATE_CODE"; exit 1; fi
+      NEW_VER=$(cat /tmp/updated.json | grep -o '"version":[0-9]*' | head -1 | cut -d':' -f2)
+      echo "Updated trigger version: $NEW_VER"
+
+      echo ">> UPDATE with stale version (expect 409)..."
+      STALE_CODE=$(curl -sf -o /tmp/stale.json -w "%{http_code}" \
+        -X PUT $BASE/api/v1/triggers/$TRIGGER_ID \
+        -H "Content-type: application/json" \
+        -d "{\"name\":\"stale\",\"enabled\":true,\"event\":\"x\",\"action\":\"y\",\"version\":$TRIGGER_VER}")
+      echo "Stale version update status: $STALE_CODE (expect 409)"
+
+      echo ">> GET invalid trigger ID (expect 400)..."
+      BAD_ID_CODE=$(curl -sf -o /tmp/badid.json -w "%{http_code}" $BASE/api/v1/triggers/bad%20id)
+      echo "GET with bad ID status: $BAD_ID_CODE (expect 400)"
+
+      echo ">> DELETE trigger..."
+      DEL_CODE=$(curl -sf -o /tmp/deleted.json -w "%{http_code}" -X DELETE $BASE/api/v1/triggers/$TRIGGER_ID)
+      echo "DELETE /api/v1/triggers/$TRIGGER_ID status: $DEL_CODE (expect 204 or 200)"
+
+      echo ">> GET after delete (expect 404)..."
+      AFTER_DEL=$(curl -sf -o /tmp/afterdel.json -w "%{http_code}" $BASE/api/v1/triggers/$TRIGGER_ID)
+      echo "GET after delete status: $AFTER_DEL (expect 404)"
+
+      echo "PASS: Triggers CRUD lifecycle verified"

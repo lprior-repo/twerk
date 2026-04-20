@@ -1,0 +1,64 @@
+# =============================================================================
+# QA Step 6: Parallel Task Execution
+# =============================================================================
+# PURPOSE: Verify parallel tasks run concurrently and all complete.
+# YAML FEATURE: parallel.tasks
+# API ENDPOINTS EXERCISED:
+#   POST /jobs (with parallel tasks)
+#   GET  /jobs/{id} — verify all sub-tasks reached COMPLETED
+# VALIDATION:
+#   - Job completes successfully
+#   - All parallel sub-tasks have state=COMPLETED
+#   - Variables from parallel tasks are accessible downstream
+# RUN:
+#   curl -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/06-parallel-tasks.yaml
+# =============================================================================
+
+name: qa-06-parallel-execution
+description: "QA Step 6: Verify parallel tasks execute concurrently"
+tasks:
+  - name: parallel fan-out
+    parallel:
+      tasks:
+        - name: worker-alpha
+          var: alpha
+          image: ubuntu:mantic
+          run: |
+            echo "Worker Alpha starting"
+            sleep 0.1
+            echo -n "alpha-result" > $TORK_OUTPUT
+
+        - name: worker-beta
+          var: beta
+          image: ubuntu:mantic
+          run: |
+            echo "Worker Beta starting"
+            sleep 0.1
+            echo -n "beta-result" > $TORK_OUTPUT
+
+        - name: worker-gamma
+          var: gamma
+          image: ubuntu:mantic
+          run: |
+            echo "Worker Gamma starting"
+            sleep 0.1
+            echo -n "gamma-result" > $TORK_OUTPUT
+
+  - name: fan-in verification
+    image: ubuntu:mantic
+    env:
+      ALPHA: "{{ tasks.alpha }}"
+      BETA: "{{ tasks.beta }}"
+      GAMMA: "{{ tasks.gamma }}"
+    run: |
+      echo "--- QA Step 6: Parallel Verification ---"
+      echo "Alpha: $ALPHA"
+      echo "Beta: $BETA"
+      echo "Gamma: $GAMMA"
+      if [ "$ALPHA" != "alpha-result" ] || [ "$BETA" != "beta-result" ] || [ "$GAMMA" != "gamma-result" ]; then
+        echo "FAIL: Parallel task outputs mismatch"
+        exit 1
+      fi
+      echo "PASS: All parallel tasks completed with correct outputs"

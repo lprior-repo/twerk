@@ -1,0 +1,66 @@
+# =============================================================================
+# QA Step 8: Sub-Job (Nested Workflow)
+# =============================================================================
+# PURPOSE: Verify sub-jobs create isolated nested workflows whose output
+#           propagates back to the parent job.
+# YAML FEATURES: subjob, nested tasks, output templates across boundaries
+# API ENDPOINTS EXERCISED:
+#   POST /jobs (with subjob task)
+#   GET  /jobs/{id} — verify parent job completed, subjob output captured
+# VALIDATION:
+#   - Sub-job tasks execute in order
+#   - Sub-job output bubbles up to parent via var
+#   - Parent can use sub-job output in subsequent tasks
+# RUN:
+#   curl -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/08-subjob-nested.yaml
+# =============================================================================
+
+name: qa-08-subjob-nested
+description: "QA Step 8: Verify sub-job creates nested workflow with output propagation"
+output: "{{ tasks.final }}"
+tasks:
+  - name: run nested pipeline
+    var: pipelineResult
+    subjob:
+      name: nested-etl
+      output: "{{ tasks.load }}"
+      tasks:
+        - name: extract
+          var: extract
+          image: ubuntu:mantic
+          run: echo -n "raw-data-payload" > $TORK_OUTPUT
+
+        - name: transform
+          var: transform
+          image: ubuntu:mantic
+          env:
+            DATA: "{{ tasks.extract }}"
+          run: |
+            echo "Transforming: $DATA"
+            echo -n "transformed-$DATA" > $TORK_OUTPUT
+
+        - name: load
+          var: load
+          image: ubuntu:mantic
+          env:
+            DATA: "{{ tasks.transform }}"
+          run: |
+            echo "Loading: $DATA"
+            echo -n "loaded-$DATA" > $TORK_OUTPUT
+
+  - name: verify subjob output
+    var: final
+    image: ubuntu:mantic
+    env:
+      PIPELINE: "{{ tasks.pipelineResult }}"
+    run: |
+      echo "--- QA Step 8: Sub-Job Verification ---"
+      echo "Pipeline result: $PIPELINE"
+      if [ "$PIPELINE" != "loaded-transformed-raw-data-payload" ]; then
+        echo "FAIL: Sub-job output chain mismatch"
+        exit 1
+      fi
+      echo -n "subjob-verified" > $TORK_OUTPUT
+      echo "PASS: Sub-job nested workflow completed with correct output chain"

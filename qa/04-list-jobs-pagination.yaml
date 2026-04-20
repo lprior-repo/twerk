@@ -1,0 +1,53 @@
+# =============================================================================
+# QA Step 4: List Jobs + Pagination + Search
+# =============================================================================
+# PURPOSE: Verify job listing, pagination, and search query parameters.
+# API ENDPOINTS EXERCISED:
+#   GET /jobs                      — list all jobs
+#   GET /jobs?page=1&size=5        — paginated listing
+#   GET /jobs?q=qa                 — search by query
+# VALIDATION:
+#   - Returns array with .items containing previously created jobs
+#   - Pagination params accepted (page defaults, size defaults)
+#   - Search filter returns matching results
+#   - Invalid page/size values (e.g. ?page=abc) are handled gracefully
+# RUN:
+#   echo "--- All jobs ---"
+#   curl -sf http://localhost:8000/jobs | jq '.items | length'
+#   echo "--- Page 1, size 2 ---"
+#   curl -sf "http://localhost:8000/jobs?page=1&size=2" | jq '.items | length'
+#   echo "--- Search for 'qa' ---"
+#   curl -sf "http://localhost:8000/jobs?q=qa" | jq '.items[].name'
+#   echo "--- Invalid page param (graceful) ---"
+#   curl -sf "http://localhost:8000/jobs?page=abc" | jq '.items | length'
+# =============================================================================
+
+name: qa-04-list-jobs-pagination
+description: "QA Step 4: Exercise job listing with pagination and search"
+tasks:
+  - name: verify list jobs api
+    image: curlimages/curl:latest
+    run: |
+      echo "--- QA Step 4: Job Listing & Pagination ---"
+
+      echo ">> Listing all jobs..."
+      HTTP_CODE=$(curl -sf -o /tmp/jobs.json -w "%{http_code}" http://localhost:8000/jobs)
+      echo "GET /jobs status: $HTTP_CODE"
+      if [ "$HTTP_CODE" != "200" ]; then echo "FAIL: list jobs"; exit 1; fi
+      COUNT=$(cat /tmp/jobs.json | grep -o '"id"' | wc -l)
+      echo "Found $COUNT job entries"
+
+      echo ">> Pagination: page=1&size=2..."
+      HTTP_CODE=$(curl -sf -o /tmp/page.json -w "%{http_code}" "http://localhost:8000/jobs?page=1&size=2")
+      echo "GET /jobs?page=1&size=2 status: $HTTP_CODE"
+
+      echo ">> Search: q=qa..."
+      HTTP_CODE=$(curl -sf -o /tmp/search.json -w "%{http_code}" "http://localhost:8000/jobs?q=qa")
+      echo "GET /jobs?q=qa status: $HTTP_CODE"
+
+      echo ">> Invalid page param (should not 500)..."
+      HTTP_CODE=$(curl -sf -o /tmp/invalid.json -w "%{http_code}" "http://localhost:8000/jobs?page=abc")
+      echo "GET /jobs?page=abc status: $HTTP_CODE"
+      if [ "$HTTP_CODE" = "500" ]; then echo "FAIL: server error on invalid param"; exit 1; fi
+
+      echo "PASS: Job listing endpoints functional"

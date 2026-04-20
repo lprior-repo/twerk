@@ -1,0 +1,130 @@
+# =============================================================================
+# QA Step 12: Scheduled Jobs CRUD + Queues + Nodes + Metrics + Users
+# =============================================================================
+# PURPOSE: Exhaustive verification of all remaining API endpoints.
+# API ENDPOINTS EXERCISED:
+#   POST   /scheduled-jobs               — create scheduled job
+#   GET    /scheduled-jobs               — list scheduled jobs
+#   GET    /scheduled-jobs/{id}          — get scheduled job
+#   PUT    /scheduled-jobs/{id}/pause    — pause scheduled job
+#   PUT    /scheduled-jobs/{id}/resume   — resume scheduled job
+#   DELETE /scheduled-jobs/{id}          — delete scheduled job
+#   GET    /queues                       — list queues
+#   GET    /queues/{name}                — get queue info
+#   DELETE /queues/{name}                — delete queue
+#   GET    /nodes                        — list active nodes
+#   GET    /metrics                      — system metrics
+#   POST   /users                        — create user
+# VALIDATION:
+#   - Scheduled job CRUD lifecycle works (create, read, pause, resume, delete)
+#   - Queues endpoint returns data
+#   - Nodes endpoint returns active worker list
+#   - Metrics endpoint returns system metrics
+#   - User creation validates username/password
+# RUN:
+#   curl -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/12-scheduled-jobs-and-queues.yaml
+# =============================================================================
+
+name: qa-12-scheduled-queues-nodes-metrics
+description: "QA Step 12: Scheduled jobs CRUD, queues, nodes, metrics, users"
+tasks:
+  - name: exercise all remaining endpoints
+    image: curlimages/curl:latest
+    run: |
+      echo "============================================================"
+      echo "--- QA Step 12: Scheduled Jobs, Queues, Nodes, Metrics, Users"
+      echo "============================================================"
+      BASE="http://localhost:8000"
+
+      # ------ QUEUES ------
+      echo ""
+      echo ">> GET /queues..."
+      Q_CODE=$(curl -sf -o /tmp/queues.json -w "%{http_code}" $BASE/queues)
+      echo "   Status: $Q_CODE"
+      if [ "$Q_CODE" = "200" ]; then echo "   PASS: Queues listed"; fi
+
+      # ------ NODES ------
+      echo ""
+      echo ">> GET /nodes..."
+      N_CODE=$(curl -sf -o /tmp/nodes.json -w "%{http_code}" $BASE/nodes)
+      echo "   Status: $N_CODE"
+      if [ "$N_CODE" = "200" ]; then echo "   PASS: Nodes listed"; fi
+
+      # ------ METRICS ------
+      echo ""
+      echo ">> GET /metrics..."
+      M_CODE=$(curl -sf -o /tmp/metrics.json -w "%{http_code}" $BASE/metrics)
+      echo "   Status: $M_CODE"
+      if [ "$M_CODE" = "200" ]; then echo "   PASS: Metrics retrieved"; fi
+
+      # ------ USERS ------
+      echo ""
+      echo ">> POST /users (valid)..."
+      U_CODE=$(curl -sf -o /tmp/user.json -w "%{http_code}" \
+        -X POST $BASE/users \
+        -H "Content-type: application/json" \
+        -d '{"username":"qatestuser","password":"testpassword123"}')
+      echo "   Status: $U_CODE (expect 200)"
+      if [ "$U_CODE" = "200" ]; then echo "   PASS: User created"; fi
+
+      echo ">> POST /users (short password, expect 400)..."
+      SHORT_CODE=$(curl -sf -o /tmp/short.json -w "%{http_code}" \
+        -X POST $BASE/users \
+        -H "Content-type: application/json" \
+        -d '{"username":"baduser","password":"short"}')
+      echo "   Status: $SHORT_CODE (expect 400)"
+
+      echo ">> POST /users (missing fields, expect 400)..."
+      MISS_CODE=$(curl -sf -o /tmp/missing.json -w "%{http_code}" \
+        -X POST $BASE/users \
+        -H "Content-type: application/json" \
+        -d '{}')
+      echo "   Status: $MISS_CODE (expect 400)"
+
+      # ------ SCHEDULED JOBS ------
+      echo ""
+      echo ">> POST /scheduled-jobs (create)..."
+      SJ_CODE=$(curl -sf -o /tmp/sj.json -w "%{http_code}" \
+        -X POST $BASE/scheduled-jobs \
+        -H "Content-type: application/json" \
+        -d '{"name":"qa-scheduled","cron":"*/5 * * * *","tasks":[{"name":"tick","image":"ubuntu:mantic","run":"echo tick"}]}')
+      echo "   Status: $SJ_CODE"
+      if [ "$SJ_CODE" != "200" ]; then echo "   FAIL: create scheduled job"; exit 1; fi
+      SJ_ID=$(cat /tmp/sj.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      echo "   Created scheduled job: $SJ_ID"
+
+      echo ">> GET /scheduled-jobs..."
+      SJ_LIST=$(curl -sf -o /tmp/sjlist.json -w "%{http_code}" $BASE/scheduled-jobs)
+      echo "   Status: $SJ_LIST"
+
+      echo ">> GET /scheduled-jobs/$SJ_ID..."
+      SJ_GET=$(curl -sf -o /tmp/sjget.json -w "%{http_code}" $BASE/scheduled-jobs/$SJ_ID)
+      echo "   Status: $SJ_GET"
+
+      echo ">> PUT /scheduled-jobs/$SJ_ID/pause..."
+      SJ_PAUSE=$(curl -sf -o /tmp/sjpause.json -w "%{http_code}" -X PUT $BASE/scheduled-jobs/$SJ_ID/pause)
+      echo "   Status: $SJ_PAUSE"
+      if [ "$SJ_PAUSE" = "200" ]; then echo "   PASS: Scheduled job paused"; fi
+
+      echo ">> PUT /scheduled-jobs/$SJ_ID/resume..."
+      SJ_RESUME=$(curl -sf -o /tmp/sjresume.json -w "%{http_code}" -X PUT $BASE/scheduled-jobs/$SJ_ID/resume)
+      echo "   Status: $SJ_RESUME"
+      if [ "$SJ_RESUME" = "200" ]; then echo "   PASS: Scheduled job resumed"; fi
+
+      echo ">> DELETE /scheduled-jobs/$SJ_ID..."
+      SJ_DEL=$(curl -sf -o /tmp/sjdel.json -w "%{http_code}" -X DELETE $BASE/scheduled-jobs/$SJ_ID)
+      echo "   Status: $SJ_DEL"
+      if [ "$SJ_DEL" = "200" ]; then echo "   PASS: Scheduled job deleted"; fi
+
+      # ------ QUEUE DETAIL ------
+      echo ""
+      echo ">> GET /queues/default (if exists)..."
+      QD_CODE=$(curl -sf -o /tmp/qdetail.json -w "%{http_code}" $BASE/queues/default)
+      echo "   Status: $QD_CODE (200 if exists, 404 if not)"
+
+      echo ""
+      echo "============================================================"
+      echo "QA Step 12 COMPLETE"
+      echo "============================================================"

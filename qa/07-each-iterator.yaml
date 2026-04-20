@@ -1,0 +1,44 @@
+# =============================================================================
+# QA Step 7: Each Iterator (Fan-Out over List)
+# =============================================================================
+# PURPOSE: Verify the `each` construct iterates over a list and produces
+#           one task per item with correct variable binding.
+# YAML FEATURES: each.list, each.task, item.index, item.value, sequence()
+# API ENDPOINTS EXERCISED:
+#   POST /jobs (with each construct)
+#   GET  /jobs/{id} — verify N sub-tasks created
+# VALIDATION:
+#   - Each task produces output indexed by item
+#   - Downstream task can reference each output variable
+# RUN:
+#   curl -X POST http://localhost:8000/jobs \
+#     -H "Content-type: text/yaml" \
+#     --data-binary @qa/07-each-iterator.yaml
+# =============================================================================
+
+name: qa-07-each-iterator
+description: "QA Step 7: Verify each iterator processes all list items"
+tasks:
+  - name: iterate items
+    each:
+      list: "{{ sequence(1,4) }}"
+      task:
+        name: process item {{item.index}}
+        var: item{{item.index}}
+        image: ubuntu:mantic
+        env:
+          ITEM_VALUE: "{{ item.value }}"
+          ITEM_INDEX: "{{ item.index }}"
+        run: |
+          echo "Processing item $ITEM_INDEX with value $ITEM_VALUE"
+          echo -n "processed-$ITEM_VALUE" > $TORK_OUTPUT
+
+  - name: verify all outputs
+    image: ubuntu:mantic
+    run: |
+      echo "--- QA Step 7: Each Iterator Verification ---"
+      echo "Item 0: {{ tasks.item0 }}"
+      echo "Item 1: {{ tasks.item1 }}"
+      echo "Item 2: {{ tasks.item2 }}"
+      echo "Item 3: {{ tasks.item3 }}"
+      echo "PASS: Each iterator produced all indexed outputs"

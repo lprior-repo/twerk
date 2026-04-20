@@ -515,16 +515,34 @@ pub async fn create_task_container(
 
 /// Cleans up a container and its volume on error.
 async fn cleanup_container(client: &Docker, container_id: &str, volume_name: &str) {
-    let _ = tokio::join!(
-        client.remove_container(
+    let _ = client
+        .remove_container(
             container_id,
             Some(RemoveContainerOptions {
                 force: true,
                 ..Default::default()
             }),
-        ),
-        client.remove_volume(volume_name, Some(RemoveVolumeOptions { force: true }))
-    );
+        )
+        .await;
+
+    for attempt in 0..3 {
+        if attempt > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(100 * 2u64.pow(attempt - 1)))
+                .await;
+        }
+        match client
+            .remove_volume(volume_name, Some(RemoveVolumeOptions { force: true }))
+            .await
+        {
+            Ok(()) => break,
+            Err(e) if attempt < 2 => {
+                tracing::debug!(error = %e, volume = %volume_name, attempt, "retrying volume removal");
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, volume = %volume_name, "failed to remove volume after 3 attempts");
+            }
+        }
+    }
 }
 
 /// Initializes the work directory for a container.

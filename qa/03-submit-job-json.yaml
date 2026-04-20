@@ -1,0 +1,27 @@
+# =============================================================================
+# QA Step 3: Submit Job via JSON Content-Type
+# =============================================================================
+# PURPOSE: Verify JSON job submission works identically to YAML.
+# API ENDPOINTS EXERCISED:
+#   POST /jobs                     — create job (JSON body)
+#   GET  /jobs/{id}                — verify job persisted
+# VALIDATION:
+#   - POST with application/json returns 200
+#   - Job has valid id, name, state fields
+#   - GET /jobs/{id} matches the submitted job name
+# RUN:
+#   JOB_ID=$(curl -sf -X POST http://localhost:8000/jobs \
+#     -H "Content-type: application/json" \
+#     -d '{"name":"qa-03-json","tasks":[{"name":"echo","image":"ubuntu:mantic","run":"echo hello"}]}' \
+#     | jq -r '.id')
+#   curl -sf http://localhost:8000/jobs/$JOB_ID | jq '{id,name,state}'
+# =============================================================================
+
+name: qa-03-submit-json
+description: "QA Step 3: Submit a job via JSON content-type and verify round-trip"
+tasks:
+  - name: json echo task
+    image: ubuntu:mantic
+    run: |
+      echo "--- QA Step 3: JSON Job Submission ---"
+      echo "Job submitted via JSON successfully"

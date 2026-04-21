@@ -64,11 +64,11 @@ impl CombinatorialGenerator {
     fn extract_content_types(operation: &Operation) -> Vec<String> {
         let mut types = vec!["application/json".to_string()];
         if let Some(body) = &operation.request_body {
-            body.content.keys().for_each(|content_type| {
+            for content_type in body.content.keys() {
                 if !types.contains(content_type) {
                     types.push(content_type.clone());
                 }
-            });
+            }
         }
         types
     }
@@ -92,7 +92,7 @@ impl CombinatorialGenerator {
 
             let (mut has_string_field, mut has_explicit_bounds, mut has_enum) =
                 (false, false, false);
-            body.content.values().for_each(|media_type| {
+            for media_type in body.content.values() {
                 if let Some(schema) = &media_type.schema {
                     Self::analyze_schema(
                         schema,
@@ -101,7 +101,7 @@ impl CombinatorialGenerator {
                         &mut has_enum,
                     );
                 }
-            });
+            }
 
             if has_explicit_bounds || has_string_field {
                 variations.extend([
@@ -135,9 +135,9 @@ impl CombinatorialGenerator {
         if schema.enum_values.is_some() {
             *has_enum = true;
         }
-        schema.properties.values().for_each(|prop| {
+        for prop in schema.properties.values() {
             Self::analyze_schema(prop, has_string_field, has_explicit_bounds, has_enum);
-        });
+        }
         if let Some(items) = &schema.items {
             Self::analyze_schema(items, has_string_field, has_explicit_bounds, has_enum);
         }

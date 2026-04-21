@@ -11,6 +11,8 @@ use axum::extract::Request;
 use twerk_core::user::UsernameValue;
 
 use super::AppState;
+use crate::api::domain::pagination::{Page, PageSize};
+use crate::api::error::ApiError;
 
 pub mod jobs;
 pub mod queues;
@@ -40,12 +42,32 @@ pub use tasks::{get_task_handler, get_task_log_handler, PaginationQuery};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub(super) fn parse_page(p: Option<i64>) -> i64 {
-    p.filter(|&v| v >= 1).unwrap_or(1)
+fn parse_integer_param(raw: &str, field_name: &str) -> Result<i64, ApiError> {
+    raw.parse::<i64>()
+        .map_err(|_| ApiError::bad_request(format!("{field_name} must be a positive integer")))
 }
 
-pub(super) fn parse_size(p: Option<i64>, default: i64, max: i64) -> i64 {
-    p.filter(|&v| v >= 1).unwrap_or(default).clamp(1, max)
+pub(super) fn parse_page(raw: Option<&str>) -> Result<i64, ApiError> {
+    raw.map_or(Ok(1), |value| {
+        let parsed = parse_integer_param(value, "page")?;
+        Page::try_from(parsed)
+            .map(i64::from)
+            .map_err(|err| ApiError::bad_request(err.to_string()))
+    })
+}
+
+pub(super) fn parse_size(raw: Option<&str>, default: i64, max: i64) -> Result<i64, ApiError> {
+    raw.map_or(Ok(default), |value| {
+        let parsed = parse_integer_param(value, "size")?;
+        if parsed > max {
+            return Err(ApiError::bad_request(format!(
+                "page size {parsed} exceeds maximum allowed ({max})"
+            )));
+        }
+        PageSize::try_from(parsed)
+            .map(i64::from)
+            .map_err(|err| ApiError::bad_request(err.to_string()))
+    })
 }
 
 pub(super) fn extract_current_user(req: &Request) -> String {

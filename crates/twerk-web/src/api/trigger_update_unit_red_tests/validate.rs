@@ -101,9 +101,9 @@ fn validate_trigger_update_rejects_invalid_fields_and_metadata() {
         ),
     ];
 
-    cases.into_iter().for_each(|(req, expected)| {
+    for (req, expected) in cases {
         assert_eq!(validate_trigger_update("trg_1", &req), Err(expected));
-    });
+    }
 }
 
 #[test]

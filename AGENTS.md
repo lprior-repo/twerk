@@ -101,6 +101,32 @@ bd close bd-42 --reason "Completed" --json
    - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
 5. **Complete**: `bd close <id> --reason "Done"`
 
+## CRISPY Workflow
+
+For non-trivial work, use the staged CRISPY flow in `.claude/CRISPY.md`.
+
+Before entering the stages below, claim or create the bead in `bd` using the workflow above.
+
+Repo mapping:
+
+1. Claim or create the bead in `bd`
+2. `/crispy-qr <bead-id>` for blocking questions and fact-only research
+3. `/crispy-dspw <bead-id>` for design, structure, plan, and worktree decision
+4. Implement one vertical slice at a time
+5. `/verify`
+6. `/review --staged` or `/review --branch`
+7. `/done`
+8. `/handoff` for session continuity
+
+Rules:
+
+- Durable task tracking stays in `bd`
+- CRISPY markdown artifacts live under `.beads/<bead-id>/`; they are bead-local working artifacts, not a second issue tracker
+- Keep stage prompts under roughly 40 discrete instructions
+- Do not mix requested intent into research until a fact-based `research.md` exists
+- `improvements.md` is the detailed repo-wide remediation plan; when it is relevant, pull only the section needed for the current bead
+- Do not load large repo plans like `improvements.md` wholesale when one relevant section will do
+
 ### Auto-Sync
 
 bd automatically syncs via Dolt:
@@ -190,6 +216,8 @@ When closing beads related to porting from Go (e.g., "Implement X from Go's inte
 For more details, see README.md and docs/QUICKSTART.md.
 
 ## Landing the Plane (Session Completion)
+
+The `/done` command is the workflow wrapper for this stage, but the guarantees below still apply.
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 

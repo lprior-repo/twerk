@@ -36,10 +36,6 @@ impl Username {
     ///
     /// Returns [`UsernameError`] if the username is invalid.
     ///
-    /// # Panics
-    ///
-    /// Panics if the internal invariant that username has at least 3 characters is violated.
-    /// This invariant is guaranteed by the length check above.
     pub fn new(username: impl Into<String>) -> Result<Self, UsernameError> {
         let s = username.into();
 
@@ -53,8 +49,9 @@ impl Username {
         }
 
         let mut chars = s.chars();
-        #[allow(clippy::unwrap_used)]
-        let first = chars.next().unwrap();
+        let Some(first) = chars.next() else {
+            return Err(UsernameError::Empty);
+        };
         if !first.is_alphabetic() {
             return Err(UsernameError::InvalidCharacter);
         }
@@ -161,8 +158,10 @@ mod tests {
 
     #[test]
     fn username_valid() {
-        let u = Username::new("john_doe").unwrap();
-        assert_eq!(u.as_str(), "john_doe");
+        assert!(matches!(
+            Username::new("john_doe"),
+            Ok(ref username) if username.as_str() == "john_doe"
+        ));
     }
 
     #[test]
@@ -183,8 +182,10 @@ mod tests {
 
     #[test]
     fn password_valid() {
-        let p = Password::new("secretpassword123").unwrap();
-        assert_eq!(p.as_str(), "secretpassword123");
+        assert!(matches!(
+            Password::new("secretpassword123"),
+            Ok(ref password) if password.as_str() == "secretpassword123"
+        ));
     }
 
     #[test]

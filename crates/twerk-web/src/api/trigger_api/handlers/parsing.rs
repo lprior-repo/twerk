@@ -1,28 +1,52 @@
+use std::collections::HashMap;
+
 use axum::body::Bytes;
 use axum::http::HeaderMap;
-use serde_json::Value;
+use serde::Deserialize;
 
 use crate::api::content_type::normalized_content_type;
 
 use super::super::domain::{
     validate_trigger_update, TriggerId, TriggerUpdateError, TriggerUpdateRequest,
-    MALFORMED_JSON_MSG,
+    ACTION_REQUIRED_MSG, EVENT_REQUIRED_MSG, MALFORMED_JSON_MSG, NAME_REQUIRED_MSG,
 };
 
-fn as_optional_string(value: Option<&Value>) -> Option<String> {
-    value
-        .and_then(Value::as_str)
-        .map(std::string::ToString::to_string)
+const ENABLED_REQUIRED_MSG: &str = "enabled is required";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TriggerUpdatePayload {
+    name: Option<String>,
+    enabled: Option<bool>,
+    event: Option<String>,
+    condition: Option<String>,
+    action: Option<String>,
+    metadata: Option<HashMap<String, String>>,
+    id: Option<String>,
+    version: Option<u64>,
 }
 
-fn as_optional_string_map(
-    value: Option<&Value>,
-) -> Option<std::collections::HashMap<String, String>> {
-    value.and_then(Value::as_object).map(|map| {
-        map.iter()
-            .filter_map(|(key, value)| value.as_str().map(|inner| (key.clone(), inner.to_string())))
-            .collect()
-    })
+fn required_field(value: Option<String>, message: &str) -> Result<String, TriggerUpdateError> {
+    value.ok_or_else(|| TriggerUpdateError::ValidationFailed(message.to_string()))
+}
+
+impl TryFrom<TriggerUpdatePayload> for TriggerUpdateRequest {
+    type Error = TriggerUpdateError;
+
+    fn try_from(value: TriggerUpdatePayload) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: required_field(value.name, NAME_REQUIRED_MSG)?,
+            enabled: value.enabled.ok_or_else(|| {
+                TriggerUpdateError::ValidationFailed(ENABLED_REQUIRED_MSG.to_string())
+            })?,
+            event: required_field(value.event, EVENT_REQUIRED_MSG)?,
+            condition: value.condition,
+            action: required_field(value.action, ACTION_REQUIRED_MSG)?,
+            metadata: value.metadata,
+            id: value.id,
+            version: value.version,
+        })
+    }
 }
 
 /// Decode a JSON trigger request body into the internal request type.
@@ -32,26 +56,9 @@ fn as_optional_string_map(
 pub fn decode_trigger_update_request(
     body: &Bytes,
 ) -> Result<TriggerUpdateRequest, TriggerUpdateError> {
-    let parsed_value: Value = serde_json::from_slice(body)
+    let payload = serde_json::from_slice::<TriggerUpdatePayload>(body)
         .map_err(|_| TriggerUpdateError::MalformedJson(MALFORMED_JSON_MSG.to_string()))?;
-
-    let object = parsed_value
-        .as_object()
-        .ok_or_else(|| TriggerUpdateError::MalformedJson(MALFORMED_JSON_MSG.to_string()))?;
-
-    Ok(TriggerUpdateRequest {
-        name: as_optional_string(object.get("name")).unwrap_or_default(),
-        enabled: object
-            .get("enabled")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        event: as_optional_string(object.get("event")).unwrap_or_default(),
-        condition: as_optional_string(object.get("condition")),
-        action: as_optional_string(object.get("action")).unwrap_or_default(),
-        metadata: as_optional_string_map(object.get("metadata")),
-        id: as_optional_string(object.get("id")),
-        version: object.get("version").and_then(Value::as_u64),
-    })
+    payload.try_into()
 }
 
 /// Validate that the trigger request content type is JSON.

@@ -8,6 +8,9 @@ argument-hint: [--status COMPLETED|ESCALATED|DEFERRED] [--pre-verified]
 
 Signal that your work is complete and ready for the merge queue.
 
+This command is the CRISPY landing wrapper for the session-completion guarantees in `AGENTS.md`.
+Work is not complete until the remote push requirements in `AGENTS.md` are satisfied.
+
 Arguments: $ARGUMENTS
 
 ## Pre-flight Checks

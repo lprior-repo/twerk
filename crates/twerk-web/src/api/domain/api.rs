@@ -209,8 +209,10 @@ mod tests {
 
     #[test]
     fn server_address_valid() {
-        let addr = ServerAddress::new("0.0.0.0:8080").unwrap();
-        assert_eq!(addr.as_str(), "0.0.0.0:8080");
+        assert!(matches!(
+            ServerAddress::new("0.0.0.0:8080"),
+            Ok(ref addr) if addr.as_str() == "0.0.0.0:8080"
+        ));
     }
 
     #[test]

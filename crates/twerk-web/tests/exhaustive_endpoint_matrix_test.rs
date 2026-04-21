@@ -143,7 +143,7 @@ mod jobs {
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_page_0_returns_200() {
+        async fn get_jobs_pagination_page_0_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -157,11 +157,11 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_page_negative_returns_200() {
+        async fn get_jobs_pagination_page_negative_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -175,11 +175,11 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_size_0_returns_200() {
+        async fn get_jobs_pagination_size_0_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -193,11 +193,11 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_size_oversized_returns_200() {
+        async fn get_jobs_pagination_size_oversized_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -211,11 +211,11 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_non_numeric_page_returns_200() {
+        async fn get_jobs_pagination_non_numeric_page_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -229,11 +229,11 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
 
         #[tokio::test]
-        async fn get_jobs_pagination_non_numeric_size_returns_200() {
+        async fn get_jobs_pagination_non_numeric_size_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -247,7 +247,7 @@ mod jobs {
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
     }
 
@@ -1843,7 +1843,8 @@ mod triggers {
             let trigger_input = json!({
                 "name": "updated-trigger",
                 "event": "order.updated",
-                "action": "send_update"
+                "action": "send_update",
+                "enabled": false
             });
 
             let response = app
@@ -1870,7 +1871,8 @@ mod triggers {
 
             let trigger_input = json!({
                 "event": "order.updated",
-                "action": "send_update"
+                "action": "send_update",
+                "enabled": false
             });
 
             let response = app
@@ -1898,7 +1900,8 @@ mod triggers {
             let trigger_input = json!({
                 "name": "updated-trigger",
                 "event": "order.updated",
-                "action": "send_update"
+                "action": "send_update",
+                "enabled": false
             });
 
             let response = app

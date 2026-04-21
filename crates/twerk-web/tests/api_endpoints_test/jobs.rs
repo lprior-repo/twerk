@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use serde_json::json;
 use tower::ServiceExt;
 
 use super::shared::{app, body_to_json, setup_state, setup_state_with_jobs, JOB_ID};
@@ -51,6 +52,44 @@ async fn list_jobs_respects_pagination_params() {
         .unwrap();
 
     assert!(body_to_json(response).await["items"].is_array());
+}
+
+#[tokio::test]
+async fn list_jobs_rejects_non_numeric_page() {
+    let response = app(setup_state().await)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/jobs?page=abc")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_to_json(response).await,
+        json!({ "message": "page must be a positive integer" })
+    );
+}
+
+#[tokio::test]
+async fn list_jobs_rejects_oversized_page_size() {
+    let response = app(setup_state().await)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/jobs?size=21")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_to_json(response).await,
+        json!({ "message": "page size 21 exceeds maximum allowed (20)" })
+    );
 }
 
 #[tokio::test]

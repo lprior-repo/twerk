@@ -466,6 +466,11 @@ fn run_scenario(scenario: WorkloadScenario, seed: u64) -> MonteCarloResult {
     for run in 0..RUNS_PER_SCENARIO {
         let iterations = 1000; // 1000 parses per run for statistical stability
 
+        for i in 0..100 {
+            let yaml = generate_workload(scenario, seed, (run * 1000 + i) as u64);
+            let _: Result<Job, _> = from_slice(yaml.as_bytes());
+        }
+
         let start = Instant::now();
         for i in 0..iterations {
             let yaml = generate_workload(scenario, seed, (run * 1000 + i) as u64);

@@ -100,6 +100,20 @@ async fn create_trigger_returns_400_with_invalid_json() {
 }
 
 #[tokio::test]
+async fn create_trigger_returns_400_with_unknown_field() {
+    let response = create_trigger(&json!({
+        "name": "test-trigger",
+        "enabled": true,
+        "event": "test.event",
+        "action": "test_action",
+        "unexpected": true
+    }))
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.json()["error"], "MalformedJson");
+}
+
+#[tokio::test]
 async fn create_trigger_returns_400_with_invalid_id_format() {
     let response = create_trigger(&json!({
         "id": "bad$id",

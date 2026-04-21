@@ -163,8 +163,7 @@ mod tests {
 
     #[test]
     fn page_valid() {
-        let page = Page::new(1).unwrap();
-        assert_eq!(page.get(), 1);
+        assert!(matches!(Page::new(1), Ok(page) if page.get() == 1));
     }
 
     #[test]
@@ -174,8 +173,7 @@ mod tests {
 
     #[test]
     fn page_size_valid() {
-        let size = PageSize::new(20).unwrap();
-        assert_eq!(size.get(), 20);
+        assert!(matches!(PageSize::new(20), Ok(size) if size.get() == 20));
     }
 
     #[test]

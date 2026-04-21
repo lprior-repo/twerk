@@ -17,6 +17,10 @@ tasks:
     command: ["echo", "hello world"]
 "#;
 
+    for _ in 0..1_000 {
+        let _: Result<Job, _> = from_slice(yaml.as_bytes());
+    }
+
     let start = Instant::now();
     for _ in 0..iterations {
         // This calls the actual twerk-web YAML parser, deserializing to Job

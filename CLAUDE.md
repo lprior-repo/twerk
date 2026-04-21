@@ -1,26 +1,31 @@
 # Project Twerk - Claude AI Instructions
 
-This is a Rust port of a Go distributed task execution system. Key things for AI agents:
+Use these files as the source of truth:
 
-## Beads (Issue Tracking)
+- `AGENTS.md` for repo rules, `bd` workflow, and landing constraints
+- `.claude/CRISPY.md` for the staged low-instruction workflow
+- `improvements.md` for the detailed repo-wide remediation plan; read only the relevant section for the current bead
 
-This project uses **bd** with Dolt database at `.beads/dolt/` and a local Dolt database at `./twerk-database`.
+Preferred flow for non-trivial work:
 
-**IMPORTANT**: If `bd dolt push` fails, use dolt CLI directly from `.beads/dolt/`:
+1. claim or create the bead in `bd`
+2. `/crispy-qr <bead-id>`
+3. `/crispy-dspw <bead-id>`
+4. implement vertical slices
+5. `/verify`
+6. `/review --staged` or `/review --branch`
+7. `/done`
 
-```bash
-cd .beads/dolt
-dolt push origin main
-```
+## Subagent Contract
 
-## Closing Go-Portage Beads
+Subagents should receive one bounded task only.
 
-When asked to close beads about porting from Go:
+Every subagent response should include:
 
-1. Search for the implementation in `crates/`
-2. If found: `bd close <id> --reason "Implemented - found in crates/..." --json`
-3. Push: `cd .beads/dolt && dolt push origin main && git push`
+- files read
+- files changed, if any
+- commands run
+- artifacts produced
+- open questions or risks
 
-## Non-Interactive Shell
-
-Always use `-f` flag for `cp`, `mv`, `rm` to avoid prompts. See AGENTS.md for details.
+Only the primary agent should integrate outputs, close beads, and land work.

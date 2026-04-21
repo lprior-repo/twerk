@@ -15,7 +15,7 @@ use crate::middleware::hooks::on_read_task;
 use tracing::instrument;
 
 /// Raw pagination query parameters — uses String types to avoid
-/// serde rejection errors when users send invalid input like `?page=abc`.
+/// axum extraction rejection errors when users send invalid input like `?page=abc`.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct RawPaginationQuery {
     pub page: Option<String>,
@@ -23,25 +23,35 @@ pub struct RawPaginationQuery {
     pub q: Option<String>,
 }
 
-/// Typed pagination query parsed from raw strings.
-/// Invalid integer values silently become `None` rather than
-/// leaking raw serde/axum error messages to the user.
+/// Pagination query preserved as raw strings so handlers can return stable 400 responses.
 #[derive(Debug, Clone)]
 pub struct PaginationQuery {
-    pub page: Option<i64>,
-    pub size: Option<i64>,
+    page: Option<String>,
+    size: Option<String>,
     pub q: Option<String>,
 }
 
 impl PaginationQuery {
-    /// Parse from raw query strings, converting parse failures to `None` gracefully.
+    /// Preserve raw values so handlers can validate each field explicitly.
     #[must_use]
     pub fn from_raw(raw: RawPaginationQuery) -> Self {
         Self {
-            page: raw.page.and_then(|s| s.parse().ok()),
-            size: raw.size.and_then(|s| s.parse().ok()),
+            page: raw.page,
+            size: raw.size,
             q: raw.q,
         }
+    }
+
+    /// # Errors
+    /// Returns an error when `page` is not a positive integer.
+    pub fn page(&self) -> Result<i64, ApiError> {
+        parse_page(self.page.as_deref())
+    }
+
+    /// # Errors
+    /// Returns an error when `size` is not a positive integer within the allowed range.
+    pub fn size(&self, default: i64, max: i64) -> Result<i64, ApiError> {
+        parse_size(self.size.as_deref(), default, max)
     }
 }
 
@@ -98,8 +108,8 @@ pub async fn get_task_log_handler(
     Query(raw): Query<RawPaginationQuery>,
 ) -> Result<Response, ApiError> {
     let qp = PaginationQuery::from_raw(raw);
-    let page = parse_page(qp.page);
-    let size = parse_size(qp.size, 25, 100);
+    let page = qp.page()?;
+    let size = qp.size(25, 100)?;
     let q = qp.q.unwrap_or_default();
 
     let task = state.ds.get_task_by_id(&id).await.map_err(ApiError::from)?;

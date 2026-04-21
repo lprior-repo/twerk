@@ -269,7 +269,7 @@ async fn step_04_list_jobs_pagination() {
 }
 
 #[tokio::test]
-async fn step_04_list_jobs_invalid_page_graceful() {
+async fn step_04_list_jobs_invalid_page_rejected() {
     let state = setup().await;
     let app = create_router(state);
 
@@ -283,12 +283,9 @@ async fn step_04_list_jobs_invalid_page_graceful() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let body = body_json(response).await;
-    assert!(
-        body["items"].is_array(),
-        "graceful degradation must still return valid items array"
-    );
+    assert_eq!(body["message"], "page must be a positive integer");
 }
 
 #[tokio::test]

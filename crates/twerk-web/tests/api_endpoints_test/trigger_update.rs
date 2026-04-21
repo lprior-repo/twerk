@@ -94,6 +94,17 @@ async fn update_trigger_returns_400_with_invalid_json() {
 }
 
 #[tokio::test]
+async fn update_trigger_returns_400_when_enabled_has_wrong_type() {
+    let response = update_trigger(
+        "/api/v1/triggers/trg_test_1",
+        &json!({"name": "updated-trigger", "enabled": "yes", "event": "updated.event", "action": "updated_action"}),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.json()["error"], "MalformedJson");
+}
+
+#[tokio::test]
 async fn update_trigger_returns_400_without_name() {
     let response = update_trigger(
         "/api/v1/triggers/trg_test_1",

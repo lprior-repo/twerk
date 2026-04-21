@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use serde_json::json;
 use tower::ServiceExt;
 use twerk_core::task::TaskLogPart;
 use twerk_infrastructure::datastore::Datastore;
@@ -141,4 +142,24 @@ async fn get_task_log_respects_pagination() {
     assert_eq!(body["items"].as_array().unwrap().len(), 2);
     assert_eq!(body["total_items"], 5);
     assert_eq!(body["total_pages"], 3);
+}
+
+#[tokio::test]
+async fn get_task_log_rejects_non_numeric_page() {
+    let (_, _, task_id) = setup_state_with_direct_task().await;
+    let response = app(setup_state().await)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/tasks/{task_id}/log?page=abc"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_to_json(response).await,
+        json!({ "message": "page must be a positive integer" })
+    );
 }

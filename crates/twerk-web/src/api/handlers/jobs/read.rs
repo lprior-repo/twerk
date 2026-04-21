@@ -8,7 +8,7 @@ use twerk_infrastructure::datastore::Page;
 
 use crate::api::error::ApiError;
 use crate::api::handlers::tasks::{PaginationQuery, RawPaginationQuery};
-use crate::api::handlers::{extract_current_user, parse_page, parse_size, AppState};
+use crate::api::handlers::{extract_current_user, AppState};
 use crate::api::openapi_types::MessageResponse;
 use crate::api::redact::redact_task_log_parts;
 use crate::middleware::hooks::{on_read_job, on_read_job_summary};
@@ -74,8 +74,8 @@ pub async fn list_jobs_handler(
     req: axum::extract::Request,
 ) -> Result<Response, ApiError> {
     let query = PaginationQuery::from_raw(raw);
-    let page = parse_page(query.page);
-    let size = parse_size(query.size, 10, 20);
+    let page = query.page()?;
+    let size = query.size(10, 20)?;
     let search = query.q.unwrap_or_default();
     let current_user = extract_current_user(&req);
 
@@ -85,7 +85,9 @@ pub async fn list_jobs_handler(
         .await
         .map_err(ApiError::from)?;
 
-    result.items.iter_mut().for_each(on_read_job_summary);
+    for item in &mut result.items {
+        on_read_job_summary(item);
+    }
     Ok(axum::Json(result).into_response())
 }
 
@@ -112,8 +114,8 @@ pub async fn get_job_log_handler(
     Query(raw): Query<RawPaginationQuery>,
 ) -> Result<Response, ApiError> {
     let query = PaginationQuery::from_raw(raw);
-    let page = parse_page(query.page);
-    let size = parse_size(query.size, 25, 100);
+    let page = query.page()?;
+    let size = query.size(25, 100)?;
     let job = state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
 
     let mut parts = state

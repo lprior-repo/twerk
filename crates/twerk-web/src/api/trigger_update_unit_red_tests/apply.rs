@@ -81,12 +81,12 @@ fn apply_trigger_update_rejects_blank_required_fields() {
         ),
     ];
 
-    cases.into_iter().for_each(|(req, expected)| {
+    for (req, expected) in cases {
         assert_eq!(
             apply_trigger_update(base_trigger(), req, base_trigger().updated_at),
             Err(expected)
         );
-    });
+    }
 }
 
 #[test]

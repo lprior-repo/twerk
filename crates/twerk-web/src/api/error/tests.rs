@@ -61,10 +61,10 @@ fn datastore_errors_map_correctly() {
         ),
     ];
 
-    cases.into_iter().for_each(|(input, expected)| {
+    for (input, expected) in cases {
         let api_err: ApiError = input.into();
         assert_eq!(api_err, expected);
-    });
+    }
 
     let internal: ApiError =
         twerk_infrastructure::datastore::Error::Database("table not found".to_string()).into();
@@ -117,10 +117,10 @@ fn generic_error_conversions_map_correctly() {
         ),
     ];
 
-    trigger_cases.into_iter().for_each(|(input, expected)| {
+    for (input, expected) in trigger_cases {
         let api_err: ApiError = input.into();
         assert_eq!(api_err, expected);
-    });
+    }
 
     let mismatch: ApiError = TriggerUpdateError::IdMismatch {
         path_id: "trg_1".to_string(),

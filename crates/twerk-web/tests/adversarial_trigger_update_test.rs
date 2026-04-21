@@ -591,16 +591,9 @@ async fn adversarial_enabled_as_string() {
     )
     .await;
 
-    // Should default to false when type is wrong
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "Wrong type for enabled should default to false"
-    );
-    assert_eq!(
-        body_json["enabled"], false,
-        "Enabled should be false when parsed from wrong type"
-    );
+    // Wrong field types should fail closed instead of silently coercing.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body_json["error"], "MalformedJson");
 }
 
 // Test 18: ID in body with different case (case sensitivity)

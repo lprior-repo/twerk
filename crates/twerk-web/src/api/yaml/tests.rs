@@ -547,7 +547,9 @@ mod yaml_suite {
         use twerk_core::job::Job;
         let yaml = b"name: job-with-task\ntasks:\n  - name: step1\n    image: alpine\n";
         let job: Job = from_slice(yaml)?;
-        let tasks = job.tasks.unwrap();
+        let Some(tasks) = job.tasks.as_ref() else {
+            panic!("job should include tasks");
+        };
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].name, Some("step1".to_string()));
         assert_eq!(tasks[0].image, Some("alpine".to_string()));
@@ -573,7 +575,9 @@ mod yaml_suite {
         let yaml =
             b"name: webhook-job\nwebhooks:\n  - url: https://example.com/hook\n    method: POST\n";
         let job: Job = from_slice(yaml)?;
-        let webhooks = job.webhooks.unwrap();
+        let Some(webhooks) = job.webhooks.as_ref() else {
+            panic!("job should include webhooks");
+        };
         assert_eq!(webhooks.len(), 1);
         assert_eq!(webhooks[0].url.as_deref(), Some("https://example.com/hook"));
         Ok(())
@@ -584,7 +588,9 @@ mod yaml_suite {
         use twerk_core::job::Job;
         let yaml = b"name: scheduled-job\nschedule:\n  cron: \"0 0 * * *\"\n";
         let job: Job = from_slice(yaml)?;
-        let schedule = job.schedule.unwrap();
+        let Some(schedule) = job.schedule.as_ref() else {
+            panic!("job should include schedule");
+        };
         assert!(schedule.cron.is_some());
         Ok(())
     }
@@ -594,7 +600,9 @@ mod yaml_suite {
         use twerk_core::job::Job;
         let yaml = b"name: input-job\ninputs:\n  env: production\n  version: \"1.0\"\n";
         let job: Job = from_slice(yaml)?;
-        let inputs = job.inputs.unwrap();
+        let Some(inputs) = job.inputs.as_ref() else {
+            panic!("job should include inputs");
+        };
         assert_eq!(inputs.get("env"), Some(&"production".to_string()));
         assert_eq!(inputs.get("version"), Some(&"1.0".to_string()));
         Ok(())
@@ -605,8 +613,13 @@ mod yaml_suite {
         use twerk_core::job::Job;
         let yaml = b"name: tagged-job\ntags:\n  - frontend\n  - api\n  - v2\n";
         let job: Job = from_slice(yaml)?;
-        let tags = job.tags.unwrap();
-        assert_eq!(tags, vec!["frontend", "api", "v2"]);
+        let Some(tags) = job.tags.as_ref() else {
+            panic!("job should include tags");
+        };
+        assert_eq!(
+            tags,
+            &["frontend".to_string(), "api".to_string(), "v2".to_string(),]
+        );
         Ok(())
     }
 
@@ -625,8 +638,7 @@ mod yaml_suite {
         let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
         assert!(
             result.is_ok(),
-            "serde_saphyr may coerce numeric to string: {:?}",
-            result
+            "serde_saphyr may coerce numeric to string: {result:?}"
         );
     }
 
@@ -660,11 +672,10 @@ mod yaml_suite {
         use twerk_core::job::Job;
         let yaml = b"name: delete-job\nautoDelete:\n  after: after_success\n";
         let job: Job = from_slice(yaml)?;
-        assert!(job.auto_delete.is_some());
-        assert_eq!(
-            job.auto_delete.unwrap().after,
-            Some("after_success".to_string())
-        );
+        let Some(auto_delete) = job.auto_delete.as_ref() else {
+            panic!("job should include auto_delete");
+        };
+        assert_eq!(auto_delete.after, Some("after_success".to_string()));
         Ok(())
     }
 
@@ -694,7 +705,7 @@ mod yaml_suite {
             "split_and_stitch.yaml",
         ];
 
-        files.iter().for_each(|name| {
+        for name in &files {
             let file = examples_dir.join(name);
             let content = std::fs::read_to_string(&file)
                 .unwrap_or_else(|_| panic!("Failed to read {}", file.display()));
@@ -705,7 +716,7 @@ mod yaml_suite {
                 file.display(),
                 result.err()
             );
-        });
+        }
     }
 
     #[test]
@@ -847,7 +858,7 @@ derived: *base_val
         fn from_slice_deterministic(input in "[a-zA-Z0-9: \\n\\[\\]{}]{0,200}") {
             let result1: Result<serde_json::Value, _> = from_slice(input.as_bytes());
             let result2: Result<serde_json::Value, _> = from_slice(input.as_bytes());
-            prop_assert_eq!(result1.map(|v| serde_json::to_string(&v).unwrap()), result2.map(|v| serde_json::to_string(&v).unwrap()));
+            prop_assert_eq!(result1.map(|value| value.to_string()), result2.map(|value| value.to_string()));
         }
     }
 

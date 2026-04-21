@@ -2,6 +2,13 @@ use itertools::Itertools;
 
 use super::{generate_test_module, CombinatorialGenerator};
 
+fn parse_generator(json: &str) -> CombinatorialGenerator {
+    match CombinatorialGenerator::from_json(json) {
+        Ok(generator) => generator,
+        Err(err) => panic!("test OpenAPI JSON should parse: {err}"),
+    }
+}
+
 #[test]
 fn load_spec_reads_basic_info() {
     let json = r#"{
@@ -18,7 +25,7 @@ fn load_spec_reads_basic_info() {
         }
     }"#;
 
-    let generator = CombinatorialGenerator::from_json(json).unwrap();
+    let generator = parse_generator(json);
     assert_eq!(generator.spec_info(), ("Test", "1.0"));
 }
 
@@ -49,7 +56,7 @@ fn generate_test_matrix_includes_expected_job_cases() {
         }
     }"#;
 
-    let generator = CombinatorialGenerator::from_json(json).unwrap();
+    let generator = parse_generator(json);
     let cases = generator.generate_test_matrix();
     assert_eq!(cases.len(), 7);
     assert!(cases.iter().all(|test_case| test_case.endpoint == "/jobs"));
@@ -87,7 +94,7 @@ fn content_type_and_endpoint_helpers_work() {
         }
     }"#;
 
-    let generator = CombinatorialGenerator::from_json(json).unwrap();
+    let generator = parse_generator(json);
     let content_types: Vec<_> = generator
         .generate_test_matrix()
         .iter()
@@ -124,7 +131,7 @@ fn render_generates_module_text() {
         }
     }"#;
 
-    let generator = CombinatorialGenerator::from_json(json).unwrap();
+    let generator = parse_generator(json);
     let module_text = generate_test_module(&generator);
     assert!(module_text.contains("Auto-generated combinatorial tests"));
     assert!(module_text.contains("healthcheck"));

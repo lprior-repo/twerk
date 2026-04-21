@@ -76,6 +76,8 @@ twerk/
 1. Build with `cargo build -p twerk-cli`
 2. Run checks with `moon run :ci-source` when available
 3. Verify the standalone docs flow before landing user-facing changes
+4. For non-trivial work, follow the staged workflow in `AGENTS.md` and `.claude/CRISPY.md`
+5. See `improvements.md` for the detailed repo-wide remediation plan; use only the relevant section for the task at hand
 
 ## License
 

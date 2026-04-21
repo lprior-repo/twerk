@@ -146,7 +146,7 @@ impl Scheduler {
 
         Ok(Task {
             id: Some(new_short_uuid().into()),
-            job_id: Some(ctx.job_id.to_string().into()),
+            job_id: Some(twerk_core::id::JobId::new(ctx.job_id.to_string())?),
             parent_id: Some(ctx.task_id.to_string().into()),
             state: twerk_core::task::TaskState::Pending,
             created_at: Some(ctx.now),

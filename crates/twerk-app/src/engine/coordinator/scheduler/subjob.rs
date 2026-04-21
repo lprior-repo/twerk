@@ -23,7 +23,7 @@ impl Scheduler {
         let subjob_uuid = uuid::Uuid::new_v4().to_string();
         let subjob = twerk_core::job::Job {
             id: Some(twerk_core::id::JobId::new(&subjob_uuid)?),
-            parent_id: Some(task_id.to_string().into()),
+            parent_id: Some(twerk_core::id::JobId::new(task_id.to_string())?),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),
             state: twerk_core::job::JobState::Pending,

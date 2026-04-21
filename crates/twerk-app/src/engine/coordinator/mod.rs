@@ -240,10 +240,10 @@ impl Coordinator for DefaultCoordinator {
 
     #[instrument(name = "submit_job", skip_all, fields(job_name = %job.name.as_deref().unwrap_or("unknown")))]
     async fn submit_job(&self, job: twerk_core::job::Job) -> Result<twerk_core::job::Job> {
-        let job_id = job
-            .id
-            .clone()
-            .unwrap_or_else(|| twerk_core::uuid::new_short_uuid().into());
+        let job_id = job.id.clone().map_or_else(
+            || twerk_core::id::JobId::new(twerk_core::uuid::new_short_uuid()),
+            Ok,
+        )?;
         let mut job = job;
         job.id = Some(job_id);
 

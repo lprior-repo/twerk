@@ -1,8 +1,14 @@
-use twerk_web::api::openapi::ApiDoc;
-use utoipa::OpenApi;
+use std::process::ExitCode;
 
-fn main() {
-    let spec = ApiDoc::openapi();
-    let json = serde_json::to_string_pretty(&spec).unwrap();
-    println!("{json}");
+fn main() -> ExitCode {
+    match twerk_web::api::openapi::generate_json() {
+        Ok(json) => {
+            println!("{json}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{error:#}");
+            ExitCode::FAILURE
+        }
+    }
 }

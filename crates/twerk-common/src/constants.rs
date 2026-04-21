@@ -15,7 +15,7 @@ pub const CHANNEL_BUFFER_SIZE: usize = 100;
 ///
 /// SECURITY: This placeholder MUST be overridden via `TWERK_BROKER_RABBITMQ_URL`
 /// or `broker.rabbitmq.url` config. Using this default in production exposes
-/// RabbitMQ with default guest credentials.
+/// `RabbitMQ` with default guest credentials.
 pub const DEFAULT_RABBITMQ_URL: &str = "amqp://GUEST_GUEST_MUST_OVERRIDE@localhost:5672/";
 
 /// Default consumer timeout in milliseconds for `RabbitMQ` consumers.
@@ -30,6 +30,6 @@ pub const QUEUE_TYPE_CLASSIC: &str = "classic";
 ///
 /// SECURITY: This placeholder MUST be overridden via `TWERK_DATASTORE_POSTGRES_DSN`
 /// or `datastore.postgres.dsn` config. Using this default in production exposes
-/// PostgreSQL with weak credentials.
+/// `PostgreSQL` with weak credentials.
 pub const DEFAULT_POSTGRES_DSN: &str =
     "host=localhost user=PLACEHOLDER_MUST_OVERRIDE password=PLACEHOLDER_MUST_OVERRIDE dbname=twerk port=5432 sslmode=disable";

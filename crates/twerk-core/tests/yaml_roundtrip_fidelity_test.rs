@@ -40,36 +40,54 @@ fn parse_yaml_file<C: serde::de::DeserializeOwned>(path: &PathBuf) -> Result<C, 
 }
 
 fn serialize_to_json<T: serde::Serialize>(value: &T) -> Result<String, String> {
-    serde_json::to_string(value)
-        .map_err(|e| format!("JSON serialization failed: {}", e))
+    serde_json::to_string(value).map_err(|e| format!("JSON serialization failed: {}", e))
 }
 
 fn serialize_to_yaml<T: serde::Serialize>(value: &T) -> Result<String, String> {
-    serde_saphyr::to_string(value)
-        .map_err(|e| format!("YAML serialization failed: {}", e))
+    serde_saphyr::to_string(value).map_err(|e| format!("YAML serialization failed: {}", e))
 }
 
 fn deserialize_json<T: serde::de::DeserializeOwned>(json: &str) -> Result<T, String> {
-    serde_json::from_str(json)
-        .map_err(|e| format!("JSON deserialization failed: {}", e))
+    serde_json::from_str(json).map_err(|e| format!("JSON deserialization failed: {}", e))
 }
 
 fn deserialize_yaml<T: serde::de::DeserializeOwned>(yaml: &str) -> Result<T, String> {
-    serde_saphyr::from_str(yaml)
-        .map_err(|e| format!("YAML deserialization failed: {}", e))
+    serde_saphyr::from_str(yaml).map_err(|e| format!("YAML deserialization failed: {}", e))
 }
 
 fn compare_job_yaml_roundtrip(original: &twerk_core::job::Job, reloaded: &twerk_core::job::Job) {
-    assert_eq!(original.name, reloaded.name, "name mismatch after round-trip");
-    assert_eq!(original.description, reloaded.description, "description mismatch after round-trip");
-    assert_eq!(original.state, reloaded.state, "state mismatch after round-trip");
-    assert_eq!(original.task_count, reloaded.task_count, "task_count mismatch after round-trip");
-    assert!((original.progress - reloaded.progress).abs() < 1e-10, "progress mismatch after round-trip");
-    assert_eq!(original.position, reloaded.position, "position mismatch after round-trip");
+    assert_eq!(
+        original.name, reloaded.name,
+        "name mismatch after round-trip"
+    );
+    assert_eq!(
+        original.description, reloaded.description,
+        "description mismatch after round-trip"
+    );
+    assert_eq!(
+        original.state, reloaded.state,
+        "state mismatch after round-trip"
+    );
+    assert_eq!(
+        original.task_count, reloaded.task_count,
+        "task_count mismatch after round-trip"
+    );
+    assert!(
+        (original.progress - reloaded.progress).abs() < 1e-10,
+        "progress mismatch after round-trip"
+    );
+    assert_eq!(
+        original.position, reloaded.position,
+        "position mismatch after round-trip"
+    );
 
     match (&original.tasks, &reloaded.tasks) {
         (Some(original_tasks), Some(reloaded_tasks)) => {
-            assert_eq!(original_tasks.len(), reloaded_tasks.len(), "tasks length mismatch");
+            assert_eq!(
+                original_tasks.len(),
+                reloaded_tasks.len(),
+                "tasks length mismatch"
+            );
             for (orig, rel) in original_tasks.iter().zip(reloaded_tasks.iter()) {
                 assert_eq!(orig.name, rel.name, "task name mismatch");
                 assert_eq!(orig.image, rel.image, "task image mismatch");
@@ -90,10 +108,22 @@ fn compare_job_yaml_roundtrip(original: &twerk_core::job::Job, reloaded: &twerk_
         (a, b) => panic!("inputs mismatch: {:?} vs {:?}", a.is_some(), b.is_some()),
     }
 
-    assert_eq!(original.tags, reloaded.tags, "tags mismatch after round-trip");
-    assert_eq!(original.webhooks, reloaded.webhooks, "webhooks mismatch after round-trip");
-    assert_eq!(original.schedule, reloaded.schedule, "schedule mismatch after round-trip");
-    assert_eq!(original.defaults, reloaded.defaults, "defaults mismatch after round-trip");
+    assert_eq!(
+        original.tags, reloaded.tags,
+        "tags mismatch after round-trip"
+    );
+    assert_eq!(
+        original.webhooks, reloaded.webhooks,
+        "webhooks mismatch after round-trip"
+    );
+    assert_eq!(
+        original.schedule, reloaded.schedule,
+        "schedule mismatch after round-trip"
+    );
+    assert_eq!(
+        original.defaults, reloaded.defaults,
+        "defaults mismatch after round-trip"
+    );
 }
 
 #[test]
@@ -101,10 +131,16 @@ fn yaml_files_are_valid_utf8() {
     let files = get_all_yaml_files();
     assert!(!files.is_empty(), "No YAML files found in examples/");
     for file in &files {
-        let content = std::fs::read_to_string(file)
-            .expect(&format!("Failed to read {}", file.display()));
-        assert!(content.is_ascii() || content.chars().all(|c| c.is_ascii() || c.is_whitespace() || !c.is_control()),
-            "File {} contains non-UTF8 characters", file.display());
+        let content =
+            std::fs::read_to_string(file).expect(&format!("Failed to read {}", file.display()));
+        assert!(
+            content.is_ascii()
+                || content
+                    .chars()
+                    .all(|c| c.is_ascii() || c.is_whitespace() || !c.is_control()),
+            "File {} contains non-UTF8 characters",
+            file.display()
+        );
     }
 }
 
@@ -121,7 +157,11 @@ fn all_example_yaml_files_parse_to_job() {
     }
 
     if !failures.is_empty() {
-        panic!("Failed to parse {} files:\n{}", failures.len(), failures.join("\n"));
+        panic!(
+            "Failed to parse {} files:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 }
 
@@ -137,18 +177,27 @@ fn job_yaml_roundtrip_preserves_all_example_files() {
                 let yaml_out = serialize_to_yaml(&original_job);
                 match yaml_out {
                     Ok(yaml_string) => {
-                        let reloaded: Result<twerk_core::job::Job, String> = deserialize_yaml(&yaml_string);
+                        let reloaded: Result<twerk_core::job::Job, String> =
+                            deserialize_yaml(&yaml_string);
                         match reloaded {
                             Ok(reloaded_job) => {
                                 compare_job_yaml_roundtrip(&original_job, &reloaded_job);
                             }
                             Err(e) => {
-                                failures.push(format!("{}: YAML round-trip deserialize failed: {}", file.display(), e));
+                                failures.push(format!(
+                                    "{}: YAML round-trip deserialize failed: {}",
+                                    file.display(),
+                                    e
+                                ));
                             }
                         }
                     }
                     Err(e) => {
-                        failures.push(format!("{}: YAML serialization failed: {}", file.display(), e));
+                        failures.push(format!(
+                            "{}: YAML serialization failed: {}",
+                            file.display(),
+                            e
+                        ));
                     }
                 }
             }
@@ -159,7 +208,11 @@ fn job_yaml_roundtrip_preserves_all_example_files() {
     }
 
     if !failures.is_empty() {
-        panic!("YAML round-trip failures ({}):\n{}", failures.len(), failures.join("\n"));
+        panic!(
+            "YAML round-trip failures ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 }
 
@@ -175,29 +228,46 @@ fn job_json_roundtrip_preserves_all_example_files() {
                 let json_out = serialize_to_json(&original_job);
                 match json_out {
                     Ok(json_string) => {
-                        let reloaded: Result<twerk_core::job::Job, String> = deserialize_json(&json_string);
+                        let reloaded: Result<twerk_core::job::Job, String> =
+                            deserialize_json(&json_string);
                         match reloaded {
                             Ok(reloaded_job) => {
                                 compare_job_yaml_roundtrip(&original_job, &reloaded_job);
                             }
                             Err(e) => {
-                                failures.push(format!("{}: JSON round-trip deserialize failed: {}", file.display(), e));
+                                failures.push(format!(
+                                    "{}: JSON round-trip deserialize failed: {}",
+                                    file.display(),
+                                    e
+                                ));
                             }
                         }
                     }
                     Err(e) => {
-                        failures.push(format!("{}: JSON serialization failed: {}", file.display(), e));
+                        failures.push(format!(
+                            "{}: JSON serialization failed: {}",
+                            file.display(),
+                            e
+                        ));
                     }
                 }
             }
             Err(e) => {
-                failures.push(format!("{}: Initial parse failed (skipping): {}", file.display(), e));
+                failures.push(format!(
+                    "{}: Initial parse failed (skipping): {}",
+                    file.display(),
+                    e
+                ));
             }
         }
     }
 
     if !failures.is_empty() {
-        panic!("JSON round-trip failures ({}):\n{}", failures.len(), failures.join("\n"));
+        panic!(
+            "JSON round-trip failures ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 }
 
@@ -215,10 +285,10 @@ fn yaml_to_json_to_yaml_preserves_structure() {
         let yaml_string = serialize_to_yaml(&original_job).expect("YAML serialization should work");
         let json_string = serialize_to_json(&original_job).expect("JSON serialization should work");
 
-        let from_yaml: twerk_core::job::Job = deserialize_yaml(&yaml_string)
-            .expect("Should deserialize from YAML");
-        let from_json: twerk_core::job::Job = deserialize_json(&json_string)
-            .expect("Should deserialize from JSON");
+        let from_yaml: twerk_core::job::Job =
+            deserialize_yaml(&yaml_string).expect("Should deserialize from YAML");
+        let from_json: twerk_core::job::Job =
+            deserialize_json(&json_string).expect("Should deserialize from JSON");
 
         compare_job_yaml_roundtrip(&original_job, &from_yaml);
         compare_job_yaml_roundtrip(&original_job, &from_json);
@@ -238,44 +308,97 @@ fn job_serialization_does_not_lose_optional_fields() {
         let job = result.unwrap();
 
         let yaml_string = serialize_to_yaml(&job).expect("YAML serialization should work");
-        let reloaded: twerk_core::job::Job = deserialize_yaml(&yaml_string)
-            .expect("Should deserialize from YAML");
+        let reloaded: twerk_core::job::Job =
+            deserialize_yaml(&yaml_string).expect("Should deserialize from YAML");
 
         fn count_some_fields(job: &twerk_core::job::Job) -> usize {
             let mut count = 0;
-            if job.id.is_some() { count += 1; }
-            if job.parent_id.is_some() { count += 1; }
-            if job.name.is_some() { count += 1; }
-            if job.description.is_some() { count += 1; }
-            if job.tags.is_some() { count += 1; }
-            if job.tasks.is_some() { count += 1; }
-            if job.execution.is_some() { count += 1; }
-            if job.inputs.is_some() { count += 1; }
-            if job.context.is_some() { count += 1; }
-            if job.output.is_some() { count += 1; }
-            if job.result.is_some() { count += 1; }
-            if job.error.is_some() { count += 1; }
-            if job.defaults.is_some() { count += 1; }
-            if job.webhooks.is_some() { count += 1; }
-            if job.permissions.is_some() { count += 1; }
-            if job.auto_delete.is_some() { count += 1; }
-            if job.delete_at.is_some() { count += 1; }
-            if job.secrets.is_some() { count += 1; }
-            if job.schedule.is_some() { count += 1; }
-            if job.created_at.is_some() { count += 1; }
-            if job.created_by.is_some() { count += 1; }
-            if job.started_at.is_some() { count += 1; }
-            if job.completed_at.is_some() { count += 1; }
-            if job.failed_at.is_some() { count += 1; }
+            if job.id.is_some() {
+                count += 1;
+            }
+            if job.parent_id.is_some() {
+                count += 1;
+            }
+            if job.name.is_some() {
+                count += 1;
+            }
+            if job.description.is_some() {
+                count += 1;
+            }
+            if job.tags.is_some() {
+                count += 1;
+            }
+            if job.tasks.is_some() {
+                count += 1;
+            }
+            if job.execution.is_some() {
+                count += 1;
+            }
+            if job.inputs.is_some() {
+                count += 1;
+            }
+            if job.context.is_some() {
+                count += 1;
+            }
+            if job.output.is_some() {
+                count += 1;
+            }
+            if job.result.is_some() {
+                count += 1;
+            }
+            if job.error.is_some() {
+                count += 1;
+            }
+            if job.defaults.is_some() {
+                count += 1;
+            }
+            if job.webhooks.is_some() {
+                count += 1;
+            }
+            if job.permissions.is_some() {
+                count += 1;
+            }
+            if job.auto_delete.is_some() {
+                count += 1;
+            }
+            if job.delete_at.is_some() {
+                count += 1;
+            }
+            if job.secrets.is_some() {
+                count += 1;
+            }
+            if job.schedule.is_some() {
+                count += 1;
+            }
+            if job.created_at.is_some() {
+                count += 1;
+            }
+            if job.created_by.is_some() {
+                count += 1;
+            }
+            if job.started_at.is_some() {
+                count += 1;
+            }
+            if job.completed_at.is_some() {
+                count += 1;
+            }
+            if job.failed_at.is_some() {
+                count += 1;
+            }
             count
         }
 
         let orig_count = count_some_fields(&job);
         let reload_count = count_some_fields(&reloaded);
 
-        assert_eq!(orig_count, reload_count,
+        assert_eq!(
+            orig_count,
+            reload_count,
             "Optional field count mismatch for {}: original={}, reloaded={}",
-            file.display(), orig_count, reload_count);
+            file.display(),
+            orig_count,
+            reload_count
+        );
     }
 }
 

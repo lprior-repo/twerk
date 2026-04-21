@@ -1,17 +1,18 @@
-use twerk_web::api::openapi::ApiDoc;
-use utoipa::OpenApi;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
-fn main() {
-    let spec = ApiDoc::openapi();
-    let json = serde_json::to_string_pretty(&spec).expect("failed to serialize OpenAPI spec");
+fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .to_path_buf()
+}
 
-    let out_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("docs")
-        .join("openapi.json");
-
-    std::fs::write(&out_path, json).expect("failed to write openapi.json");
-
-    println!("Generated OpenAPI spec at {}", out_path.display());
+fn main() -> ExitCode {
+    match twerk_web::api::openapi::sync_tracked_artifacts(&workspace_root()) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error:#}");
+            ExitCode::FAILURE
+        }
+    }
 }

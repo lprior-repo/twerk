@@ -1140,7 +1140,10 @@ async fn distributed_get_nonexistent_job_returns_404() -> anyhow::Result<()> {
 
     let resp = env
         .client
-        .get(format!("{}/jobs/nonexistent12345", env.base_url))
+        .get(format!(
+            "{}/jobs/00000000-0000-0000-0000-000000000404",
+            env.base_url
+        ))
         .send()
         .await?;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);

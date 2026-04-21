@@ -4,8 +4,11 @@ use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use twerk_core::id::TaskId;
+use twerk_core::task::{Task, TaskLogPart};
+use twerk_infrastructure::datastore::Page;
 
 use super::super::error::ApiError;
+use super::super::openapi_types::MessageResponse;
 use super::super::redact::redact_task_log_parts;
 use super::{parse_page, parse_size, AppState};
 use crate::middleware::hooks::on_read_task;
@@ -50,8 +53,8 @@ impl PaginationQuery {
         ("id" = String, Path, description = "Task ID")
     ),
     responses(
-        (status = 200, description = "Task details"),
-        (status = 404, description = "Task not found")
+        (status = 200, description = "Task details", body = Task, content_type = "application/json"),
+        (status = 404, description = "Task not found", body = MessageResponse, content_type = "application/json")
     )
 )]
 /// # Errors
@@ -83,8 +86,8 @@ pub async fn get_task_handler(
         ("q" = Option<String>, Query, description = "Search query")
     ),
     responses(
-        (status = 200, description = "Paginated task log entries"),
-        (status = 404, description = "Task not found")
+        (status = 200, description = "Paginated task log entries", body = Page<TaskLogPart>, content_type = "application/json"),
+        (status = 404, description = "Task not found", body = MessageResponse, content_type = "application/json")
     )
 )]
 /// # Errors

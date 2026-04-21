@@ -36,7 +36,7 @@ pub async fn handle_top_level_task_completed(
             .ok_or_else(|| anyhow!("task out of bounds"))?;
         let mut task = base_task.clone();
         task.id = Some(new_short_uuid().into());
-        task.job_id = Some(job_id.clone().into());
+        task.job_id = Some(twerk_core::id::JobId::new(job_id.clone())?);
         task.state = TaskState::Pending;
         task.position = next_position;
         task.created_at = Some(now);

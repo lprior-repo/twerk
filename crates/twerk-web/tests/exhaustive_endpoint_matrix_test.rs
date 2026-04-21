@@ -21,50 +21,28 @@ use std::sync::Arc;
 use tower::ServiceExt;
 use twerk_core::id::{JobId, TaskId};
 use twerk_core::job::{Job, JobState};
-use twerk_core::task::{Task, TaskLogPart, TaskState};
+use twerk_core::task::{TaskLogPart, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
-use twerk_web::api::trigger_api::{InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId};
+use twerk_web::api::trigger_api::{InMemoryTriggerDatastore, TriggerId};
 use twerk_web::api::{create_router, AppState, Config};
 
-const LARGE_PAYLOAD_SIZE: usize = 600_000;
+mod support;
 
 async fn setup_state() -> AppState {
-    let ds = Arc::new(InMemoryDatastore::new());
-    let broker = Arc::new(InMemoryBroker::new());
-    AppState::new(broker, ds, Config::default())
+    support::TestHarness::new().await.into_state()
 }
 
-fn trigger(id: &str) -> Trigger {
-    let now = time::OffsetDateTime::UNIX_EPOCH;
-    Trigger {
-        id: TriggerId::parse(id).expect("valid id"),
-        name: "test-trigger".to_string(),
-        enabled: true,
-        event: "test.event".to_string(),
-        condition: None,
-        action: "test_action".to_string(),
-        metadata: std::collections::HashMap::new(),
-        version: 1,
-        created_at: now,
-        updated_at: now,
-    }
+async fn setup_state_with_queue(queue_name: &str) -> AppState {
+    support::TestHarness::with_queue(queue_name)
+        .await
+        .into_state()
 }
 
 async fn setup_state_with_triggers() -> (AppState, Arc<InMemoryTriggerDatastore>) {
-    let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
-    trigger_ds.upsert(trigger("trg_test_1"));
-    trigger_ds.upsert(trigger("trg_test_2"));
-    let ds = Arc::new(InMemoryDatastore::new());
-    let broker = Arc::new(InMemoryBroker::new());
-    let state = AppState {
-        trigger_state: TriggerAppState {
-            trigger_ds: trigger_ds.clone(),
-        },
-        ..AppState::new(broker, ds, Config::default())
-    };
-    (state, trigger_ds)
+    let harness = support::TestHarness::with_trigger_ids(&["trg_test_1", "trg_test_2"]).await;
+    (harness.clone().into_state(), harness.trigger_store())
 }
 
 async fn setup_state_with_direct_task() -> (AppState, Arc<InMemoryDatastore>, TaskId) {
@@ -75,13 +53,12 @@ async fn setup_state_with_direct_task() -> (AppState, Arc<InMemoryDatastore>, Ta
     let job_id = JobId::new("00000000-0000-0000-0000-000000000001").unwrap();
     let task_id = TaskId::new("00000000-0000-0000-0000-000000000002").unwrap();
 
-    let task = Task {
-        id: Some(task_id.clone()),
-        job_id: Some(job_id),
-        name: Some("Direct Task".to_string()),
-        state: TaskState::Running,
-        ..Default::default()
-    };
+    let task = support::direct_task(
+        job_id.to_string().as_str(),
+        task_id.to_string().as_str(),
+        "Direct Task",
+        TaskState::Running,
+    );
     ds.create_task(&task).await.unwrap();
 
     (state, ds, task_id)
@@ -90,10 +67,6 @@ async fn setup_state_with_direct_task() -> (AppState, Arc<InMemoryDatastore>, Ta
 async fn body_to_json(response: Response) -> Value {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     serde_json::from_slice(&body).unwrap_or_else(|_| json!({"error": "parse error"}))
-}
-
-fn make_large_payload(size: usize) -> String {
-    "x".repeat(size)
 }
 
 mod health {
@@ -105,6 +78,7 @@ mod health {
         let app = create_router(state);
 
         let response = app
+            .clone()
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/health")
@@ -125,6 +99,7 @@ mod health {
         let app = create_router(state);
 
         let response = app
+            .clone()
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/health")
@@ -553,7 +528,7 @@ tasks:
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/jobs/non-existent-job")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000404")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -582,7 +557,7 @@ tasks:
         }
 
         #[tokio::test]
-        async fn get_job_unicode_path_returns_404() {
+        async fn get_job_unicode_path_returns_400() {
             let state = setup_state().await;
             let app = create_router(state);
 
@@ -596,7 +571,7 @@ tasks:
                 .await
                 .unwrap();
 
-            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
     }
 
@@ -643,7 +618,7 @@ tasks:
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/jobs/non-existent-job/log")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000404/log")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -697,7 +672,7 @@ tasks:
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/jobs/non-existent-job/cancel")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000404/cancel")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -714,7 +689,7 @@ tasks:
             let state = AppState::new(broker, ds.clone(), Config::default());
 
             let job = Job {
-                id: Some("completed-job".into()),
+                id: Some(JobId::new("00000000-0000-0000-0000-000000000020").unwrap()),
                 name: Some("Completed Job".to_string()),
                 state: JobState::Completed,
                 ..Default::default()
@@ -727,7 +702,7 @@ tasks:
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/jobs/completed-job/cancel")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000020/cancel")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -777,9 +752,10 @@ tasks:
             let ds = Arc::new(InMemoryDatastore::new());
             let broker = Arc::new(InMemoryBroker::new());
             let state = AppState::new(broker, ds.clone(), Config::default());
+            let job_id = "00000000-0000-0000-0000-000000000199";
 
             let job = Job {
-                id: Some("failed-job".into()),
+                id: Some(JobId::new(job_id).unwrap()),
                 name: Some("Failed Job".to_string()),
                 state: JobState::Failed,
                 ..Default::default()
@@ -792,7 +768,7 @@ tasks:
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/jobs/failed-job/restart")
+                        .uri(format!("/jobs/{job_id}/restart"))
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -811,7 +787,7 @@ tasks:
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/jobs/non-existent-job/restart")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000404/restart")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -828,7 +804,7 @@ tasks:
             let state = AppState::new(broker, ds.clone(), Config::default());
 
             let job = Job {
-                id: Some("pending-job".into()),
+                id: Some(JobId::new("00000000-0000-0000-0000-000000000021").unwrap()),
                 name: Some("Pending Job".to_string()),
                 state: JobState::Pending,
                 ..Default::default()
@@ -841,7 +817,7 @@ tasks:
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/jobs/pending-job/restart")
+                        .uri("/jobs/00000000-0000-0000-0000-000000000021/restart")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -1187,6 +1163,7 @@ mod queues {
         let app = create_router(state);
 
         let response = app
+            .clone()
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/queues")
@@ -1203,10 +1180,11 @@ mod queues {
 
     #[tokio::test]
     async fn get_queue_by_name_returns_200() {
-        let state = setup_state().await;
+        let state = setup_state_with_queue("default").await;
         let app = create_router(state);
 
         let response = app
+            .clone()
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/queues/default")
@@ -1218,11 +1196,14 @@ mod queues {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = body_to_json(response).await;
-        assert!(body["name"].is_string());
+        assert_eq!(
+            body,
+            json!({"name": "default", "size": 1, "subscribers": 0, "unacked": 0})
+        );
     }
 
     #[tokio::test]
-    async fn get_queue_arbitrary_name_returns_200() {
+    async fn get_missing_queue_returns_404() {
         let state = setup_state().await;
         let app = create_router(state);
 
@@ -1236,11 +1217,50 @@ mod queues {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = body_to_json(response).await;
+        assert_eq!(body, json!({"message": "queue test-queue not found"}));
     }
 
     #[tokio::test]
     async fn delete_queue_returns_200() {
+        let state = setup_state_with_queue("test-queue").await;
+        let app = create_router(state);
+
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("DELETE")
+                    .uri("/queues/test-queue")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let get_after_delete = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/queues/test-queue")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(get_after_delete.status(), StatusCode::NOT_FOUND);
+        let get_after_delete_body = body_to_json(get_after_delete).await;
+        assert_eq!(
+            get_after_delete_body,
+            json!({"message": "queue test-queue not found"})
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_missing_queue_returns_404() {
         let state = setup_state().await;
         let app = create_router(state);
 
@@ -1255,7 +1275,9 @@ mod queues {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = body_to_json(response).await;
+        assert_eq!(body, json!({"message": "queue test-queue not found"}));
     }
 }
 
@@ -2070,8 +2092,9 @@ mod concurrent {
             )
         );
 
-        assert_eq!(r1.unwrap().status(), StatusCode::OK);
-        assert_eq!(r2.unwrap().status(), StatusCode::OK);
+        let statuses = [r1.unwrap().status(), r2.unwrap().status()];
+        assert!(statuses.contains(&StatusCode::OK));
+        assert!(statuses.contains(&StatusCode::BAD_REQUEST));
     }
 
     #[tokio::test]

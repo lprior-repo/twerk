@@ -5,14 +5,16 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
 use super::super::error::ApiError;
+use super::super::openapi_types::MessageResponse;
 use super::AppState;
 use tracing::instrument;
+use twerk_infrastructure::broker::QueueInfo;
 
 #[utoipa::path(
     get,
     path = "/queues",
     responses(
-        (status = 200, description = "List of queues")
+        (status = 200, description = "List of queues", body = Vec<QueueInfo>, content_type = "application/json")
     )
 )]
 /// GET /queues
@@ -35,8 +37,8 @@ pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Respon
         ("name" = String, Path, description = "Queue name")
     ),
     responses(
-        (status = 200, description = "Queue info"),
-        (status = 404, description = "Queue not found")
+        (status = 200, description = "Queue info", body = QueueInfo, content_type = "application/json"),
+        (status = 404, description = "Queue not found", body = MessageResponse, content_type = "application/json")
     )
 )]
 /// GET /queues/{name}
@@ -63,7 +65,8 @@ pub async fn get_queue_handler(
         ("name" = String, Path, description = "Queue name")
     ),
     responses(
-        (status = 200, description = "Queue deleted")
+        (status = 200, description = "Queue deleted"),
+        (status = 404, description = "Queue not found", body = MessageResponse, content_type = "application/json")
     )
 )]
 /// DELETE /queues/{name}

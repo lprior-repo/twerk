@@ -60,7 +60,7 @@ impl Scheduler {
                     .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
                 Ok(Task {
                     id: Some(new_short_uuid().into()),
-                    job_id: Some(job_id.to_string().into()),
+                    job_id: Some(twerk_core::id::JobId::new(job_id.to_string())?),
                     parent_id: Some(task_id.to_string().into()),
                     state: twerk_core::task::TaskState::Pending,
                     created_at: Some(now),

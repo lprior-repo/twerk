@@ -1,8 +1,8 @@
 //! Queue consumption and management for the in-memory broker.
 
-use anyhow::anyhow;
 use super::super::{BoxedFuture, QueueInfo};
 use super::InMemoryBroker;
+use anyhow::anyhow;
 
 /// Get all queues.
 pub(crate) fn queues(broker: &InMemoryBroker) -> BoxedFuture<Vec<QueueInfo>> {

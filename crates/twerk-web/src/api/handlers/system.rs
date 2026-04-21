@@ -5,9 +5,12 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
+use twerk_core::node::Node;
+use twerk_core::stats::Metrics;
 
 use super::super::domain::{Password, PasswordError, Username, UsernameError};
 use super::super::error::ApiError;
+use super::super::openapi_types::{HealthResponse, MessageResponse};
 use super::{AppState, VERSION};
 use tracing::instrument;
 use utoipa::ToSchema;
@@ -17,8 +20,8 @@ use utoipa::ToSchema;
     get,
     path = "/health",
     responses(
-        (status = 200, description = "Service is healthy", body = Object),
-        (status = 503, description = "Service is unhealthy", body = Object)
+        (status = 200, description = "Service is healthy", body = HealthResponse, content_type = "application/json"),
+        (status = 503, description = "Service is unhealthy", body = HealthResponse, content_type = "application/json")
     )
 )]
 #[instrument(name = "health_handler", skip_all)]
@@ -42,7 +45,7 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
     get,
     path = "/nodes",
     responses(
-        (status = 200, description = "List of active nodes")
+        (status = 200, description = "List of active nodes", body = Vec<Node>, content_type = "application/json")
     )
 )]
 /// # Errors
@@ -57,7 +60,7 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
     get,
     path = "/metrics",
     responses(
-        (status = 200, description = "System metrics")
+        (status = 200, description = "System metrics", body = Metrics, content_type = "application/json")
     )
 )]
 /// # Errors
@@ -97,9 +100,10 @@ fn password_error_to_string(err: &PasswordError) -> String {
 #[utoipa::path(
     post,
     path = "/users",
+    request_body = CreateUserBody,
     responses(
         (status = 200, description = "User created"),
-        (status = 400, description = "Missing username or password")
+        (status = 400, description = "Missing username or password", body = MessageResponse, content_type = "application/json")
     )
 )]
 #[instrument(name = "create_user_handler", skip_all)]

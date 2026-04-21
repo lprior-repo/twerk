@@ -50,6 +50,7 @@ const JOB_5: &str = "00000000-0000-0000-0000-000000000005";
 const JOB_6: &str = "00000000-0000-0000-0000-000000000006";
 const JOB_7: &str = "00000000-0000-0000-0000-000000000007";
 const JOB_8: &str = "00000000-0000-0000-0000-000000000008";
+const MISSING_JOB: &str = "00000000-0000-0000-0000-000000000404";
 const TASK_1: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const TASK_2: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const LOGPART_1: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
@@ -126,7 +127,12 @@ async fn step_01_openapi_spec_served() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_json(response).await;
-    assert!(body["info"].is_object());
+    assert_eq!(body["info"]["title"], "Twerk API");
+    assert_eq!(
+        body["paths"]["/jobs"]["post"]["requestBody"]["content"]["application/json"]["schema"]
+            ["$ref"],
+        "#/components/schemas/Job"
+    );
 }
 
 // =============================================================================
@@ -250,7 +256,10 @@ async fn step_04_list_jobs_pagination() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_json(response).await;
-    assert!(body["items"].is_array(), "response must contain items array");
+    assert!(
+        body["items"].is_array(),
+        "response must contain items array"
+    );
     let items = body["items"].as_array().unwrap();
     assert!(
         items.len() <= 2,
@@ -364,7 +373,7 @@ async fn step_05_get_nonexistent_job_404() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/jobs/no-such-job")
+                .uri(format!("/jobs/{MISSING_JOB}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -408,7 +417,10 @@ async fn step_05_get_job_log() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_json(response).await;
-    assert!(body["items"].is_array(), "response must contain items array");
+    assert!(
+        body["items"].is_array(),
+        "response must contain items array"
+    );
     let items = body["items"].as_array().unwrap();
     assert!(!items.is_empty(), "expected at least one log part");
     assert_eq!(items[0]["contents"], "job log line 1");
@@ -451,9 +463,14 @@ async fn step_05_get_task_log_paginated() {
     ds.create_job(&make_job(JOB_5, "tlog-job", JobState::Pending))
         .await
         .unwrap();
-    ds.create_task(&make_task(TASK_2, JOB_5, "logged-task", TaskState::Completed))
-        .await
-        .unwrap();
+    ds.create_task(&make_task(
+        TASK_2,
+        JOB_5,
+        "logged-task",
+        TaskState::Completed,
+    ))
+    .await
+    .unwrap();
     ds.create_task_log_part(&TaskLogPart {
         id: Some(LOGPART_1.into()),
         task_id: Some(TASK_2.into()),
@@ -794,6 +811,7 @@ async fn step_08_triggers_full_crud() {
     let trigger_id = body["id"].as_str().unwrap().to_string();
     let version = body["version"].as_u64().unwrap();
     assert!(!trigger_id.is_empty());
+    assert_eq!(body["metadata"], json!({"channel": "slack"}));
 
     // Get
     let response = app
@@ -865,6 +883,9 @@ async fn step_08_triggers_full_crud() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::CONFLICT);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "VersionConflict");
+    assert_eq!(body["message"], "stale version supplied");
 
     // Delete
     let response = app
@@ -907,8 +928,10 @@ async fn step_08_trigger_blank_name_400() {
                 .uri("/api/v1/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&json!({"name": "", "enabled": true, "event": "x", "action": "y"}))
-                        .unwrap(),
+                    serde_json::to_vec(
+                        &json!({"name": "", "enabled": true, "event": "x", "action": "y"}),
+                    )
+                    .unwrap(),
                 ))
                 .unwrap(),
         )
@@ -916,6 +939,9 @@ async fn step_08_trigger_blank_name_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+    assert_eq!(body["message"], "name must be non-empty after trim");
 }
 
 #[tokio::test]
@@ -939,6 +965,9 @@ async fn step_08_trigger_field_too_long_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+    assert_eq!(body["message"], "name exceeds max length");
 }
 
 #[tokio::test]
@@ -957,6 +986,9 @@ async fn step_08_trigger_invalid_id_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "InvalidIdFormat");
+    assert_eq!(body["message"], "bad id");
 }
 
 #[tokio::test]
@@ -996,8 +1028,10 @@ async fn step_08_trigger_update_nonexistent_404() {
                 .uri("/api/v1/triggers/trg-nonexistent")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&json!({"name": "n", "enabled": true, "event": "e", "action": "a"}))
-                        .unwrap(),
+                    serde_json::to_vec(
+                        &json!({"name": "n", "enabled": true, "event": "e", "action": "a"}),
+                    )
+                    .unwrap(),
                 ))
                 .unwrap(),
         )
@@ -1005,6 +1039,9 @@ async fn step_08_trigger_update_nonexistent_404() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "TriggerNotFound");
+    assert_eq!(body["message"], "trg-nonexistent");
 }
 
 #[tokio::test]
@@ -1024,6 +1061,9 @@ async fn step_08_trigger_delete_nonexistent_404() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "TriggerNotFound");
+    assert_eq!(body["message"], "trg-nonexistent");
 }
 
 #[tokio::test]
@@ -1044,6 +1084,9 @@ async fn step_08_trigger_malformed_json_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "MalformedJson");
+    assert_eq!(body["message"], "malformed JSON body");
 }
 
 #[tokio::test]
@@ -1064,6 +1107,9 @@ async fn step_08_trigger_unsupported_content_type_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "UnsupportedContentType");
+    assert_eq!(body["message"], "text/plain");
 }
 
 #[tokio::test]
@@ -1092,6 +1138,9 @@ async fn step_08_trigger_body_too_large_400() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert_eq!(body["error"], "ValidationFailed");
+    assert_eq!(body["message"], "request body exceeds max size");
 }
 
 // =============================================================================
@@ -1277,7 +1326,8 @@ async fn step_09_missing_tasks_400() {
                 .uri("/scheduled-jobs")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&json!({"name": "no-tasks", "cron": "*/5 * * * *"})).unwrap(),
+                    serde_json::to_vec(&json!({"name": "no-tasks", "cron": "*/5 * * * *"}))
+                        .unwrap(),
                 ))
                 .unwrap(),
         )
@@ -1452,8 +1502,14 @@ async fn step_10_get_metrics() {
     let body = body_json(response).await;
     assert!(body.is_object(), "metrics response must be a JSON object");
     assert!(body["jobs"].is_object(), "metrics must contain 'jobs' key");
-    assert!(body["tasks"].is_object(), "metrics must contain 'tasks' key");
-    assert!(body["nodes"].is_object(), "metrics must contain 'nodes' key");
+    assert!(
+        body["tasks"].is_object(),
+        "metrics must contain 'tasks' key"
+    );
+    assert!(
+        body["nodes"].is_object(),
+        "metrics must contain 'nodes' key"
+    );
 }
 
 #[tokio::test]
@@ -1537,7 +1593,8 @@ async fn step_11_short_password_400() {
                 .uri("/users")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
-                    serde_json::to_vec(&json!({"username": "baduser", "password": "short"})).unwrap(),
+                    serde_json::to_vec(&json!({"username": "baduser", "password": "short"}))
+                        .unwrap(),
                 ))
                 .unwrap(),
         )
@@ -1638,7 +1695,7 @@ async fn step_12_nonexistent_job_log_404() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/jobs/no-such-job/log")
+                .uri(format!("/jobs/{MISSING_JOB}/log"))
                 .body(Body::empty())
                 .unwrap(),
         )

@@ -3,12 +3,18 @@ name: OpenAPI Sync Check
 on:
   pull_request:
     paths:
+      - docs/openapi.yaml
+      - docs/openapi.json
+      - crates/twerk-openapi-gen/**
       - crates/twerk-web/**
       - .github/workflows/openapi-sync.yml
   push:
     branches:
       - main
     paths:
+      - docs/openapi.yaml
+      - docs/openapi.json
+      - crates/twerk-openapi-gen/**
       - crates/twerk-web/**
       - .github/workflows/openapi-sync.yml
   workflow_dispatch:
@@ -34,16 +40,19 @@ jobs:
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Generate OpenAPI spec
-        run: cargo run -p twerk-web --bin openapi-gen --quiet > openapi.json
+      - name: Generate tracked OpenAPI artifacts
+        run: cargo run -p twerk-openapi-gen --quiet
 
-      - name: Check for OpenAPI spec diff
+      - name: Check tracked OpenAPI artifacts for drift
         run: |
-          if ! git diff --exit-code openapi.json; then
-            echo "ERROR: openapi.json is out of sync!"
-            echo "Run 'cargo run -p twerk-web --bin openapi-gen > crates/twerk-web/openapi.json' to update."
+          if ! git diff --exit-code -- docs/openapi.yaml docs/openapi.json crates/twerk-web/openapi.json; then
+            echo "ERROR: tracked OpenAPI artifacts are out of sync!"
+            echo "Run 'cargo run -p twerk-openapi-gen' to update docs/openapi.yaml, docs/openapi.json, and crates/twerk-web/openapi.json."
             echo ""
             echo "Diff:"
-            git diff openapi.json
+            git diff -- docs/openapi.yaml docs/openapi.json crates/twerk-web/openapi.json
             exit 1
           fi
+
+      - name: Validate live API and documented parity
+        run: cargo test -p twerk-web --test openapi_contract_test -- --nocapture

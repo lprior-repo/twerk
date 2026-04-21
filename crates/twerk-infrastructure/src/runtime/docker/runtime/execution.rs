@@ -160,8 +160,10 @@ async fn remove_container_and_volume(
     if let Some(volume) = volume_name {
         for attempt in 0..3 {
             if attempt > 0 {
-                tokio::time::sleep(std::time::Duration::from_millis(100 * 2u64.pow(attempt - 1)))
-                    .await;
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    100 * 2u64.pow(attempt - 1),
+                ))
+                .await;
             }
             match client
                 .remove_volume(volume, Some(RemoveVolumeOptions { force: true }))

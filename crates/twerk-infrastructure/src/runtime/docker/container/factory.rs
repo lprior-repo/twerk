@@ -527,8 +527,10 @@ async fn cleanup_container(client: &Docker, container_id: &str, volume_name: &st
 
     for attempt in 0..3 {
         if attempt > 0 {
-            tokio::time::sleep(std::time::Duration::from_millis(100 * 2u64.pow(attempt - 1)))
-                .await;
+            tokio::time::sleep(std::time::Duration::from_millis(
+                100 * 2u64.pow(attempt - 1),
+            ))
+            .await;
         }
         match client
             .remove_volume(volume_name, Some(RemoveVolumeOptions { force: true }))

@@ -364,7 +364,7 @@ async fn trigger_registry_fire_creates_job_for_active_trigger() {
         "fire should succeed for active trigger with broker available"
     );
     let job_id = result.unwrap();
-    assert_eq!(job_id.0.len(), 36); // UUID v4 format
+    assert_eq!(job_id.as_str().len(), 36); // UUID v4 format
 }
 
 #[tokio::test]

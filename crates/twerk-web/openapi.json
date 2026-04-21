@@ -16,33 +16,72 @@
     "/api/v1/triggers": {
       "get": {
         "tags": [
-          "super::trigger_api::handlers"
+          "super::trigger_api::handlers::query"
         ],
         "summary": "GET /api/v1/triggers",
-        "description": "Lists all triggers.\n\n# Errors\nReturns 500 for persistence errors.",
         "operationId": "list_triggers_handler",
         "responses": {
           "200": {
-            "description": "List of triggers"
+            "description": "List of triggers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerView"
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Persistence error"
+            "description": "Persistence error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "tags": [
-          "super::trigger_api::handlers"
+          "super::trigger_api::handlers::command"
         ],
         "summary": "POST /api/v1/triggers",
-        "description": "# Errors\nReturns 201 on success, 400 for validation errors.",
         "operationId": "create_trigger_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
-            "description": "Trigger created"
+            "description": "Trigger created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Validation error"
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -50,10 +89,9 @@
     "/api/v1/triggers/{id}": {
       "get": {
         "tags": [
-          "super::trigger_api::handlers"
+          "super::trigger_api::handlers::query"
         ],
         "summary": "GET /api/v1/triggers/{id}",
-        "description": "# Errors\nReturns 404 if trigger not found, 400 if ID format invalid.",
         "operationId": "get_trigger_handler",
         "parameters": [
           {
@@ -68,22 +106,42 @@
         ],
         "responses": {
           "200": {
-            "description": "Trigger found"
+            "description": "Trigger found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid ID format"
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Trigger not found"
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "put": {
         "tags": [
-          "super::trigger_api::handlers"
+          "super::trigger_api::handlers::command"
         ],
         "summary": "Handler for `PUT /api/v1/triggers/{id}`.",
-        "description": "# Errors\nReturns `ApiError` only for framework-level failures.",
         "operationId": "update_trigger_handler",
         "parameters": [
           {
@@ -96,24 +154,62 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "Trigger updated"
+            "description": "Trigger updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Validation error or invalid request"
+            "description": "Validation error or invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Trigger not found"
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Version conflict"
+            "description": "Version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "delete": {
         "tags": [
-          "super::trigger_api::handlers"
+          "super::trigger_api::handlers::query"
         ],
         "operationId": "delete_trigger_handler",
         "parameters": [
@@ -132,10 +228,24 @@
             "description": "Trigger deleted"
           },
           "400": {
-            "description": "Invalid ID format"
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Trigger not found"
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -153,7 +263,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             }
@@ -163,7 +273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             }
@@ -174,10 +284,9 @@
     "/jobs": {
       "get": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::read"
         ],
         "summary": "GET /jobs",
-        "description": "# Errors",
         "operationId": "list_jobs_handler",
         "parameters": [
           {
@@ -210,14 +319,11 @@
         ],
         "responses": {
           "200": {
-            "description": "List of jobs",
+            "description": "Paginated jobs",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Job"
-                  }
+                  "$ref": "#/components/schemas/Page_JobSummary"
                 }
               }
             }
@@ -226,10 +332,9 @@
       },
       "post": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::create"
         ],
         "summary": "POST /jobs",
-        "description": "# Errors",
         "operationId": "create_job_handler",
         "parameters": [
           {
@@ -247,7 +352,22 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "application/x-yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "text/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
               }
             }
           },
@@ -255,17 +375,24 @@
         },
         "responses": {
           "200": {
-            "description": "Job created",
+            "description": "Job created or completed when wait=blocking",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/CreateJobResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid job definition or unsupported content type"
+            "description": "Invalid job definition or unsupported content type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -273,19 +400,18 @@
     "/jobs/{id}": {
       "get": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::read"
         ],
         "summary": "GET /jobs/{id}",
-        "description": "# Errors",
         "operationId": "get_job_handler",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "The job ID",
+            "description": "The job ID as either an RFC 4122 UUID or a 22-character base57 short ID",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/string"
+              "$ref": "#/components/schemas/JobId"
             }
           }
         ],
@@ -301,7 +427,14 @@
             }
           },
           "404": {
-            "description": "Job not found"
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -309,10 +442,9 @@
     "/jobs/{id}/cancel": {
       "put": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::mutation"
         ],
         "summary": "PUT /jobs/{id}/cancel",
-        "description": "# Errors",
         "operationId": "cancel_job_handler",
         "parameters": [
           {
@@ -321,7 +453,7 @@
             "description": "The job ID",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/string"
+              "$ref": "#/components/schemas/JobId"
             }
           }
         ],
@@ -331,22 +463,38 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "Job cannot be cancelled in its current state"
+            "description": "Job cannot be cancelled in its current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::mutation"
         ],
         "summary": "POST /jobs/{id}/cancel",
-        "description": "# Errors",
         "operationId": "cancel_job_handler_post",
         "parameters": [
           {
@@ -355,7 +503,7 @@
             "description": "The job ID",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/string"
+              "$ref": "#/components/schemas/JobId"
             }
           }
         ],
@@ -365,24 +513,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "Job cannot be cancelled in its current state"
+            "description": "Job cannot be cancelled in its current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/jobs/{id}/log": {
       "get": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::read"
         ],
         "summary": "GET /jobs/{id}/log",
-        "description": "# Errors",
         "operationId": "get_job_log_handler",
         "parameters": [
           {
@@ -391,7 +556,7 @@
             "description": "The job ID",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/string"
+              "$ref": "#/components/schemas/JobId"
             }
           },
           {
@@ -415,20 +580,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Job log parts",
+            "description": "Paginated job log parts",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/components/schemas/Page_TaskLogPart"
                 }
               }
             }
           },
           "404": {
-            "description": "Job not found"
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -436,10 +605,9 @@
     "/jobs/{id}/restart": {
       "put": {
         "tags": [
-          "super::handlers::jobs"
+          "super::handlers::jobs::mutation"
         ],
         "summary": "PUT /jobs/{id}/restart",
-        "description": "# Errors",
         "operationId": "restart_job_handler",
         "parameters": [
           {
@@ -448,7 +616,7 @@
             "description": "The job ID",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/string"
+              "$ref": "#/components/schemas/JobId"
             }
           }
         ],
@@ -458,13 +626,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "Job cannot be restarted"
+            "description": "Job cannot be restarted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -478,7 +663,14 @@
         "operationId": "get_metrics_handler",
         "responses": {
           "200": {
-            "description": "System metrics"
+            "description": "System metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            }
           }
         }
       }
@@ -492,7 +684,17 @@
         "operationId": "list_nodes_handler",
         "responses": {
           "200": {
-            "description": "List of active nodes"
+            "description": "List of active nodes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Node"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -507,7 +709,17 @@
         "operationId": "list_queues_handler",
         "responses": {
           "200": {
-            "description": "List of queues"
+            "description": "List of queues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueInfo"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -533,10 +745,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Queue info"
+            "description": "Queue info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueInfo"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Queue not found"
+            "description": "Queue not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -561,6 +787,16 @@
         "responses": {
           "200": {
             "description": "Queue deleted"
+          },
+          "404": {
+            "description": "Queue not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -568,27 +804,75 @@
     "/scheduled-jobs": {
       "get": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::read"
         ],
         "summary": "GET /scheduled-jobs",
-        "description": "# Errors",
         "operationId": "list_scheduled_jobs_handler",
         "responses": {
           "200": {
-            "description": "List of scheduled jobs"
+            "description": "List of scheduled jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ScheduledJobSummary"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::create"
         ],
         "summary": "POST /scheduled-jobs",
-        "description": "# Errors",
         "operationId": "create_scheduled_job_handler",
+        "requestBody": {
+          "description": "Scheduled job definition as JSON or YAML",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "application/x-yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "text/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "Scheduled job created"
+            "description": "Scheduled job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledJobSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid scheduled job payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -596,7 +880,7 @@
     "/scheduled-jobs/{id}": {
       "get": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::read"
         ],
         "operationId": "get_scheduled_job_handler",
         "parameters": [
@@ -612,13 +896,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job found"
+            "description": "Scheduled job found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scheduled job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       },
       "delete": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::lifecycle"
         ],
         "operationId": "delete_scheduled_job_handler",
         "parameters": [
@@ -634,7 +935,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job deleted"
+            "description": "Scheduled job deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scheduled job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -642,7 +960,7 @@
     "/scheduled-jobs/{id}/pause": {
       "put": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::lifecycle"
         ],
         "operationId": "pause_scheduled_job_handler",
         "parameters": [
@@ -658,7 +976,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job paused"
+            "description": "Scheduled job paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Scheduled job cannot be paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scheduled job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -666,7 +1011,7 @@
     "/scheduled-jobs/{id}/resume": {
       "put": {
         "tags": [
-          "super::handlers::scheduled"
+          "super::handlers::scheduled::lifecycle"
         ],
         "operationId": "resume_scheduled_job_handler",
         "parameters": [
@@ -682,7 +1027,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job resumed"
+            "description": "Scheduled job resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Scheduled job cannot be resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scheduled job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -707,10 +1079,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Task details"
+            "description": "Task details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Task not found"
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -762,10 +1148,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated task log entries"
+            "description": "Paginated task log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TaskLogPart"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Task not found"
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -778,12 +1178,29 @@
         "summary": "POST /users",
         "description": "# Errors",
         "operationId": "create_user_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "User created"
           },
           "400": {
-            "description": "Missing username or password"
+            "description": "Missing username or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -854,6 +1271,16 @@
             ]
           }
         }
+      },
+      "CreateJobResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/JobSummary"
+          },
+          {
+            "$ref": "#/components/schemas/Job"
+          }
+        ]
       },
       "CreateScheduledJobBody": {
         "type": "object",
@@ -982,6 +1409,21 @@
           }
         }
       },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
       "Job": {
         "type": "object",
         "description": "Job represents a job in the system.",
@@ -1081,7 +1523,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/string"
+                "$ref": "#/components/schemas/JobId"
               }
             ]
           },
@@ -1115,7 +1557,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/string"
+                "$ref": "#/components/schemas/JobId"
               }
             ]
           },
@@ -1303,6 +1745,11 @@
           }
         }
       },
+      "JobId": {
+        "type": "string",
+        "description": "RFC 4122 UUID or 22-character base57 short job ID emitted by the coordinator",
+        "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22})$"
+      },
       "JobMetrics": {
         "type": "object",
         "description": "`JobMetrics` holds metrics about twerk jobs.",
@@ -1404,7 +1851,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/string"
+                "$ref": "#/components/schemas/JobId"
               }
             ]
           },
@@ -1432,7 +1879,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/string"
+                "$ref": "#/components/schemas/JobId"
               }
             ]
           },
@@ -1482,6 +1929,17 @@
           "taskCount": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
           }
         }
       },
@@ -1723,7 +2181,7 @@
                       "type": "null"
                     },
                     {
-                      "$ref": "#/components/schemas/string"
+                      "$ref": "#/components/schemas/JobId"
                     }
                   ]
                 },
@@ -1751,7 +2209,7 @@
                       "type": "null"
                     },
                     {
-                      "$ref": "#/components/schemas/string"
+                      "$ref": "#/components/schemas/JobId"
                     }
                   ]
                 },
@@ -2348,6 +2806,17 @@
           }
         }
       },
+      "StatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "Task": {
         "type": "object",
         "description": "Task is the basic unit of work that a Worker can handle.",
@@ -2771,6 +3240,33 @@
           },
           "variant": {
             "$ref": "#/components/schemas/TriggerVariant"
+          }
+        }
+      },
+      "TriggerErrorResponse": {
+        "type": "object",
+        "required": [
+          "error",
+          "message"
+        ],
+        "properties": {
+          "body_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

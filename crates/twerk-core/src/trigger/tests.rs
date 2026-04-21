@@ -798,7 +798,10 @@ mod tests {
         };
 
         registry.register(trigger).await.unwrap();
-        registry.set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled)
+            .await
+            .unwrap();
         let result = registry
             .set_state(&TriggerId("test-trigger".into()), TriggerState::Active)
             .await;
@@ -938,7 +941,10 @@ mod tests {
         };
 
         registry.register(trigger).await.unwrap();
-        registry.set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled)
+            .await
+            .unwrap();
         let result = registry
             .set_state(&TriggerId("test-trigger".into()), TriggerState::Error)
             .await;
@@ -1096,7 +1102,7 @@ mod tests {
             "fire should succeed for active trigger with broker available"
         );
         let job_id = result.unwrap();
-        assert_eq!(job_id.0.len(), 36); // UUID v4 length
+        assert_eq!(job_id.as_str().len(), 36); // UUID v4 length
     }
 
     #[tokio::test]
@@ -1152,7 +1158,10 @@ mod tests {
         };
 
         registry.register(trigger).await.unwrap();
-        registry.set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled)
+            .await
+            .unwrap();
 
         let ctx = TriggerContext {
             trigger_id: TriggerId("test-trigger".into()),
@@ -1180,7 +1189,10 @@ mod tests {
         };
 
         registry.register(trigger).await.unwrap();
-        registry.set_state(&TriggerId("test-trigger".into()), TriggerState::Error).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Error)
+            .await
+            .unwrap();
 
         let ctx = TriggerContext {
             trigger_id: TriggerId("test-trigger".into()),

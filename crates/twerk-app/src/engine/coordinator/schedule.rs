@@ -176,7 +176,7 @@ async fn trigger_scheduled_job(
     let job_id = Uuid::new_v4().to_string();
 
     let job = TorkJob {
-        id: Some(job_id.into()),
+        id: Some(twerk_core::id::JobId::new(job_id)?),
         created_by: sj.created_by.clone(),
         created_at: Some(now),
         permissions: sj.permissions.clone(),

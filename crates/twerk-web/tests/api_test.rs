@@ -15,10 +15,15 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
+use twerk_core::id::JobId;
 use twerk_core::job::Job;
 use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_web::api::{create_router, AppState, Config};
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
 
 struct SignalingBroker {
     inner: InMemoryBroker,
@@ -378,7 +383,7 @@ async fn job_wait_returns_completed_when_job_finishes() {
     let state = AppState::new(broker.clone(), ds, Config::default());
     let app = create_router(state);
 
-    let job_id = "job-wait-1";
+    let job_id = "550e8400-e29b-41d4-a716-446655440701";
     let job_input = json!({
         "id": job_id,
         "name": "test-job-wait",
@@ -433,7 +438,7 @@ async fn job_wait_blocking_explicit_string_returns_completed() {
     let state = AppState::new(broker.clone(), ds, Config::default());
     let app = create_router(state);
 
-    let job_id = "job-wait-blocking";
+    let job_id = "550e8400-e29b-41d4-a716-446655440702";
     let job_input = json!({
         "id": job_id,
         "name": "test-job-wait-blocking",
@@ -482,7 +487,10 @@ async fn job_wait_blocking_explicit_string_returns_completed() {
 
 #[tokio::test]
 async fn job_wait_truthy_string_values_return_completed() {
-    for wait_value in ["1", "yes", "YES", "Yes", "TRUE", "True"] {
+    for (index, wait_value) in ["1", "yes", "YES", "Yes", "TRUE", "True"]
+        .into_iter()
+        .enumerate()
+    {
         let ds = Arc::new(InMemoryDatastore::new());
         let (sub_tx, mut sub_rx) = tokio::sync::mpsc::channel(1);
         let broker = Arc::new(SignalingBroker {
@@ -492,7 +500,7 @@ async fn job_wait_truthy_string_values_return_completed() {
         let state = AppState::new(broker.clone(), ds, Config::default());
         let app = create_router(state);
 
-        let job_id = format!("job-wait-{}", wait_value);
+        let job_id = format!("550e8400-e29b-41d4-a716-44665544{:04}", 710 + index);
         let job_input = json!({
             "id": job_id,
             "name": format!("test-job-{}", wait_value),
@@ -557,7 +565,7 @@ async fn job_wait_detached_returns_pending_immediately() {
     let app = create_router(state);
 
     let job_input = json!({
-        "id": "job-detached",
+            "id": "550e8400-e29b-41d4-a716-446655440720",
         "name": "test-job-detached",
         "tasks": [
             {
@@ -604,7 +612,7 @@ async fn job_wait_false_returns_pending_immediately() {
     let app = create_router(state);
 
     let job_input = json!({
-        "id": "job-wait-false",
+            "id": "550e8400-e29b-41d4-a716-446655440721",
         "name": "test-job-wait-false",
         "tasks": [
             {
@@ -651,7 +659,7 @@ async fn job_wait_invalid_value_returns_pending_immediately() {
     let app = create_router(state);
 
     let job_input = json!({
-        "id": "job-wait-invalid",
+            "id": "550e8400-e29b-41d4-a716-446655440722",
         "name": "test-job-wait-invalid",
         "tasks": [
             {
@@ -698,7 +706,7 @@ async fn job_wait_default_returns_pending_immediately() {
     let app = create_router(state);
 
     let job_input = json!({
-        "id": "job-wait-default",
+            "id": "550e8400-e29b-41d4-a716-446655440723",
         "name": "test-job-wait-default",
         "tasks": [
             {
@@ -745,7 +753,7 @@ async fn job_wait_blocking_returns_failed_when_job_fails() {
     let state = AppState::new(broker.clone(), ds, Config::default());
     let app = create_router(state);
 
-    let job_id = "job-wait-failed";
+    let job_id = "550e8400-e29b-41d4-a716-446655440724";
     let job_input = json!({
         "id": job_id,
         "name": "test-job-wait-failed",
@@ -808,7 +816,7 @@ async fn job_wait_blocking_returns_cancelled_when_job_cancelled() {
     let state = AppState::new(broker.clone(), ds, Config::default());
     let app = create_router(state);
 
-    let job_id = "job-wait-cancelled";
+    let job_id = "550e8400-e29b-41d4-a716-446655440725";
     let job_input = json!({
         "id": job_id,
         "name": "test-job-wait-cancelled",
@@ -863,9 +871,10 @@ async fn job_secrets_redacted_when_fetched_from_api() {
     let state = setup_state().await;
     let ds = state.ds.clone();
     let app = create_router(state);
+    let job_id = "550e8400-e29b-41d4-a716-446655440601";
 
     let job = Job {
-        id: Some("job-1".into()),
+        id: Some(to_job_id(job_id)),
         name: Some("secret-job".to_string()),
         secrets: Some([("my_secret".to_string(), "password123".to_string())].into()),
         inputs: Some([("api_key".to_string(), "password123".to_string())].into()),
@@ -876,7 +885,7 @@ async fn job_secrets_redacted_when_fetched_from_api() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/jobs/job-1")
+                .uri(format!("/jobs/{job_id}"))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
@@ -893,11 +902,12 @@ async fn job_secrets_redacted_when_fetched_from_api() {
 async fn error_response_formatted_as_json_when_job_missing() {
     let state = setup_state().await;
     let app = create_router(state);
+    let missing_job_id = "550e8400-e29b-41d4-a716-446655449999";
 
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/jobs/non-existent")
+                .uri(format!("/jobs/{missing_job_id}"))
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )

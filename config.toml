@@ -1,0 +1,34 @@
+# Local development defaults for the primary docs journey.
+# This starts Twerk without Postgres, RabbitMQ, Docker, or Podman.
+
+[cli]
+banner.mode = "console"
+
+[client]
+endpoint = "http://localhost:8000"
+
+[logging]
+level = "info"
+format = "pretty"
+
+[broker]
+type = "inmemory"
+
+[datastore]
+type = "inmemory"
+
+[coordinator]
+address = "localhost:8000"
+name = "Local Coordinator"
+
+[worker]
+address = "localhost:8001"
+name = "Local Worker"
+
+[runtime]
+type = "shell"
+
+[runtime.shell]
+cmd = ["bash", "-c"]
+uid = ""
+gid = ""

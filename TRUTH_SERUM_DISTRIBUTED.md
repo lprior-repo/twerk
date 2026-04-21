@@ -12,7 +12,7 @@
 
 ```bash
 # 1. Clean up existing processes
-pkill -9 -f twerk-cli
+pkill -9 -f twerk
 sleep 2
 
 # 2. Verify infrastructure
@@ -20,18 +20,18 @@ ps aux | grep -E "rabbitmq|postgres" | grep -v grep | wc -l
 # Result: 84 (RabbitMQ and Postgres are running)
 
 # 3. Start coordinator
-./target/release/twerk-cli run coordinator > /tmp/coordinator.log 2>&1 &
+./target/release/twerk run coordinator > /tmp/coordinator.log 2>&1 &
 # PID: 216117
 
 # 4. Start worker
-./target/release/twerk-cli run worker > /tmp/worker.log 2>&1 &
+./target/release/twerk run worker > /tmp/worker.log 2>&1 &
 # PID: 216119
 
 # 5. Verify processes are running
-ps aux | grep "twerk-cli run" | grep -v grep
+ps aux | grep "twerk run" | grep -v grep
 # Result:
-# lewis  216117  ./target/release/twerk-cli run coordinator
-# lewis  216119  ./target/release/twerk-cli run worker
+# lewis  216117  ./target/release/twerk run coordinator
+# lewis  216119  ./target/release/twerk run worker
 ```
 
 ### Coordinator Logs

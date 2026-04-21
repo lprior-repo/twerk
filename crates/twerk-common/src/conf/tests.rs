@@ -37,19 +37,12 @@ struct TestFixture {
 
 impl TestFixture {
     fn new() -> Self {
-        reset_env();
         let temp_dir = TempDir::new().expect("tempdir");
         Self { temp_dir }
     }
 
     fn path(&self, name: &str) -> std::path::PathBuf {
         self.temp_dir.path().join(name)
-    }
-}
-
-impl Drop for TestFixture {
-    fn drop(&mut self) {
-        reset_env();
     }
 }
 

@@ -16,11 +16,11 @@ twerk run <MODE> [OPTIONS]
 | `coordinator` | API server, requires separate workers |
 | `worker` | Task executor, requires coordinator |
 
-**Options:**
-
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--config <PATH>` | Path to config.toml | See configuration docs |
+| `--hostname <HOSTNAME>` | Coordinator hostname for workers | none |
+
+Config is loaded from `TWERK_CONFIG` or the default config search paths. There is no `--config` CLI flag.
 
 ### `twerk migration`
 
@@ -34,6 +34,8 @@ twerk migration [OPTIONS]
 |--------|-------------|
 | `-y, --yes` | Skip confirmation prompt |
 
+`twerk migration` reads the datastore type and Postgres DSN from config or `TWERK_*` environment variables.
+
 ### `twerk health`
 
 Check coordinator health.
@@ -45,6 +47,14 @@ twerk health [OPTIONS]
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-e, --endpoint <URL>` | Coordinator endpoint | `http://localhost:8000` |
+
+## Top-Level Flags
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Emit machine-readable help or health output |
+| `--help` | Show CLI help |
+| `--version` | Show the current version |
 
 ## Environment Variables
 

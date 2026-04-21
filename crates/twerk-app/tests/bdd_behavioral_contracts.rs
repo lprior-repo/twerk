@@ -28,6 +28,7 @@ use twerk_app::engine::{
     JobListener, LogHandlerError, Middleware, Mode, NodeHandlerError, State, TaskEventType,
     TaskHandlerError,
 };
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::mount::Mount;
 use twerk_core::task::{Task, TaskState};
@@ -46,9 +47,13 @@ fn engine_with_mode(mode: Mode) -> Engine {
     })
 }
 
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
+
 fn make_job(id: &str) -> Job {
     Job {
-        id: Some(id.into()),
+        id: Some(to_job_id(id)),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("bdd-task".to_string()),
@@ -210,7 +215,10 @@ async fn terminate_fails_when_not_running() {
 #[tokio::test]
 async fn submit_job_fails_when_not_running() {
     let engine = engine_with_mode(Mode::Standalone);
-    let err = engine.submit_job(make_job("j1"), vec![]).await.unwrap_err();
+    let err = engine
+        .submit_job(make_job("550e8400-e29b-41d4-a716-446655440501"), vec![])
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("not running"));
 }
 
@@ -221,7 +229,10 @@ async fn submit_job_fails_in_worker_mode() {
     let mut engine = engine_with_mode(Mode::Worker);
     engine.start().await.unwrap();
 
-    let err = engine.submit_job(make_job("j2"), vec![]).await.unwrap_err();
+    let err = engine
+        .submit_job(make_job("550e8400-e29b-41d4-a716-446655440502"), vec![])
+        .await
+        .unwrap_err();
     assert!(err
         .to_string()
         .contains("not in coordinator/standalone mode"));
@@ -902,10 +913,10 @@ async fn coordinator_submit_job_persists() {
         .unwrap();
     coord.start().await.unwrap();
 
-    let job = make_job("bdd-coord-1");
+    let job = make_job("550e8400-e29b-41d4-a716-446655440503");
     coord.submit_job(job.clone()).await.unwrap();
 
-    let persisted = ds.get_job_by_id("bdd-coord-1").await.unwrap();
+    let persisted = ds.get_job_by_id(job.id.as_deref().unwrap()).await.unwrap();
     assert_eq!(persisted.id, job.id);
 
     coord.stop().await.unwrap();
@@ -951,7 +962,7 @@ async fn coordinator_sets_created_at() {
     coord.start().await.unwrap();
 
     let job = Job {
-        id: Some("bdd-timestamp".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440504")),
         state: JobState::Pending,
         created_at: None,
         ..Default::default()
@@ -1144,7 +1155,7 @@ async fn submit_job_standalone_e2e() {
     let mut engine = engine_with_mode(Mode::Standalone);
     engine.start().await.unwrap();
 
-    let job = make_job("bdd-e2e");
+    let job = make_job("550e8400-e29b-41d4-a716-446655440505");
     let result = engine.submit_job(job.clone(), vec![]).await.unwrap();
     assert_eq!(result.id, job.id);
 

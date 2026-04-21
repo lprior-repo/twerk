@@ -15,6 +15,7 @@ use testcontainers::ImageExt;
 use testcontainers_modules::postgres::Postgres;
 use time::{Duration, OffsetDateTime};
 use tokio::sync::Mutex;
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobContext};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLimits, TaskLogPart, TaskRetry};
@@ -73,6 +74,14 @@ async fn get_guest_user(ds: &PostgresDatastore) -> User {
         .expect("failed to get guest user")
 }
 
+fn job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("generated UUID should be a valid JobId")
+}
+
+fn new_job_id() -> JobId {
+    job_id(twerk_core::uuid::new_short_uuid())
+}
+
 #[tokio::test]
 async fn test_postgres_all() {
     let ds = setup_postgres().await;
@@ -81,7 +90,7 @@ async fn test_postgres_all() {
 
     // 1. Create and get task
     let j1 = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
+        id: Some(new_job_id()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -187,7 +196,7 @@ async fn test_postgres_all() {
         twerk_core::task::TASK_STATE_FAILED,
     ];
     let j_active = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
+        id: Some(new_job_id()),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -280,11 +289,11 @@ async fn test_postgres_all() {
     );
 
     // 4b. Test cascading cleanup
-    let j_cascade_id = Uuid::new_v4().to_string().replace('-', "");
+    let j_cascade_id = twerk_core::uuid::new_short_uuid();
     let t_cascade_id = Uuid::new_v4().to_string().replace('-', "");
     let l_cascade_id = Uuid::new_v4().to_string().replace('-', "");
     let j_cascade = Job {
-        id: Some(j_cascade_id.clone().into()),
+        id: Some(job_id(j_cascade_id.clone())),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -298,7 +307,7 @@ async fn test_postgres_all() {
         .expect("failed to create job_cascade");
     let t_cascade = Task {
         id: Some(t_cascade_id.clone().into()),
-        job_id: Some(j_cascade_id.clone().into()),
+        job_id: Some(job_id(j_cascade_id.clone())),
         created_at: Some(now),
         ..Task::default()
     };
@@ -342,7 +351,7 @@ async fn test_postgres_all() {
     };
     ds.create_user(&u).await.expect("failed to create user");
     let j_u = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
+        id: Some(new_job_id()),
         created_by: Some(u.clone()),
         tags: Some(vec!["tag-a".to_string(), "tag-b".to_string()]),
         auto_delete: Some(twerk_core::task::AutoDelete {
@@ -425,7 +434,7 @@ async fn test_postgres_all() {
     // 8. Pagination
     for i in 0..15 {
         let j = Job {
-            id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
+            id: Some(new_job_id()),
             name: Some(format!("Job {i}")),
             created_by: Some(guest.clone()),
             tags: Some(vec![]),
@@ -465,7 +474,7 @@ async fn test_postgres_all() {
 
     // 11. Search
     let j_search = Job {
-        id: Some(Uuid::new_v4().to_string().replace('-', "").into()),
+        id: Some(new_job_id()),
         name: Some("Searchable Job".to_string()),
         description: Some("This is a searchable description".to_string()),
         created_by: Some(guest.clone()),
@@ -524,9 +533,9 @@ async fn test_postgres_all() {
     assert!(active_sjs.iter().any(|s| s.id == sj.id));
 
     // 13. Retention/Cleanup
-    let job_expired_id = Uuid::new_v4().to_string().replace('-', "");
+    let job_expired_id = twerk_core::uuid::new_short_uuid();
     let j_expired = Job {
-        id: Some(job_expired_id.clone().into()),
+        id: Some(job_id(job_expired_id.clone())),
         created_by: Some(guest.clone()),
         state: twerk_core::job::JobState::Completed,
         created_at: Some(now - Duration::days(400)),
@@ -552,9 +561,9 @@ async fn test_postgres_all() {
     assert!(res.is_err()); // Should be deleted
 
     // 14. Transactions
-    let job_tx_id = Uuid::new_v4().to_string().replace('-', "");
+    let job_tx_id = twerk_core::uuid::new_short_uuid();
     let j_tx = Job {
-        id: Some(job_tx_id.clone().into()),
+        id: Some(job_id(job_tx_id.clone())),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),
@@ -584,9 +593,9 @@ async fn test_postgres_all() {
     assert!(res_get.is_err()); // Should NOT exist due to rollback
 
     // 15. Concurrency
-    let job_conc_id = Uuid::new_v4().to_string().replace('-', "");
+    let job_conc_id = twerk_core::uuid::new_short_uuid();
     let j_conc = Job {
-        id: Some(job_conc_id.clone().into()),
+        id: Some(job_id(job_conc_id.clone())),
         created_by: Some(guest.clone()),
         tags: Some(vec![]),
         created_at: Some(now),

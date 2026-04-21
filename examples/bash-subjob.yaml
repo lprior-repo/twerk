@@ -21,7 +21,7 @@ tasks:
           run: |
             echo "Compiling code..."
             echo "✓ Compiled successfully"
-            echo -n "BUILD_OK" > $TORK_OUTPUT
+            echo -n "BUILD_OK" > $TWERK_OUTPUT
 
         - name: test step
           image: ubuntu:mantic

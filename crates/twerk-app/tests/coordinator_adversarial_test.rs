@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::oneshot;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
@@ -20,6 +21,13 @@ use twerk_infrastructure::datastore::{
     inmemory::InMemoryDatastore, Datastore, Error as DatastoreError, Page,
     Result as DatastoreResult,
 };
+
+const FAIL_JOB_1_ID: &str = "550e8400-e29b-41d4-a716-446655440301";
+const FAIL_JOB_2_ID: &str = "550e8400-e29b-41d4-a716-446655440302";
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
 
 #[derive(Clone, Default, Debug)]
 struct FailConfig {
@@ -331,7 +339,7 @@ async fn submit_job_returns_error_when_datastore_create_fails() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("fail-job-1".into()),
+        id: Some(to_job_id(FAIL_JOB_1_ID)),
         state: JobState::Pending,
         ..Default::default()
     };
@@ -371,7 +379,7 @@ async fn submit_job_returns_error_when_broker_publish_fails() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("fail-job-2".into()),
+        id: Some(to_job_id(FAIL_JOB_2_ID)),
         state: JobState::Pending,
         ..Default::default()
     };
@@ -381,8 +389,8 @@ async fn submit_job_returns_error_when_broker_publish_fails() -> Result<()> {
     assert!(err.to_string().contains("simulated publish_job failure"));
 
     // Verify job WAS created in datastore (mid-state transition failure)
-    let persisted = datastore.get_job_by_id("fail-job-2").await?;
-    assert_eq!(persisted.id.as_deref(), Some("fail-job-2"));
+    let persisted = datastore.get_job_by_id(FAIL_JOB_2_ID).await?;
+    assert_eq!(persisted.id.as_deref(), Some(FAIL_JOB_2_ID));
 
     Ok(())
 }
@@ -416,7 +424,7 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     eprintln!("DEBUG: Coordinator started, about to create job");
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440003".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440003")),
         state: JobState::Pending,
         name: Some("test job".to_string()),
         tasks: Some(vec![Task {

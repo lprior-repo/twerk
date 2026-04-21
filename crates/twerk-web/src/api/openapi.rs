@@ -218,10 +218,18 @@ pub fn generate_spec() -> utoipa::openapi::OpenApi {
     }
 }
 
+/// Serialize the generated `OpenAPI` document to pretty JSON.
+///
+/// # Errors
+/// Returns an error when the generated `OpenAPI` document cannot be serialized.
 pub fn generate_json() -> anyhow::Result<String> {
     serde_json::to_string_pretty(&generate_spec()).context("failed to serialize OpenAPI JSON")
 }
 
+/// Serialize the generated `OpenAPI` document to YAML.
+///
+/// # Errors
+/// Returns an error when the generated `OpenAPI` document cannot be serialized.
 pub fn generate_yaml() -> anyhow::Result<String> {
     serde_yaml::to_string(&generate_spec()).context("failed to serialize OpenAPI YAML")
 }
@@ -273,6 +281,11 @@ fn tracked_paths(root: &Path) -> [PathBuf; 3] {
     ]
 }
 
+/// Write the tracked `OpenAPI` artifacts into the repository.
+///
+/// # Errors
+/// Returns an error when the spec cannot be serialized, a target directory cannot be created,
+/// or any tracked artifact cannot be written.
 pub fn sync_tracked_artifacts(root: &Path) -> anyhow::Result<()> {
     let [yaml_path, docs_json_path, web_json_path] = tracked_paths(root);
     let json = generate_json()?;

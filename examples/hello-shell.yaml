@@ -1,0 +1,5 @@
+name: hello shell
+tasks:
+  - name: say hello
+    run: |
+      echo "hello from twerk"

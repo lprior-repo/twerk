@@ -73,7 +73,17 @@ pub fn setup_logging() -> Result<(), CliError> {
                 .with_line_number(true),
         )
         .with(filter)
-        .init();
+        .try_init()
+        .or_else(|error| {
+            if error
+                .to_string()
+                .contains("global default trace dispatcher has already been set")
+            {
+                Ok(())
+            } else {
+                Err(CliError::Logging(format!("logging setup error: {error}")))
+            }
+        })?;
 
     Ok(())
 }

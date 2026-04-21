@@ -11,7 +11,7 @@ macro_rules! err_json {
         json!({"error": $name, "message": $message})
     };
     ($name:expr, $message:expr, $($key:ident: $value:expr),*) => {
-        json!({"error": $name, "message": $message, $($key: $value),*})
+        json!({"error": $name, "message": $message, $(stringify!($key): $value),*})
     };
 }
 
@@ -53,11 +53,16 @@ fn error_details(error: &TriggerUpdateError) -> (StatusCode, Value) {
     }
 }
 
-pub fn error_response(error: TriggerUpdateError) -> Response {
-    let (status, payload) = error_details(&error);
+#[must_use]
+pub fn error_response(error: &TriggerUpdateError) -> Response {
+    let (status, payload) = error_details(error);
     (status, axum::Json(payload)).into_response()
 }
 
+/// Serialize a trigger view into a JSON HTTP response.
+///
+/// # Errors
+/// Returns an error when the trigger view cannot be serialized for response generation.
 pub fn serialize_view(
     view: super::super::domain::TriggerView,
 ) -> Result<Response, TriggerUpdateError> {

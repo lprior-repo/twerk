@@ -11,14 +11,21 @@ use twerk_app::engine::types::{
     LogMiddlewareFunc, NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, TaskEventType,
     TaskHandlerError, TaskHandlerFunc, TaskMiddlewareFunc,
 };
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
 
+const TEST_JOB_ID: &str = "550e8400-e29b-41d4-a716-446655440100";
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
+
 fn make_task() -> Task {
     Task {
         id: Some("test-task-id".into()),
-        job_id: Some("test-job-id".into()),
+        job_id: Some(to_job_id(TEST_JOB_ID)),
         state: TaskState::Running,
         ..Default::default()
     }
@@ -26,7 +33,7 @@ fn make_task() -> Task {
 
 fn make_job() -> Job {
     Job {
-        id: Some("test-job-id".into()),
+        id: Some(to_job_id(TEST_JOB_ID)),
         name: Some("Test Job".to_string()),
         state: JobState::Pending,
         ..Default::default()

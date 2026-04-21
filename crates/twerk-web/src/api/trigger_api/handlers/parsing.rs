@@ -25,6 +25,10 @@ fn as_optional_string_map(
     })
 }
 
+/// Decode a JSON trigger request body into the internal request type.
+///
+/// # Errors
+/// Returns an error when the body is not valid JSON or is not a JSON object.
 pub fn decode_trigger_update_request(
     body: &Bytes,
 ) -> Result<TriggerUpdateRequest, TriggerUpdateError> {
@@ -50,6 +54,10 @@ pub fn decode_trigger_update_request(
     })
 }
 
+/// Validate that the trigger request content type is JSON.
+///
+/// # Errors
+/// Returns an error when the request content type is not `application/json`.
 pub fn parse_content_type(headers: &HeaderMap) -> Result<(), TriggerUpdateError> {
     let content_type = normalized_content_type(headers);
     if content_type == "application/json" {
@@ -69,6 +77,11 @@ fn check_version_constraints(req: &TriggerUpdateRequest) -> Option<TriggerUpdate
     }
 }
 
+/// Parse and validate a trigger update request before it reaches the datastore.
+///
+/// # Errors
+/// Returns an error when the content type is unsupported, the JSON payload is malformed, the path
+/// and body identifiers do not validate, or the supplied version is stale.
 pub fn prepare_update(
     headers: &HeaderMap,
     body: &Bytes,

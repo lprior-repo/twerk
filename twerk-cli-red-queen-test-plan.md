@@ -12,15 +12,15 @@ The following commands form the permanent regression lineage (9 checks, ALL PASS
 
 | # | Command | Expected Exit | Dimension | Severity |
 |---|---------|---------------|-----------|----------|
-| C1 | `./target/release/twerk-cli --help` | 0 | contract | MAJOR |
-| C2 | `./target/release/twerk-cli --version` | 0 | contract | MAJOR |
-| C3 | `./target/release/twerk-cli --json` | 0 | contract | MAJOR |
-| C4 | `./target/release/twerk-cli run --help` | 0 | contract | MAJOR |
-| C5 | `./target/release/twerk-cli migration --help` | 0 | contract | MAJOR |
-| C6 | `./target/release/twerk-cli health --help` | 0 | contract | MAJOR |
-| E1 | `./target/release/twerk-cli run invalid-mode` | 2 | error-handling | MAJOR |
-| E2 | `./target/release/twerk-cli run` | 2 | error-handling | MAJOR |
-| E3 | `./target/release/twerk-cli migration` | 1 | error-handling | MAJOR |
+| C1 | `./target/release/twerk --help` | 0 | contract | MAJOR |
+| C2 | `./target/release/twerk --version` | 0 | contract | MAJOR |
+| C3 | `./target/release/twerk --json` | 0 | contract | MAJOR |
+| C4 | `./target/release/twerk run --help` | 0 | contract | MAJOR |
+| C5 | `./target/release/twerk migration --help` | 0 | contract | MAJOR |
+| C6 | `./target/release/twerk health --help` | 0 | contract | MAJOR |
+| E1 | `./target/release/twerk run invalid-mode` | 2 | error-handling | MAJOR |
+| E2 | `./target/release/twerk run` | 2 | error-handling | MAJOR |
+| E3 | `./target/release/twerk migration` | 1 | error-handling | MAJOR |
 
 **Result: 9/9 PASS — ratchet holds**
 
@@ -86,7 +86,7 @@ The following commands form the permanent regression lineage (9 checks, ALL PASS
 ### C1: Help Command
 
 ```
-Given: twerk-cli is installed
+Given: twerk is installed
 When:  user runs "twerk --help"
 Then:  help text is displayed
 And:  exit code is 0
@@ -95,7 +95,7 @@ And:  exit code is 0
 ### E1: Invalid Run Mode
 
 ```
-Given: twerk-cli is installed
+Given: twerk is installed
 When:  user runs "twerk run invalid-mode"
 Then:  error message is shown
 And:  exit code is 2
@@ -104,7 +104,7 @@ And:  exit code is 2
 ### E4: JSON Mode Suppresses Banner
 
 ```
-Given: twerk-cli is installed
+Given: twerk is installed
 When:  user runs "twerk --json run standalone"
 Then:  no banner is displayed
 And:  JSON error output is produced
@@ -143,15 +143,15 @@ And:  JSON error output is produced
 
 ```bash
 # Contract checks (should all pass)
-./target/release/twerk-cli --help
-./target/release/twerk-cli --version
-./target/release/twerk-cli --json
-./target/release/twerk-cli run --help
-./target/release/twerk-cli migration --help
-./target/release/twerk-cli health --help
-./target/release/twerk-cli run invalid-mode  # should exit 2
-./target/release/twerk-cli run               # should exit 2
-./target/release/twerk-cli migration         # should exit 1
+./target/release/twerk --help
+./target/release/twerk --version
+./target/release/twerk --json
+./target/release/twerk run --help
+./target/release/twerk migration --help
+./target/release/twerk health --help
+./target/release/twerk run invalid-mode  # should exit 2
+./target/release/twerk run               # should exit 2
+./target/release/twerk migration         # should exit 1
 
 # Run E2E tests
 cargo test -p twerk-cli --test e2e_cli_test

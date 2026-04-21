@@ -90,12 +90,9 @@ impl InMemoryTriggerRegistry {
         Ok(())
     }
 
-    pub(crate) async fn acquire_concurrency_permit(
-        &self,
-    ) -> TriggerRegistryResult<SemaphorePermit<'_>> {
+    pub(crate) fn acquire_concurrency_permit(&self) -> TriggerRegistryResult<SemaphorePermit<'_>> {
         self.concurrency_limiter
-            .acquire()
-            .await
+            .try_acquire()
             .map_err(|_| TriggerError::ConcurrencyLimitReached)
     }
 
@@ -218,7 +215,7 @@ impl TriggerRegistry for InMemoryTriggerRegistry {
     async fn fire(&self, ctx: TriggerContext) -> TriggerRegistryResult<JobId> {
         self.check_datastore_available()?;
         self.check_broker_available()?;
-        let _permit = self.acquire_concurrency_permit().await?;
+        let _permit = self.acquire_concurrency_permit()?;
         self.fire_count.fetch_add(1, Ordering::SeqCst);
         let trigger = self.get_trigger(&ctx.trigger_id)?;
         self.validate_trigger_for_fire(&trigger)?;

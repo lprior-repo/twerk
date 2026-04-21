@@ -246,6 +246,9 @@ impl Coordinator for DefaultCoordinator {
         )?;
         let mut job = job;
         job.id = Some(job_id);
+        job.task_count = job.tasks.as_ref().map_or(job.task_count, |tasks| {
+            i64::try_from(tasks.len()).map_or(i64::MAX, std::convert::identity)
+        });
 
         if job.created_at.is_none() {
             job.created_at = Some(time::OffsetDateTime::now_utc());

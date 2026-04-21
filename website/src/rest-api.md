@@ -4,226 +4,97 @@ Base URL: `http://localhost:8000`
 
 ## Health
 
-### Health Check
-
 ```bash
 GET /health
 ```
 
 ```json
-{ "status": "UP" }
+{ "status": "UP", "version": "0.1.0" }
 ```
 
 ## Jobs
 
-### Submit Job
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/jobs` | Submit a job |
+| `POST` | `/jobs?wait=true` | Submit and block until completion |
+| `GET` | `/jobs` | List jobs |
+| `GET` | `/jobs/{id}` | Get job details |
+| `GET` | `/jobs/{id}/log` | Fetch job logs |
+| `POST` | `/jobs/{id}/cancel` | Cancel a job |
+| `PUT` | `/jobs/{id}/cancel` | Cancel a job |
+| `PUT` | `/jobs/{id}/restart` | Restart a job |
 
-```bash
-POST /jobs
-Content-Type: text/yaml
-```
+Example request body:
 
 ```yaml
-name: my job
+name: hello shell
 tasks:
   - name: hello
-    image: alpine:latest
-    run: echo hello
-```
-
-### List Jobs
-
-```bash
-GET /jobs?page=1&size=10&q=searchterm
-```
-
-```json
-{
-  "items": [
-    {
-      "id": "abc123",
-      "name": "my job",
-      "state": "COMPLETED",
-      "createdAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "totalPages": 5
-}
-```
-
-### Get Job
-
-```bash
-GET /jobs/{id}
-```
-
-### Get Job Log
-
-```bash
-GET /jobs/{id}/log
-```
-
-### Cancel Job
-
-```bash
-PUT /jobs/{id}/cancel
-```
-
-### Restart Job
-
-```bash
-PUT /jobs/{id}/restart
+    run: echo "hello from twerk"
 ```
 
 ## Tasks
 
-### Get Task
-
-```bash
-GET /tasks/{id}
-```
-
-### Get Task Log
-
-```bash
-GET /tasks/{id}/log
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/tasks/{id}` | Get task details |
+| `GET` | `/tasks/{id}/log` | Fetch task logs |
 
 ## Scheduled Jobs
 
-### Submit Scheduled Job
-
-```bash
-POST /scheduled-jobs
-Content-Type: text/yaml
-```
-
-```yaml
-name: daily job
-schedule:
-  cron: "0 2 * * *"
-tasks:
-  - name: backup
-    image: alpine:latest
-    run: echo backing up
-```
-
-### List Scheduled Jobs
-
-```bash
-GET /scheduled-jobs
-```
-
-### Get Scheduled Job
-
-```bash
-GET /scheduled-jobs/{id}
-```
-
-### Pause Scheduled Job
-
-```bash
-PUT /scheduled-jobs/{id}/pause
-```
-
-### Resume Scheduled Job
-
-```bash
-PUT /scheduled-jobs/{id}/resume
-```
-
-### Delete Scheduled Job
-
-```bash
-DELETE /scheduled-jobs/{id}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/scheduled-jobs` | Create a scheduled job |
+| `GET` | `/scheduled-jobs` | List scheduled jobs |
+| `GET` | `/scheduled-jobs/{id}` | Get a scheduled job |
+| `PUT` | `/scheduled-jobs/{id}/pause` | Pause a scheduled job |
+| `PUT` | `/scheduled-jobs/{id}/resume` | Resume a scheduled job |
+| `DELETE` | `/scheduled-jobs/{id}` | Delete a scheduled job |
 
 ## Queues
 
-### List Queues
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/queues` | List queues |
+| `GET` | `/queues/{name}` | Get queue details |
+| `DELETE` | `/queues/{name}` | Delete a queue |
+
+## System
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/nodes` | List nodes |
+| `GET` | `/metrics` | Fetch metrics |
+| `POST` | `/users` | Create a user |
+
+## Triggers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/triggers` | List triggers |
+| `POST` | `/api/v1/triggers` | Create a trigger |
+| `GET` | `/api/v1/triggers/{id}` | Get a trigger |
+| `PUT` | `/api/v1/triggers/{id}` | Update a trigger |
+| `DELETE` | `/api/v1/triggers/{id}` | Delete a trigger |
+
+## OpenAPI
 
 ```bash
-GET /queues
-```
-
-```json
-[
-  {
-    "name": "default",
-    "size": 5,
-    "subscribers": 2,
-    "unacked": 1
-  }
-]
-```
-
-### Get Queue
-
-```bash
-GET /queues/{name}
-```
-
-### Delete Queue
-
-```bash
-DELETE /queues/{name}
-```
-
-## Nodes
-
-### List Nodes
-
-```bash
-GET /nodes
-```
-
-```json
-[
-  {
-    "id": "node-123",
-    "name": "Coordinator",
-    "status": "UP",
-    "startedAt": "2024-01-01T00:00:00Z",
-    "lastHeartbeatAt": "2024-01-01T12:00:00Z"
-  }
-]
-```
-
-## Metrics
-
-### Get Metrics
-
-```bash
-GET /metrics
-```
-
-## Users
-
-### Create User
-
-```bash
-POST /users
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "secret"
-}
+GET /openapi.json
 ```
 
 ## CLI Integration
 
 ```bash
-# Submit job
-curl -X POST http://localhost:8000/jobs \
+# Submit and wait for completion
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
   -H "Content-Type: text/yaml" \
-  --data-binary @job.yaml
+  --data-binary @examples/hello-shell.yaml
 
-# Check status
-curl http://localhost:8000/jobs/$JOB_ID | jq .
-
-# Cancel
-curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+# Inspect the resulting job and logs
+curl http://localhost:8000/jobs/$JOB_ID
+curl http://localhost:8000/jobs/$JOB_ID/log
 ```
 
 ## Next Steps

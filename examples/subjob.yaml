@@ -13,7 +13,7 @@ tasks:
         - var: dataStuff
           name: hello sub task job 1
           image: ubuntu:mantic
-          run: echo -n data > $TORK_OUTPUT
+          run: echo -n data > $TWERK_OUTPUT
 
   - name: running 2 jobs in parallel
     parallel:

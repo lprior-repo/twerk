@@ -437,7 +437,7 @@ tasks:
     var: rawData
     image: curlimages/curl:latest
     run: |
-      curl -s https://api.example.com/data > $TORK_OUTPUT
+      curl -s https://api.example.com/data > $TWERK_OUTPUT
   
   - name: transform data
     var: transformedData
@@ -445,7 +445,7 @@ tasks:
     env:
       DATA: "{{ tasks.rawData }}"
     run: |
-      echo -n $DATA | jq '.items[]' > $TORK_OUTPUT
+      echo -n $DATA | jq '.items[]' > $TWERK_OUTPUT
   
   - name: save results
     image: amazon/aws-cli:2.13.10
@@ -479,7 +479,7 @@ tasks:
     var: sources
     image: ubuntu:mantic
     run: |
-      echo '["source1","source2","source3","source4"]' > $TORK_OUTPUT
+      echo '["source1","source2","source3","source4"]' > $TWERK_OUTPUT
   
   - name: process all sources
     parallel:
@@ -543,7 +543,7 @@ tasks:
     env:
       COUNT: "{{ inputs.fileCount }}"
     run: |
-      python -c "import json; files=[f'file{i}.txt' for i in range(int('$COUNT'))]; print(json.dumps(files))" > $TORK_OUTPUT
+      python -c "import json; files=[f'file{i}.txt' for i in range(int('$COUNT'))]; print(json.dumps(files))" > $TWERK_OUTPUT
   
   - name: process each file
     each:
@@ -557,7 +557,7 @@ tasks:
           INDEX: "{{ item.index }}"
         run: |
           echo "Processing $FILENAME (index $INDEX)"
-          echo "result for $FILENAME" > $TORK_OUTPUT
+          echo "result for $FILENAME" > $TWERK_OUTPUT
   
   - name: summary
     image: ubuntu:mantic
@@ -607,7 +607,7 @@ tasks:
       BODY=${RESPONSE:0:-3}
       
       if [ "$HTTP_CODE" = "200" ]; then
-        echo -n "$BODY" > $TORK_OUTPUT
+        echo -n "$BODY" > $TWERK_OUTPUT
         exit 0
       else
         echo "API returned $HTTP_CODE, retrying..."
@@ -656,7 +656,7 @@ tasks:
     timeout: 10s
     run: |
       echo "This will complete quickly"
-      echo "done" > $TORK_OUTPUT
+      echo "done" > $TWERK_OUTPUT
   
   - name: potentially slow operation
     image: ubuntu:mantic
@@ -695,21 +695,21 @@ tasks:
         - name: extract
           var: extractedData
           image: ubuntu:mantic
-          run: echo "extracted" > $TORK_OUTPUT
+          run: echo "extracted" > $TWERK_OUTPUT
         
         - name: transform
           var: transformedData
           image: ubuntu:mantic
           env:
             DATA: "{{ tasks.extractedData }}"
-          run: echo "transformed $DATA" > $TORK_OUTPUT
+          run: echo "transformed $DATA" > $TWERK_OUTPUT
         
         - name: load
           var: finalResult
           image: ubuntu:mantic
           env:
             DATA: "{{ tasks.transformedData }}"
-          run: echo "loaded $DATA" > $TORK_OUTPUT
+          run: echo "loaded $DATA" > $TWERK_OUTPUT
   
   - name: parallel sub-jobs
     parallel:
@@ -841,7 +841,7 @@ tasks:
         run: |
           BACKUP=/tmp/backup-$(date +%s).sql
           pg_dump -h $DB_HOST $DB_NAME > $BACKUP
-          echo -n $BACKUP > $TORK_OUTPUT
+          echo -n $BACKUP > $TWERK_OUTPUT
       
       - name: verify backup
         image: ubuntu:mantic
@@ -962,11 +962,11 @@ sudo apt-get install rabbitmq-server
 
 ```bash
 # Clone repository
-git clone https://github.com/lprior-repo/twerk.git
+git clone https://github.com/runabol/twerk.git
 cd twerk
 
 # Build release binary
-cargo build --release
+cargo build --release -p twerk-cli
 
 # Binary will be at: target/release/twerk
 ```
@@ -976,14 +976,17 @@ cargo build --release
 **Simplest option - all-in-one process**
 
 ```bash
-# Using config file
-./target/release/twerk run standalone --config config.yaml
+# Using the repo-root config.toml
+./target/release/twerk run standalone
+
+# Using a custom config file
+TWERK_CONFIG=/path/to/config.toml ./target/release/twerk run standalone
 
 # Using environment variables
 TWERK_LOGGING_LEVEL=info \
 TWERK_BROKER_TYPE=inmemory \
 TWERK_DATASTORE_TYPE=inmemory \
-TWERK_RUNTIME_TYPE=docker \
+TWERK_RUNTIME_TYPE=shell \
 ./target/release/twerk run standalone
 ```
 
@@ -1014,7 +1017,7 @@ docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
 **Terminal 3: Start Coordinator**
 ```bash
 TWERK_DATASTORE_TYPE=postgres \
-TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
 TWERK_BROKER_TYPE=rabbitmq \
 TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
 ./target/release/twerk run coordinator
@@ -1061,24 +1064,17 @@ curl http://localhost:8000/jobs/abc123...
 # List all jobs
 curl http://localhost:8000/jobs
 
-# Get task logs
-curl http://localhost:8000/jobs/abc123.../tasks/def456.../logs
+# Get job logs
+curl http://localhost:8000/jobs/abc123.../log
 ```
 
-**Method 2: Using the CLI**
+**Method 2: Using curl with blocking wait**
 
 ```bash
-# Submit job
-./target/release/twerk submit examples/hello.yaml
-
-# List jobs
-./target/release/twerk jobs list
-
-# Get job status
-./target/release/twerk jobs show <job-id>
-
-# Cancel job
-./target/release/twerk jobs cancel <job-id>
+# Submit and wait for completion
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
+  -H "Content-type: text/yaml" \
+  --data-binary @examples/hello-shell.yaml
 ```
 
 **Method 3: Using REST API programmatically**
@@ -1118,9 +1114,9 @@ print(f"Result: {status.get('result')}")
 
 ### Configuration File Reference
 
-**config.yaml example:**
+**config.toml example:**
 
-```yaml
+```toml
 [cli]
 banner.mode = "console"
 
@@ -1208,7 +1204,7 @@ Twerk supports template expressions using Handlebars-like syntax:
 ```yaml
 tasks:
   - var: greeting
-    run: echo -n "hello" > $TORK_OUTPUT
+    run: echo -n "hello" > $TWERK_OUTPUT
   
   - name: use template
     env:
@@ -1354,8 +1350,8 @@ curl http://localhost:8000/metrics
 ### Log Streaming
 
 ```bash
-# Stream task logs in real-time
-curl -N http://localhost:8000/jobs/{job-id}/tasks/{task-id}/logs/stream
+# Fetch task logs
+curl http://localhost:8000/tasks/{task-id}/log
 ```
 
 ### Job Progress
@@ -1367,7 +1363,7 @@ tasks:
     run: |
       for i in {1..100}; do
         echo "Progress: $i%"
-        echo $i > $TORK_PROGRESS
+        echo $i > $TWERK_PROGRESS
         sleep 1
       done
 ```
@@ -1393,7 +1389,7 @@ docker ps
 docker pull ubuntu:mantic
 
 # Configure registry credentials
-# In config.yaml:
+# In config.toml:
 [runtime.docker]
 config = "/path/to/.docker/config.json"
 ```
@@ -1489,7 +1485,7 @@ TWERK_LOGGING_LEVEL=trace ./target/release/twerk run standalone
 - **Add meaningful tags** - Group and filter jobs
 - **Use webhooks** - Integrate with external systems
 - **Stream logs for debugging** - Real-time visibility
-- **Track progress** - Update `$TORK_PROGRESS`
+- **Track progress** - Update `$TWERK_PROGRESS`
 
 ---
 
@@ -1509,13 +1505,13 @@ GET /jobs/{id}
 GET /jobs?state=RUNNING&limit=100
 
 # Cancel job
-DELETE /jobs/{id}
+PUT /jobs/{id}/cancel
 
-# Get job tasks
-GET /jobs/{id}/tasks
+# Get job logs
+GET /jobs/{id}/log
 
 # Get task logs
-GET /jobs/{job-id}/tasks/{task-id}/logs
+GET /tasks/{task-id}/log
 ```
 
 ### Scheduled Jobs API
@@ -1586,7 +1582,7 @@ tasks:
       git clone -b {{ inputs.branch }} https://github.com/myorg/myapp.git /app
       cd /app
       git checkout {{ inputs.commit }}
-      echo -n "/app" > $TORK_OUTPUT
+      echo -n "/app" > $TWERK_OUTPUT
   
   - name: run linting
     image: node:18
@@ -1624,7 +1620,7 @@ tasks:
       docker build -t myregistry.com/myapp:{{ inputs.commit }} .
       echo $DOCKER_PASSWORD | docker login -u myuser --password-stdin myregistry.com
       docker push myregistry.com/myapp:{{ inputs.commit }}
-      echo -n "myregistry.com/myapp:{{ inputs.commit }}" > $TORK_OUTPUT
+      echo -n "myregistry.com/myapp:{{ inputs.commit }}" > $TWERK_OUTPUT
     mounts:
       - type: bind
         source: /var/run/docker.sock
@@ -1680,7 +1676,7 @@ Twerk provides a powerful, flexible, and scalable task execution system with:
 - **Easy to use** - YAML job definitions, REST API, CLI tools
 
 For more information:
-- [GitHub Repository](https://github.com/lprior-repo/twerk)
+- [GitHub Repository](https://github.com/runabol/twerk)
 - [API Documentation](website/src/rest-api.md)
 - [Examples Directory](examples/)
 - [Configuration Guide](website/src/configuration.md)

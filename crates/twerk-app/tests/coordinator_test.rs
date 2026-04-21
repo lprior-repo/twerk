@@ -4,10 +4,15 @@
 use anyhow::Result;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::{Task, TaskState};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
 
 #[tokio::test(start_paused = true)]
 async fn job_completes_when_tasks_are_finished() -> Result<()> {
@@ -24,7 +29,7 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440001".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440001")),
         name: Some("test job 2".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
@@ -101,7 +106,7 @@ async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> R
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440002".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440002")),
         name: Some("first task scheduling".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
@@ -160,7 +165,7 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440003".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440003")),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel task".to_string()),
@@ -236,7 +241,7 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     inputs.insert("list".to_string(), "[\"a\", \"b\"]".to_string());
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440004".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440004")),
         state: JobState::Pending,
         context: Some(twerk_core::job::JobContext {
             inputs: Some(inputs),
@@ -308,7 +313,7 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("550e8400-e29b-41d4-a716-446655440005".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440005")),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("subjob task".to_string()),

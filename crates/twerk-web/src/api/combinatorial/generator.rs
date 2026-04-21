@@ -136,7 +136,7 @@ impl CombinatorialGenerator {
             *has_enum = true;
         }
         schema.properties.values().for_each(|prop| {
-            Self::analyze_schema(prop, has_string_field, has_explicit_bounds, has_enum)
+            Self::analyze_schema(prop, has_string_field, has_explicit_bounds, has_enum);
         });
         if let Some(items) = &schema.items {
             Self::analyze_schema(items, has_string_field, has_explicit_bounds, has_enum);

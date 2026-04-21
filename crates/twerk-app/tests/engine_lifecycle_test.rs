@@ -6,10 +6,18 @@ use std::sync::Arc;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::coordinator::middleware::HttpLogConfig;
 use twerk_app::engine::{BrokerProxy, Config, DatastoreProxy, Engine, Mode, State};
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
 use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
+
+const COORDINATOR_TEST_JOB_ID: &str = "550e8400-e29b-41d4-a716-446655440405";
+const TIMESTAMP_TEST_JOB_ID: &str = "550e8400-e29b-41d4-a716-446655440406";
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
 
 fn engine_with_mode(mode: Mode) -> Engine {
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
@@ -225,7 +233,7 @@ async fn create_datastore_inmemory_creates_datastore() -> Result<()> {
 async fn engine_submit_job_returns_error_when_engine_not_running() -> Result<()> {
     let engine = engine_with_mode(Mode::Standalone);
     let job = Job {
-        id: Some("test-job".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440401")),
         state: JobState::Pending,
         ..Default::default()
     };
@@ -244,7 +252,7 @@ async fn engine_submit_job_returns_error_when_not_coordinator_mode() -> Result<(
     engine.start().await?;
 
     let job = Job {
-        id: Some("test-job".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440402")),
         state: JobState::Pending,
         ..Default::default()
     };
@@ -269,7 +277,7 @@ async fn engine_submit_job_submits_to_coordinator_in_standalone_mode() -> Result
     engine.start().await?;
 
     let job = Job {
-        id: Some("submit-test-job".into()),
+        id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440403")),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("test task".to_string()),
@@ -399,14 +407,14 @@ async fn coordinator_submit_job_creates_job_in_datastore() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("coordinator-test-job".into()),
+        id: Some(to_job_id(COORDINATOR_TEST_JOB_ID)),
         state: JobState::Pending,
         ..Default::default()
     };
 
     coordinator.submit_job(job.clone()).await?;
 
-    let persisted = datastore.get_job_by_id("coordinator-test-job").await?;
+    let persisted = datastore.get_job_by_id(COORDINATOR_TEST_JOB_ID).await?;
     assert_eq!(persisted.id, job.id);
 
     coordinator.stop().await?;
@@ -453,7 +461,7 @@ async fn coordinator_submit_job_sets_created_at() -> Result<()> {
     coordinator.start().await?;
 
     let job = Job {
-        id: Some("timestamp-test-job".into()),
+        id: Some(to_job_id(TIMESTAMP_TEST_JOB_ID)),
         state: JobState::Pending,
         created_at: None,
         ..Default::default()

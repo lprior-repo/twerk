@@ -41,12 +41,20 @@ impl InMemoryTriggerDatastore {
             .map_err(|err| TriggerUpdateError::InvalidIdFormat(err.to_string()))
     }
 
+    /// Insert or replace a trigger by identifier.
+    ///
+    /// # Errors
+    /// Returns an error when the in-memory datastore lock cannot be acquired.
     pub fn upsert(&self, trigger: Trigger) -> Result<(), TriggerUpdateError> {
         self.lock_map()?
             .insert(trigger.id.as_str().to_string(), trigger);
         Ok(())
     }
 
+    /// Create a new trigger from an update request.
+    ///
+    /// # Errors
+    /// Returns an error when the request ID is invalid or the datastore lock cannot be acquired.
     pub fn create_trigger(&self, req: TriggerUpdateRequest) -> Result<Trigger, TriggerUpdateError> {
         let now_utc = OffsetDateTime::now_utc();
         let trigger = Trigger {
@@ -67,6 +75,10 @@ impl InMemoryTriggerDatastore {
         Ok(trigger)
     }
 
+    /// Load a trigger by identifier.
+    ///
+    /// # Errors
+    /// Returns an error when the datastore lock cannot be acquired or the trigger does not exist.
     pub fn get_trigger_by_id(&self, id: &TriggerId) -> Result<Trigger, TriggerUpdateError> {
         self.lock_map()?
             .get(id.as_str())
@@ -74,10 +86,19 @@ impl InMemoryTriggerDatastore {
             .ok_or_else(|| TriggerUpdateError::TriggerNotFound(id.as_str().to_string()))
     }
 
+    /// List every trigger stored in memory.
+    ///
+    /// # Errors
+    /// Returns an error when the datastore lock cannot be acquired.
     pub fn list_triggers(&self) -> Result<Vec<Trigger>, TriggerUpdateError> {
         Ok(self.lock_map()?.values().cloned().collect())
     }
 
+    /// Update an existing trigger with a caller-provided transformation.
+    ///
+    /// # Errors
+    /// Returns an error when the datastore is configured to fail the next update, the lock cannot
+    /// be acquired, the trigger does not exist, or the supplied transformation rejects the update.
     pub fn update_trigger(
         &self,
         id: &TriggerId,
@@ -103,6 +124,10 @@ impl InMemoryTriggerDatastore {
         self.fail_next_update.swap(should_fail, Ordering::SeqCst)
     }
 
+    /// Delete a trigger by identifier.
+    ///
+    /// # Errors
+    /// Returns an error when the datastore lock cannot be acquired or the trigger does not exist.
     pub fn delete_trigger(&self, id: &TriggerId) -> Result<(), TriggerUpdateError> {
         self.lock_map()?
             .remove(id.as_str())

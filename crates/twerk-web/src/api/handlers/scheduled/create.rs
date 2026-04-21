@@ -34,6 +34,9 @@ use twerk_core::job::new_scheduled_job_summary;
     )
 )]
 #[instrument(name = "create_scheduled_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the request body cannot be parsed, the scheduled job fails validation,
+/// persistence fails, or the creation event cannot be serialized or published.
 pub async fn create_scheduled_job_handler(
     State(state): State<AppState>,
     headers: HeaderMap,

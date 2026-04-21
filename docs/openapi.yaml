@@ -13,7 +13,11 @@ paths:
     get:
       tags:
       - super::trigger_api::handlers::query
-      summary: GET /api/v1/triggers
+      summary: |-
+        GET /api/v1/triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; persistence and serialization
+        failures are converted into HTTP responses.
       operationId: list_triggers_handler
       responses:
         '200':
@@ -33,7 +37,11 @@ paths:
     post:
       tags:
       - super::trigger_api::handlers::command
-      summary: POST /api/v1/triggers
+      summary: |-
+        POST /api/v1/triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        creation, and serialization failures are converted into HTTP responses.
       operationId: create_trigger_handler
       requestBody:
         content:
@@ -58,7 +66,11 @@ paths:
     get:
       tags:
       - super::trigger_api::handlers::query
-      summary: GET /api/v1/triggers/{id}
+      summary: |-
+        GET /api/v1/triggers/{id}
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing
+        triggers, and serialization failures are converted into HTTP responses.
       operationId: get_trigger_handler
       parameters:
       - name: id
@@ -89,7 +101,11 @@ paths:
     put:
       tags:
       - super::trigger_api::handlers::command
-      summary: Handler for `PUT /api/v1/triggers/{id}`.
+      summary: |-
+        Handler for `PUT /api/v1/triggers/{id}`.
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        update, and serialization failures are converted into HTTP responses.
       operationId: update_trigger_handler
       parameters:
       - name: id
@@ -178,7 +194,10 @@ paths:
     get:
       tags:
       - super::handlers::jobs::read
-      summary: GET /jobs
+      summary: |-
+        GET /jobs
+        # Errors
+        Returns an error when the requested page of jobs cannot be loaded from the datastore.
       operationId: list_jobs_handler
       parameters:
       - name: page
@@ -209,7 +228,11 @@ paths:
     post:
       tags:
       - super::handlers::jobs::create
-      summary: POST /jobs
+      summary: |-
+        POST /jobs
+        # Errors
+        Returns an error when the request body cannot be parsed, the job fails validation, the
+        datastore or broker operation fails, or the blocking wait path times out.
       operationId: create_job_handler
       parameters:
       - name: wait
@@ -251,7 +274,11 @@ paths:
     get:
       tags:
       - super::handlers::jobs::read
-      summary: GET /jobs/{id}
+      summary: |-
+        GET /jobs/{id}
+        # Errors
+        Returns an error when the job cannot be loaded or its tasks cannot be fetched from the
+        datastore.
       operationId: get_job_handler
       parameters:
       - name: id
@@ -277,7 +304,11 @@ paths:
     put:
       tags:
       - super::handlers::jobs::mutation
-      summary: PUT /jobs/{id}/cancel
+      summary: |-
+        PUT /jobs/{id}/cancel
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be cancelled in its current state.
       operationId: cancel_job_handler
       parameters:
       - name: id
@@ -308,7 +339,11 @@ paths:
     post:
       tags:
       - super::handlers::jobs::mutation
-      summary: POST /jobs/{id}/cancel
+      summary: |-
+        POST /jobs/{id}/cancel
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be cancelled in its current state.
       operationId: cancel_job_handler_post
       parameters:
       - name: id
@@ -341,7 +376,10 @@ paths:
     get:
       tags:
       - super::handlers::jobs::read
-      summary: GET /jobs/{id}/log
+      summary: |-
+        GET /jobs/{id}/log
+        # Errors
+        Returns an error when the job cannot be loaded or the requested log page cannot be fetched.
       operationId: get_job_log_handler
       parameters:
       - name: id
@@ -379,7 +417,11 @@ paths:
     put:
       tags:
       - super::handlers::jobs::mutation
-      summary: PUT /jobs/{id}/restart
+      summary: |-
+        PUT /jobs/{id}/restart
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be restarted from its current state.
       operationId: restart_job_handler
       parameters:
       - name: id
@@ -508,7 +550,10 @@ paths:
     get:
       tags:
       - super::handlers::scheduled::read
-      summary: GET /scheduled-jobs
+      summary: |-
+        GET /scheduled-jobs
+        # Errors
+        Returns an error when the requested page of scheduled jobs cannot be loaded.
       operationId: list_scheduled_jobs_handler
       responses:
         '200':
@@ -520,7 +565,11 @@ paths:
     post:
       tags:
       - super::handlers::scheduled::create
-      summary: POST /scheduled-jobs
+      summary: |-
+        POST /scheduled-jobs
+        # Errors
+        Returns an error when the request body cannot be parsed, the scheduled job fails validation,
+        persistence fails, or the creation event cannot be serialized or published.
       operationId: create_scheduled_job_handler
       requestBody:
         description: Scheduled job definition as JSON or YAML

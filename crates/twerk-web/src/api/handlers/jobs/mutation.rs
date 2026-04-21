@@ -58,6 +58,9 @@ async fn cancel_job_impl(state: AppState, id: JobId) -> Result<Response, ApiErro
     )
 )]
 #[instrument(name = "cancel_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the job lookup or update fails, the broker publish fails, or the job
+/// cannot be cancelled in its current state.
 pub async fn cancel_job_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,
@@ -77,6 +80,9 @@ pub async fn cancel_job_handler(
     )
 )]
 #[instrument(name = "cancel_job_handler_post", skip_all)]
+/// # Errors
+/// Returns an error when the job lookup or update fails, the broker publish fails, or the job
+/// cannot be cancelled in its current state.
 pub async fn cancel_job_handler_post(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,
@@ -96,6 +102,9 @@ pub async fn cancel_job_handler_post(
     )
 )]
 #[instrument(name = "restart_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the job lookup or update fails, the broker publish fails, or the job
+/// cannot be restarted from its current state.
 pub async fn restart_job_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,

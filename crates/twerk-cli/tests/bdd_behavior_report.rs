@@ -22,11 +22,37 @@
 //! ## Execution Evidence
 
 use clap::Parser;
+use std::ffi::OsString;
+use std::sync::{LazyLock, Mutex};
 use twerk_cli::cli::{DEFAULT_DATASTORE_TYPE, DEFAULT_ENDPOINT, VERSION};
 use twerk_cli::commands::{Cli, Commands};
 use twerk_cli::error::CliError;
 use twerk_cli::health::{health_check, HealthResponse};
 use twerk_cli::migrate::{run_migration, DEFAULT_POSTGRES_DSN};
+
+static LOGGING_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+struct LoggingEnvGuard {
+    previous: Option<OsString>,
+}
+
+impl LoggingEnvGuard {
+    fn set(value: &str) -> Self {
+        let previous = std::env::var_os("TWERK_LOGGING_LEVEL");
+        std::env::set_var("TWERK_LOGGING_LEVEL", value);
+        Self { previous }
+    }
+}
+
+impl Drop for LoggingEnvGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            std::env::set_var("TWERK_LOGGING_LEVEL", previous);
+        } else {
+            std::env::remove_var("TWERK_LOGGING_LEVEL");
+        }
+    }
+}
 
 #[test]
 fn claim_1_default_endpoint_constant() {
@@ -42,18 +68,17 @@ fn claim_2_default_datastore_type() {
 
 #[test]
 fn claim_3_setup_logging_accepts_valid_level() {
-    std::env::remove_var("TWERK_LOGGING_LEVEL");
-    std::env::set_var("TWERK_LOGGING_LEVEL", "debug");
+    let _lock = LOGGING_ENV_LOCK.lock().unwrap();
+    let _guard = LoggingEnvGuard::set("debug");
     let result = twerk_cli::cli::setup_logging();
-    std::env::remove_var("TWERK_LOGGING_LEVEL");
     assert!(result.is_ok(), "setup_logging should accept 'debug'");
 }
 
 #[test]
 fn claim_4_setup_logging_rejects_invalid_level() {
-    std::env::set_var("TWERK_LOGGING_LEVEL", "invalid_level_xyz");
+    let _lock = LOGGING_ENV_LOCK.lock().unwrap();
+    let _guard = LoggingEnvGuard::set("invalid_level_xyz");
     let result = twerk_cli::cli::setup_logging();
-    std::env::remove_var("TWERK_LOGGING_LEVEL");
     assert!(matches!(result, Err(CliError::Logging(_))));
 }
 

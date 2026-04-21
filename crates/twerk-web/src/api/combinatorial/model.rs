@@ -33,6 +33,7 @@ pub struct PathItem {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Operation {
+    #[serde(default, rename = "operationId")]
     pub operation_id: Option<String>,
     pub summary: Option<String>,
     #[serde(default)]
@@ -102,6 +103,7 @@ pub struct Schema {
 }
 
 impl Schema {
+    #[must_use]
     pub fn get_type(&self) -> Option<&str> {
         self.schema_type.as_deref().or(self.type_field.as_deref())
     }

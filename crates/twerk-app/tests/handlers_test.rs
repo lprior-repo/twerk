@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use twerk_app::engine::coordinator::handlers;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
-use twerk_core::id::NodeId;
+use twerk_core::id::{JobId, NodeId};
 use twerk_core::job::{Job, JobState};
 use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{Task, TaskLogPart, TaskState};
@@ -20,6 +20,10 @@ fn to_ds(ds: &DatastoreProxy) -> Arc<dyn Datastore> {
 
 fn to_broker(b: &BrokerProxy) -> Arc<dyn Broker> {
     Arc::new(b.clone_inner())
+}
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
 }
 
 async fn setup() -> Result<(DatastoreProxy, BrokerProxy)> {
@@ -38,11 +42,11 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "redeliver-test-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440201";
     let task_id = "redeliver-test-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -50,7 +54,7 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: TaskState::Running,
         redelivered: 1,
         queue: Some("default".to_string()),
@@ -78,11 +82,11 @@ async fn handle_started_updates_task_state() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "started-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440202";
     let task_id = "started-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -90,7 +94,7 @@ async fn handle_started_updates_task_state() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: twerk_core::task::TaskState::Scheduled,
         ..Default::default()
     };
@@ -112,11 +116,11 @@ async fn handle_error_updates_task_state() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "error-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440203";
     let task_id = "error-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -124,7 +128,7 @@ async fn handle_error_updates_task_state() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: TaskState::Running,
         error: Some("something went wrong".to_string()),
         ..Default::default()
@@ -148,11 +152,11 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "error-queue-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440204";
     let task_id = "error-queue-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -160,7 +164,7 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: TaskState::Running,
         error: Some("task failed".to_string()),
         ..Default::default()
@@ -210,11 +214,11 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "log-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440205";
     let task_id = "log-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -222,7 +226,7 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: TaskState::Running,
         ..Default::default()
     };
@@ -255,11 +259,11 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
     let ds = to_ds(&datastore);
     let b = to_broker(&broker);
 
-    let job_id = "multi-log-job";
+    let job_id = "550e8400-e29b-41d4-a716-446655440206";
     let task_id = "multi-log-task";
 
     let job = Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         state: JobState::Running,
         ..Default::default()
     };
@@ -267,7 +271,7 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
 
     let task = Task {
         id: Some(task_id.into()),
-        job_id: Some(job_id.into()),
+        job_id: Some(to_job_id(job_id)),
         state: TaskState::Running,
         ..Default::default()
     };

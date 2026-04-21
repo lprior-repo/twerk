@@ -4,4 +4,4 @@ tasks:
   - var: hello
     name: simple task
     image: ubuntu:mantic
-    run: echo -n hello world > $TORK_OUTPUT
+    run: echo -n hello world > $TWERK_OUTPUT

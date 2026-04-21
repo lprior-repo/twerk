@@ -21,7 +21,7 @@ inputs:
 tasks:
   - name: presign the s3 source
     var: signedURL
-    run: aws --endpoint-url $ENDPOINT_URL s3 presign $SOURCE --expires-in 86400 > $TORK_OUTPUT
+    run: aws --endpoint-url $ENDPOINT_URL s3 presign $SOURCE --expires-in 86400 > $TWERK_OUTPUT
     image: amazon/aws-cli:2.13.10
     env:
       AWS_ACCESS_KEY_ID: "{{inputs.accessKeyID}}"
@@ -38,7 +38,7 @@ tasks:
         -show_error \
         -show_format \
         -show_streams \
-        $SOURCE > $TORK_OUTPUT
+        $SOURCE > $TWERK_OUTPUT
     image: jrottenberg/ffmpeg:3.4-alpine
     env:
       SOURCE: "{{ tasks.signedURL }}"
@@ -47,7 +47,7 @@ tasks:
     var: duration
     run: |
       DURATION=$(echo -n $FFPROBE | jq -r '.format.duration')
-      echo -n $DURATION >> $TORK_OUTPUT
+      echo -n $DURATION >> $TWERK_OUTPUT
     image: badouralix/curl-jq
     env:
       FFPROBE: "{{ tasks.ffprobe }}"
@@ -56,7 +56,7 @@ tasks:
     var: framerate
     run: |
       FRAMERATE=$(echo -n $FFPROBE | jq -r '.streams[] | select (.codec_type=="video") | .r_frame_rate')
-      echo -n $FRAMERATE >> $TORK_OUTPUT
+      echo -n $FRAMERATE >> $TWERK_OUTPUT
     image: badouralix/curl-jq
     env:
       FFPROBE: "{{ tasks.ffprobe }}"
@@ -64,7 +64,7 @@ tasks:
   - name: clean and parse framerate
     var: framerate
     run: |
-      python script.py $FRAMERATE > $TORK_OUTPUT
+      python script.py $FRAMERATE > $TWERK_OUTPUT
     image: python:3-slim
     env:
       FRAMERATE: "{{ tasks.framerate }}"
@@ -80,7 +80,7 @@ tasks:
   - name: calculate chunks times
     var: chunks
     run: |
-      python script.py $DURATION $FRAMERATE > $TORK_OUTPUT
+      python script.py $DURATION $FRAMERATE > $TWERK_OUTPUT
     image: python:3-slim
     env:
       DURATION: "{{ tasks.duration }}"
@@ -118,7 +118,7 @@ tasks:
 
   - name: generate a random bucket name to store the results
     var: bucketName
-    run: echo -n "video-$(shuf -i 1-10000 -n1)" > $TORK_OUTPUT
+    run: echo -n "video-$(shuf -i 1-10000 -n1)" > $TWERK_OUTPUT
     image: ubuntu:mantic
 
   - name: create a temporary bucket to house the chunks

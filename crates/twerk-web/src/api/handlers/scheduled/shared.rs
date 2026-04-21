@@ -28,6 +28,10 @@ pub struct CreateScheduledJobBody {
     pub auto_delete: Option<twerk_core::task::AutoDelete>,
 }
 
+/// Parse a scheduled job create request body as JSON or YAML.
+///
+/// # Errors
+/// Returns an error when the content type is unsupported or the payload cannot be parsed.
 pub fn parse_create_body(
     headers: &HeaderMap,
     body: &Bytes,
@@ -41,6 +45,11 @@ pub fn parse_create_body(
     }
 }
 
+/// Validate the required scheduled job fields before creation.
+///
+/// # Errors
+/// Returns an error when `cron` or `tasks` is missing, the cron expression is invalid, or the
+/// job payload fails validation.
 pub fn validate_create_input(
     body: &CreateScheduledJobBody,
 ) -> Result<(String, Vec<twerk_core::task::Task>), ApiError> {
@@ -67,6 +76,10 @@ pub fn validate_create_input(
     Ok((cron, tasks))
 }
 
+/// Build a persisted scheduled job from validated input.
+///
+/// # Errors
+/// Returns an error when generating or validating the scheduled job identifier fails.
 pub fn build_scheduled_job(
     body: CreateScheduledJobBody,
     cron: String,
@@ -94,6 +107,10 @@ pub fn build_scheduled_job(
     })
 }
 
+/// Validate that a scheduled job can transition into the paused state.
+///
+/// # Errors
+/// Returns an error when the scheduled job is not currently active.
 pub fn validate_pause(job: &ScheduledJob) -> Result<(), ApiError> {
     if job.state == ScheduledJobState::Active {
         Ok(())
@@ -102,6 +119,10 @@ pub fn validate_pause(job: &ScheduledJob) -> Result<(), ApiError> {
     }
 }
 
+/// Validate that a scheduled job can transition into the active state.
+///
+/// # Errors
+/// Returns an error when the scheduled job is not currently paused.
 pub fn validate_resume(job: &ScheduledJob) -> Result<(), ApiError> {
     if job.state == ScheduledJobState::Paused {
         Ok(())
@@ -110,6 +131,7 @@ pub fn validate_resume(job: &ScheduledJob) -> Result<(), ApiError> {
     }
 }
 
+#[must_use]
 pub fn pause_state_transition(
 ) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
     Box::new(|mut job| {
@@ -118,6 +140,7 @@ pub fn pause_state_transition(
     })
 }
 
+#[must_use]
 pub fn resume_state_transition(
 ) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
     Box::new(|mut job| {
@@ -126,20 +149,27 @@ pub fn resume_state_transition(
     })
 }
 
+#[must_use]
 pub fn status_ok_response() -> Response {
     (StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response()
 }
 
+#[must_use]
 pub fn was_active(job: &ScheduledJob) -> bool {
     job.state == ScheduledJobState::Active
 }
 
+#[must_use]
 pub fn build_paused_for_event(job: &ScheduledJob) -> ScheduledJob {
     let mut paused = job.clone();
     paused.state = ScheduledJobState::Paused;
     paused
 }
 
+/// Serialize a scheduled job into the broker event payload format.
+///
+/// # Errors
+/// Returns an error when the scheduled job cannot be serialized into JSON.
 pub fn scheduled_job_event_value(job: &ScheduledJob) -> Result<serde_json::Value, ApiError> {
     serde_json::to_value(job).map_err(|error| ApiError::internal(error.to_string()))
 }

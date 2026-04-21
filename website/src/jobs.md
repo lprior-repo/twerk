@@ -35,7 +35,7 @@ defaults:                             # Applied to all tasks
     memory: "512m"                  # Memory limit
   timeout: 10m                      # Task timeout
   queue: default                      # Queue name
-  priority: 5                        # 0-9, higher = more priority
+  priority: 5                        # 0-9, lower values run first
 
 # ─── Tasks ───────────────────────────────────────────────────────────────────
 tasks:

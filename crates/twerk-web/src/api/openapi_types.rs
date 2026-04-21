@@ -21,6 +21,7 @@ pub struct HealthResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum CreateJobResponse {
     Summary(JobSummary),
     Job(Job),

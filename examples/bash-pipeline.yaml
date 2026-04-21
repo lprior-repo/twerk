@@ -7,13 +7,13 @@ tasks:
     image: ubuntu:mantic
     run: |
       echo "Step 1: Hello from bash!"
-      echo -n "hello-world" > $TORK_OUTPUT
+      echo -n "hello-world" > $TWERK_OUTPUT
 
   - name: step 2 - uppercase
     image: ubuntu:mantic
     run: |
       echo "Step 2: Converting to uppercase..."
-      echo "{{ tasks.step1_output }}" | tr '[:lower:]' '[:upper:]' > $TORK_OUTPUT
+      echo "{{ tasks.step1_output }}" | tr '[:lower:]' '[:upper:]' > $TWERK_OUTPUT
 
   - var: math_result
     name: step 3 - calculate
@@ -22,7 +22,7 @@ tasks:
       echo "Step 3: Doing math..."
       RESULT=$((42 + 137))
       echo "42 + 137 = $RESULT"
-      echo -n "$RESULT" > $TORK_OUTPUT
+      echo -n "$RESULT" > $TWERK_OUTPUT
 
   - name: step 4 - parallel greetings
     parallel:
@@ -32,19 +32,19 @@ tasks:
           image: ubuntu:mantic
           run: |
             echo "Hello from task A!"
-            echo -n "TaskA" > $TORK_OUTPUT
+            echo -n "TaskA" > $TWERK_OUTPUT
         - var: greeting2
           name: parallel world
           image: ubuntu:mantic
           run: |
             echo "Hello from task B!"
-            echo -n "TaskB" > $TORK_OUTPUT
+            echo -n "TaskB" > $TWERK_OUTPUT
         - var: greeting3
           name: parallel rust
           image: ubuntu:mantic
           run: |
             echo "Hello from task C!"
-            echo -n "TaskC" > $TORK_OUTPUT
+            echo -n "TaskC" > $TWERK_OUTPUT
 
   - var: final_result
     name: step 5 - final output
@@ -56,4 +56,4 @@ tasks:
       echo "Math result: {{ tasks.math_result }}"
       echo "Parallel results: {{ tasks.greeting1 }}, {{ tasks.greeting2 }}, {{ tasks.greeting3 }}"
       FINAL="Final: done at $(date)"
-      echo "$FINAL" > $TORK_OUTPUT
+      echo "$FINAL" > $TWERK_OUTPUT

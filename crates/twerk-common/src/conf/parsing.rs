@@ -8,16 +8,17 @@ use super::types::{ConfigError, ConfigState};
 use super::CONFIG;
 
 const DEFAULT_CONFIG_PATHS: &[&str] = &[
+    // Prefer TOML filenames first because config contents are parsed as TOML.
+    "config.local.toml",
+    "config.toml",
     "config.local.yaml",
     "config.yaml",
     "config.local.yml",
     "config.yml",
-    "config.local.toml",
-    "config.toml",
-    "~/twerk/config.yaml",
     "~/twerk/config.toml",
-    "/etc/twerk/config.yaml",
+    "~/twerk/config.yaml",
     "/etc/twerk/config.toml",
+    "/etc/twerk/config.yaml",
 ];
 
 /// Expands `~` to home directory in a path.

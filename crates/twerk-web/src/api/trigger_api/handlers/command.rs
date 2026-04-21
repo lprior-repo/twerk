@@ -29,6 +29,9 @@ use super::{BODY_TOO_LARGE_MSG, MAX_BODY_BYTES};
         (status = 409, description = "Version conflict", body = TriggerErrorResponse, content_type = "application/json")
     )
 )]
+/// # Errors
+/// This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+/// update, and serialization failures are converted into HTTP responses.
 pub async fn update_trigger_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -36,14 +39,14 @@ pub async fn update_trigger_handler(
     body: Bytes,
 ) -> Result<Response, ApiError> {
     if body.len() > MAX_BODY_BYTES {
-        return Ok(error_response(TriggerUpdateError::ValidationFailed(
+        return Ok(error_response(&TriggerUpdateError::ValidationFailed(
             BODY_TOO_LARGE_MSG.to_string(),
         )));
     }
 
     let (trigger_id, request) = match prepare_update(&headers, &body, &id) {
         Ok(value) => value,
-        Err(error) => return Ok(error_response(error)),
+        Err(error) => return Ok(error_response(&error)),
     };
 
     let updated = match state.trigger_state.trigger_ds.update_trigger(
@@ -51,12 +54,12 @@ pub async fn update_trigger_handler(
         Box::new(move |current| apply_trigger_update(current, request, OffsetDateTime::now_utc())),
     ) {
         Ok(trigger) => trigger,
-        Err(error) => return Ok(error_response(error)),
+        Err(error) => return Ok(error_response(&error)),
     };
 
     match serialize_view(TriggerView::from(updated)) {
         Ok(response) => Ok(response),
-        Err(error) => Ok(error_response(error)),
+        Err(error) => Ok(error_response(&error)),
     }
 }
 
@@ -70,32 +73,35 @@ pub async fn update_trigger_handler(
         (status = 400, description = "Validation error", body = TriggerErrorResponse, content_type = "application/json")
     )
 )]
+/// # Errors
+/// This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+/// creation, and serialization failures are converted into HTTP responses.
 pub async fn create_trigger_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, ApiError> {
     if body.len() > MAX_BODY_BYTES {
-        return Ok(error_response(TriggerUpdateError::ValidationFailed(
+        return Ok(error_response(&TriggerUpdateError::ValidationFailed(
             BODY_TOO_LARGE_MSG.to_string(),
         )));
     }
 
     if let Err(error) = parse_content_type(&headers) {
-        return Ok(error_response(error));
+        return Ok(error_response(&error));
     }
 
     let request = match decode_trigger_update_request(&body) {
         Ok(request) => request,
-        Err(error) => return Ok(error_response(error)),
+        Err(error) => return Ok(error_response(&error)),
     };
     if let Err(error) = validate_trigger_create(&request) {
-        return Ok(error_response(error));
+        return Ok(error_response(&error));
     }
 
     let created = match state.trigger_state.trigger_ds.create_trigger(request) {
         Ok(trigger) => trigger,
-        Err(error) => return Ok(error_response(error)),
+        Err(error) => return Ok(error_response(&error)),
     };
 
     Ok((StatusCode::CREATED, axum::Json(TriggerView::from(created))).into_response())

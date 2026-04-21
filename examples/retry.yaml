@@ -6,7 +6,7 @@ tasks:
     run: |
       COINFLIP=$((( RANDOM % 2 )) && echo "heads" || echo "tails")
       echo -n "$COINFLIP"
-      echo -n "$COINFLIP" > $TORK_OUTPUT
+      echo -n "$COINFLIP" > $TWERK_OUTPUT
       if [ "$COINFLIP" = "heads" ]; then
           exit 0
       else

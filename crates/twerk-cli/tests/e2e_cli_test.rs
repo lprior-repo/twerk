@@ -19,7 +19,7 @@ fn cli_binary() -> String {
     workspace_root
         .join("target")
         .join("debug")
-        .join("twerk-cli")
+        .join("twerk")
         .to_string_lossy()
         .to_string()
 }

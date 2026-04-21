@@ -26,6 +26,9 @@ use crate::middleware::hooks::{on_read_job, on_read_job_summary};
     )
 )]
 #[instrument(name = "get_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the job cannot be loaded or its tasks cannot be fetched from the
+/// datastore.
 pub async fn get_job_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,
@@ -63,6 +66,8 @@ pub async fn get_job_handler(
     )
 )]
 #[instrument(name = "list_jobs_handler", skip_all)]
+/// # Errors
+/// Returns an error when the requested page of jobs cannot be loaded from the datastore.
 pub async fn list_jobs_handler(
     State(state): State<AppState>,
     Query(raw): Query<RawPaginationQuery>,
@@ -99,6 +104,8 @@ pub async fn list_jobs_handler(
     )
 )]
 #[instrument(name = "get_job_log_handler", skip_all)]
+/// # Errors
+/// Returns an error when the job cannot be loaded or the requested log page cannot be fetched.
 pub async fn get_job_log_handler(
     State(state): State<AppState>,
     AxumPath(id): AxumPath<JobId>,

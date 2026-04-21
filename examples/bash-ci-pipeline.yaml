@@ -7,7 +7,7 @@ tasks:
     run: |
       echo "Checking out code..."
       echo "commit: abc123"
-      echo -n "CHECKOUT_OK" > $TORK_OUTPUT
+      echo -n "CHECKOUT_OK" > $TWERK_OUTPUT
 
   - name: parallel build
     parallel:
@@ -18,7 +18,7 @@ tasks:
           run: |
             echo "Installing npm packages..."
             sleep 0.3
-            echo -n "DEPS_OK" > $TORK_OUTPUT
+            echo -n "DEPS_OK" > $TWERK_OUTPUT
 
         - var: lint_result
           name: lint code
@@ -27,7 +27,7 @@ tasks:
             echo "Running linter..."
             sleep 0.2
             echo "✓ No lint errors"
-            echo -n "LINT_OK" > $TORK_OUTPUT
+            echo -n "LINT_OK" > $TWERK_OUTPUT
 
         - var: typecheck_result
           name: type check
@@ -36,7 +36,7 @@ tasks:
             echo "Running type checker..."
             sleep 0.2
             echo "✓ Types OK"
-            echo -n "TYPES_OK" > $TORK_OUTPUT
+            echo -n "TYPES_OK" > $TWERK_OUTPUT
 
   - name: parallel tests
     parallel:
@@ -62,7 +62,7 @@ tasks:
       echo "Deploying to production..."
       sleep 1
       echo "✓ Deploy successful!"
-      echo -n "DEPLOYED_v1.0" > $TORK_OUTPUT
+      echo -n "DEPLOYED_v1.0" > $TWERK_OUTPUT
 
   - name: health check
     image: ubuntu:mantic

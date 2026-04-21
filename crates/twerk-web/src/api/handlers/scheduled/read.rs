@@ -20,6 +20,8 @@ use crate::api::redact::{redact_scheduled_job, redact_scheduled_job_summary};
     )
 )]
 #[instrument(name = "list_scheduled_jobs_handler", skip_all)]
+/// # Errors
+/// Returns an error when the requested page of scheduled jobs cannot be loaded.
 pub async fn list_scheduled_jobs_handler(
     State(state): State<AppState>,
     Query(raw): Query<RawPaginationQuery>,

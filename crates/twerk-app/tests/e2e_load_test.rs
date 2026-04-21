@@ -14,13 +14,18 @@
 
 use std::time::Instant;
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::{Task, TaskState};
+
+fn to_job_id(value: impl Into<String>) -> JobId {
+    JobId::new(value).expect("test job id should be valid")
+}
 
 /// Creates a parallel job struct with N tasks
 fn create_parallel_job(job_id: &str, num_tasks: usize) -> Job {
     Job {
-        id: Some(job_id.into()),
+        id: Some(to_job_id(job_id)),
         name: Some("load-test-job".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
@@ -76,7 +81,7 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     let start = Instant::now();
     engine.start().await?;
 
-    let job_id = format!("load-test-{task_count}");
+    let job_id = twerk_core::uuid::new_short_uuid();
     let job = create_parallel_job(&job_id, task_count);
 
     let schedule_start = Instant::now();
@@ -125,7 +130,7 @@ async fn db_write_throughput_test() -> anyhow::Result<()> {
         for i in 0..size {
             let task = Task {
                 id: Some(format!("{}-{:04}", job_id, i).into()),
-                job_id: Some(job_id.clone().into()),
+                job_id: Some(to_job_id(job_id.clone())),
                 name: Some("db-test".to_string()),
                 state: TaskState::Created,
                 ..Default::default()
@@ -164,7 +169,7 @@ async fn db_query_under_load_test() -> anyhow::Result<()> {
         for i in 0..size {
             let task = Task {
                 id: Some(format!("{}-{:04}", job_id, i).into()),
-                job_id: Some(job_id.clone().into()),
+                job_id: Some(to_job_id(job_id.clone())),
                 name: Some("query-test".to_string()),
                 state: TaskState::Created,
                 ..Default::default()
@@ -221,7 +226,7 @@ async fn db_concurrent_write_test() -> anyhow::Result<()> {
                     for i in 0..tasks_per_thread {
                         let task = Task {
                             id: Some(format!("{}-{t}-{i:04}", &job_id[..8]).into()),
-                            job_id: Some(job_id.clone().into()),
+                            job_id: Some(to_job_id(job_id.clone())),
                             name: Some("concurrent-test".to_string()),
                             state: TaskState::Created,
                             ..Default::default()

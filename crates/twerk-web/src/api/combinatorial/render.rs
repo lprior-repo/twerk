@@ -15,18 +15,20 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
     output.push_str("#![allow(clippy::unwrap_used)]\n\n");
     output.push_str("use super::*;\n\n");
 
-    test_cases.iter().for_each(|test_case| {
-        let test_name = format!(
-            "test_{}_{}_{}",
-            test_case
-                .operation_id
-                .replace(['-', ' '], "_")
-                .to_lowercase(),
-            test_case.method.to_lowercase(),
-            test_case.input_variation
-        );
-        output.push_str(&format!(
-            r#"#[tokio::test]
+    test_cases
+        .into_iter()
+        .fold(output, |mut rendered, test_case| {
+            let test_name = format!(
+                "test_{}_{}_{}",
+                test_case
+                    .operation_id
+                    .replace(['-', ' '], "_")
+                    .to_lowercase(),
+                test_case.method.to_lowercase(),
+                test_case.input_variation
+            );
+            rendered.push_str(&format!(
+                r#"#[tokio::test]
 async fn {}() {{
     let test_case = TestCase {{
         endpoint: "{}",
@@ -39,17 +41,16 @@ async fn {}() {{
     let _ = test_case;
 }}
 "#,
-            test_name,
-            test_case.endpoint,
-            test_case.method,
-            test_case.content_type.as_deref().unwrap_or("none"),
-            test_case.operation_id,
-            test_case.description,
-            variant_name(&test_case.input_variation)
-        ));
-    });
-
-    output
+                test_name,
+                test_case.endpoint,
+                test_case.method,
+                test_case.content_type.as_deref().unwrap_or("none"),
+                test_case.operation_id,
+                test_case.description,
+                variant_name(&test_case.input_variation)
+            ));
+            rendered
+        })
 }
 
 fn variant_name(variation: &InputVariation) -> &'static str {

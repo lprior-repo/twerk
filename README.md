@@ -1,84 +1,82 @@
 # Twerk
 
-> The Rust rewrite of [Twerk](https://github.com/runabol/twerk) — a distributed task execution system
+> A Rust task runner and distributed execution system.
 
 ---
 
 [![Rust](https://img.shields.io/badge/Rust-1.75+-pink.svg?style=for-the-badge)](https://www.rust-lang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-ff69b4.svg?style=for-the-badge)](LICENSE)
+[![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-ff69b4.svg?style=for-the-badge)](LICENSE)
 
 ## Overview
 
-Twerk is a port of the Twerk distributed task execution system from Go to Rust. The goal is to bring Twerk's functionality to Rust with proper type safety, async-first design, and zero-cost abstractions.
-
-Twerk handles workflow execution across Docker, Podman, and Shell environments. Twerk aims to provide the same capabilities with Rust's compile-time safety guarantees.
+Twerk runs jobs across shell, Docker, and Podman runtimes. It can run as a single local process for development or as a distributed coordinator and worker system backed by Postgres and RabbitMQ.
 
 ## Features
 
-- **Multi-Runtime Support** — Docker, Podman, Shell executors
-- **Distributed Execution** — Scale tasks across multiple nodes
-- **Async Everything** — Built on Tokio for high throughput
-- **Type Safety** — Rust's compiler catches bugs before runtime
-- **RabbitMQ Broker** — Production-grade message broker with connection pooling
-- **Postgres Datastore** — Persistent storage with connection pooling
-- **Graceful Shutdown** — Proper signal handling and cleanup
+- **Zero-Dependency Local Mode** — In-memory broker/datastore with shell runtime for fast onboarding
+- **Multi-Runtime Support** — Shell, Docker, and Podman executors
+- **Distributed Execution** — Separate coordinator and worker processes when you need them
+- **HTTP API** — Job submission, status, logs, health, scheduled jobs, queues, and triggers
+- **Async Rust Core** — Tokio-based services with typed domain models
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/lprior-repo/twerk.git
+git clone https://github.com/runabol/twerk.git
 cd twerk
-cargo build --release
-./target/release/twerk-cli --help
+cargo build --release -p twerk-cli
+./target/release/twerk run standalone
 ```
 
+The repo-root `config.toml` is set up for the primary local journey:
 
+- `broker.type = "inmemory"`
+- `datastore.type = "inmemory"`
+- `runtime.type = "shell"`
+
+Health check:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Submit the example job and wait for completion:
+
+```bash
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
+  -H "Content-Type: text/yaml" \
+  --data-binary @examples/hello-shell.yaml
+```
+
+## Docs
+
+- `website/src/quick-start.md` — Primary standalone journey
+- `website/src/configuration.md` — Config file and environment variable reference
+- `website/src/rest-api.md` — Current HTTP endpoints
+- `examples/hello-shell.yaml` — Zero-dependency sample job
+- `configs/sample.config.toml` — Broader TOML configuration example
 
 ## Project Structure
 
 ```
 twerk/
-├── twerk/              # Core domain types
-├── locker/            # Distributed locking
-├── engine/            # Orchestration engine
-├── broker/            # Message broker (RabbitMQ + in-memory)
-├── datastore/         # Data storage (Postgres)
-├── cli/               # Command line interface
-├── health/            # Health checks
-├── input/            # Input validation
-├── coordinator/       # Job coordinator + API server
-└── runtime/          # Runtime implementations (Docker, Podman, Shell)
+├── crates/twerk-common         # Shared config, logging, utilities
+├── crates/twerk-core           # Domain types and validation
+├── crates/twerk-infrastructure # Brokers, datastores, runtimes
+├── crates/twerk-app            # Engine, coordinator, worker
+├── crates/twerk-web            # HTTP API and OpenAPI
+├── crates/twerk-cli            # CLI crate that ships the `twerk` binary
+├── website/                    # mdBook source
+├── examples/                   # Example job definitions
+└── configs/                    # Sample configuration files
 ```
-
-## Design Principles
-
-- **Type Safety** — Compiler-enforced correctness
-- **Zero Panics** — No `.unwrap()` or `.expect()` in production
-- **Parse at Boundaries** — Validate at input, trust internals
-- **Async First** — All I/O is async via Tokio
-- **Functional Core** — Data → Calc → Actions
-
-## Port Status
-
-The port covers all 173 Go source files across:
-
-- Domain types (Task, Job, Node, User, Role, Mount)
-- Broker implementations (RabbitMQ, In-Memory)
-- Runtime executors (Docker, Podman, Shell)
-- Engine orchestration and coordination
-- Datastore and locker implementations
-- Input validation and redaction
-- Health checks and middleware
-- CLI and configuration
 
 ## Contributing
 
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Run tests with `cargo test --workspace`
-5. Submit a PR
+1. Build with `cargo build -p twerk-cli`
+2. Run checks with `moon run :ci-source` when available
+3. Verify the standalone docs flow before landing user-facing changes
 
 ## License
 
-MIT
+Apache-2.0

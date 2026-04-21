@@ -6,6 +6,10 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "twerk"
+path = "src/main.rs"
+
 [dependencies]
 twerk-common.workspace = true
 twerk-core.workspace = true

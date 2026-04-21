@@ -14,7 +14,7 @@ tasks:
         image: ubuntu:mantic
         env:
           ITEM: "{{item_value}}"
-        run: echo -n $ITEM > $TORK_OUTPUT
+        run: echo -n $ITEM > $TWERK_OUTPUT
 
   - name: sample each task with custom var
     each:
@@ -26,7 +26,7 @@ tasks:
         image: ubuntu:mantic
         env:
           ITEM: "{{myitem_value}}"
-        run: echo -n $ITEM > $TORK_OUTPUT
+        run: echo -n $ITEM > $TWERK_OUTPUT
 
   - name: bye task
     image: ubuntu:mantic

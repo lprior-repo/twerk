@@ -27,7 +27,7 @@ async fn post_jobs_accepts_twerk_noop_100_yaml() {
         .await;
 
     assert_job_summary(&response, "twerk-noop-stress", "PENDING");
-    assert_eq!(response.json()["taskCount"], 0);
+    assert_eq!(response.json()["taskCount"], 100);
 }
 
 #[tokio::test]
@@ -42,7 +42,7 @@ async fn post_jobs_accepts_twerk_pokemon_shell_100_yaml() {
         .await;
 
     assert_job_summary(&response, "twerk-pokemon-shell-stress", "PENDING");
-    assert_eq!(response.json()["taskCount"], 0);
+    assert_eq!(response.json()["taskCount"], 100);
 }
 
 #[tokio::test]
@@ -117,7 +117,7 @@ async fn post_jobs_twerk_noop_100_yaml_task_count_reflects_yaml_value() {
         .post_yaml("/jobs", TWERK_NOOP_100_YAML.to_string(), "application/yaml")
         .await;
 
-    assert_eq!(response.json()["taskCount"].as_i64().unwrap(), 0);
+    assert_eq!(response.json()["taskCount"].as_i64().unwrap(), 100);
 }
 
 #[tokio::test]
@@ -131,7 +131,7 @@ async fn post_jobs_twerk_pokemon_shell_100_yaml_task_count_reflects_yaml_value()
         )
         .await;
 
-    assert_eq!(response.json()["taskCount"].as_i64().unwrap(), 0);
+    assert_eq!(response.json()["taskCount"].as_i64().unwrap(), 100);
 }
 
 #[tokio::test]

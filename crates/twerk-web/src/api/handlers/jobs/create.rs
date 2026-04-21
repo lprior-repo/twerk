@@ -30,6 +30,9 @@ async fn enrich_job_defaults(state: &AppState, mut job: Job) -> Job {
     if job.id.is_none() {
         job.id = JobId::new(twerk_core::uuid::new_short_uuid()).ok();
     }
+    job.task_count = job.tasks.as_ref().map_or(job.task_count, |tasks| {
+        i64::try_from(tasks.len()).map_or(i64::MAX, std::convert::identity)
+    });
     if job.created_at.is_none() {
         job.created_at = Some(time::OffsetDateTime::now_utc());
     }
@@ -71,6 +74,9 @@ fn validate_job(job: &Job) -> Result<(), ApiError> {
     )
 )]
 #[instrument(name = "create_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the request body cannot be parsed, the job fails validation, the
+/// datastore or broker operation fails, or the blocking wait path times out.
 pub async fn create_job_handler(
     State(state): State<AppState>,
     Query(query): Query<CreateJobQuery>,

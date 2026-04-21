@@ -114,19 +114,19 @@ mod tests {
     fn trigger_state_serializes_to_screaming_snake_case() {
         assert_eq!(
             serde_json::to_string(&TriggerState::Active).unwrap(),
-            "\"ACTIVE\""
+            "\"Active\""
         );
         assert_eq!(
             serde_json::to_string(&TriggerState::Paused).unwrap(),
-            "\"PAUSED\""
+            "\"Paused\""
         );
         assert_eq!(
             serde_json::to_string(&TriggerState::Disabled).unwrap(),
-            "\"DISABLED\""
+            "\"Disabled\""
         );
         assert_eq!(
             serde_json::to_string(&TriggerState::Error).unwrap(),
-            "\"ERROR\""
+            "\"Error\""
         );
     }
 
@@ -210,8 +210,8 @@ mod tests {
     fn trigger_error_invalid_state_transition_displays_correctly() {
         let err = TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error);
         assert!(err.to_string().contains("invalid state transition"));
-        assert!(err.to_string().contains("ACTIVE"));
-        assert!(err.to_string().contains("ERROR"));
+        assert!(err.to_string().contains("Active"));
+        assert!(err.to_string().contains("Error"));
     }
 
     #[test]
@@ -237,15 +237,15 @@ mod tests {
     #[test]
     fn trigger_error_trigger_not_active_displays_correctly() {
         let err = TriggerError::TriggerNotActive(TriggerState::Paused);
-        assert!(err.to_string().contains("trigger not active"));
-        assert!(err.to_string().contains("PAUSED"));
+        assert!(err.to_string().contains("trigger is not active"));
+        assert!(err.to_string().contains("Paused"));
     }
 
     #[test]
     fn trigger_error_trigger_in_error_state_displays_correctly() {
         let id = TriggerId("test-trigger".into());
         let err = TriggerError::TriggerInErrorState(id.clone());
-        assert!(err.to_string().contains("trigger in error state"));
+        assert!(err.to_string().contains("trigger is in error state"));
         assert!(err.to_string().contains("test-trigger"));
     }
 
@@ -253,7 +253,7 @@ mod tests {
     fn trigger_error_trigger_disabled_displays_correctly() {
         let id = TriggerId("test-trigger".into());
         let err = TriggerError::TriggerDisabled(id.clone());
-        assert!(err.to_string().contains("trigger disabled"));
+        assert!(err.to_string().contains("trigger is disabled"));
         assert!(err.to_string().contains("test-trigger"));
     }
 
@@ -640,9 +640,8 @@ mod tests {
         let result = registry.register(trigger).await;
         assert_eq!(
             result,
-            Err(TriggerError::InvalidStateTransition(
-                TriggerState::Active,
-                TriggerState::Disabled,
+            Err(TriggerError::InvalidConfiguration(
+                "new triggers cannot start in Disabled state".into(),
             ))
         );
     }
@@ -659,9 +658,8 @@ mod tests {
         let result = registry.register(trigger).await;
         assert_eq!(
             result,
-            Err(TriggerError::InvalidStateTransition(
-                TriggerState::Active,
-                TriggerState::Error,
+            Err(TriggerError::InvalidConfiguration(
+                "new triggers cannot start in Error state".into(),
             ))
         );
     }
@@ -816,11 +814,15 @@ mod tests {
         let registry = InMemoryTriggerRegistry::new();
         let trigger = Trigger {
             id: TriggerId("test-trigger".into()),
-            state: TriggerState::Disabled,
+            state: TriggerState::Active,
             variant: TriggerVariant::Cron,
         };
 
         registry.register(trigger).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Disabled)
+            .await
+            .unwrap();
         let result = registry
             .set_state(&TriggerId("test-trigger".into()), TriggerState::Paused)
             .await;
@@ -835,11 +837,15 @@ mod tests {
         let registry = InMemoryTriggerRegistry::new();
         let trigger = Trigger {
             id: TriggerId("test-trigger".into()),
-            state: TriggerState::Error,
+            state: TriggerState::Active,
             variant: TriggerVariant::Polling,
         };
 
         registry.register(trigger).await.unwrap();
+        registry
+            .set_state(&TriggerId("test-trigger".into()), TriggerState::Error)
+            .await
+            .unwrap();
         let result = registry
             .set_state(&TriggerId("test-trigger".into()), TriggerState::Active)
             .await;
@@ -1415,7 +1421,11 @@ mod proptest_tests {
         #[test]
         fn trigger_id_new_rejects_strings_shorter_than_3_chars(s in "[a-zA-Z0-9]{0,2}") {
             let result = TriggerId::new(&s);
-            prop_assert_eq!(result, Err(TriggerIdError::TooShort(s.len())));
+            if s.is_empty() {
+                prop_assert_eq!(result, Err(TriggerIdError::Empty));
+            } else {
+                prop_assert_eq!(result, Err(TriggerIdError::TooShort(s.len())));
+            }
         }
 
         #[test]

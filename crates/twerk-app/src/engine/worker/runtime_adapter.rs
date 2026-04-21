@@ -88,7 +88,7 @@ pub fn read_runtime_config() -> RuntimeConfig {
         docker_image_ttl_secs: config_u64("runtime.docker.image.ttl"),
         docker_image_verify: config_bool("runtime.docker.image.verify"),
         docker_config: config_string_default("runtime.docker.config", ""),
-        shell_cmd: config_strings("runtime.shell.cmd"),
+        shell_cmd: config_strings_default("runtime.shell.cmd", &["bash", "-c"]),
         shell_uid: config_string_default("runtime.shell.uid", "-"),
         shell_gid: config_string_default("runtime.shell.gid", "-"),
         podman_privileged: config_bool("runtime.podman.privileged"),
@@ -100,10 +100,7 @@ pub fn read_runtime_config() -> RuntimeConfig {
 }
 
 fn config_string(k: &str) -> String {
-    std::env::var(format!("TWERK_{}", k.to_uppercase().replace('.', "_")))
-        .ok()
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| twerk_infrastructure::config::string(k))
+    twerk_infrastructure::config::string(k)
 }
 
 fn config_string_default(k: &str, d: &str) -> String {
@@ -116,29 +113,65 @@ fn config_string_default(k: &str, d: &str) -> String {
 }
 
 fn config_bool(k: &str) -> bool {
-    let v = config_string(k);
-    v.eq_ignore_ascii_case("true") || v == "1"
+    twerk_infrastructure::config::bool(k)
 }
 
 fn config_strings(k: &str) -> Vec<String> {
-    let v = config_string(k);
-    if v.is_empty() {
-        vec![]
-    } else if v.starts_with('[') {
-        v.trim_matches(|c| c == '[' || c == ']')
-            .split(',')
-            .map(|s| s.trim().trim_matches('"').to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
-    } else {
-        v.split(',').map(|s| s.trim().to_string()).collect()
-    }
+    twerk_infrastructure::config::strings(k)
+}
+
+fn config_strings_default(k: &str, default: &[&str]) -> Vec<String> {
+    twerk_infrastructure::config::strings_default(k, default)
 }
 
 fn config_u64(k: &str) -> u64 {
-    let v = config_string(k);
-    v.parse().unwrap_or_else(|_| {
-        tracing::warn!(config_key = %k, "invalid u64 value in config, using 0");
-        0
-    })
+    match u64::try_from(twerk_infrastructure::config::int_default(k, 0)) {
+        Ok(value) => value,
+        Err(_) => {
+            tracing::warn!(config_key = %k, "invalid u64 value in config, using 0");
+            0
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    struct EnvGuard {
+        key: &'static str,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            std::env::set_var(key, value);
+            Self { key }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            std::env::remove_var(self.key);
+        }
+    }
+
+    #[test]
+    fn read_runtime_config_reads_shell_cmd_array_from_config_file() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let config_path = temp_dir.path().join("shell-config.toml");
+        fs::write(
+            &config_path,
+            "[runtime]\ntype = \"shell\"\n[runtime.shell]\ncmd = [\"bash\", \"-c\"]\n",
+        )
+        .expect("write config");
+        let config_path_value = config_path.to_string_lossy().into_owned();
+        let _guard = EnvGuard::set("TWERK_CONFIG", config_path_value.as_str());
+
+        twerk_common::load_config().expect("load config");
+        let config = read_runtime_config();
+
+        assert_eq!(config.runtime_type, runtime_type::SHELL);
+        assert_eq!(config.shell_cmd, vec!["bash", "-c"]);
+    }
 }

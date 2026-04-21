@@ -19,7 +19,10 @@
 ### Method 1: curl (Recommended)
 
 ```bash
-# Start twerk
+# Start twerk with no external dependencies
+TWERK_BROKER_TYPE=inmemory \
+TWERK_DATASTORE_TYPE=inmemory \
+TWERK_RUNTIME_TYPE=shell \
 ./target/release/twerk run standalone
 
 # Submit job
@@ -33,24 +36,17 @@ curl -X POST http://localhost:8000/jobs \
 # Check status
 curl http://localhost:8000/jobs/abc123...
 
-# Get task logs
-curl http://localhost:8000/jobs/abc123.../tasks/def456.../logs
+# Get job logs
+curl http://localhost:8000/jobs/abc123.../log
 ```
 
-### Method 2: CLI
+### Method 2: curl with blocking wait
 
 ```bash
-# Submit job
-./target/release/twerk submit my-job.yaml
-
-# List jobs
-./target/release/twerk jobs list
-
-# Show job details
-./target/release/twerk jobs show <job-id>
-
-# Cancel job
-./target/release/twerk jobs cancel <job-id>
+# Submit and wait until the job finishes
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
+  -H "Content-type: text/yaml" \
+  --data-binary @my-job.yaml
 ```
 
 ### Method 3: Python
@@ -175,7 +171,7 @@ tasks:
       FOO: bar
     run: |
       echo "processing"
-      echo -n "result" > $TORK_OUTPUT
+      echo -n "result" > $TWERK_OUTPUT
 ```
 
 ### 2. Parallel Tasks
@@ -214,7 +210,7 @@ tasks:
           INDEX: "{{ item.index }}"
         run: |
           echo "Processing item $INDEX with value $VALUE"
-          echo -n "result-$VALUE" > $TORK_OUTPUT
+          echo -n "result-$VALUE" > $TWERK_OUTPUT
 ```
 
 ### 4. Sub-Job
@@ -230,7 +226,7 @@ tasks:
         - name: step 1
           var: step1
           image: ubuntu:mantic
-          run: echo -n "data1" > $TORK_OUTPUT
+          run: echo -n "data1" > $TWERK_OUTPUT
         
         - name: step 2
           var: final
@@ -239,7 +235,7 @@ tasks:
             DATA: "{{ tasks.step1 }}"
           run: |
             echo "Processing $DATA"
-            echo -n "final-result" > $TORK_OUTPUT
+            echo -n "final-result" > $TWERK_OUTPUT
 ```
 
 ### 5. Pre/Post Tasks
@@ -324,8 +320,8 @@ tasks:
     var: myResult  # Captures stdout to variable
     image: ubuntu:mantic
     run: |
-      # Output to $TORK_OUTPUT to capture
-      echo -n "result data" > $TORK_OUTPUT
+      # Output to $TWERK_OUTPUT to capture
+      echo -n "result data" > $TWERK_OUTPUT
   
   - name: use output
     image: ubuntu:mantic
@@ -347,7 +343,7 @@ tasks:
   - var: hello
     name: simple task
     image: ubuntu:mantic
-    run: echo -n "hello world" > $TORK_OUTPUT
+    run: echo -n "hello world" > $TWERK_OUTPUT
 ```
 
 **Run it:**
@@ -374,7 +370,7 @@ tasks:
     env:
       URL: "{{ inputs.apiUrl }}"
     run: |
-      curl -s $URL > $TORK_OUTPUT
+      curl -s $URL > $TWERK_OUTPUT
   
   - name: filter data
     var: filteredData
@@ -382,7 +378,7 @@ tasks:
     env:
       DATA: "{{ tasks.rawData }}"
     run: |
-      echo -n $DATA | jq '[.[] | {id: .id, title: .title}]' > $TORK_OUTPUT
+      echo -n $DATA | jq '[.[] | {id: .id, title: .title}]' > $TWERK_OUTPUT
   
   - name: save to file
     image: ubuntu:mantic
@@ -413,19 +409,19 @@ tasks:
           var: users
           image: curlimages/curl:latest
           run: |
-            curl -s https://jsonplaceholder.typicode.com/users > $TORK_OUTPUT
+            curl -s https://jsonplaceholder.typicode.com/users > $TWERK_OUTPUT
         
         - name: get posts
           var: posts
           image: curlimages/curl:latest
           run: |
-            curl -s https://jsonplaceholder.typicode.com/posts > $TORK_OUTPUT
+            curl -s https://jsonplaceholder.typicode.com/posts > $TWERK_OUTPUT
         
         - name: get comments
           var: comments
           image: curlimages/curl:latest
           run: |
-            curl -s https://jsonplaceholder.typicode.com/comments > $TORK_OUTPUT
+            curl -s https://jsonplaceholder.typicode.com/comments > $TWERK_OUTPUT
   
   - name: combine results
     image: badouralix/curl-jq
@@ -461,7 +457,7 @@ tasks:
         run: |
           echo "Processing $FILENAME"
           # Simulate processing
-          echo -n "processed-$FILENAME" > $TORK_OUTPUT
+          echo -n "processed-$FILENAME" > $TWERK_OUTPUT
   
   - name: summary
     image: ubuntu:mantic
@@ -491,7 +487,7 @@ tasks:
       
       if [ $RANDOM_NUM -eq 0 ]; then
         echo "Success!"
-        echo -n "success" > $TORK_OUTPUT
+        echo -n "success" > $TWERK_OUTPUT
         exit 0
       else
         echo "Failed (attempt will be retried)"
@@ -523,7 +519,7 @@ tasks:
         - name: extract
           var: extract
           image: ubuntu:mantic
-          run: echo -n "raw-data" > $TORK_OUTPUT
+          run: echo -n "raw-data" > $TWERK_OUTPUT
         
         - name: transform
           var: transform
@@ -532,7 +528,7 @@ tasks:
             DATA: "{{ tasks.extract }}"
           run: |
             echo "Transforming $DATA"
-            echo -n "transformed-data" > $TORK_OUTPUT
+            echo -n "transformed-data" > $TWERK_OUTPUT
         
         - name: load
           var: load
@@ -541,7 +537,7 @@ tasks:
             DATA: "{{ tasks.transform }}"
           run: |
             echo "Loading $DATA"
-            echo -n "final-result" > $TORK_OUTPUT
+            echo -n "final-result" > $TWERK_OUTPUT
   
   - name: use result
     image: ubuntu:mantic
@@ -650,7 +646,7 @@ tasks:
     var: data
     image: python:3-slim
     run: |
-      python -c "import json; print(json.dumps(list(range(10))))" > $TORK_OUTPUT
+      python -c "import json; print(json.dumps(list(range(10))))" > $TWERK_OUTPUT
   
   - name: map phase
     each:
@@ -662,7 +658,7 @@ tasks:
         env:
           VALUE: "{{ item.value }}"
         run: |
-          python -c "print(int('$VALUE') ** 2, end='')" > $TORK_OUTPUT
+          python -c "print(int('$VALUE') ** 2, end='')" > $TWERK_OUTPUT
   
   - name: reduce phase
     image: python:3-slim
@@ -680,7 +676,7 @@ tasks:
   - name: generate work items
     var: items
     image: ubuntu:mantic
-    run: echo -n '["a","b","c","d","e"]' > $TORK_OUTPUT
+    run: echo -n '["a","b","c","d","e"]' > $TWERK_OUTPUT
   
   - name: fan out
     parallel:
@@ -713,7 +709,7 @@ tasks:
     image: node:18
     run: |
       npm run build
-      echo -n "build-complete" > $TORK_OUTPUT
+      echo -n "build-complete" > $TWERK_OUTPUT
   
   - name: stage 2 - test
     parallel:
@@ -824,7 +820,7 @@ tasks:
       import json
       tasks = [f'task-{i}' for i in range(5)]
       print(json.dumps(tasks))
-      " > $TORK_OUTPUT
+      " > $TWERK_OUTPUT
   
   - name: execute dynamic tasks
     each:
@@ -882,7 +878,7 @@ tasks:
 tasks:
   - name: task1
     var: myResult
-    run: echo "hello" > $TORK_OUTPUT
+    run: echo "hello" > $TWERK_OUTPUT
   
   - name: task2
     env:

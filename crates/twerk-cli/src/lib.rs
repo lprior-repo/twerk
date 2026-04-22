@@ -17,6 +17,7 @@ mod banner;
 pub mod cli;
 pub mod commands;
 pub mod error;
+pub mod handlers;
 pub mod health;
 pub mod migrate;
 pub mod run;

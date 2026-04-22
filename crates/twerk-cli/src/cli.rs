@@ -14,8 +14,9 @@ use twerk_infrastructure::config as app_config;
 use twerk_infrastructure::reexec;
 
 use super::banner::{display_banner, BannerMode};
-use super::commands::{Cli, Commands};
+use super::commands::{Cli, Commands, TaskCommand, QueueCommand, TriggerCommand};
 use super::error::CliError;
+use super::handlers;
 use super::health::health_check;
 use super::migrate::{run_migration, DEFAULT_POSTGRES_DSN};
 use super::run::run_engine;
@@ -296,6 +297,57 @@ async fn execute_command(command: Commands, json_mode: bool) -> Result<(), CliEr
                 print_json(&json_version_payload(content));
             } else {
                 println!("twerk {VERSION}");
+            }
+            Ok(())
+        }
+        Commands::Task { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                TaskCommand::Get { id } => {
+                    handlers::task::task_get(ep_str, &id, json_mode).await?;
+                }
+                TaskCommand::Log { id, page, size } => {
+                    handlers::task::task_log(ep_str, &id, page, size, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Queue { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                QueueCommand::List => {
+                    handlers::queue::queue_list(ep_str, json_mode).await?;
+                }
+                QueueCommand::Get { name } => {
+                    handlers::queue::queue_get(ep_str, &name, json_mode).await?;
+                }
+                QueueCommand::Delete { name } => {
+                    handlers::queue::queue_delete(ep_str, &name, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Trigger { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                TriggerCommand::List => {
+                    handlers::trigger::trigger_list(ep_str, json_mode).await?;
+                }
+                TriggerCommand::Get { id } => {
+                    handlers::trigger::trigger_get(ep_str, &id, json_mode).await?;
+                }
+                TriggerCommand::Create { body } => {
+                    handlers::trigger::trigger_create(ep_str, &body, json_mode).await?;
+                }
+                TriggerCommand::Update { id, body } => {
+                    handlers::trigger::trigger_update(ep_str, &id, &body, json_mode).await?;
+                }
+                TriggerCommand::Delete { id } => {
+                    handlers::trigger::trigger_delete(ep_str, &id, json_mode).await?;
+                }
             }
             Ok(())
         }

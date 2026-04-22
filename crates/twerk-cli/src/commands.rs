@@ -34,6 +34,82 @@ pub enum RunMode {
     Worker,
 }
 
+/// Task subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum TaskCommand {
+    /// Get a task by ID
+    Get {
+        /// The task ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Get task log entries
+    Log {
+        /// The task ID
+        #[arg(required = true)]
+        id: String,
+        /// Page number
+        #[arg(long)]
+        page: Option<i64>,
+        /// Page size
+        #[arg(long)]
+        size: Option<i64>,
+    },
+}
+
+/// Queue subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum QueueCommand {
+    /// List all queues
+    List,
+    /// Get a queue by name
+    Get {
+        /// The queue name
+        #[arg(required = true)]
+        name: String,
+    },
+    /// Delete a queue by name
+    Delete {
+        /// The queue name
+        #[arg(required = true)]
+        name: String,
+    },
+}
+
+/// Trigger subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum TriggerCommand {
+    /// List all triggers
+    List,
+    /// Get a trigger by ID
+    Get {
+        /// The trigger ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Create a trigger
+    Create {
+        /// JSON body for the trigger
+        #[arg(required = true)]
+        body: String,
+    },
+    /// Update a trigger
+    Update {
+        /// The trigger ID
+        #[arg(required = true)]
+        id: String,
+        /// JSON body for the update
+        #[arg(required = true)]
+        body: String,
+    },
+    /// Delete a trigger by ID
+    Delete {
+        /// The trigger ID
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
 /// CLI subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Commands {
@@ -61,6 +137,21 @@ pub enum Commands {
     },
     /// Show version information
     Version,
+    /// Task operations
+    Task {
+        #[command(subcommand)]
+        command: TaskCommand,
+    },
+    /// Queue operations
+    Queue {
+        #[command(subcommand)]
+        command: QueueCommand,
+    },
+    /// Trigger operations
+    Trigger {
+        #[command(subcommand)]
+        command: TriggerCommand,
+    },
 }
 
 impl Default for Commands {
@@ -79,7 +170,6 @@ mod tests {
 
     #[test]
     fn test_commands_derive() {
-        // Verify Commands struct can be created
         let cmd = Commands::Run {
             mode: RunMode::Standalone,
             hostname: None,
@@ -104,7 +194,6 @@ mod tests {
         use clap::CommandFactory;
 
         let mut cmd = Cli::command();
-        // Just verify it doesn't panic
         let _ = cmd.render_help().to_string();
     }
 
@@ -154,6 +243,64 @@ mod tests {
                 json: false,
                 command: Some(Commands::Version)
             })
+        ));
+    }
+
+    #[test]
+    fn test_task_get_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "task", "get", "task-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Task { command: TaskCommand::Get { ref id } })
+            }) if id == "task-123"
+        ));
+    }
+
+    #[test]
+    fn test_task_log_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "task", "log", "task-456"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Task { command: TaskCommand::Log { ref id, .. } })
+            }) if id == "task-456"
+        ));
+    }
+
+    #[test]
+    fn test_queue_subcommands_parse() {
+        let list = Cli::try_parse_from(["twerk", "queue", "list"]);
+        assert!(matches!(
+            list,
+            Ok(Cli { command: Some(Commands::Queue { command: QueueCommand::List }), .. })
+        ));
+
+        let get = Cli::try_parse_from(["twerk", "queue", "get", "my-queue"]);
+        assert!(matches!(
+            get,
+            Ok(Cli { command: Some(Commands::Queue { command: QueueCommand::Get { ref name } }), .. })
+            if name == "my-queue"
+        ));
+    }
+
+    #[test]
+    fn test_trigger_subcommands_parse() {
+        let list = Cli::try_parse_from(["twerk", "trigger", "list"]);
+        assert!(matches!(
+            list,
+            Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::List }), .. })
+        ));
+
+        let get = Cli::try_parse_from(["twerk", "trigger", "get", "trig-1"]);
+        assert!(matches!(
+            get,
+            Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::Get { ref id } }), .. })
+            if id == "trig-1"
         ));
     }
 }

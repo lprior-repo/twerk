@@ -14,6 +14,10 @@ pub enum CliError {
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
 
+    /// HTTP response with non-OK status
+    #[error("HTTP error {status}: {reason}")]
+    HttpStatus { status: u16, reason: String },
+
     /// Health check failed with non-OK status
     #[error("health check failed with status: {status}")]
     HealthFailed { status: u16 },
@@ -49,6 +53,14 @@ pub enum CliError {
     /// Invalid endpoint URL
     #[error("invalid endpoint: {0}")]
     InvalidEndpoint(String),
+
+    /// Resource not found
+    #[error("not found: {0}")]
+    NotFound(String),
+
+    /// API error response
+    #[error("API error {code}: {message}")]
+    ApiError { code: u16, message: String },
 
     /// IO error
     #[error("IO error: {0}")]

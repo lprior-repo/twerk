@@ -19,7 +19,7 @@
 
 use std::error::Error;
 use twerk_cli::{
-    cli::{setup_logging, DEFAULT_DATASTORE_TYPE, DEFAULT_ENDPOINT, VERSION},
+    cli::{DEFAULT_DATASTORE_TYPE, DEFAULT_ENDPOINT, VERSION},
     commands::Commands,
     error::CliError,
 };
@@ -252,11 +252,9 @@ mod bdd_commands_enum {
 
 #[cfg(test)]
 mod bdd_setup_logging {
-    use super::*;
-
     #[test]
     fn then_setup_logging_function_exists_and_is_callable() {
-        assert!(true);
+        let _ = twerk_cli::cli::setup_logging();
     }
 }
 
@@ -283,7 +281,7 @@ mod bdd_completeness_check {
         let _ = CliError::UnknownDatastore("test".to_string());
         let _ = CliError::Logging("test".to_string());
         let _ = CliError::Engine("test".to_string());
-        let _ = CliError::Io(io::Error::new(io::ErrorKind::Other, "test"));
+        let _ = CliError::Io(io::Error::other("test"));
     }
 
     #[test]

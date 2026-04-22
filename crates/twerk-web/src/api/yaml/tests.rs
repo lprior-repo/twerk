@@ -7,7 +7,7 @@
     dead_code
 )]
 mod yaml_suite {
-    use crate::api::yaml::{from_slice, ApiError, MAX_YAML_BODY_SIZE};
+    use crate::api::yaml::{from_slice, to_string, ApiError, MAX_YAML_BODY_SIZE};
     use proptest::prelude::*;
     use rstest::rstest;
 
@@ -31,9 +31,20 @@ mod yaml_suite {
 
     #[test]
     fn from_slice_returns_bad_request_when_yaml_is_malformed() {
-        let bad_yaml = b": \xff: invalid";
+        let bad_yaml = b"items: [1, 2\n";
         let result: Result<serde_json::Value, ApiError> = from_slice(bad_yaml);
-        assert!(matches!(result, Err(ApiError::BadRequest(msg)) if msg.contains("UTF-8")));
+        assert!(
+            matches!(result, Err(ApiError::BadRequest(msg)) if msg.contains("YAML parse error"))
+        );
+    }
+
+    #[test]
+    fn from_slice_returns_bad_request_when_body_is_empty() {
+        let result: Result<serde_json::Value, ApiError> = from_slice(b"");
+        assert_eq!(
+            result,
+            Err(ApiError::BadRequest("YAML body is empty".to_string()))
+        );
     }
 
     #[test]
@@ -508,7 +519,10 @@ mod yaml_suite {
     fn from_slice_rejects_invalid_job_state() {
         let yaml = b"name: test\nstate: INVALID_STATE\n";
         let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
-        assert!(result.is_err(), "Invalid JobState should fail");
+        assert!(matches!(
+            result,
+            Err(ApiError::BadRequest(msg)) if msg.contains("INVALID_STATE") && msg.contains("unknown")
+        ));
     }
 
     #[test]
@@ -572,14 +586,25 @@ mod yaml_suite {
     #[test]
     fn from_slice_job_with_webhooks() -> Result<(), ApiError> {
         use twerk_core::job::Job;
-        let yaml =
-            b"name: webhook-job\nwebhooks:\n  - url: https://example.com/hook\n    method: POST\n";
+        let yaml = b"name: webhook-job\nwebhooks:\n  - url: https://example.com/hook\n    event: job.StateChange\n    if: \"{{ job.state == 'COMPLETED' }}\"\n    headers:\n      X-Test: enabled\n";
         let job: Job = from_slice(yaml)?;
         let Some(webhooks) = job.webhooks.as_ref() else {
             panic!("job should include webhooks");
         };
         assert_eq!(webhooks.len(), 1);
         assert_eq!(webhooks[0].url.as_deref(), Some("https://example.com/hook"));
+        assert_eq!(webhooks[0].event.as_deref(), Some("job.StateChange"));
+        assert_eq!(
+            webhooks[0].r#if.as_deref(),
+            Some("{{ job.state == 'COMPLETED' }}")
+        );
+        assert_eq!(
+            webhooks[0]
+                .headers
+                .as_ref()
+                .and_then(|headers| headers.get("X-Test")),
+            Some(&"enabled".to_string())
+        );
         Ok(())
     }
 
@@ -591,7 +616,7 @@ mod yaml_suite {
         let Some(schedule) = job.schedule.as_ref() else {
             panic!("job should include schedule");
         };
-        assert!(schedule.cron.is_some());
+        assert_eq!(schedule.cron.as_deref(), Some("0 0 * * *"));
         Ok(())
     }
 
@@ -624,7 +649,7 @@ mod yaml_suite {
     }
 
     #[test]
-    fn from_slice_job_progress_clamps_to_valid_range() -> Result<(), ApiError> {
+    fn from_slice_job_progress_preserves_supplied_value() -> Result<(), ApiError> {
         use twerk_core::job::Job;
         let yaml = b"name: progress-job\nprogress: 1.5\n";
         let job: Job = from_slice(yaml)?;
@@ -636,25 +661,56 @@ mod yaml_suite {
     fn from_slice_accepts_numeric_image_with_serde_saphyr() {
         let yaml = b"name: bad-task\ntasks:\n  - name: step1\n    image: 12345\n";
         let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "serde_saphyr may coerce numeric to string: {result:?}"
-        );
+        match result {
+            Ok(job) => assert_eq!(
+                job.tasks
+                    .as_ref()
+                    .and_then(|tasks| tasks.first())
+                    .and_then(|task| task.image.as_deref()),
+                Some("12345")
+            ),
+            Err(err) => panic!("numeric image should coerce to string, got {err:?}"),
+        }
     }
 
     #[test]
     fn from_slice_rejects_job_with_invalid_task_priority_type() {
         let yaml = b"name: bad-priority\ntasks:\n  - name: step1\n    image: alpine\n    priority: not_a_number\n";
         let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
-        assert!(result.is_err(), "Task priority should be an integer");
+        assert!(
+            matches!(result, Err(ApiError::BadRequest(msg)) if msg.contains("priority") || msg.contains("integer") || msg.contains("invalid type"))
+        );
     }
 
     #[test]
     fn from_slice_job_with_context() -> Result<(), ApiError> {
         use twerk_core::job::Job;
-        let yaml = b"name: context-job\ncontext:\n  execution_id: exec-123\n  attempt: 1\n";
+        let yaml = b"name: context-job\ncontext:\n  job:\n    execution_id: exec-123\n  inputs:\n    region: us-west-2\n  tasks:\n    previous: complete\n";
         let job: Job = from_slice(yaml)?;
-        assert!(job.context.is_some());
+        let Some(context) = job.context.as_ref() else {
+            panic!("job should include context");
+        };
+        assert_eq!(
+            context
+                .job
+                .as_ref()
+                .and_then(|values| values.get("execution_id")),
+            Some(&"exec-123".to_string())
+        );
+        assert_eq!(
+            context
+                .inputs
+                .as_ref()
+                .and_then(|values| values.get("region")),
+            Some(&"us-west-2".to_string())
+        );
+        assert_eq!(
+            context
+                .tasks
+                .as_ref()
+                .and_then(|values| values.get("previous")),
+            Some(&"complete".to_string())
+        );
         Ok(())
     }
 
@@ -679,44 +735,445 @@ mod yaml_suite {
         Ok(())
     }
 
-    #[test]
-    fn parse_all_example_yaml_files() {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let workspace_root = std::path::Path::new(manifest_dir)
-            .parent()
-            .and_then(|p| p.parent())
-            .expect("could not resolve workspace root");
-        let examples_dir = workspace_root.join("examples");
-
-        let files = [
-            "hello.yaml",
-            "parallel.yaml",
-            "retry.yaml",
-            "each.yaml",
-            "subjob.yaml",
-            "timeout.yaml",
-            "bash-subjob.yaml",
-            "bash-retry.yaml",
-            "bash-quick.yaml",
-            "bash-pipeline.yaml",
-            "bash-each.yaml",
-            "bash-ci-pipeline.yaml",
-            "bash-ci-demo.yaml",
-            "split_and_stitch.yaml",
-        ];
-
-        for name in &files {
-            let file = examples_dir.join(name);
-            let content = std::fs::read_to_string(&file)
-                .unwrap_or_else(|_| panic!("Failed to read {}", file.display()));
-            let result: Result<serde_json::Value, _> = from_slice(content.as_bytes());
-            assert!(
-                result.is_ok(),
-                "Failed to parse {}: {:?}",
-                file.display(),
-                result.err()
-            );
+    fn assert_bad_request_contains<T: std::fmt::Debug>(result: Result<T, ApiError>, needle: &str) {
+        match result {
+            Err(ApiError::BadRequest(msg)) => {
+                assert!(
+                    msg.contains(needle),
+                    "expected BadRequest containing {needle:?}, got {msg:?}"
+                );
+            }
+            other => panic!("expected BadRequest containing {needle:?}, got {other:?}"),
         }
+    }
+
+    fn assert_internal_contains<T: std::fmt::Debug>(result: Result<T, ApiError>, needle: &str) {
+        match result {
+            Err(ApiError::Internal(msg)) => {
+                assert!(
+                    msg.contains(needle),
+                    "expected Internal containing {needle:?}, got {msg:?}"
+                );
+            }
+            other => panic!("expected Internal containing {needle:?}, got {other:?}"),
+        }
+    }
+
+    fn workspace_root() -> std::path::PathBuf {
+        match std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|path| path.parent())
+        {
+            Some(path) => path.to_path_buf(),
+            None => panic!("could not resolve workspace root"),
+        }
+    }
+
+    fn example_path(name: &str) -> std::path::PathBuf {
+        workspace_root().join("examples").join(name)
+    }
+
+    fn example_bytes(name: &str) -> Vec<u8> {
+        let path = example_path(name);
+        std::fs::read(&path)
+            .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
+    }
+
+    fn parse_job_example(name: &str) -> twerk_core::job::Job {
+        from_slice::<twerk_core::job::Job>(&example_bytes(name))
+            .unwrap_or_else(|err| panic!("failed to parse job example {name}: {err:?}"))
+    }
+
+    fn parse_state_machine_example(name: &str) -> twerk_core::asl::machine::StateMachine {
+        from_slice::<twerk_core::asl::machine::StateMachine>(&example_bytes(name))
+            .unwrap_or_else(|err| panic!("failed to parse ASL example {name}: {err:?}"))
+    }
+
+    fn job_value(name: &str) -> serde_json::Value {
+        serde_json::to_value(parse_job_example(name))
+            .unwrap_or_else(|err| panic!("failed to convert parsed job {name} to JSON: {err}"))
+    }
+
+    fn state_machine_value(name: &str) -> serde_json::Value {
+        serde_json::to_value(parse_state_machine_example(name)).unwrap_or_else(|err| {
+            panic!("failed to convert parsed ASL machine {name} to JSON: {err}")
+        })
+    }
+
+    #[rstest]
+    #[case("bash-ci-demo.yaml", "bash-ci-demo", 4)]
+    #[case("bash-ci-pipeline.yaml", "bash-ci-pipeline", 5)]
+    #[case("bash-each.yaml", "bash-each-demo", 1)]
+    #[case("bash-pipeline.yaml", "bash-pipeline-demo", 5)]
+    #[case("bash-quick.yaml", "bash-quick-test", 1)]
+    #[case("bash-retry.yaml", "bash-retry-demo", 2)]
+    #[case("bash-subjob.yaml", "bash-subjob-demo", 4)]
+    #[case("each.yaml", "sample each job", 4)]
+    #[case("hello-shell.yaml", "hello shell", 1)]
+    #[case("hello.yaml", "hello world", 1)]
+    #[case("parallel.yaml", "sample parallel job", 3)]
+    #[case("pokemon-benchmark.yaml", "pokemon-api-benchmark", 5)]
+    #[case("retry.yaml", "sample retry job", 1)]
+    #[case("split_and_stitch.yaml", "split and stitch demo", 10)]
+    #[case("subjob.yaml", "sample job with sub jobs", 4)]
+    #[case("timeout.yaml", "sample timeout job", 1)]
+    #[case("twerk-chaos-engineering.yaml", "twerk-chaos-engineering", 13)]
+    #[case("twerk-massive-parallel.yaml", "twerk-massive-parallel", 2)]
+    #[case("twerk-noop-100.yaml", "twerk-noop-stress", 100)]
+    #[case("twerk-pokemon-shell-100.yaml", "twerk-pokemon-shell-stress", 100)]
+    fn parse_native_example_job_with_expected_name_and_task_count(
+        #[case] file: &str,
+        #[case] expected_name: &str,
+        #[case] expected_task_count: usize,
+    ) {
+        let job = parse_job_example(file);
+        assert_eq!(job.name.as_deref(), Some(expected_name));
+        assert_eq!(
+            job.tasks.as_ref().map(std::vec::Vec::len),
+            Some(expected_task_count)
+        );
+    }
+
+    #[rstest]
+    #[case("asl-hello.yaml", "Hello", 2)]
+    #[case("asl-task-retry.yaml", "Build", 3)]
+    fn parse_asl_example_state_machine_with_expected_start_and_state_count(
+        #[case] file: &str,
+        #[case] expected_start_at: &str,
+        #[case] expected_state_count: usize,
+    ) {
+        let machine = parse_state_machine_example(file);
+        let machine_value = state_machine_value(file);
+        assert_eq!(machine.start_at().as_ref(), expected_start_at);
+        assert_eq!(machine.states().len(), expected_state_count);
+        assert_ne!(
+            machine_value["states"][expected_start_at],
+            serde_json::Value::Null
+        );
+    }
+
+    #[test]
+    fn hello_example_preserves_output_contract() {
+        let value = job_value("hello.yaml");
+        assert_eq!(value["output"], "{{ tasks.hello }}");
+        assert_eq!(value["tasks"][0]["var"], "hello");
+        assert_eq!(value["tasks"][0]["name"], "simple task");
+    }
+
+    #[test]
+    fn each_example_preserves_default_iteration_shape() {
+        let value = job_value("each.yaml");
+        assert_eq!(value["tasks"][1]["each"]["list"], "{{ sequence(1,5) }}");
+        assert_eq!(
+            value["tasks"][1]["each"]["task"]["var"],
+            "eachTask{{item_index}}"
+        );
+        assert_eq!(
+            value["tasks"][1]["each"]["task"]["env"]["ITEM"],
+            "{{item_value}}"
+        );
+        assert_eq!(value["tasks"][2]["each"]["var"], "myitem");
+        assert_eq!(
+            value["tasks"][2]["each"]["task"]["var"],
+            "eachTask{{myitem_index}}"
+        );
+        assert_eq!(
+            value["tasks"][2]["each"]["task"]["env"]["ITEM"],
+            "{{myitem_value}}"
+        );
+    }
+
+    #[test]
+    fn bash_each_example_preserves_custom_iteration_env() {
+        let value = job_value("bash-each.yaml");
+        assert_eq!(value["tasks"][0]["each"]["var"], "num");
+        assert_eq!(value["tasks"][0]["each"]["list"], "{{ sequence(1, 3) }}");
+        assert_eq!(
+            value["tasks"][0]["each"]["task"]["env"]["NUM"],
+            "{{num_value}}"
+        );
+        assert_eq!(
+            value["tasks"][0]["each"]["task"]["env"]["IDX"],
+            "{{num_index}}"
+        );
+    }
+
+    #[test]
+    fn parallel_example_preserves_parallel_children() {
+        let value = job_value("parallel.yaml");
+        assert_eq!(value["tasks"][1]["name"], "a parallel task");
+        assert_eq!(
+            value["tasks"][1]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(6)
+        );
+        assert_eq!(
+            value["tasks"][1]["parallel"]["tasks"][0]["name"],
+            "sleep for .1 seconds"
+        );
+        assert_eq!(
+            value["tasks"][1]["parallel"]["tasks"][5]["name"],
+            "fast task 3"
+        );
+    }
+
+    #[test]
+    fn subjob_example_preserves_output_and_parallel_subjobs() {
+        let value = job_value("subjob.yaml");
+        assert_eq!(
+            value["tasks"][1]["subjob"]["name"],
+            "my sub job with output"
+        );
+        assert_eq!(
+            value["tasks"][1]["subjob"]["output"],
+            "{{ tasks.dataStuff }}"
+        );
+        assert_eq!(
+            value["tasks"][1]["subjob"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(2)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][0]["name"],
+            "sample job 1"
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][1]["name"],
+            "sample job 2"
+        );
+    }
+
+    #[test]
+    fn bash_subjob_example_preserves_nested_shape() {
+        let value = job_value("bash-subjob.yaml");
+        assert_eq!(value["output"], "{{ tasks.subjob_output }}");
+        assert_eq!(value["tasks"][1]["subjob"]["name"], "build phase");
+        assert_eq!(
+            value["tasks"][1]["subjob"]["output"],
+            "{{ tasks.build_result }}"
+        );
+        assert_eq!(
+            value["tasks"][1]["subjob"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(3)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(2)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][0]["name"],
+            "build frontend"
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][1]["name"],
+            "build backend"
+        );
+    }
+
+    #[test]
+    fn split_and_stitch_example_preserves_map_heavy_shape() {
+        let value = job_value("split_and_stitch.yaml");
+        assert_eq!(value["inputs"]["accessKeyID"], "minioadmin");
+        assert_eq!(
+            value["inputs"]["endpointURL"],
+            "http://my-minio-server:9000"
+        );
+        assert_eq!(value["inputs"]["secretKeyID"], "minioadmin");
+        assert_eq!(value["inputs"]["source"], "s3://master/master.mov");
+        assert_eq!(
+            value["tasks"][4]["files"]["script.py"]
+                .as_str()
+                .map(|script| script.contains("import re")),
+            Some(true)
+        );
+        assert_eq!(value["tasks"][5]["env"]["DURATION"], "{{ tasks.duration }}");
+        assert_eq!(
+            value["tasks"][5]["env"]["FRAMERATE"],
+            "{{ tasks.framerate }}"
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["list"],
+            "{{ fromJSON(tasks.chunks) }}"
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["task"]["env"]["LENGTH"],
+            "{{ item_value_length }}"
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["task"]["env"]["SOURCE"],
+            "{{ tasks.signedURL }}"
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["task"]["env"]["START"],
+            "{{ item_value_start }}"
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["task"]["post"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            value["tasks"][8]["each"]["task"]["mounts"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(value["tasks"][8]["each"]["task"]["retry"]["limit"], 2);
+        assert_eq!(
+            value["tasks"][9]["pre"].as_array().map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            value["tasks"][9]["post"].as_array().map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            value["tasks"][9]["mounts"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(1)
+        );
+        assert_eq!(value["tasks"][9]["retry"]["limit"], 2);
+        assert_eq!(value["tasks"][9]["timeout"], "120s");
+    }
+
+    #[test]
+    fn retry_and_timeout_examples_preserve_expected_limits() {
+        let retry_value = job_value("retry.yaml");
+        let bash_retry_value = job_value("bash-retry.yaml");
+        let timeout_value = job_value("timeout.yaml");
+        assert_eq!(retry_value["tasks"][0]["retry"]["limit"], 2);
+        assert_eq!(bash_retry_value["tasks"][0]["retry"]["limit"], 5);
+        assert_eq!(timeout_value["tasks"][0]["timeout"], "5s");
+    }
+
+    #[test]
+    fn pokemon_benchmark_example_preserves_parallel_group_sizes() {
+        let value = job_value("pokemon-benchmark.yaml");
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(9)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][0]["name"],
+            "fetch-bulbasaur"
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][8]["name"],
+            "fetch-dragonite"
+        );
+        assert_eq!(
+            value["tasks"][3]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(6)
+        );
+        assert_eq!(
+            value["tasks"][3]["parallel"]["tasks"][0]["name"],
+            "type-fire"
+        );
+        assert_eq!(
+            value["tasks"][3]["parallel"]["tasks"][5]["name"],
+            "type-dragon"
+        );
+    }
+
+    #[test]
+    fn twerk_massive_parallel_example_preserves_stress_shape() {
+        let value = job_value("twerk-massive-parallel.yaml");
+        assert_eq!(value["tasks"].as_array().map(std::vec::Vec::len), Some(2));
+        assert_eq!(value["tasks"][0]["name"], "parallel-fanout-200");
+        assert_eq!(
+            value["tasks"][0]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(151)
+        );
+        assert_eq!(
+            value["tasks"][0]["parallel"]["tasks"][0]["name"],
+            "fetch-001"
+        );
+        assert_eq!(
+            value["tasks"][0]["parallel"]["tasks"][150]["name"],
+            "fetch-151"
+        );
+    }
+
+    #[test]
+    fn stress_examples_preserve_first_and_last_tasks() {
+        let noop_value = job_value("twerk-noop-100.yaml");
+        let pokemon_value = job_value("twerk-pokemon-shell-100.yaml");
+        assert_eq!(
+            noop_value["tasks"].as_array().map(std::vec::Vec::len),
+            Some(100)
+        );
+        assert_eq!(noop_value["tasks"][0]["name"], "noop-001");
+        assert_eq!(noop_value["tasks"][99]["name"], "noop-100");
+        assert_eq!(
+            pokemon_value["tasks"].as_array().map(std::vec::Vec::len),
+            Some(100)
+        );
+        assert_eq!(pokemon_value["tasks"][0]["name"], "fetch-001");
+        assert_eq!(pokemon_value["tasks"][99]["name"], "fetch-100");
+    }
+
+    #[test]
+    fn chaos_engineering_example_preserves_parallel_stage() {
+        let value = job_value("twerk-chaos-engineering.yaml");
+        assert_eq!(value["tasks"].as_array().map(std::vec::Vec::len), Some(13));
+        assert_eq!(value["tasks"][2]["name"], "step-03-parallel-fanout");
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"]
+                .as_array()
+                .map(std::vec::Vec::len),
+            Some(9)
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][0]["name"],
+            "fetch-bulbasaur"
+        );
+        assert_eq!(
+            value["tasks"][2]["parallel"]["tasks"][8]["name"],
+            "fetch-lapras"
+        );
+    }
+
+    #[test]
+    fn asl_hello_example_preserves_two_pass_states() {
+        let value = state_machine_value("asl-hello.yaml");
+        assert_eq!(value["startAt"], "Hello");
+        assert_eq!(value["states"]["Hello"]["type"], "pass");
+        assert_eq!(value["states"]["Hello"]["result"], "Hello, World!");
+        assert_eq!(value["states"]["Goodbye"]["type"], "pass");
+        assert_eq!(value["states"]["Goodbye"]["result"], "Goodbye!");
+        assert_eq!(value["states"]["Goodbye"]["end"], true);
+    }
+
+    #[test]
+    fn asl_retry_example_preserves_retry_contract() {
+        let value = state_machine_value("asl-task-retry.yaml");
+        assert_eq!(value["startAt"], "Build");
+        assert_eq!(value["states"]["Build"]["type"], "task");
+        assert_eq!(value["states"]["Build"]["retry"][0]["errorEquals"][0], "taskfailed");
+        assert_eq!(value["states"]["Build"]["retry"][0]["intervalSeconds"], 1);
+        assert_eq!(value["states"]["Build"]["retry"][0]["maxAttempts"], 3);
+        assert_eq!(value["states"]["Build"]["retry"][0]["backoffRate"], 2.0);
+        assert_eq!(value["states"]["Deploy"]["end"], true);
     }
 
     #[test]
@@ -731,34 +1188,41 @@ mod yaml_suite {
     #[test]
     fn from_slice_returns_bad_request_for_binary_content_0x00() {
         let result: Result<serde_json::Value, ApiError> = from_slice(b"\x00");
-        assert!(result.is_err(), "0x00 byte should be rejected");
+        assert_eq!(
+            result,
+            Err(ApiError::BadRequest("YAML parse error".to_string()))
+        );
     }
 
     #[test]
     fn from_slice_accepts_control_chars_0x01_to_0x1f_in_strings() {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
         struct WithControl {
             value: String,
         }
-        let yaml = br#"value: "hello world""#;
+        let yaml = br#"value: "\u0001\u001f""#;
         let result: Result<WithControl, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "quoted string should be accepted: {result:?}"
+        assert_eq!(
+            result,
+            Ok(WithControl {
+                value: "\u{1}\u{1f}".to_string()
+            })
         );
     }
 
     #[test]
     fn from_slice_accepts_del_0x7f_in_quoted_strings() {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
         struct WithDel {
             value: String,
         }
-        let yaml = br#"value: "hello\x7fworld""#;
+        let yaml = br#"value: "hello\u007fworld""#;
         let result: Result<WithDel, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "DEL in quoted string should be accepted: {result:?}"
+        assert_eq!(
+            result,
+            Ok(WithDel {
+                value: "hello\u{7f}world".to_string()
+            })
         );
     }
 
@@ -766,43 +1230,36 @@ mod yaml_suite {
     fn from_slice_returns_bad_request_for_binary_content_0x80_to_0xff() {
         let invalid_bytes: Vec<u8> = (0x80..=0xFF).collect();
         let result: Result<serde_json::Value, ApiError> = from_slice(&invalid_bytes);
-        assert!(
-            result.is_err(),
-            "high bytes 0x80-0xFF should be rejected as invalid UTF-8"
-        );
+        assert_bad_request_contains(result, "invalid UTF-8");
     }
 
     #[test]
     fn from_slice_returns_bad_request_for_mixed_valid_and_invalid_utf8() {
         let data: Vec<u8> = b"key: value \xff\xfe".to_vec();
         let result: Result<serde_json::Value, ApiError> = from_slice(&data);
-        assert!(
-            result.is_err(),
-            "mixed valid/invalid UTF-8 should be rejected"
-        );
+        assert_bad_request_contains(result, "invalid UTF-8");
     }
 
     #[test]
     fn from_slice_returns_bad_request_for_truncated_utf8_sequence() {
         let data: Vec<u8> = b"key: \xc3".to_vec();
         let result: Result<serde_json::Value, ApiError> = from_slice(&data);
-        assert!(
-            result.is_err(),
-            "truncated UTF-8 sequence should be rejected"
-        );
+        assert_bad_request_contains(result, "invalid UTF-8");
     }
 
     #[test]
     fn from_slice_accepts_yaml_with_tabs_in_quoted_strings() {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
         struct WithTab {
             value: String,
         }
         let yaml = b"value: \"hello\\tworld\"";
         let result: Result<WithTab, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "tab in quoted string should be accepted: {result:?}"
+        assert_eq!(
+            result,
+            Ok(WithTab {
+                value: "hello\tworld".to_string()
+            })
         );
     }
 
@@ -814,24 +1271,87 @@ mod yaml_suite {
         }
         let yaml = "greeting: 🎉 Hello 世界".as_bytes();
         let result: Result<UnicodeVal, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "unicode in value should be accepted: {result:?}"
+        assert_eq!(
+            result,
+            Ok(UnicodeVal {
+                greeting: "🎉 Hello 世界".to_string()
+            })
         );
     }
 
     #[test]
     fn from_slice_handles_printable_ascii_in_values() {
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
         struct PrintableAscii {
             value: String,
         }
-        let yaml = b"value: hello world 123";
+        let yaml = b"value: 'hello world 123'";
         let result: Result<PrintableAscii, ApiError> = from_slice(yaml);
-        assert!(
-            result.is_ok(),
-            "printable ASCII in value should be accepted: {result:?}"
+        assert_eq!(
+            result,
+            Ok(PrintableAscii {
+                value: "hello world 123".to_string()
+            })
         );
+    }
+
+    #[test]
+    fn from_slice_rejects_duplicate_keys_in_same_mapping() {
+        let yaml = b"name: duplicate\ninputs:\n  token: first\n  token: second\n";
+        let result: Result<twerk_core::job::Job, ApiError> = from_slice(yaml);
+        assert_bad_request_contains(result, "duplicate");
+    }
+
+    #[test]
+    fn from_slice_rejects_yaml_exceeding_depth_budget() {
+        let yaml = (0..65).fold(String::new(), |mut acc, depth| {
+            let indentation = "  ".repeat(depth);
+            acc.push_str(&indentation);
+            acc.push_str("level");
+            acc.push_str(&depth.to_string());
+            acc.push_str(":\n");
+            acc
+        }) + &("  ".repeat(65) + "leaf: done\n");
+        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
+        assert_bad_request_contains(result, "YAML parse error");
+    }
+
+    #[test]
+    fn from_slice_rejects_yaml_exceeding_node_budget() {
+        let yaml = (0..10_050).fold(String::from("items:\n"), |mut acc, index| {
+            acc.push_str("  - item-");
+            acc.push_str(&index.to_string());
+            acc.push('\n');
+            acc
+        });
+        let result: Result<serde_json::Value, ApiError> = from_slice(yaml.as_bytes());
+        assert_bad_request_contains(result, "YAML parse error");
+    }
+
+    #[test]
+    fn to_string_roundtrips_real_job_example() -> Result<(), ApiError> {
+        let job = parse_job_example("each.yaml");
+        let yaml = to_string(&job)?;
+        let roundtrip: twerk_core::job::Job = from_slice(yaml.as_bytes())?;
+        assert_eq!(roundtrip, job);
+        Ok(())
+    }
+
+    #[test]
+    fn to_string_returns_internal_when_serializer_fails() {
+        struct FailingSerialize;
+
+        impl serde::Serialize for FailingSerialize {
+            fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                Err(serde::ser::Error::custom("boom"))
+            }
+        }
+
+        let result = to_string(&FailingSerialize);
+        assert_internal_contains(result, "YAML serialization error: boom");
     }
 
     #[test]
@@ -879,14 +1399,9 @@ derived: *base_val
             value: Option<String>,
         }
         let result: Result<Doc, ApiError> = from_slice(input.as_bytes());
-        let doc = result.expect("should parse");
-        let actual_val = doc.key.or(doc.name).or(doc.value);
-        assert_eq!(actual_val, Some(expected_val.to_string()));
+        assert_eq!(
+            result.map(|doc| doc.key.or(doc.name).or(doc.value)),
+            Ok(Some(expected_val.to_string()))
+        );
     }
-
-    // NOTE: Deep nesting and complexity limits are now handled by serde-saphyr's
-    // internal Budget limits. The limits (64 depth, 10000 nodes) are enforced
-    // by serde-saphyr's parser. Tests that specifically tested yaml-rust2 AST
-    // behavior (measure_ast_depth_and_nodes) have been removed as that code
-    // no longer exists.
 }

@@ -5,6 +5,7 @@
 - [Quick Start](quick-start.md)
 - [Architecture](architecture.md)
 - [CLI Reference](cli.md)
+- [YAML Language Spec](yaml-language-spec.md)
 - [Jobs](jobs.md)
 - [Tasks](tasks.md)
 - [Runtimes](runtimes.md)

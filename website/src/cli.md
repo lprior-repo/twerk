@@ -48,13 +48,38 @@ twerk health [OPTIONS]
 |--------|-------------|---------|
 | `-e, --endpoint <URL>` | Coordinator endpoint | `http://localhost:8000` |
 
+### `twerk version`
+
+Show the current CLI version.
+
+```bash
+twerk version [--json]
+```
+
+Text-mode version discovery commands are clean endpoints: they print only the version line to stdout, keep stderr empty, and exit `0`.
+
+Supported forms:
+
+- `twerk --version` → `twerk <VERSION>`
+- `twerk version` → `twerk <VERSION>`
+- `twerk run --version` → `twerk-run <VERSION>`
+- `twerk migration --version` → `twerk-migration <VERSION>`
+- `twerk health --version` → `twerk-health <VERSION>`
+
 ## Top-Level Flags
 
 | Option | Description |
 |--------|-------------|
-| `--json` | Emit machine-readable help or health output |
+| `--json` | Emit machine-readable JSON for help, version, parse errors, and command failures on stdout |
 | `--help` | Show CLI help |
 | `--version` | Show the current version |
+
+## JSON Behavior
+
+- Help discovery commands such as `twerk --json`, `twerk --json --help`, `twerk help --json`, and `twerk run --json --help` return JSON with a rendered `content` field.
+- Version discovery commands such as `twerk --json --version` and `twerk version --json` return JSON on stdout, keep stderr empty, and exit `0`.
+- JSON parse failures keep Clap exit code `2` and write structured error JSON to stdout.
+- JSON command validation and runtime failures exit `1`, write structured error JSON to stdout, and keep stderr empty.
 
 ## Environment Variables
 

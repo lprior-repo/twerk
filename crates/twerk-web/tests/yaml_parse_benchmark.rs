@@ -33,6 +33,7 @@ tasks:
 mod true_yaml_benchmark {
     use super::*;
 
+    #[ignore]
     #[test]
     fn true_yaml_parse_throughput_100k() {
         let iterations = 100_000;

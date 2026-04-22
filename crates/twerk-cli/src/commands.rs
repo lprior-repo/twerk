@@ -59,6 +59,8 @@ pub enum Commands {
         #[arg(long, short = 'e')]
         endpoint: Option<String>,
     },
+    /// Show version information
+    Version,
 }
 
 impl Default for Commands {
@@ -138,6 +140,19 @@ mod tests {
                     mode: RunMode::Worker,
                     hostname: None
                 })
+            })
+        ));
+    }
+
+    #[test]
+    fn test_version_subcommand_is_supported() {
+        let cli = Cli::try_parse_from(["twerk", "version"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Version)
             })
         ));
     }

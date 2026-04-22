@@ -28,29 +28,11 @@ pub struct HealthResponse {
 pub async fn health_check(endpoint: &str, json_mode: bool) -> Result<String, CliError> {
     let url = format!("{}/health", endpoint.trim_end_matches('/'));
 
-    let response = match reqwest::get(&url).await {
-        Ok(resp) => resp,
-        Err(e) => {
-            if json_mode {
-                println!(
-                    r#"{{"type":"health","endpoint":"{}","error":"{}","ok":false}}"#,
-                    endpoint, e
-                );
-            }
-            return Err(CliError::Http(e));
-        }
-    };
+    let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
     let status = response.status();
 
     if status != reqwest::StatusCode::OK {
-        if json_mode {
-            println!(
-                r#"{{"type":"health","endpoint":"{}","status":{},"ok":false}}"#,
-                endpoint,
-                status.as_u16()
-            );
-        }
         return Err(CliError::HealthFailed {
             status: status.as_u16(),
         });

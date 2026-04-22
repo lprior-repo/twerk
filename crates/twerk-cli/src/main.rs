@@ -5,9 +5,5 @@ use twerk_cli::run;
 
 #[tokio::main]
 async fn main() {
-    // Run the CLI
-    if let Err(e) = run().await {
-        eprintln!("Error: {e}");
-        process::exit(1);
-    }
+    process::exit(run().await);
 }

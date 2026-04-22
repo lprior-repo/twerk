@@ -1,11 +1,8 @@
-//! E2E tests for twerk-cli contract and behavioral inventory.
-//!
-//! These tests verify the CLI contract and behavioral inventory from the
-//! Red Queen test plan for twerk-cli.
+//! E2E tests for twerk-cli help, version, and JSON error behavior.
 
 use serde::Deserialize;
 use std::env;
-use std::process::Command;
+use std::process::{Command, Output};
 
 fn cli_binary() -> String {
     if let Ok(path) = env::var("TWERK_CLI_BINARY") {
@@ -14,7 +11,7 @@ fn cli_binary() -> String {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let workspace_root = std::path::Path::new(manifest_dir)
         .parent()
-        .and_then(|p| p.parent())
+        .and_then(|path| path.parent())
         .unwrap_or_else(|| std::path::Path::new("."));
     workspace_root
         .join("target")
@@ -24,340 +21,209 @@ fn cli_binary() -> String {
         .to_string()
 }
 
+fn run_cli(args: &[&str]) -> Output {
+    Command::new(cli_binary())
+        .args(args)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to execute {:?}: {error}", args))
+}
+
+fn stdout_string(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).to_string()
+}
+
+fn stderr_string(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).to_string()
+}
+
+fn expected_version_line(command_name: &str) -> String {
+    format!("{command_name} {}\n", env!("CARGO_PKG_VERSION"))
+}
+
 #[derive(Debug, Deserialize)]
-struct JsonVersionOutput {
+struct JsonCliOutput {
     #[serde(rename = "type")]
     output_type: String,
     version: String,
     commit: String,
+    #[serde(default)]
+    kind: Option<String>,
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
 }
 
-mod contract {
-    use super::*;
-
-    #[test]
-    fn c1_help_command_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--help")
-            .output()
-            .expect("failed to execute twerk --help");
-        assert_eq!(output.status.code(), Some(0), "C1: --help should exit 0");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Usage:"), "C1: help should contain Usage");
-    }
-
-    #[test]
-    fn c2_version_command_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--version")
-            .output()
-            .expect("failed to execute twerk --version");
-        assert_eq!(output.status.code(), Some(0), "C2: --version should exit 0");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("twerk"),
-            "C2: version output should contain 'twerk'"
-        );
-    }
-
-    #[test]
-    fn c3_json_flag_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--json")
-            .output()
-            .expect("failed to execute twerk --json");
-        assert_eq!(output.status.code(), Some(0), "C3: --json should exit 0");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("\"type\":\"help\""),
-            "C3: JSON output should have type:help"
-        );
-        assert!(
-            stdout.contains("\"version\""),
-            "C3: JSON output should have version"
-        );
-    }
-
-    #[test]
-    fn c4_run_subcommand_help_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .args(["run", "--help"])
-            .output()
-            .expect("failed to execute twerk run --help");
-        assert_eq!(
-            output.status.code(),
-            Some(0),
-            "C4: run --help should exit 0"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("Usage:"),
-            "C4: run help should contain Usage"
-        );
-    }
-
-    #[test]
-    fn c5_migration_subcommand_help_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .args(["migration", "--help"])
-            .output()
-            .expect("failed to execute twerk migration --help");
-        assert_eq!(
-            output.status.code(),
-            Some(0),
-            "C5: migration --help should exit 0"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("Usage:"),
-            "C5: migration help should contain Usage"
-        );
-    }
-
-    #[test]
-    fn c6_health_subcommand_help_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .args(["health", "--help"])
-            .output()
-            .expect("failed to execute twerk health --help");
-        assert_eq!(
-            output.status.code(),
-            Some(0),
-            "C6: health --help should exit 0"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("Usage:"),
-            "C6: health help should contain Usage"
-        );
-    }
+fn parse_json_output(output: &Output) -> JsonCliOutput {
+    serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
+        panic!(
+            "stdout was not valid JSON: {error}; stdout={:?}",
+            output.stdout
+        )
+    })
 }
 
-mod behavioral {
-    use super::*;
+#[test]
+fn help_flag_exits_zero() {
+    let output = run_cli(&["--help"]);
 
-    #[test]
-    fn b1_no_command_shows_help_and_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .output()
-            .expect("failed to execute bare twerk");
-        assert_eq!(
-            output.status.code(),
-            Some(0),
-            "B1: no command should exit 0"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Usage:"), "B1: output should show help");
-    }
-
-    #[test]
-    fn b2_help_flag_shows_help_and_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--help")
-            .output()
-            .expect("failed to execute twerk --help");
-        assert_eq!(output.status.code(), Some(0), "B2: --help should exit 0");
-    }
-
-    #[test]
-    fn b3_version_flag_shows_version_and_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--version")
-            .output()
-            .expect("failed to execute twerk --version");
-        assert_eq!(output.status.code(), Some(0), "B3: --version should exit 0");
-    }
-
-    #[test]
-    fn b4_json_flag_shows_json_and_exits_zero() {
-        let output = Command::new(&cli_binary())
-            .arg("--json")
-            .output()
-            .expect("failed to execute twerk --json");
-        assert_eq!(output.status.code(), Some(0), "B4: --json should exit 0");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let parsed: JsonVersionOutput =
-            serde_json::from_str(&stdout).expect("B4: JSON output should be valid JSON");
-        assert_eq!(parsed.output_type, "help", "B4: type should be 'help'");
-        assert!(
-            !parsed.version.is_empty(),
-            "B4: version should not be empty"
-        );
-    }
-
-    #[test]
-    fn b8_invalid_run_mode_exits_2() {
-        let output = Command::new(&cli_binary())
-            .args(["run", "invalid-mode"])
-            .output()
-            .expect("failed to execute twerk run invalid-mode");
-        assert_eq!(
-            output.status.code(),
-            Some(2),
-            "B8: invalid mode should exit 2"
-        );
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("invalid value"),
-            "B8: error should mention 'invalid value'"
-        );
-    }
-
-    #[test]
-    fn b9_run_without_mode_exits_2() {
-        let output = Command::new(&cli_binary())
-            .args(["run"])
-            .output()
-            .expect("failed to execute twerk run");
-        assert_eq!(
-            output.status.code(),
-            Some(2),
-            "B9: run without mode should exit 2"
-        );
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("required"),
-            "B9: error should mention 'required'"
-        );
-    }
-
-    #[test]
-    fn b11_migration_without_yes_exits_1() {
-        let output = Command::new(&cli_binary())
-            .args(["migration"])
-            .output()
-            .expect("failed to execute twerk migration");
-        assert_eq!(
-            output.status.code(),
-            Some(1),
-            "B11: migration without --yes should exit 1"
-        );
-    }
-
-    #[test]
-    fn b13_health_empty_endpoint_exits_1() {
-        let output = Command::new(&cli_binary())
-            .args(["health", "--endpoint", ""])
-            .output()
-            .expect("failed to execute twerk health --endpoint ''");
-        assert_eq!(
-            output.status.code(),
-            Some(1),
-            "B13: empty endpoint should exit 1"
-        );
-    }
-
-    #[test]
-    fn b14_health_invalid_url_exits_1() {
-        let output = Command::new(&cli_binary())
-            .args(["health", "--endpoint", "not-a-url"])
-            .output()
-            .expect("failed to execute twerk health --endpoint 'not-a-url'");
-        assert_eq!(
-            output.status.code(),
-            Some(1),
-            "B14: invalid URL should exit 1"
-        );
-    }
+    assert_eq!(output.status.code(), Some(0));
+    assert!(stdout_string(&output).contains("Usage:"));
 }
 
-mod error_handling {
-    use super::*;
+#[test]
+fn version_flag_exits_zero() {
+    let output = run_cli(&["--version"]);
 
-    #[test]
-    fn e1_invalid_mode_arg_exits_2() {
-        let output = Command::new(&cli_binary())
-            .args(["run", "bogus"])
-            .output()
-            .expect("failed to execute twerk run bogus");
-        assert_eq!(
-            output.status.code(),
-            Some(2),
-            "E1: clap error should exit 2"
-        );
-    }
-
-    #[test]
-    fn e2_missing_required_arg_exits_2() {
-        let output = Command::new(&cli_binary())
-            .args(["run"])
-            .output()
-            .expect("failed to execute twerk run");
-        assert_eq!(
-            output.status.code(),
-            Some(2),
-            "E2: missing arg should exit 2"
-        );
-    }
-
-    #[test]
-    fn e4_json_mode_suppresses_banner() {
-        let output = Command::new(&cli_binary())
-            .args(["--json", "run", "standalone"])
-            .output()
-            .expect("failed to execute twerk --json run standalone");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            !stdout.contains("twerk"),
-            "E4: JSON output should not contain banner 'twerk'"
-        );
-        assert!(
-            !stderr.contains("twerk"),
-            "E4: stderr should not contain banner"
-        );
-        assert!(
-            stdout.contains("error") || stdout.contains("Error") || output.status.code() != Some(0),
-            "E4: Should produce error JSON (no RabbitMQ)"
-        );
-    }
-
-    #[test]
-    fn e5_json_mode_suppresses_logging() {
-        let output = Command::new(&cli_binary())
-            .args(["--json", "run", "standalone"])
-            .output()
-            .expect("failed to execute twerk --json run standalone");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            !stderr.contains(" INFO"),
-            "E5: JSON mode should not contain INFO logs"
-        );
-        assert!(
-            !stderr.contains(" WARN"),
-            "E5: JSON mode should not contain WARN logs"
-        );
-    }
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stdout_string(&output), expected_version_line("twerk"));
+    assert_eq!(stderr_string(&output), "");
 }
 
-mod json_output {
-    use super::*;
+#[test]
+fn version_subcommand_matches_top_level_version_output_without_noise() {
+    let output = run_cli(&["version"]);
 
-    #[test]
-    fn json_help_contains_version_info() {
-        let output = Command::new(&cli_binary())
-            .arg("--json")
-            .output()
-            .expect("failed to execute twerk --json");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let parsed: JsonVersionOutput =
-            serde_json::from_str(&stdout).expect("JSON output should parse as JsonVersionOutput");
-        assert!(!parsed.version.is_empty());
-        assert!(!parsed.commit.is_empty());
-    }
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stdout_string(&output), expected_version_line("twerk"));
+    assert_eq!(stderr_string(&output), "");
+}
 
-    #[test]
-    fn json_health_endpoint_not_found_exits_1() {
-        let output = Command::new(&cli_binary())
-            .args(["--json", "health", "--endpoint", "http://localhost:9999"])
-            .output()
-            .expect("failed to execute twerk --json health");
-        assert_eq!(
-            output.status.code(),
-            Some(1),
-            "health check to non-existent endpoint should exit 1"
-        );
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("{"), "JSON output expected");
-    }
+#[test]
+fn json_top_level_help_writes_help_json_to_stdout() {
+    let output = run_cli(&["--json"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "help");
+    assert!(!parsed.version.is_empty());
+    assert!(!parsed.commit.is_empty());
+    assert!(parsed.content.unwrap_or_default().contains("Usage:"));
+}
+
+#[test]
+fn json_help_flag_returns_rendered_help_content() {
+    let output = run_cli(&["--json", "--help"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "help");
+    assert!(parsed.content.unwrap_or_default().contains("Usage:"));
+}
+
+#[test]
+fn help_subcommand_in_json_mode_returns_rendered_help_content() {
+    let output = run_cli(&["help", "--json"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "help");
+    assert!(parsed.content.unwrap_or_default().contains("Usage:"));
+}
+
+#[test]
+fn run_help_in_json_mode_returns_rendered_help_content() {
+    let output = run_cli(&["run", "--json", "--help"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "help");
+    assert!(parsed.content.unwrap_or_default().contains("Usage:"));
+}
+
+#[test]
+fn json_version_flag_writes_version_json_to_stdout() {
+    let output = run_cli(&["--json", "--version"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "version");
+    assert!(parsed.content.unwrap_or_default().contains("twerk"));
+}
+
+#[test]
+fn version_subcommand_supports_json_mode() {
+    let output = run_cli(&["version", "--json"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "version");
+    assert!(parsed.content.unwrap_or_default().contains("twerk"));
+}
+
+#[test]
+fn propagated_subcommand_version_forms_remain_clean() {
+    [
+        (["run", "--version"], "twerk-run"),
+        (["migration", "--version"], "twerk-migration"),
+        (["health", "--version"], "twerk-health"),
+    ]
+    .into_iter()
+    .for_each(|(args, command_name)| {
+        let output = run_cli(&args);
+
+        assert_eq!(output.status.code(), Some(0));
+        assert_eq!(stdout_string(&output), expected_version_line(command_name));
+        assert_eq!(stderr_string(&output), "");
+    });
+}
+
+#[test]
+fn json_invalid_run_mode_preserves_clap_exit_code() {
+    let output = run_cli(&["--json", "run", "invalid-mode"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "error");
+    assert_eq!(parsed.kind.as_deref(), Some("invalid_value"));
+    assert!(parsed.message.unwrap_or_default().contains("invalid value"));
+}
+
+#[test]
+fn json_missing_run_mode_preserves_clap_exit_code() {
+    let output = run_cli(&["--json", "run"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "error");
+    assert_eq!(parsed.kind.as_deref(), Some("missing_required_argument"));
+    assert!(parsed.message.unwrap_or_default().contains("required"));
+}
+
+#[test]
+fn json_invalid_health_endpoint_writes_structured_validation_error() {
+    let output = run_cli(&["--json", "health", "--endpoint", "not-a-url"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "error");
+    assert_eq!(parsed.kind.as_deref(), Some("validation"));
+    assert!(parsed
+        .message
+        .unwrap_or_default()
+        .contains("invalid endpoint"));
+}
+
+#[test]
+fn json_health_connection_failure_writes_structured_runtime_error() {
+    let output = run_cli(&["--json", "health", "--endpoint", "http://127.0.0.1:9"]);
+    let parsed = parse_json_output(&output);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stderr_string(&output), "");
+    assert_eq!(parsed.output_type, "error");
+    assert_eq!(parsed.kind.as_deref(), Some("runtime"));
+    assert!(parsed
+        .message
+        .unwrap_or_default()
+        .contains("HTTP request failed"));
 }

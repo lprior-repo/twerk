@@ -84,7 +84,7 @@ fn claim_4_setup_logging_rejects_invalid_level() {
 
 #[test]
 fn claim_5_cli_struct_can_be_parsed_with_no_subcommand() {
-    let args = vec!["twerk"];
+    let args = ["twerk"];
     let cli = Cli::parse_from(args.iter());
     assert!(cli.command.is_none());
 }

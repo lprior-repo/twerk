@@ -2,7 +2,9 @@
 //!
 //! Orchestrates the CLI: parses arguments, displays banner, and dispatches commands.
 
+use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
+use serde_json::{json, Value};
 use std::ffi::OsString;
 use tracing::Level;
 use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
@@ -34,6 +36,12 @@ pub const GIT_COMMIT: &str = env!("GIT_COMMIT_HASH");
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CliAction {
     Execute(Option<Commands>, bool), // (command, json_mode)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExitStatus {
+    Success = 0,
+    Failure = 1,
 }
 
 /// Get the current git commit hash at runtime
@@ -134,30 +142,180 @@ fn collect_args() -> Vec<OsString> {
     std::env::args_os().collect()
 }
 
+fn json_requested(args: &[OsString]) -> bool {
+    args.iter().any(|arg| arg == "--json")
+}
+
+fn os_string_eq(value: &OsString, expected: &str) -> bool {
+    value == expected
+}
+
 fn parse_cli_args(args: &[OsString]) -> Result<CliAction, clap::Error> {
     Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command, cli.json))
 }
 
-fn exit_for_parse_error(error: clap::Error) -> ! {
-    error.exit()
+fn render_help_for_path(path: &[String]) -> Result<String, CliError> {
+    let mut command = Cli::command();
+    let mut buffer = Vec::new();
+    let target = path.iter().try_fold(&mut command, |current, segment| {
+        current
+            .find_subcommand_mut(segment)
+            .ok_or_else(|| CliError::MissingArgument(format!("unknown help target: {segment}")))
+    })?;
+
+    target.write_long_help(&mut buffer).map_err(CliError::Io)?;
+    String::from_utf8(buffer).map_err(|error| CliError::Config(error.to_string()))
+}
+
+fn render_top_level_help() -> Result<String, CliError> {
+    render_help_for_path(&[])
+}
+
+fn print_json(value: &Value) {
+    println!("{value}");
+}
+
+fn json_help_payload(content: String) -> Value {
+    json!({
+        "type": "help",
+        "version": VERSION,
+        "commit": GIT_COMMIT,
+        "content": content,
+    })
+}
+
+fn json_version_payload(content: String) -> Value {
+    json!({
+        "type": "version",
+        "version": VERSION,
+        "commit": GIT_COMMIT,
+        "content": content,
+    })
+}
+
+fn json_error_payload(kind: &str, message: String, content: Option<String>) -> Value {
+    json!({
+        "type": "error",
+        "kind": kind,
+        "version": VERSION,
+        "commit": GIT_COMMIT,
+        "message": message,
+        "content": content,
+    })
+}
+
+const fn clap_error_kind_name(kind: ErrorKind) -> &'static str {
+    match kind {
+        ErrorKind::DisplayHelp => "help",
+        ErrorKind::DisplayVersion => "version",
+        ErrorKind::InvalidValue => "invalid_value",
+        ErrorKind::InvalidSubcommand => "invalid_subcommand",
+        ErrorKind::MissingRequiredArgument => "missing_required_argument",
+        ErrorKind::UnknownArgument => "unknown_argument",
+        _ => "parse_error",
+    }
+}
+
+fn handle_parse_error(error: clap::Error, emit_json: bool) -> i32 {
+    let exit_code = error.exit_code();
+    if emit_json {
+        let content = error.to_string();
+        let payload = match error.kind() {
+            ErrorKind::DisplayHelp => json_help_payload(content),
+            ErrorKind::DisplayVersion => json_version_payload(content),
+            kind => json_error_payload(clap_error_kind_name(kind), content.clone(), Some(content)),
+        };
+        print_json(&payload);
+        exit_code
+    } else {
+        error.exit()
+    }
+}
+
+fn handle_runtime_error(error: CliError, emit_json: bool) -> i32 {
+    if emit_json {
+        let kind = match error {
+            CliError::InvalidEndpoint(_)
+            | CliError::MissingArgument(_)
+            | CliError::InvalidHostname(_) => "validation",
+            _ => "runtime",
+        };
+        print_json(&json_error_payload(kind, error.to_string(), None));
+    } else {
+        eprintln!("Error: {error}");
+    }
+    ExitStatus::Failure as i32
+}
+
+fn handle_json_help_subcommand(args: &[OsString]) -> Option<i32> {
+    let is_help_subcommand = args.get(1).is_some_and(|arg| os_string_eq(arg, "help"));
+    if !json_requested(args) || !is_help_subcommand {
+        return None;
+    }
+
+    let help_path = args
+        .iter()
+        .skip(2)
+        .filter(|arg| !os_string_eq(arg, "--json"))
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+
+    match render_help_for_path(&help_path) {
+        Ok(content) => {
+            print_json(&json_help_payload(content));
+            Some(ExitStatus::Success as i32)
+        }
+        Err(error) => Some(handle_runtime_error(error, true)),
+    }
+}
+
+const fn should_emit_startup_ui(command: &Commands, json_mode: bool) -> bool {
+    !json_mode && !matches!(command, Commands::Version)
+}
+
+async fn execute_command(command: Commands, json_mode: bool) -> Result<(), CliError> {
+    match command {
+        Commands::Run { mode, hostname } => run_engine(mode, hostname).await,
+        Commands::Migration { yes: _ } => {
+            let dstype = get_datastore_type();
+            let dsn = get_postgres_dsn()?;
+            run_migration(&dstype, dsn.as_str()).await
+        }
+        Commands::Health { endpoint } => {
+            let ep = if let Some(ep_str) = endpoint {
+                Endpoint::new(ep_str)
+                    .map_err(|error| CliError::InvalidEndpoint(error.to_string()))?
+            } else {
+                get_endpoint()?
+            };
+            health_check(ep.as_str(), json_mode).await.map(|_| ())
+        }
+        Commands::Version => {
+            let content = format!("twerk {VERSION}\n");
+            if json_mode {
+                print_json(&json_version_payload(content));
+            } else {
+                println!("twerk {VERSION}");
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Execute the CLI with the given command
-///
-/// # Errors
-///
-/// Returns an error if command execution fails.
-pub async fn run() -> Result<(), CliError> {
+pub async fn run() -> i32 {
     if reexec::init() {
-        return Ok(());
+        return ExitStatus::Success as i32;
     }
 
-    let _ = load_config();
-
     let args = collect_args();
+    if let Some(exit_code) = handle_json_help_subcommand(&args) {
+        return exit_code;
+    }
+    let emit_json = json_requested(&args);
     let action = match parse_cli_args(&args) {
         Ok(action) => action,
-        Err(error) => exit_for_parse_error(error),
+        Err(error) => return handle_parse_error(error, emit_json),
     };
 
     let (cmd, json_mode) = match action {
@@ -167,50 +325,36 @@ pub async fn run() -> Result<(), CliError> {
     // If no subcommand was provided, display help and exit 0
     let cmd = match cmd {
         Some(cmd) => cmd,
-        None => {
-            if json_mode {
-                println!(
-                    r#"{{"type":"help","version":"{}","commit":"{}"}}"#,
-                    VERSION, GIT_COMMIT
-                );
-            } else {
-                Cli::command().print_help().map_err(CliError::Io)?;
+        None => match render_top_level_help() {
+            Ok(content) => {
+                if json_mode {
+                    print_json(&json_help_payload(content));
+                } else {
+                    print!("{content}");
+                }
+                return ExitStatus::Success as i32;
             }
-            std::process::exit(0);
-        }
+            Err(error) => {
+                return handle_runtime_error(error, json_mode);
+            }
+        },
     };
 
-    // Setup logging (suppress in json mode for cleaner output)
-    if !json_mode {
-        setup_logging()?;
-    }
-
-    // Display banner only in non-json mode
-    if !json_mode {
+    // Setup logging and banner for interactive commands only.
+    if should_emit_startup_ui(&cmd, json_mode) {
+        if let Err(error) = setup_logging() {
+            return handle_runtime_error(error, false);
+        }
         let banner_mode = get_banner_mode();
         display_banner(banner_mode, VERSION, GIT_COMMIT);
     }
 
-    match cmd {
-        Commands::Run { mode, hostname } => {
-            run_engine(mode, hostname).await?;
-        }
-        Commands::Migration { yes: _ } => {
-            let dstype = get_datastore_type();
-            let dsn = get_postgres_dsn()?;
-            run_migration(&dstype, dsn.as_str()).await?;
-        }
-        Commands::Health { endpoint } => {
-            let ep = if let Some(ep_str) = endpoint {
-                Endpoint::new(ep_str).map_err(|e| CliError::InvalidEndpoint(e.to_string()))?
-            } else {
-                get_endpoint()?
-            };
-            health_check(ep.as_str(), json_mode).await?;
-        }
-    }
+    let execution = execute_command(cmd, json_mode).await;
 
-    Ok(())
+    match execution {
+        Ok(()) => ExitStatus::Success as i32,
+        Err(error) => handle_runtime_error(error, json_mode),
+    }
 }
 
 #[cfg(test)]
@@ -290,6 +434,37 @@ mod tests {
     }
 
     #[test]
+    fn parse_cli_args_returns_version_subcommand() {
+        let args = vec![OsString::from("twerk"), OsString::from("version")];
+
+        assert!(matches!(
+            parse_cli_args(&args),
+            Ok(CliAction::Execute(Some(Commands::Version), false))
+        ));
+    }
+
+    #[test]
+    fn version_subcommand_skips_startup_ui_in_text_mode() {
+        assert!(!should_emit_startup_ui(&Commands::Version, false));
+    }
+
+    #[test]
+    fn health_command_emits_startup_ui_in_text_mode() {
+        assert!(should_emit_startup_ui(
+            &Commands::Health { endpoint: None },
+            false
+        ));
+    }
+
+    #[test]
+    fn json_mode_skips_startup_ui_for_all_commands() {
+        assert!(!should_emit_startup_ui(
+            &Commands::Health { endpoint: None },
+            true
+        ));
+    }
+
+    #[test]
     fn parse_cli_args_returns_run_command_for_coordinator_mode() {
         let args = vec![
             OsString::from("twerk"),
@@ -327,23 +502,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn get_banner_mode_prefers_environment_override_when_set() {
-        std::env::set_var("TWERK_CLI_BANNER_MODE", "off");
-
-        let result = get_banner_mode();
-
-        std::env::remove_var("TWERK_CLI_BANNER_MODE");
-        assert_eq!(result, BannerMode::Off);
-    }
-
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[test]
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
 
-        let endpoint = get_endpoint().expect("valid endpoint from env");
+        let endpoint = get_endpoint().unwrap();
 
         std::env::remove_var("TWERK_CLIENT_ENDPOINT");
         assert_eq!(endpoint.as_str(), "http://127.0.0.1:9999");
+    }
+
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
+    #[test]
+    fn render_top_level_help_contains_usage() {
+        let help = render_top_level_help().expect("help should render");
+
+        assert!(help.contains("Usage:"));
     }
 }

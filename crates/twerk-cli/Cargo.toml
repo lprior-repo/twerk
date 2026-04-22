@@ -31,3 +31,7 @@ itertools.workspace = true
 tap.workspace = true
 futures-util.workspace = true
 reqwest.workspace = true
+percent-encoding = "2"
+
+[dev-dependencies]
+serial_test = "3"

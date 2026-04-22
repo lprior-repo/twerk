@@ -5,6 +5,7 @@
 use serde::Deserialize;
 
 use crate::error::CliError;
+use crate::handlers::common::TriggerErrorResponse;
 
 #[derive(Debug, Deserialize)]
 pub struct Metrics {
@@ -38,6 +39,16 @@ pub async fn metrics_get(endpoint: &str, json_mode: bool) -> Result<String, CliE
     let status = response.status();
 
     if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .map_err(|e| CliError::InvalidBody(e.to_string()))?;
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),

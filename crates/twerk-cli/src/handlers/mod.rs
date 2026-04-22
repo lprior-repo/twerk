@@ -2,6 +2,7 @@
 //!
 //! HTTP client implementations for API operations.
 
+pub mod common;
 pub mod metrics;
 pub mod node;
 pub mod queue;

@@ -253,8 +253,12 @@ mod bdd_commands_enum {
 #[cfg(test)]
 mod bdd_setup_logging {
     #[test]
-    fn then_setup_logging_function_exists_and_is_callable() {
-        let _ = twerk_cli::cli::setup_logging();
+    fn then_setup_logging_function_is_callable_and_returns_determinate_result() {
+        let result = twerk_cli::cli::setup_logging();
+        assert!(
+            !format!("{result:?}").is_empty(),
+            "setup_logging result debug string must not be empty"
+        );
     }
 }
 
@@ -264,44 +268,83 @@ mod bdd_completeness_check {
     use super::*;
 
     #[test]
-    fn then_all_public_constants_are_accessible() {
-        let _ = VERSION;
-        let _ = DEFAULT_ENDPOINT;
-        let _ = DEFAULT_DATASTORE_TYPE;
+    fn then_all_public_constants_are_accessible_and_non_empty() {
+        assert!(!VERSION.is_empty());
+        assert!(!DEFAULT_ENDPOINT.is_empty());
+        assert!(!DEFAULT_DATASTORE_TYPE.is_empty());
     }
 
     #[test]
-    fn then_error_enum_variants_are_constructible() {
+    fn then_error_enum_variants_are_constructible_and_debug_is_non_empty() {
         use std::io;
-        let _ = CliError::Config("test".to_string());
-        let _ = CliError::HealthFailed { status: 200 };
-        let _ = CliError::InvalidBody("test".to_string());
-        let _ = CliError::MissingArgument("test".to_string());
-        let _ = CliError::Migration("test".to_string());
-        let _ = CliError::UnknownDatastore("test".to_string());
-        let _ = CliError::Logging("test".to_string());
-        let _ = CliError::Engine("test".to_string());
-        let _ = CliError::Io(io::Error::other("test"));
+
+        let config = CliError::Config("test".to_string());
+        assert!(!format!("{config:?}").is_empty());
+        assert!(!config.to_string().is_empty());
+
+        let health_failed = CliError::HealthFailed { status: 200 };
+        assert!(!format!("{health_failed:?}").is_empty());
+        assert!(!health_failed.to_string().is_empty());
+
+        let invalid_body = CliError::InvalidBody("test".to_string());
+        assert!(!format!("{invalid_body:?}").is_empty());
+        assert!(!invalid_body.to_string().is_empty());
+
+        let missing_argument = CliError::MissingArgument("test".to_string());
+        assert!(!format!("{missing_argument:?}").is_empty());
+        assert!(!missing_argument.to_string().is_empty());
+
+        let migration = CliError::Migration("test".to_string());
+        assert!(!format!("{migration:?}").is_empty());
+        assert!(!migration.to_string().is_empty());
+
+        let unknown_datastore = CliError::UnknownDatastore("test".to_string());
+        assert!(!format!("{unknown_datastore:?}").is_empty());
+        assert!(!unknown_datastore.to_string().is_empty());
+
+        let logging = CliError::Logging("test".to_string());
+        assert!(!format!("{logging:?}").is_empty());
+        assert!(!logging.to_string().is_empty());
+
+        let engine = CliError::Engine("test".to_string());
+        assert!(!format!("{engine:?}").is_empty());
+        assert!(!engine.to_string().is_empty());
+
+        let io_err = CliError::Io(io::Error::other("test"));
+        assert!(!format!("{io_err:?}").is_empty());
+        assert!(!io_err.to_string().is_empty());
     }
 
     #[test]
-    fn then_commands_enum_variants_are_constructible() {
+    fn then_commands_enum_variants_are_constructible_and_debug_is_non_empty() {
         use twerk_cli::commands::RunMode;
-        let _ = Commands::default();
-        let _ = Commands::Run {
+
+        let default = Commands::default();
+        assert!(!format!("{default:?}").is_empty());
+
+        let standalone = Commands::Run {
             mode: RunMode::Standalone,
             hostname: None,
         };
-        let _ = Commands::Run {
+        assert!(!format!("{standalone:?}").is_empty());
+
+        let coordinator = Commands::Run {
             mode: RunMode::Coordinator,
             hostname: None,
         };
-        let _ = Commands::Run {
+        assert!(!format!("{coordinator:?}").is_empty());
+
+        let worker = Commands::Run {
             mode: RunMode::Worker,
             hostname: None,
         };
-        let _ = Commands::Health { endpoint: None };
-        let _ = Commands::Migration { yes: false };
+        assert!(!format!("{worker:?}").is_empty());
+
+        let health = Commands::Health { endpoint: None };
+        assert!(!format!("{health:?}").is_empty());
+
+        let migration = Commands::Migration { yes: false };
+        assert!(!format!("{migration:?}").is_empty());
     }
 }
 

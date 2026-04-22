@@ -8,7 +8,6 @@ use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware
 use super::handlers;
 use super::openapi;
 use super::state::AppState;
-use super::trigger_api;
 
 fn is_enabled(enabled: &std::collections::HashMap<String, bool>, key: &str) -> bool {
     enabled.get(key).copied().unwrap_or(true)
@@ -170,13 +169,13 @@ fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
     router
         .route(
             "/api/v1/triggers",
-            get(trigger_api::list_triggers_handler).post(trigger_api::create_trigger_handler),
+            get(handlers::list_triggers_handler).post(handlers::create_trigger_handler),
         )
         .route(
             "/api/v1/triggers/{id}",
-            get(trigger_api::get_trigger_handler)
-                .put(trigger_api::update_trigger_handler)
-                .delete(trigger_api::delete_trigger_handler),
+            get(handlers::get_trigger_handler)
+                .put(handlers::update_trigger_handler)
+                .delete(handlers::delete_trigger_handler),
         )
 }
 

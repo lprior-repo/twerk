@@ -3,6 +3,34 @@
 use thiserror::Error;
 use twerk_core::domain::{DsnError, EndpointError};
 
+/// Category of error for exit code determination
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// Validation error (exit code 2) - invalid input, configuration, or arguments
+    Validation,
+    /// Runtime error (exit code 1) - operations that failed during execution
+    Runtime,
+}
+
+impl ErrorKind {
+    /// Returns the exit code associated with this error kind
+    pub const fn exit_code(self) -> i32 {
+        match self {
+            Self::Validation => 2,
+            Self::Runtime => 1,
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Validation => write!(f, "validation"),
+            Self::Runtime => write!(f, "runtime"),
+        }
+    }
+}
+
 /// Errors that can occur during CLI operations
 #[derive(Debug, Error)]
 pub enum CliError {
@@ -76,6 +104,34 @@ impl From<DsnError> for CliError {
 impl From<EndpointError> for CliError {
     fn from(e: EndpointError) -> Self {
         Self::InvalidEndpoint(e.to_string())
+    }
+}
+
+impl CliError {
+    /// Returns the category of this error
+    pub const fn kind(&self) -> ErrorKind {
+        match self {
+            Self::InvalidEndpoint(_) => ErrorKind::Validation,
+            Self::MissingArgument(_) => ErrorKind::Validation,
+            Self::InvalidHostname(_) => ErrorKind::Validation,
+            Self::UnknownDatastore(_) => ErrorKind::Validation,
+            Self::Config(_) => ErrorKind::Validation,
+            Self::Http(_) => ErrorKind::Runtime,
+            Self::HttpStatus { .. } => ErrorKind::Runtime,
+            Self::HealthFailed { .. } => ErrorKind::Runtime,
+            Self::InvalidBody(_) => ErrorKind::Runtime,
+            Self::Migration(_) => ErrorKind::Runtime,
+            Self::Logging(_) => ErrorKind::Runtime,
+            Self::Engine(_) => ErrorKind::Runtime,
+            Self::NotFound(_) => ErrorKind::Runtime,
+            Self::ApiError { .. } => ErrorKind::Runtime,
+            Self::Io(_) => ErrorKind::Runtime,
+        }
+    }
+
+    /// Returns the exit code for this error
+    pub const fn exit_code(&self) -> i32 {
+        self.kind().exit_code()
     }
 }
 

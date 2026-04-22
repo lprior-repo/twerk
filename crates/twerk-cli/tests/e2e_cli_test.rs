@@ -52,6 +52,12 @@ struct JsonCliOutput {
     message: Option<String>,
     #[serde(default)]
     content: Option<String>,
+    #[serde(default)]
+    data: Option<serde_json::Value>,
+    #[serde(default)]
+    command: Option<String>,
+    #[serde(default)]
+    exit_code: Option<i32>,
 }
 
 fn parse_json_output(output: &Output) -> JsonCliOutput {
@@ -96,10 +102,13 @@ fn json_top_level_help_writes_help_json_to_stdout() {
 
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(stderr_string(&output), "");
-    assert_eq!(parsed.output_type, "help");
+    assert_eq!(parsed.output_type, "success");
     assert!(!parsed.version.is_empty());
     assert!(!parsed.commit.is_empty());
-    assert!(parsed.content.unwrap_or_default().contains("Usage:"));
+    assert!(parsed.data.is_some());
+    let data_binding = parsed.data.unwrap();
+    let data_str = data_binding.as_str().unwrap_or_default();
+    assert!(data_str.contains("Usage:"));
 }
 
 #[test]

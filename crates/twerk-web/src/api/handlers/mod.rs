@@ -19,11 +19,13 @@ pub mod queues;
 pub mod scheduled;
 pub mod system;
 pub mod tasks;
+pub mod triggers;
 
 // Re-exports from submodules
 pub use jobs::{
     cancel_job_handler, cancel_job_handler_post, create_job_handler, get_job_handler,
-    get_job_log_handler, list_jobs_handler, restart_job_handler, CreateJobQuery, WaitMode,
+    get_job_log_handler, job_cancel_put, list_jobs_handler, restart_job_handler, CreateJobQuery,
+    WaitMode,
 };
 pub use queues::{delete_queue_handler, get_queue_handler, list_queues_handler};
 pub use scheduled::{
@@ -35,6 +37,10 @@ pub use system::{
     create_user_handler, get_metrics_handler, health_handler, list_nodes_handler, CreateUserBody,
 };
 pub use tasks::{get_task_handler, get_task_log_handler, PaginationQuery};
+pub use triggers::{
+    create_trigger_handler, delete_trigger_handler, get_trigger_handler, list_triggers_handler,
+    update_trigger_handler,
+};
 
 // -----------------------------------------------------------------------------
 // Shared helper functions (pub(super) for submodules)

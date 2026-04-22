@@ -14,7 +14,10 @@ use twerk_infrastructure::config as app_config;
 use twerk_infrastructure::reexec;
 
 use super::banner::{display_banner, BannerMode};
-use super::commands::{Cli, Commands, TaskCommand, QueueCommand, TriggerCommand};
+use super::commands::{
+    Cli, Commands, MetricsCommand, NodeCommand, QueueCommand, TaskCommand, TriggerCommand,
+    UserCommand,
+};
 use super::error::CliError;
 use super::handlers;
 use super::health::health_check;
@@ -40,9 +43,21 @@ enum CliAction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum ExitStatus {
     Success = 0,
     Failure = 1,
+}
+
+/// Help variant indicating the level of help requested
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HelpVariant {
+    /// No help requested
+    None,
+    /// Short help via `-h` or `--help` (without Examples)
+    Short,
+    /// Long help via `--help --long` (with Examples)
+    Long,
 }
 
 /// Get the current git commit hash at runtime
@@ -151,25 +166,83 @@ fn os_string_eq(value: &OsString, expected: &str) -> bool {
     value == expected
 }
 
+/// Detect the help variant from command line arguments
+fn detect_help_variant(args: &[OsString]) -> HelpVariant {
+    let mut has_long = false;
+    let mut has_help = false;
+
+    for arg in args.iter() {
+        if os_string_eq(arg, "--long") {
+            has_long = true;
+        } else if os_string_eq(arg, "--help") || os_string_eq(arg, "-h") {
+            has_help = true;
+        }
+    }
+
+    if has_long {
+        HelpVariant::Long
+    } else if has_help {
+        HelpVariant::Short
+    } else {
+        HelpVariant::None
+    }
+}
+
+/// Convert a Commands enum variant to its string name
+#[allow(dead_code)]
+const fn command_name(cmd: &Commands) -> &'static str {
+    match cmd {
+        Commands::Run { .. } => "run",
+        Commands::Migration { .. } => "migration",
+        Commands::Health { .. } => "health",
+        Commands::Version => "version",
+        Commands::Task { .. } => "task",
+        Commands::Queue { .. } => "queue",
+        Commands::Trigger { .. } => "trigger",
+        Commands::Node { .. } => "node",
+        Commands::Metrics { .. } => "metrics",
+        Commands::User { .. } => "user",
+    }
+}
+
 fn parse_cli_args(args: &[OsString]) -> Result<CliAction, clap::Error> {
     Cli::try_parse_from(args.iter().cloned()).map(|cli| CliAction::Execute(cli.command, cli.json))
 }
 
-fn render_help_for_path(path: &[String]) -> Result<String, CliError> {
-    let mut command = Cli::command();
-    let mut buffer = Vec::new();
-    let target = path.iter().try_fold(&mut command, |current, segment| {
-        current
-            .find_subcommand_mut(segment)
-            .ok_or_else(|| CliError::MissingArgument(format!("unknown help target: {segment}")))
-    })?;
+fn render_help_for_path(path: &[String], variant: HelpVariant) -> Result<String, CliError> {
+    match variant {
+        HelpVariant::None => Err(CliError::MissingArgument("no help requested".to_string())),
+        HelpVariant::Short | HelpVariant::Long => {
+            let mut command = Cli::command();
+            let mut buffer = Vec::new();
+            let target = path.iter().try_fold(&mut command, |current, segment| {
+                current.find_subcommand_mut(segment).ok_or_else(|| {
+                    CliError::MissingArgument(format!("unknown help target: {segment}"))
+                })
+            })?;
 
-    target.write_long_help(&mut buffer).map_err(CliError::Io)?;
-    String::from_utf8(buffer).map_err(|error| CliError::Config(error.to_string()))
+            match variant {
+                HelpVariant::Short => {
+                    target.write_help(&mut buffer).map_err(CliError::Io)?;
+                }
+                HelpVariant::Long => {
+                    target.write_long_help(&mut buffer).map_err(CliError::Io)?;
+                }
+                HelpVariant::None => unreachable!(),
+            }
+            String::from_utf8(buffer).map_err(|error| CliError::Config(error.to_string()))
+        }
+    }
 }
 
+/// Write help content to stdout
+fn write_help_to_stdout(content: &str) {
+    print!("{content}");
+}
+
+#[allow(dead_code)]
 fn render_top_level_help() -> Result<String, CliError> {
-    render_help_for_path(&[])
+    render_help_for_path(&[], HelpVariant::Short)
 }
 
 fn print_json(value: &Value) {
@@ -191,6 +264,17 @@ fn json_version_payload(content: String) -> Value {
         "version": VERSION,
         "commit": GIT_COMMIT,
         "content": content,
+    })
+}
+
+fn json_success_payload(command: &str, data: Value) -> Value {
+    json!({
+        "type": "success",
+        "command": command,
+        "exit_code": 0,
+        "version": VERSION,
+        "commit": GIT_COMMIT,
+        "data": data,
     })
 }
 
@@ -254,14 +338,21 @@ fn handle_json_help_subcommand(args: &[OsString]) -> Option<i32> {
         return None;
     }
 
+    let help_variant = detect_help_variant(args);
+
     let help_path = args
         .iter()
         .skip(2)
-        .filter(|arg| !os_string_eq(arg, "--json"))
+        .filter(|arg| !os_string_eq(arg, "--json") && !os_string_eq(arg, "--long"))
         .map(|arg| arg.to_string_lossy().into_owned())
         .collect::<Vec<_>>();
 
-    match render_help_for_path(&help_path) {
+    let variant = match help_variant {
+        HelpVariant::None => HelpVariant::Short, // Default to Short for `twerk help --json`
+        other => other,
+    };
+
+    match render_help_for_path(&help_path, variant) {
         Ok(content) => {
             print_json(&json_help_payload(content));
             Some(ExitStatus::Success as i32)
@@ -351,6 +442,39 @@ async fn execute_command(command: Commands, json_mode: bool) -> Result<(), CliEr
             }
             Ok(())
         }
+        Commands::Node { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                NodeCommand::List => {
+                    handlers::node::node_list(ep_str, json_mode).await?;
+                }
+                NodeCommand::Get { id } => {
+                    handlers::node::node_get(ep_str, &id, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Metrics { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                MetricsCommand::Get => {
+                    handlers::metrics::metrics_get(ep_str, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::User { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                UserCommand::Create { username } => {
+                    handlers::user::user_create(ep_str, &username, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
     }
 }
 
@@ -380,9 +504,9 @@ pub async fn run() -> i32 {
         None => match render_top_level_help() {
             Ok(content) => {
                 if json_mode {
-                    print_json(&json_help_payload(content));
+                    print_json(&json_success_payload("help", json!(content)));
                 } else {
-                    print!("{content}");
+                    write_help_to_stdout(&content);
                 }
                 return ExitStatus::Success as i32;
             }

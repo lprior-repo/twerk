@@ -90,6 +90,30 @@ pub async fn cancel_job_handler_post(
     cancel_job_impl(state, id).await
 }
 
+/// PUT /api/v1/jobs/{id}/cancel
+///
+/// This is the canonical PUT endpoint for job cancellation (7th job endpoint).
+#[utoipa::path(
+    put,
+    path = "/api/v1/jobs/{id}/cancel",
+    params(("id" = JobId, description = "The job ID")),
+    responses(
+        (status = 200, description = "Job cancelled", body = StatusResponse, content_type = "application/json"),
+        (status = 400, description = "Job cannot be cancelled in its current state", body = MessageResponse, content_type = "application/json"),
+        (status = 404, description = "Job not found", body = MessageResponse, content_type = "application/json")
+    )
+)]
+#[instrument(name = "job_cancel_put", skip_all)]
+/// # Errors
+/// Returns an error when the job lookup or update fails, the broker publish fails, or the job
+/// cannot be cancelled in its current state.
+pub async fn job_cancel_put(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<JobId>,
+) -> Result<Response, ApiError> {
+    cancel_job_impl(state, id).await
+}
+
 /// PUT /jobs/{id}/restart
 #[utoipa::path(
     put,

@@ -110,6 +110,37 @@ pub enum TriggerCommand {
     },
 }
 
+/// Node subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum NodeCommand {
+    /// List all nodes
+    List,
+    /// Get a node by ID
+    Get {
+        /// The node ID
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
+/// Metrics subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum MetricsCommand {
+    /// Get system metrics
+    Get,
+}
+
+/// User subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum UserCommand {
+    /// Create a user
+    Create {
+        /// The username for the new user
+        #[arg(required = true)]
+        username: String,
+    },
+}
+
 /// CLI subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Commands {
@@ -151,6 +182,21 @@ pub enum Commands {
     Trigger {
         #[command(subcommand)]
         command: TriggerCommand,
+    },
+    /// Node operations
+    Node {
+        #[command(subcommand)]
+        command: NodeCommand,
+    },
+    /// Metrics operations
+    Metrics {
+        #[command(subcommand)]
+        command: MetricsCommand,
+    },
+    /// User operations
+    User {
+        #[command(subcommand)]
+        command: UserCommand,
     },
 }
 
@@ -277,7 +323,12 @@ mod tests {
         let list = Cli::try_parse_from(["twerk", "queue", "list"]);
         assert!(matches!(
             list,
-            Ok(Cli { command: Some(Commands::Queue { command: QueueCommand::List }), .. })
+            Ok(Cli {
+                command: Some(Commands::Queue {
+                    command: QueueCommand::List
+                }),
+                ..
+            })
         ));
 
         let get = Cli::try_parse_from(["twerk", "queue", "get", "my-queue"]);
@@ -293,7 +344,12 @@ mod tests {
         let list = Cli::try_parse_from(["twerk", "trigger", "list"]);
         assert!(matches!(
             list,
-            Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::List }), .. })
+            Ok(Cli {
+                command: Some(Commands::Trigger {
+                    command: TriggerCommand::List
+                }),
+                ..
+            })
         ));
 
         let get = Cli::try_parse_from(["twerk", "trigger", "get", "trig-1"]);

@@ -42,7 +42,10 @@ pub async fn queue_list(endpoint: &str, json_mode: bool) -> Result<String, CliEr
         if queues.is_empty() {
             println!("No queues found.");
         } else {
-            println!("{:<30} {:>10} {:>12} {:>10}", "NAME", "SIZE", "SUBSCRIBERS", "UNACKED");
+            println!(
+                "{:<30} {:>10} {:>12} {:>10}",
+                "NAME", "SIZE", "SUBSCRIBERS", "UNACKED"
+            );
             println!("{}", "-".repeat(65));
             for q in &queues {
                 println!(

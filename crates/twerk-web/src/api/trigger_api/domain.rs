@@ -50,9 +50,11 @@ impl TriggerId {
     }
 }
 
-impl From<&str> for TriggerId {
-    fn from(value: &str) -> Self {
-        Self(value.to_string())
+impl TryFrom<&str> for TriggerId {
+    type Error = TriggerUpdateError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::parse(value)
     }
 }
 
@@ -97,7 +99,9 @@ pub struct TriggerView {
     pub action: String,
     pub metadata: HashMap<String, String>,
     pub version: u64,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
 }
 

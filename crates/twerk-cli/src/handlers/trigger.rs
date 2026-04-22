@@ -3,6 +3,7 @@
 //! HTTP client functions for trigger API operations.
 
 use serde::Deserialize;
+use time::OffsetDateTime;
 
 use crate::error::CliError;
 
@@ -18,8 +19,10 @@ pub struct TriggerView {
     #[serde(default)]
     pub metadata: std::collections::HashMap<String, String>,
     pub version: u64,
-    pub created_at: String,
-    pub updated_at: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
 }
 
 #[derive(Debug, Deserialize)]
@@ -186,14 +189,12 @@ pub async fn trigger_create(
     }
 
     if status == reqwest::StatusCode::CREATED {
+        let trigger: TriggerView =
+            serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
         if json_mode {
             println!("{}", body);
         } else {
-            if let Ok(trigger) = serde_json::from_str::<TriggerView>(&body) {
-                println!("Trigger created: {}", trigger.id);
-            } else {
-                println!("Trigger created.");
-            }
+            println!("Trigger created: {}", trigger.id);
         }
         return Ok(body);
     }
@@ -260,14 +261,12 @@ pub async fn trigger_update(
     }
 
     if status.is_success() {
+        let trigger: TriggerView =
+            serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
         if json_mode {
             println!("{}", body);
         } else {
-            if let Ok(trigger) = serde_json::from_str::<TriggerView>(&body) {
-                println!("Trigger updated: {}", trigger.id);
-            } else {
-                println!("Trigger updated.");
-            }
+            println!("Trigger updated: {}", trigger.id);
         }
         return Ok(body);
     }
@@ -285,12 +284,12 @@ pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result
     let response = client.delete(&url).send().await.map_err(CliError::Http)?;
 
     let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        let body = response
-            .text()
-            .await
-            .map_err(|e| CliError::InvalidBody(e.to_string()))?;
         if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
             return Err(CliError::ApiError {
                 code: status.as_u16(),
@@ -301,10 +300,6 @@ pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result
     }
 
     if status == reqwest::StatusCode::BAD_REQUEST {
-        let body = response
-            .text()
-            .await
-            .map_err(|e| CliError::InvalidBody(e.to_string()))?;
         if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
             return Err(CliError::ApiError {
                 code: status.as_u16(),
@@ -315,11 +310,13 @@ pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result
 
     if status == reqwest::StatusCode::NO_CONTENT || status.is_success() {
         if json_mode {
-            println!(r#"{{"type":"trigger","id":"{}","deleted":true}}"#, id);
+            if !body.is_empty() {
+                println!("{}", body);
+            }
         } else {
             println!("Trigger '{}' deleted.", id);
         }
-        return Ok(format!(r#"{{"deleted":true,"id":"{}"}}"#, id));
+        return Ok(body);
     }
 
     Err(CliError::HttpStatus {

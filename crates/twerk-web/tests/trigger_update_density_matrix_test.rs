@@ -45,7 +45,10 @@ fn validate_trigger_update_returns_ok_trigger_id_for_cartesian_valid_ids(
     let path_id = format!("{}{}{}", p0, p1, p2);
     let req = valid_request();
     let result = validate_trigger_update(&path_id, &req);
-    assert_eq!(result, Ok(TriggerId::from(path_id.as_str())));
+    assert_eq!(
+        result,
+        Ok(TriggerId::parse(path_id.as_str()).expect("valid id"))
+    );
 }
 
 #[rstest]

@@ -11,7 +11,7 @@ fn validate_trigger_update_accepts_valid_inputs() {
     let req = valid_request();
     assert_eq!(
         validate_trigger_update("trg_1", &req),
-        Ok(TriggerId::from("trg_1"))
+        Ok(TriggerId::parse("trg_1").expect("valid id"))
     );
 
     let min_req = TriggerUpdateRequest {
@@ -26,7 +26,7 @@ fn validate_trigger_update_accepts_valid_inputs() {
     };
     assert_eq!(
         validate_trigger_update("xyz", &min_req),
-        Ok(TriggerId::from("xyz"))
+        Ok(TriggerId::parse("xyz").expect("valid id"))
     );
 
     let max = "x".repeat(TRIGGER_FIELD_MAX_LEN);
@@ -42,7 +42,7 @@ fn validate_trigger_update_accepts_valid_inputs() {
     };
     assert_eq!(
         validate_trigger_update("trg_1", &max_req),
-        Ok(TriggerId::from("trg_1"))
+        Ok(TriggerId::parse("trg_1").expect("valid id"))
     );
 }
 

@@ -44,7 +44,7 @@ proptest! {
         action in "[A-Za-z0-9_.-]{1,32}"
     ) {
         let req = request(name, event, action);
-        prop_assert_eq!(validate_trigger_update(&path_id, &req), Ok(TriggerId::from(path_id.as_str())));
+        prop_assert_eq!(validate_trigger_update(&path_id, &req), Ok(TriggerId::parse(path_id.as_str()).expect("valid id")));
     }
 
     #[test]
@@ -94,7 +94,7 @@ proptest! {
         let req = request(s.clone(), s.clone(), s);
         prop_assert_eq!(
             validate_trigger_update(&path_id, &req),
-            Ok(TriggerId::from(path_id.as_str()))
+            Ok(TriggerId::parse(path_id.as_str()).expect("valid id"))
         );
     }
 

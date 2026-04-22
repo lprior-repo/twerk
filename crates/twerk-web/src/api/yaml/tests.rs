@@ -1169,7 +1169,10 @@ mod yaml_suite {
         let value = state_machine_value("asl-task-retry.yaml");
         assert_eq!(value["startAt"], "Build");
         assert_eq!(value["states"]["Build"]["type"], "task");
-        assert_eq!(value["states"]["Build"]["retry"][0]["errorEquals"][0], "taskfailed");
+        assert_eq!(
+            value["states"]["Build"]["retry"][0]["errorEquals"][0],
+            "taskfailed"
+        );
         assert_eq!(value["states"]["Build"]["retry"][0]["intervalSeconds"], 1);
         assert_eq!(value["states"]["Build"]["retry"][0]["maxAttempts"], 3);
         assert_eq!(value["states"]["Build"]["retry"][0]["backoffRate"], 2.0);

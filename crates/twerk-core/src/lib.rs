@@ -26,8 +26,8 @@ pub use domain::{
     CronExpression, CronExpressionError, Hostname, HostnameError, WebhookUrl, WebhookUrlError,
 };
 pub use domain_types::{
-    CronError, CronExpression as CronExpressionOld, DomainParseError, GoDuration, GoDurationError,
-    Priority, PriorityError, QueueName, QueueNameError, RetryLimit, RetryLimitError,
+    CronError, DomainParseError, GoDuration, GoDurationError, Priority, PriorityError,
+    QueueName, QueueNameError, RetryLimit, RetryLimitError,
 };
 pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};

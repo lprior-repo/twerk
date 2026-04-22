@@ -150,7 +150,11 @@ impl GeneratedWorkloadStats {
 
         let count = samples.len() as f64;
         let mean = samples.iter().sum::<f64>() / count;
-        let variance = samples.iter().map(|sample| (sample - mean).powi(2)).sum::<f64>() / count;
+        let variance = samples
+            .iter()
+            .map(|sample| (sample - mean).powi(2))
+            .sum::<f64>()
+            / count;
         let std_dev = variance.sqrt();
         let ci_margin = CONFIDENCE_Z_SCORE_95 * std_dev / count.sqrt();
 
@@ -219,25 +223,27 @@ fn deterministic_sample_value(yaml: &str, job: &Job) -> f64 {
 
 fn structural_weight(job: &Job) -> u64 {
     let top_level_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| tasks.len() as u64);
-    let nested_parallel_tasks = job
-        .tasks
-        .as_ref()
-        .map_or(0_u64, |tasks| tasks.iter().map(task_parallel_count).sum::<u64>());
-    let each_tasks = job
-        .tasks
-        .as_ref()
-        .map_or(0_u64, |tasks| tasks.iter().map(task_each_count).sum::<u64>());
+    let nested_parallel_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| {
+        tasks.iter().map(task_parallel_count).sum::<u64>()
+    });
+    let each_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| {
+        tasks.iter().map(task_each_count).sum::<u64>()
+    });
     let env_vars = job
         .tasks
         .as_ref()
         .map_or(0_u64, |tasks| tasks.iter().map(task_env_count).sum::<u64>());
-    let mounts = job
-        .tasks
-        .as_ref()
-        .map_or(0_u64, |tasks| tasks.iter().map(task_mount_count).sum::<u64>());
+    let mounts = job.tasks.as_ref().map_or(0_u64, |tasks| {
+        tasks.iter().map(task_mount_count).sum::<u64>()
+    });
     let name_len = job.name.as_ref().map_or(0_u64, |name| name.len() as u64);
 
-    top_level_tasks * 100 + nested_parallel_tasks * 10 + each_tasks * 7 + env_vars * 5 + mounts * 3 + name_len
+    top_level_tasks * 100
+        + nested_parallel_tasks * 10
+        + each_tasks * 7
+        + env_vars * 5
+        + mounts * 3
+        + name_len
 }
 
 fn task_parallel_count(task: &Task) -> u64 {
@@ -248,7 +254,11 @@ fn task_parallel_count(task: &Task) -> u64 {
 }
 
 fn task_each_count(task: &Task) -> u64 {
-    if task.each.is_some() { 1 } else { 0 }
+    if task.each.is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 fn task_env_count(task: &Task) -> u64 {
@@ -256,7 +266,9 @@ fn task_env_count(task: &Task) -> u64 {
 }
 
 fn task_mount_count(task: &Task) -> u64 {
-    task.mounts.as_ref().map_or(0_u64, |mounts| mounts.len() as u64)
+    task.mounts
+        .as_ref()
+        .map_or(0_u64, |mounts| mounts.len() as u64)
 }
 
 fn job_tasks(job: &Job) -> &[Task] {
@@ -273,7 +285,11 @@ fn only_task(job: &Job) -> &Task {
 }
 
 fn nested_parallel_tasks(task: &Task) -> &[Task] {
-    match task.parallel.as_ref().and_then(|parallel| parallel.tasks.as_deref()) {
+    match task
+        .parallel
+        .as_ref()
+        .and_then(|parallel| parallel.tasks.as_deref())
+    {
         Some(tasks) => tasks,
         None => panic!("expected task to include nested parallel tasks: {task:?}"),
     }
@@ -420,7 +436,10 @@ mod generated_workload_contracts {
     }
 
     fn expected_parallel_4_job() -> Job {
-        job_with_tasks("parallel-job-7", vec![parallel_root_task(expected_parallel_tasks_4())])
+        job_with_tasks(
+            "parallel-job-7",
+            vec![parallel_root_task(expected_parallel_tasks_4())],
+        )
     }
 
     fn expected_parallel_16_job() -> Job {
@@ -459,7 +478,11 @@ mod generated_workload_contracts {
                     target: Some("/data".to_string()),
                     ..Mount::default()
                 }]),
-                cmd: Some(vec!["ls".to_string(), "-la".to_string(), "/data".to_string()]),
+                cmd: Some(vec![
+                    "ls".to_string(),
+                    "-la".to_string(),
+                    "/data".to_string(),
+                ]),
                 ..Task::default()
             }],
         )
@@ -643,10 +666,8 @@ mod generated_workload_contracts {
 
     #[test]
     fn generated_workload_stats_use_known_percentiles_variance_and_confidence_interval() {
-        let result = GeneratedWorkloadStats::new(
-            WorkloadScenario::SimpleEcho,
-            vec![10.0, 20.0, 30.0, 40.0],
-        );
+        let result =
+            GeneratedWorkloadStats::new(WorkloadScenario::SimpleEcho, vec![10.0, 20.0, 30.0, 40.0]);
 
         assert_eq!(result.scenario, WorkloadScenario::SimpleEcho);
         assert_eq!(result.samples, vec![10.0, 20.0, 30.0, 40.0]);
@@ -671,10 +692,8 @@ mod generated_workload_contracts {
 
     #[test]
     fn coefficient_of_variation_returns_the_known_percentage_for_known_samples() {
-        let result = GeneratedWorkloadStats::new(
-            WorkloadScenario::SimpleEcho,
-            vec![10.0, 20.0, 30.0, 40.0],
-        );
+        let result =
+            GeneratedWorkloadStats::new(WorkloadScenario::SimpleEcho, vec![10.0, 20.0, 30.0, 40.0]);
 
         assert_close(result.coefficient_of_variation(), 44.721_359_549_995_796);
     }
@@ -684,7 +703,10 @@ mod generated_workload_contracts {
         let result = run_scenario(WorkloadScenario::MultiTask, 42);
 
         assert_eq!(result.scenario, WorkloadScenario::MultiTask);
-        assert_eq!(result.samples, expected_sample_values(WorkloadScenario::MultiTask, 42));
+        assert_eq!(
+            result.samples,
+            expected_sample_values(WorkloadScenario::MultiTask, 42)
+        );
         assert_eq!(result.samples.len(), RUNS_PER_SCENARIO);
     }
 
@@ -740,7 +762,10 @@ mod generated_workload_contracts {
                 .and_then(|each| each.list.as_deref()),
             Some("{{ sequence(1,50) }}")
         );
-        assert_eq!(task_names(job_tasks(&variability_job)), vec!["env-task", "mounted"]);
+        assert_eq!(
+            task_names(job_tasks(&variability_job)),
+            vec!["env-task", "mounted"]
+        );
         assert_eq!(nested_parallel_tasks(only_task(&burst_job)).len(), 9);
     }
 }

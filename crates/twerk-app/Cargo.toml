@@ -37,7 +37,6 @@ bcrypt.workspace = true
 tempfile.workspace = true
 bytes.workspace = true
  base64.workspace = true
- once_cell.workspace = true
  nix.workspace = true
  subtle.workspace = true
 tokio-cron-scheduler = { workspace = true }

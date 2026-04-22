@@ -71,7 +71,7 @@ impl Reference {
 }
 
 // ----------------------------------------------------------------------------
-// Regex patterns - compiled once at startup using once_cell::Lazy
+// Regex patterns - compiled once at startup using std::sync::LazyLock
 // ----------------------------------------------------------------------------
 //
 // NOTE: Using .expect() on regex compilation is acceptable because:

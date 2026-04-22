@@ -38,7 +38,6 @@ tar.workspace = true
 futures-util.workspace = true
 futures-lite.workspace = true
 regex.workspace = true
-once_cell.workspace = true
 uuid.workspace = true
 slug = "0.1"
 axum.workspace = true

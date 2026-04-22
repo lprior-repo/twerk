@@ -5,11 +5,9 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::too_many_lines)]
 #![allow(clippy::float_cmp)]
-#![allow(clippy::non_std_lazy_statics)]
-
 use futures_util::FutureExt;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
 use testcontainers_modules::postgres::Postgres;
@@ -24,7 +22,7 @@ use twerk_infrastructure::datastore::postgres::PostgresDatastore;
 use twerk_infrastructure::datastore::{Datastore, Options};
 use uuid::Uuid;
 
-static SHARED_DSN: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static SHARED_DSN: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
 
 async fn setup_postgres() -> PostgresDatastore {
     let mut shared_dsn = SHARED_DSN.lock().await;

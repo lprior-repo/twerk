@@ -24,7 +24,6 @@ dirs.workspace = true
 hostname.workspace = true
 rand.workspace = true
 config.workspace = true
-once_cell.workspace = true
 regex.workspace = true
 libc.workspace = true
 

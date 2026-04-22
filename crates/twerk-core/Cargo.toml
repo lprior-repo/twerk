@@ -22,7 +22,6 @@ thiserror.workspace = true
 url.workspace = true
 indexmap = { version = "2", features = ["serde"] }
 sysinfo.workspace = true
-once_cell.workspace = true
 time.workspace = true
 futures-util.workspace = true
 tracing.workspace = true

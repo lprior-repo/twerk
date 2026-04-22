@@ -10,7 +10,7 @@
 #![allow(clippy::pedantic)]
 
 use crate::engine::{Engine, JobListener, Mode};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use tokio::sync::RwLock;
 
 use twerk_infrastructure::broker::Broker;
@@ -18,7 +18,7 @@ use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::runtime::Runtime;
 
 /// The default engine instance, matching Go's `var defaultEngine *Engine = New(Config{})`.
-static DEFAULT_ENGINE: Lazy<RwLock<Engine>> = Lazy::new(|| RwLock::new(Engine::default()));
+static DEFAULT_ENGINE: LazyLock<RwLock<Engine>> = LazyLock::new(|| RwLock::new(Engine::default()));
 
 /// Register web middleware on the default engine.
 ///

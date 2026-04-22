@@ -1,19 +1,5 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
-warning: unexpected `cfg` condition name: `kani`
-   --> crates/twerk-core/src/domain/webhook_url/tests.rs:312:11
-    |
-312 |     #[cfg(kani)]
-    |           ^^^^
-    |
-    = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
-    = help: consider using a Cargo feature instead
-    = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
-             [lints.rust]
-             unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
-    = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(kani)");` to the top of the `build.rs`
-    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
-    = note: `#[warn(unexpected_cfgs)]` on by default
-
+    Checking twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.39s
 warning: unused import: `std::str::FromStr`
  --> crates/twerk-core/tests/mutation_kill_test.rs:2:5
   |
@@ -30,9 +16,24 @@ warning: function `rq_te_from_serde_json_error_NOT_IMPLEMENTED` should have a sn
     |
     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
 
-warning: `twerk-core` (lib test) generated 1 warning
+warning: unexpected `cfg` condition name: `kani`
+   --> crates/twerk-core/src/domain/webhook_url/tests.rs:312:11
+    |
+312 |     #[cfg(kani)]
+    |           ^^^^
+    |
+    = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
+    = help: consider using a Cargo feature instead
+    = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+             [lints.rust]
+             unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+    = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(kani)");` to the top of the `build.rs`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
 warning: `twerk-core` (test "mutation_kill_test") generated 1 warning (run `cargo fix --test "mutation_kill_test" -p twerk-core` to apply 1 suggestion)
 warning: `twerk-core` (test "red_queen_trigger_error") generated 1 warning
+warning: `twerk-core` (lib test) generated 1 warning
 warning: unused imports: `JobId`, `NodeId`, and `UserId`
    --> crates/twerk-infrastructure/src/datastore/inmemory.rs:440:26
     |
@@ -42,22 +43,26 @@ warning: unused imports: `JobId`, `NodeId`, and `UserId`
     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: `twerk-infrastructure` (lib test) generated 1 warning (run `cargo fix --lib -p twerk-infrastructure --tests` to apply 1 suggestion)
-warning: unused import: `setup_logging`
-  --> crates/twerk-cli/tests/bdd_behavioral_contract_test.rs:22:11
+   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+   Compiling twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk/crates/twerk-openapi-gen)
+warning: fields `command` and `exit_code` are never read
+  --> crates/twerk-cli/tests/e2e_cli_test.rs:58:5
    |
-22 |     cli::{setup_logging, DEFAULT_DATASTORE_TYPE, DEFAULT_ENDPOINT, VERSION},
-   |           ^^^^^^^^^^^^^
+44 | struct JsonCliOutput {
+   |        ------------- fields in this struct
+...
+58 |     command: Option<String>,
+   |     ^^^^^^^
+59 |     #[serde(default)]
+60 |     exit_code: Option<i32>,
+   |     ^^^^^^^^^
    |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+   = note: `JsonCliOutput` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
-warning: unused import: `super::*`
-   --> crates/twerk-cli/tests/bdd_behavioral_contract_test.rs:255:9
-    |
-255 |     use super::*;
-    |         ^^^^^^^^
-
-warning: `twerk-cli` (test "bdd_behavioral_contract_test") generated 2 warnings (run `cargo fix --test "bdd_behavioral_contract_test" -p twerk-cli` to apply 2 suggestions)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.22s
      Running unittests src/lib.rs (target/debug/deps/twerk_app-56e2103b42da0717)
      Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-8c1b699a7b5fc410)
      Running tests/bdd_behavioral_contracts.rs (target/debug/deps/bdd_behavioral_contracts-62a1b94e85a14ce4)
@@ -80,6 +85,7 @@ warning: `twerk-cli` (test "bdd_behavioral_contract_test") generated 2 warnings 
      Running tests/bdd_behavior_report.rs (target/debug/deps/bdd_behavior_report-d7bfbb8f18762e10)
      Running tests/bdd_behavioral_contract_test.rs (target/debug/deps/bdd_behavioral_contract_test-24f40ac1cd1f3b4e)
      Running tests/e2e_cli_test.rs (target/debug/deps/e2e_cli_test-e2bb6c165d86a301)
+     Running tests/trigger_contract_regression_test.rs (target/debug/deps/trigger_contract_regression_test-4c3d6e0f5114eaad)
      Running unittests src/lib.rs (target/debug/deps/twerk_common-1e8a18386d70bffc)
      Running unittests src/lib.rs (target/debug/deps/twerk_core-886fff7005b0e13d)
      Running tests/asl_adversarial_test.rs (target/debug/deps/asl_adversarial_test-2e30c5a8e905bc0b)
@@ -124,7 +130,7 @@ warning: `twerk-cli` (test "bdd_behavioral_contract_test") generated 2 warnings 
      Running tests/concurrent_isolation_test.rs (target/debug/deps/concurrent_isolation_test-05c73acb731e697b)
      Running tests/distributed_e2e_test.rs (target/debug/deps/distributed_e2e_test-bcdd2d1a34de1c44)
      Running tests/exhaustive_endpoint_matrix_test.rs (target/debug/deps/exhaustive_endpoint_matrix_test-e8275fc593126288)
-     Running tests/monte_carlo_simulation.rs (target/debug/deps/monte_carlo_simulation-5dd6327a84df0ca4)
+     Running tests/generated_workload_contracts.rs (target/debug/deps/generated_workload_contracts-0404c29612021664)
      Running tests/mutation_workload_bench.rs (target/debug/deps/mutation_workload_bench-f5169a16bc052d5f)
      Running tests/openapi_contract_test.rs (target/debug/deps/openapi_contract_test-949bd1da512ef5d7)
      Running tests/qa_12_step_test.rs (target/debug/deps/qa_12_step_test-1e4ffd00ff92e674)
@@ -133,4 +139,16 @@ warning: `twerk-cli` (test "bdd_behavioral_contract_test") generated 2 warnings 
      Running tests/trigger_update_adversarial_test.rs (target/debug/deps/trigger_update_adversarial_test-5489b1a9a931f067)
      Running tests/trigger_update_density_matrix_test.rs (target/debug/deps/trigger_update_density_matrix_test-7ea63fa29fc4d777)
      Running tests/trigger_update_integration_red_test.rs (target/debug/deps/trigger_update_integration_red_test-7c77126e64c34559)
-error: test failed, to rerun pass `-p twerk-web --test trigger_update_integration_red_test`
+     Running tests/trigger_update_proptest_red_test.rs (target/debug/deps/trigger_update_proptest_red_test-7f8b35c65e276d09)
+     Running tests/trigger_view_rfc3339_contract_test.rs (target/debug/deps/trigger_view_rfc3339_contract_test-ec77132ed444b84e)
+     Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-954ace92c7b48442)
+   Doc-tests twerk_app
+   Doc-tests twerk_cli
+   Doc-tests twerk_common
+   Doc-tests twerk_core
+   Doc-tests twerk_infrastructure
+   Doc-tests twerk_web
+   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+   Compiling twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk/crates/twerk-openapi-gen)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.11s

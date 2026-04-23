@@ -856,7 +856,10 @@ fn test_string_map_from_table() {
     let mut inner = toml::value::Table::new();
     inner.insert("x".to_string(), toml::Value::String("hello".to_string()));
     inner.insert("y".to_string(), toml::Value::String("world".to_string()));
-    let _guard = setup_config(config_from_values(&[("greetings", toml::Value::Table(inner))]));
+    let _guard = setup_config(config_from_values(&[(
+        "greetings",
+        toml::Value::Table(inner),
+    )]));
     let map = string_map("greetings");
     assert_eq!(map.get("x"), Some(&"hello".to_string()));
     assert_eq!(map.get("y"), Some(&"world".to_string()));

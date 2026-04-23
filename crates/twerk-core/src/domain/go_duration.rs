@@ -1,4 +1,4 @@
-//! GoDuration newtype wrapper for Go-style duration strings.
+//! `GoDuration` newtype wrapper for Go-style duration strings.
 
 use std::fmt;
 use std::str::FromStr;

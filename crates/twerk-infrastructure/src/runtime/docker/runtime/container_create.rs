@@ -208,7 +208,7 @@ pub(super) async fn create_container(
     let files = task
         .files
         .as_ref()
-        .map_or_else(std::collections::HashMap::new, |f| f.clone());
+        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
     if let Err(e) = container.init_workdir(&files, effective_workdir).await {
         let _ = cleanup_client
             .remove_container(

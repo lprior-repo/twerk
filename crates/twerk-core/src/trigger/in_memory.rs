@@ -1,4 +1,4 @@
-//! In-memory implementation of TriggerRegistry.
+//! In-memory implementation of `TriggerRegistry`.
 //!
 //! This module provides a thread-safe, in-memory implementation for testing.
 
@@ -15,7 +15,7 @@ use super::types::{
     JobId, Trigger, TriggerContext, TriggerError, TriggerId, TriggerState, TriggerVariant,
 };
 
-/// An in-memory fake implementation of TriggerRegistry for testing.
+/// An in-memory fake implementation of `TriggerRegistry` for testing.
 pub struct InMemoryTriggerRegistry {
     triggers: Arc<RwLock<HashMap<TriggerId, Trigger>>>,
     fire_count: AtomicUsize,
@@ -25,7 +25,8 @@ pub struct InMemoryTriggerRegistry {
 }
 
 impl InMemoryTriggerRegistry {
-    /// Creates a new InMemoryTriggerRegistry with all systems available.
+    /// Creates a new `InMemoryTriggerRegistry` with all systems available.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             triggers: Arc::new(RwLock::new(HashMap::new())),
@@ -36,7 +37,8 @@ impl InMemoryTriggerRegistry {
         }
     }
 
-    /// Creates a new InMemoryTriggerRegistry with specified concurrency limit.
+    /// Creates a new `InMemoryTriggerRegistry` with specified concurrency limit.
+    #[must_use]
     pub fn with_concurrency_limit(limit: usize) -> Self {
         Self {
             triggers: Arc::new(RwLock::new(HashMap::new())),
@@ -57,7 +59,7 @@ impl InMemoryTriggerRegistry {
         self.datastore_available.store(available, Ordering::SeqCst);
     }
 
-    /// Returns the number of times fire() was called.
+    /// Returns the number of times `fire()` was called.
     pub fn fire_count(&self) -> usize {
         self.fire_count.load(Ordering::SeqCst)
     }
@@ -133,11 +135,11 @@ impl InMemoryTriggerRegistry {
         new_state: TriggerState,
     ) -> TriggerRegistryResult<()> {
         let old_state = trigger.state;
-        if !is_valid_transition(old_state, new_state, trigger.variant) {
-            Err(TriggerError::InvalidStateTransition(old_state, new_state))
-        } else {
+        if is_valid_transition(old_state, new_state, trigger.variant) {
             trigger.state = new_state;
             Ok(())
+        } else {
+            Err(TriggerError::InvalidStateTransition(old_state, new_state))
         }
     }
 }
@@ -225,6 +227,7 @@ impl TriggerRegistry for InMemoryTriggerRegistry {
 }
 
 /// Checks if a state transition is valid for the given variant.
+#[must_use]
 pub fn is_valid_transition(from: TriggerState, to: TriggerState, variant: TriggerVariant) -> bool {
     // Self-transitions are always valid
     if from == to {

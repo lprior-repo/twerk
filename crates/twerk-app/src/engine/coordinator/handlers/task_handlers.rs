@@ -39,10 +39,7 @@ pub async fn handle_task_progress(
         | TaskState::Cancelled
         | TaskState::Stopped
         | TaskState::Skipped => {
-            let task_id = task
-                .id
-                .as_deref()
-                .ok_or_else(|| HandlerError::MissingTaskId)?;
+            let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
             ds.update_task(
                 task_id,
                 Box::new(move |mut u| {
@@ -90,7 +87,7 @@ pub async fn handle_redelivered(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| HandlerError::RedeliveredMissingTaskId)?;
+        .ok_or(HandlerError::RedeliveredMissingTaskId)?;
     let persisted = ds.get_task_by_id(task_id).await?;
     if matches!(
         persisted.state,
@@ -108,7 +105,7 @@ pub async fn handle_redelivered(
     )
     .await?;
 
-    let queue = persisted.queue.map_or_else(|| "default".to_string(), |v| v);
+    let queue = persisted.queue.unwrap_or_else(|| "default".to_string());
     broker.publish_task(queue, &task).await
 }
 
@@ -121,10 +118,7 @@ pub async fn handle_started(
     _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    let task_id = task
-        .id
-        .as_deref()
-        .ok_or_else(|| HandlerError::MissingTaskId)?;
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let now = time::OffsetDateTime::now_utc();
 
     ds.update_task(
@@ -167,10 +161,7 @@ pub async fn handle_task_completed(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    let task_id = task
-        .id
-        .as_deref()
-        .ok_or_else(|| HandlerError::MissingTaskId)?;
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let completed_at = task.completed_at;
     let result = task.result.clone();
 
@@ -192,10 +183,7 @@ pub async fn handle_task_completed(
     if let Some(pid) = task.parent_id.clone() {
         handle_subtask_completed(ds, broker, task, pid.as_str()).await
     } else {
-        let job_id = task
-            .job_id
-            .as_deref()
-            .ok_or_else(|| HandlerError::MissingJobId)?;
+        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
         handle_top_level_task_completed(ds, broker, job_id.to_string()).await
     }
 }
@@ -209,10 +197,7 @@ pub async fn handle_task_failed(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    let task_id = task
-        .id
-        .as_deref()
-        .ok_or_else(|| HandlerError::MissingTaskId)?;
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let failed_at = task.failed_at;
     let task_error = task.error.clone();
 
@@ -234,10 +219,7 @@ pub async fn handle_task_failed(
     if let Some(pid) = task.parent_id.clone() {
         handle_subtask_failed(ds, broker, task, pid.to_string()).await
     } else {
-        let job_id = task
-            .job_id
-            .as_deref()
-            .ok_or_else(|| HandlerError::MissingJobId)?;
+        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
         handle_top_level_task_failed(ds, broker, job_id.to_string(), task.error.clone()).await
     }
 }
@@ -257,14 +239,8 @@ pub async fn handle_error(
         error = task.error.as_deref().map_or("unknown error", |s| s),
         "Task failed"
     );
-    let task_id = task
-        .id
-        .as_deref()
-        .ok_or_else(|| HandlerError::MissingTaskId)?;
-    let job_id = task
-        .job_id
-        .as_deref()
-        .ok_or_else(|| HandlerError::MissingJobId)?;
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
+    let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
     let now = time::OffsetDateTime::now_utc();
     let task_error = task.error.clone();
     let task_result = task.result.clone();

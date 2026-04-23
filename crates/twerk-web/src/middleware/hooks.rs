@@ -169,7 +169,7 @@ pub fn create_read_job_middleware() -> JobMiddlewareFunc {
                     let secrets = job
                         .secrets
                         .as_ref()
-                        .map_or_else(std::collections::HashMap::new, |v| v.clone());
+                        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
                     on_read_job(job, &secrets);
                 }
                 next(ctx, et, job)

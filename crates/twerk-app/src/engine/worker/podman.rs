@@ -112,7 +112,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
             task.id
                 .clone()
                 .map_or_else(String::new, |id| id.to_string()),
-            task.image.clone().map_or_else(String::new, |i| i),
+            task.image.clone().unwrap_or_default(),
             task.cmd.clone(),
             task.workdir.clone(),
             task.env.clone(),

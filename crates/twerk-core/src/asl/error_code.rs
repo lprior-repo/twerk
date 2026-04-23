@@ -1,4 +1,4 @@
-//! ErrorCode enum for ASL error matching.
+//! `ErrorCode` enum for ASL error matching.
 
 use std::fmt;
 use std::str::FromStr;

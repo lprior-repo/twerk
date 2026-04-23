@@ -30,7 +30,7 @@ impl PostgresDatastore {
             .bind(&**task_id)
             .bind(
                 part.created_at
-                    .map_or_else(time::OffsetDateTime::now_utc, |d| d),
+                    .unwrap_or_else(time::OffsetDateTime::now_utc),
             )
             .bind(contents);
 

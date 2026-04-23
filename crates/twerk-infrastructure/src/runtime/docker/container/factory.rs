@@ -248,14 +248,14 @@ fn build_command_and_entrypoint(task: &Task) -> (Vec<String>, Vec<String>) {
     let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(Vec::is_empty) {
         vec!["/twerk/entrypoint".to_string()]
     } else {
-        task.cmd.clone().map_or_else(Vec::new, |v| v)
+        task.cmd.clone().unwrap_or_default()
     };
 
     let entrypoint: Vec<String> =
         if task.entrypoint.as_ref().is_none_or(Vec::is_empty) && task.run.is_some() {
             vec!["sh".to_string(), "-c".to_string()]
         } else {
-            task.entrypoint.clone().map_or_else(Vec::new, |v| v)
+            task.entrypoint.clone().unwrap_or_default()
         };
 
     (cmd, entrypoint)

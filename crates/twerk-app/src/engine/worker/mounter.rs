@@ -83,7 +83,7 @@ impl BindMounter {
 impl Mounter for BindMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
         let policy = self.cfg.policy.clone();
-        let source = mnt.source.clone().map_or_else(String::new, |s| s);
+        let source = mnt.source.clone().unwrap_or_default();
 
         Box::pin(async move {
             let sources = match policy {
@@ -133,7 +133,7 @@ impl VolumeMounter {
 
 impl Mounter for VolumeMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
-        let id = mnt.id.clone().map_or_else(String::new, |id| id);
+        let id = mnt.id.clone().unwrap_or_default();
         Box::pin(async move {
             if id.is_empty() {
                 return Err(MounterError::MissingMountId.into());
@@ -161,8 +161,8 @@ impl TmpfsMounter {
 
 impl Mounter for TmpfsMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
-        let target = mnt.target.clone().map_or_else(String::new, |t| t);
-        let source = mnt.source.clone().map_or_else(String::new, |s| s);
+        let target = mnt.target.clone().unwrap_or_default();
+        let source = mnt.source.clone().unwrap_or_default();
         Box::pin(async move {
             if target.is_empty() {
                 return Err(MounterError::TmpfsTargetRequired.into());

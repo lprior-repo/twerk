@@ -384,7 +384,10 @@ mod tests {
         // If already registered from a prior test run, that's fine - just call init()
         if result.is_ok() {
             let returned_true = init();
-            assert!(returned_true, "init() should return true when initializer is found");
+            assert!(
+                returned_true,
+                "init() should return true when initializer is found"
+            );
             assert!(
                 INIT_CALLED.load(Ordering::SeqCst),
                 "the registered initializer should have been called"
@@ -393,7 +396,10 @@ mod tests {
         // If duplicate registration, the earlier test already registered it.
         // In any case, calling init() should now return true since the name matches.
         let returned_true = init();
-        assert!(returned_true, "init() should return true for registered exe name");
+        assert!(
+            returned_true,
+            "init() should return true for registered exe name"
+        );
     }
 
     #[cfg(target_os = "linux")]

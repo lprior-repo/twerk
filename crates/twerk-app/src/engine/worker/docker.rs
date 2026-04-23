@@ -101,10 +101,7 @@ impl DockerRuntimeAdapter {
         let mounter = self.mounter.clone();
         let broker = self.broker.clone();
         Box::pin(async move {
-            let task_id = task
-                .id
-                .clone()
-                .ok_or_else(|| DockerWorkerError::TaskIdRequired)?;
+            let task_id = task.id.clone().ok_or(DockerWorkerError::TaskIdRequired)?;
             if task_id.is_empty() {
                 return Err(DockerWorkerError::TaskIdRequired.into());
             }
@@ -166,7 +163,7 @@ impl RuntimeTrait for DockerRuntimeAdapter {
         let tid = task.id.clone();
         let active = self.active_tasks.clone();
         Box::pin(async move {
-            let tid = tid.ok_or_else(|| DockerWorkerError::MissingTaskIdForStop)?;
+            let tid = tid.ok_or(DockerWorkerError::MissingTaskIdForStop)?;
             if let Some((_, cid)) = active.remove(&tid) {
                 let d = Docker::connect_with_local_defaults()?;
                 if let Err(e) = d.stop_container(&cid, None).await {

@@ -1,4 +1,4 @@
-//! `Dsn` newtype wrapper for PostgreSQL connection strings.
+//! `Dsn` newtype wrapper for `PostgreSQL` connection strings.
 
 use std::fmt;
 use std::ops::Deref;
@@ -6,10 +6,10 @@ use std::ops::Deref;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// A PostgreSQL connection string (DSN).
+/// A `PostgreSQL` connection string (DSN).
 ///
 /// The DSN format is validated for basic structure but actual
-/// connection validation is performed by the PostgreSQL driver.
+/// connection validation is performed by the `PostgreSQL` driver.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[must_use = "Dsn should be used; it validates at construction"]
 pub struct Dsn(String);
@@ -43,7 +43,7 @@ impl Dsn {
     /// Create a new `Dsn` without validation (use with caution).
     ///
     /// # Safety
-    /// The caller must ensure the string is a valid PostgreSQL DSN.
+    /// The caller must ensure the string is a valid `PostgreSQL` DSN.
     pub fn new_unchecked(dsn: impl Into<String>) -> Self {
         Self(dsn.into())
     }

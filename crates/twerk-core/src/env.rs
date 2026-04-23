@@ -83,7 +83,10 @@ mod tests {
         remove(&key);
         set(&key, "not_a_number");
         let val = read_timeout_env(&key, 77);
-        assert_eq!(val, 77, "must return default when env var is not a valid u64");
+        assert_eq!(
+            val, 77,
+            "must return default when env var is not a valid u64"
+        );
         remove(&key);
     }
 
@@ -219,7 +222,10 @@ mod tests {
 
         // "true" must satisfy the first condition (eq_ignore_ascii_case)
         set(&key, "true");
-        assert!(read_cleanup_env(&key, false), "'true' must match via eq_ignore_ascii_case");
+        assert!(
+            read_cleanup_env(&key, false),
+            "'true' must match via eq_ignore_ascii_case"
+        );
         remove(&key);
 
         // "1" must satisfy the second condition (==)

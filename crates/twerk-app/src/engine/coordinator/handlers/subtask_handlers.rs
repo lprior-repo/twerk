@@ -38,7 +38,7 @@ async fn handle_parallel_subtask_completed(
     let parent_id = parent
         .id
         .as_deref()
-        .ok_or_else(|| HandlerError::MissingParentTaskId)?;
+        .ok_or(HandlerError::MissingParentTaskId)?;
     let is_last = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let is_last_clone = is_last.clone();
 
@@ -80,7 +80,7 @@ async fn handle_each_subtask_completed(
     let parent_id = parent
         .id
         .as_deref()
-        .ok_or_else(|| HandlerError::MissingParentTaskId)?;
+        .ok_or(HandlerError::MissingParentTaskId)?;
     let is_last = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let is_last_clone = is_last.clone();
 

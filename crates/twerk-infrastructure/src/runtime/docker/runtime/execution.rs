@@ -115,7 +115,10 @@ async fn run_phases(
     task: &mut Task,
     mounted_mounts: &[twerk_core::mount::Mount],
 ) -> Result<(), DockerError> {
-    let pre_tasks: Vec<Task> = task.pre.as_ref().map_or_else(Vec::new, |v| v.clone());
+    let pre_tasks: Vec<Task> = task
+        .pre
+        .as_ref()
+        .map_or_else(Vec::new, std::clone::Clone::clone);
     for mut pre_task in pre_tasks {
         pre_task.id = Some(TaskId::new(new_uuid())?);
         pre_task.mounts = Some(mounted_mounts.to_vec());
@@ -126,7 +129,10 @@ async fn run_phases(
 
     run_task(client, config, pull_tx, mounter, task).await?;
 
-    let post_tasks: Vec<Task> = task.post.as_ref().map_or_else(Vec::new, |v| v.clone());
+    let post_tasks: Vec<Task> = task
+        .post
+        .as_ref()
+        .map_or_else(Vec::new, std::clone::Clone::clone);
     for mut post_task in post_tasks {
         post_task.id = Some(TaskId::new(new_uuid())?);
         post_task.mounts = Some(mounted_mounts.to_vec());

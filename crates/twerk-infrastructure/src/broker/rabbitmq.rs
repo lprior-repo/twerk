@@ -73,10 +73,7 @@ impl RabbitMQBroker {
     ///
     /// Returns an error if the connection to `RabbitMQ` fails.
     pub async fn new(url: &str, opts: RabbitMQOptions, engine_id: Option<&str>) -> Result<Self> {
-        let engine_id = match engine_id {
-            Some(id) => id,
-            None => "",
-        };
+        let engine_id = engine_id.unwrap_or_default();
         let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
             .map_err(|e| rabbitmq_conn_err(1, &e))?;
@@ -142,7 +139,7 @@ impl RabbitMQBroker {
         let conn = self
             .conn_pool
             .get(idx)
-            .ok_or_else(|| BrokerError::ConnectionPoolIndex)?;
+            .ok_or(BrokerError::ConnectionPoolIndex)?;
 
         if conn.status().connected() {
             return Ok(Arc::clone(conn));
@@ -155,7 +152,7 @@ impl RabbitMQBroker {
             .iter()
             .find(|c| c.status().connected())
             .map(Arc::clone)
-            .ok_or_else(|| BrokerError::AllConnectionsDown)
+            .ok_or(BrokerError::AllConnectionsDown)
             .map_err(Into::into)
     }
 

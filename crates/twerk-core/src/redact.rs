@@ -348,7 +348,7 @@ pub fn redact_job(job: crate::job::Job) -> crate::job::Job {
     let secrets = job
         .secrets
         .as_ref()
-        .map_or_else(std::collections::HashMap::new, |m| m.clone());
+        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
     let job = redact_job_inputs_webhooks_context(job, &secrets);
     let job = redact_job_tasks(job, &secrets);
     redact_job_secrets(job)

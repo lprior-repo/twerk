@@ -117,11 +117,11 @@ fn template_replacement(
 
     evaluate_expr(expr_str, context).map(|value| match value {
         serde_json::Value::String(text) => text,
-        other @ serde_json::Value::Null
-        | other @ serde_json::Value::Bool(_)
-        | other @ serde_json::Value::Number(_)
-        | other @ serde_json::Value::Array(_)
-        | other @ serde_json::Value::Object(_) => other.to_string(),
+        other @ (serde_json::Value::Null
+        | serde_json::Value::Bool(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::Array(_)
+        | serde_json::Value::Object(_)) => other.to_string(),
     })
 }
 

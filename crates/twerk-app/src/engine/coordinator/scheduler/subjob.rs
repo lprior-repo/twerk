@@ -13,10 +13,7 @@ impl Scheduler {
             .id
             .clone()
             .map_or_else(String::new, |id| id.to_string());
-        let job_id = task
-            .job_id
-            .clone()
-            .map_or_else(twerk_core::id::JobId::default, |id| id);
+        let job_id = task.job_id.unwrap_or_default();
         let now = time::OffsetDateTime::now_utc();
 
         let job = self.ds.get_job_by_id(&job_id).await?;
@@ -32,7 +29,7 @@ impl Scheduler {
         let subjob_uuid = uuid::Uuid::new_v4().to_string();
         let subjob = twerk_core::job::Job {
             id: Some(twerk_core::id::JobId::new(&subjob_uuid)?),
-            parent_id: Some(twerk_core::id::JobId::new(task_id.to_string())?),
+            parent_id: Some(twerk_core::id::JobId::new(task_id.clone())?),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),
             state: twerk_core::job::JobState::Pending,
@@ -50,8 +47,8 @@ impl Scheduler {
 
         let subjob_id = subjob
             .id
-            .clone()
-            .map_or_else(twerk_core::id::JobId::default, |id| id);
+            .as_ref()
+            .map_or_else(twerk_core::id::JobId::default, std::clone::Clone::clone);
 
         self.ds
             .update_task(

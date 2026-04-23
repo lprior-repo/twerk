@@ -91,15 +91,12 @@ async fn start_job(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     job: twerk_core::job::Job,
 ) -> Result<()> {
-    let tasks = job
-        .tasks
-        .as_ref()
-        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
-    let base_task = tasks.first().ok_or_else(|| HandlerError::JobHasNoTasks)?;
+    let tasks = job.tasks.as_ref().ok_or(HandlerError::JobHasNoTasks)?;
+    let base_task = tasks.first().ok_or(HandlerError::JobHasNoTasks)?;
 
     let now = time::OffsetDateTime::now_utc();
     let job_ctx = build_job_context(&job);
-    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
+    let job_id = job.id.as_ref().ok_or(HandlerError::MissingJobId)?;
 
     debug!(job_id = %job_id, "start_job: transitioning job to Scheduled");
     // Transition job to Scheduled BEFORE evaluating task and calling handle_pending_task.
@@ -139,7 +136,7 @@ async fn restart_job(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     job: twerk_core::job::Job,
 ) -> Result<()> {
-    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
+    let job_id = job.id.as_ref().ok_or(HandlerError::MissingJobId)?;
     let now = time::OffsetDateTime::now_utc();
 
     ds.update_job(
@@ -152,14 +149,9 @@ async fn restart_job(
     )
     .await?;
 
-    let tasks = job
-        .tasks
-        .as_ref()
-        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
+    let tasks = job.tasks.as_ref().ok_or(HandlerError::JobHasNoTasks)?;
     let task_index = (job.position - 1) as usize;
-    let base_task = tasks
-        .get(task_index)
-        .ok_or_else(|| HandlerError::TaskOutOfBounds)?;
+    let base_task = tasks.get(task_index).ok_or(HandlerError::TaskOutOfBounds)?;
 
     let mut task = twerk_core::eval::evaluate_task(base_task, &build_job_context(&job))
         .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -179,7 +171,7 @@ async fn complete_job(
     job: twerk_core::job::Job,
 ) -> Result<()> {
     let now = time::OffsetDateTime::now_utc();
-    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
+    let job_id = job.id.as_ref().ok_or(HandlerError::MissingJobId)?;
 
     ds.update_job(
         job_id,

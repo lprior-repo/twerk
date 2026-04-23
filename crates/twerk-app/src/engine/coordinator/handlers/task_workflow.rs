@@ -26,15 +26,12 @@ pub async fn handle_top_level_task_completed(
     let next_position = job.position + 1;
     let now = time::OffsetDateTime::now_utc();
 
-    let tasks = job
-        .tasks
-        .as_ref()
-        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
+    let tasks = job.tasks.as_ref().ok_or(HandlerError::JobHasNoTasks)?;
 
     if next_position <= tasks.len() as i64 {
         let base_task = tasks
             .get((next_position - 1) as usize)
-            .ok_or_else(|| HandlerError::TaskOutOfBounds)?;
+            .ok_or(HandlerError::TaskOutOfBounds)?;
         let mut task = base_task.clone();
         task.id = Some(new_short_uuid().into());
         task.job_id = Some(twerk_core::id::JobId::new(job_id.clone())?);

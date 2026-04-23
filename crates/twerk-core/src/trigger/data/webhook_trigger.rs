@@ -39,7 +39,7 @@ pub struct WebhookTrigger {
     pub disabled: bool,
 }
 
-/// Intermediate struct for WebhookTrigger deserialization with validation.
+/// Intermediate struct for `WebhookTrigger` deserialization with validation.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WebhookTriggerRaw {
@@ -86,7 +86,7 @@ impl<'de> Deserialize<'de> for WebhookTrigger {
 }
 
 impl WebhookTrigger {
-    /// Validates the raw fields of a WebhookTrigger.
+    /// Validates the raw fields of a `WebhookTrigger`.
     fn validate(
         id: &str,
         url: &str,

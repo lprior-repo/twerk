@@ -48,7 +48,7 @@ impl Scheduler {
             task.queue = Some("default".to_string());
         }
 
-        let q = task.queue.clone().map_or_else(String::new, |q| q);
+        let q = task.queue.clone().unwrap_or_default();
         let t_queue = task.queue.clone();
         let t_limits = task.limits.clone();
         let t_timeout = task.timeout.clone();

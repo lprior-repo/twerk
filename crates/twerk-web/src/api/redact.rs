@@ -8,7 +8,7 @@ pub fn redact_job(job: &mut Job) {
     let secrets = job
         .secrets
         .as_ref()
-        .map_or_else(std::collections::HashMap::new, |v| v.clone());
+        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
 
     // Redact inputs
     if let Some(ref mut inputs) = job.inputs {
@@ -76,7 +76,7 @@ pub fn redact_scheduled_job(sj: &mut ScheduledJob) {
     let secrets = sj
         .secrets
         .as_ref()
-        .map_or_else(std::collections::HashMap::new, |v| v.clone());
+        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
 
     // Redact inputs
     if let Some(ref mut inputs) = sj.inputs {

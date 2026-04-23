@@ -111,8 +111,7 @@ impl PageSize {
     /// Create a `PageSize` with a default value if None.
     #[must_use]
     pub fn or_default(size: Option<u64>) -> Self {
-        size.and_then(|s| Self::new(s).ok())
-            .map_or_else(Self::default, |v| v.clone())
+        size.and_then(|s| Self::new(s).ok()).unwrap_or_default()
     }
 
     /// Returns the page size as a u64.

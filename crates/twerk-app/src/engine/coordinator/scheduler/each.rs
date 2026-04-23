@@ -43,9 +43,7 @@ impl Scheduler {
         let job = self.ds.get_job_by_id(job_id).await?;
         let job_ctx_map = job
             .context
-            .as_ref()
-            .map(twerk_core::job::JobContext::as_map)
-            .map_or_else(std::collections::HashMap::new, |c| c);
+            .map_or_else(std::collections::HashMap::new, |c| c.as_map());
 
         let each = task
             .each
@@ -56,12 +54,12 @@ impl Scheduler {
         let list_expr = each
             .list
             .as_deref()
-            .map_or_else(String::new, |s| s.to_string());
+            .map_or_else(String::new, std::string::ToString::to_string);
 
         let list_val = Self::eval_each_list(&list_expr, &job_ctx_map)?;
         let list = list_val
             .as_array()
-            .ok_or_else(|| SchedulerError::EachListMustBeArray)?;
+            .ok_or(SchedulerError::EachListMustBeArray)?;
         let size = list.len() as i64;
 
         self.ds
@@ -84,7 +82,7 @@ impl Scheduler {
         let template = each
             .task
             .as_ref()
-            .ok_or_else(|| SchedulerError::MissingEachTemplate)?;
+            .ok_or(SchedulerError::MissingEachTemplate)?;
         self.spawn_each_tasks(template, list, &job_ctx_map, task_id, job_id, now)
             .await
     }

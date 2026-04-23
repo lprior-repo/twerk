@@ -121,7 +121,7 @@ struct IdleConnection {
 
 impl SyncPostgresPool {
     fn new(dsn: &str, opts: &PostgresLockerOptions) -> Self {
-        let ssl_mode = opts.ssl_mode.map_or_else(|| extract_ssl_mode(dsn), |m| m);
+        let ssl_mode = opts.ssl_mode.unwrap_or_else(|| extract_ssl_mode(dsn));
         Self {
             dsn: dsn.to_string(),
             ssl_mode,
@@ -131,7 +131,7 @@ impl SyncPostgresPool {
             conn_max_idle_time: opts.conn_max_idle_time,
             connect_timeout: opts
                 .connect_timeout
-                .map_or_else(|| std::time::Duration::from_secs(30), |d| d),
+                .unwrap_or_else(|| std::time::Duration::from_secs(30)),
             idle: Mutex::new(Vec::new()),
             open_count: Mutex::new(0),
         }
@@ -226,9 +226,9 @@ impl SyncPostgresPool {
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(LockError::Connection(format!(
                 "connection timed out after {timeout:?}"
             ))),
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(LockError::Connection(
-                "connect thread panicked".to_string(),
-            )),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                Err(LockError::Connection("connect thread panicked".to_string()))
+            }
         }
     }
 
@@ -398,7 +398,7 @@ impl PostgresLocker {
 
         let timeout = opts
             .connect_timeout
-            .map_or_else(|| std::time::Duration::from_secs(30), |d| d);
+            .unwrap_or_else(|| std::time::Duration::from_secs(30));
         let dsn_owned = dsn.to_string();
 
         let tls_connector = pool.make_tls_connector();

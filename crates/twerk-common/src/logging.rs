@@ -332,7 +332,13 @@ mod tests {
     #[test]
     fn test_write_all_levels() {
         // Exercises each match arm in write() to kill match-arm mutants
-        for level in [Level::Trace, Level::Debug, Level::Info, Level::Warn, Level::Error] {
+        for level in [
+            Level::Trace,
+            Level::Debug,
+            Level::Info,
+            Level::Warn,
+            Level::Error,
+        ] {
             let writer = TracingWriter::new("task-levels".to_string(), level);
             writer.write("test message");
         }
@@ -348,8 +354,14 @@ mod tests {
 
         // Load a config with invalid format
         let mut state = crate::conf::types::ConfigState::new();
-        state.insert("logging.level".to_string(), toml::Value::String("info".to_string()));
-        state.insert("logging.format".to_string(), toml::Value::String("xml".to_string()));
+        state.insert(
+            "logging.level".to_string(),
+            toml::Value::String("info".to_string()),
+        );
+        state.insert(
+            "logging.format".to_string(),
+            toml::Value::String("xml".to_string()),
+        );
         {
             let mut guard = crate::conf::CONFIG.write().unwrap();
             *guard = Some(state);

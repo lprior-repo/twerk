@@ -68,11 +68,11 @@ pub fn format_fn(args: &Value) -> Result<Value, String> {
                 let json = eval_value_to_json(&parts[arg_idx]);
                 match &json {
                     serde_json::Value::String(s) => result.push_str(s),
-                    other @ serde_json::Value::Null
-                    | other @ serde_json::Value::Bool(_)
-                    | other @ serde_json::Value::Number(_)
-                    | other @ serde_json::Value::Array(_)
-                    | other @ serde_json::Value::Object(_) => result.push_str(&other.to_string()),
+                    other @ (serde_json::Value::Null
+                    | serde_json::Value::Bool(_)
+                    | serde_json::Value::Number(_)
+                    | serde_json::Value::Array(_)
+                    | serde_json::Value::Object(_)) => result.push_str(&other.to_string()),
                 }
                 arg_idx += 1;
             } else {
@@ -108,10 +108,9 @@ pub fn array_fn(args: &Value) -> Result<Value, String> {
     match args {
         Value::Empty => Ok(Value::Tuple(Vec::new())),
         Value::Tuple(items) => Ok(Value::Tuple(items.clone())),
-        single @ Value::String(_)
-        | single @ Value::Float(_)
-        | single @ Value::Int(_)
-        | single @ Value::Boolean(_) => Ok(Value::Tuple(vec![single.clone()])),
+        single @ (Value::String(_) | Value::Float(_) | Value::Int(_) | Value::Boolean(_)) => {
+            Ok(Value::Tuple(vec![single.clone()]))
+        }
     }
 }
 
@@ -138,25 +137,23 @@ pub fn math_random_fn(args: &Value) -> Result<Value, String> {
 
 pub fn math_add_fn(args: &Value) -> Result<Value, String> {
     let tuple = extract_tuple(args, "mathAdd", 2)?;
-    match (&tuple[0], &tuple[1]) {
-        (Value::Int(a), Value::Int(b)) => Ok(Value::Int(a.saturating_add(*b))),
-        _ => {
-            let a = as_numeric(&tuple[0], "mathAdd")?;
-            let b = as_numeric(&tuple[1], "mathAdd")?;
-            Ok(Value::Float(a + b))
-        }
+    if let (Value::Int(a), Value::Int(b)) = (&tuple[0], &tuple[1]) {
+        Ok(Value::Int(a.saturating_add(*b)))
+    } else {
+        let a = as_numeric(&tuple[0], "mathAdd")?;
+        let b = as_numeric(&tuple[1], "mathAdd")?;
+        Ok(Value::Float(a + b))
     }
 }
 
 pub fn math_sub_fn(args: &Value) -> Result<Value, String> {
     let tuple = extract_tuple(args, "mathSub", 2)?;
-    match (&tuple[0], &tuple[1]) {
-        (Value::Int(a), Value::Int(b)) => Ok(Value::Int(a.saturating_sub(*b))),
-        _ => {
-            let a = as_numeric(&tuple[0], "mathSub")?;
-            let b = as_numeric(&tuple[1], "mathSub")?;
-            Ok(Value::Float(a - b))
-        }
+    if let (Value::Int(a), Value::Int(b)) = (&tuple[0], &tuple[1]) {
+        Ok(Value::Int(a.saturating_sub(*b)))
+    } else {
+        let a = as_numeric(&tuple[0], "mathSub")?;
+        let b = as_numeric(&tuple[1], "mathSub")?;
+        Ok(Value::Float(a - b))
     }
 }
 

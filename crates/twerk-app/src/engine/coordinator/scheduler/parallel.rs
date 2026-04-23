@@ -31,9 +31,7 @@ impl Scheduler {
         let job = self.ds.get_job_by_id(job_id).await?;
         let job_ctx = job
             .context
-            .as_ref()
-            .map(twerk_core::job::JobContext::as_map)
-            .map_or_else(std::collections::HashMap::new, |c| c);
+            .map_or_else(std::collections::HashMap::new, |c| c.as_map());
 
         self.ds
             .update_task(
@@ -57,7 +55,7 @@ impl Scheduler {
         let tasks = parallel
             .tasks
             .as_ref()
-            .ok_or_else(|| SchedulerError::MissingParallelTasks)?;
+            .ok_or(SchedulerError::MissingParallelTasks)?;
 
         let subtasks: Vec<_> = tasks
             .iter()

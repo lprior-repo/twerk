@@ -174,7 +174,7 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
         .job_id
         .as_ref()
         .map(std::string::ToString::to_string)
-        .ok_or_else(|| WebhookError::MissingJobId)?;
+        .ok_or(WebhookError::MissingJobId)?;
 
     let job = ds.get_job_by_id(&job_id).await?;
     let event = event.to_string();

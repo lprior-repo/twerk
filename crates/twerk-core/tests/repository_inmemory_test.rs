@@ -328,7 +328,10 @@ async fn paginate_jobs_total_pages_rounds_up() {
     }
     let page = repo.get_jobs("", "", 1, 2).await.unwrap();
     assert_eq!(page.total_items, 5);
-    assert_eq!(page.total_pages, 3, "5 items / size 2 must be 3 pages (ceil)");
+    assert_eq!(
+        page.total_pages, 3,
+        "5 items / size 2 must be 3 pages (ceil)"
+    );
 }
 
 #[tokio::test]
@@ -343,7 +346,11 @@ async fn paginate_jobs_second_page_exact_items() {
         repo.create_job(&job).await.unwrap();
     }
     let page = repo.get_jobs("", "", 2, 2).await.unwrap();
-    assert_eq!(page.items.len(), 2, "page 2 of 5 items with size 2 must have 2 items");
+    assert_eq!(
+        page.items.len(),
+        2,
+        "page 2 of 5 items with size 2 must have 2 items"
+    );
 }
 
 #[tokio::test]
@@ -358,7 +365,11 @@ async fn paginate_jobs_last_page_partial() {
         repo.create_job(&job).await.unwrap();
     }
     let page = repo.get_jobs("", "", 3, 2).await.unwrap();
-    assert_eq!(page.items.len(), 1, "last page of 5 items with size 2 must have 1 item");
+    assert_eq!(
+        page.items.len(),
+        1,
+        "last page of 5 items with size 2 must have 1 item"
+    );
 }
 
 #[tokio::test]
@@ -373,7 +384,11 @@ async fn paginate_beyond_last_page_returns_empty() {
         repo.create_job(&job).await.unwrap();
     }
     let page = repo.get_jobs("", "", 2, 10).await.unwrap();
-    assert_eq!(page.items.len(), 0, "page 2 with only 3 items and size 10 must be empty");
+    assert_eq!(
+        page.items.len(),
+        0,
+        "page 2 with only 3 items and size 10 must be empty"
+    );
     assert_eq!(page.total_items, 3);
     assert_eq!(page.total_pages, 1);
 }
@@ -404,17 +419,26 @@ async fn paginate_task_log_parts_page_calculation() {
     }
 
     // Page 1: items 0-2
-    let p1 = repo.get_task_log_parts("task-logs", "", 1, 3).await.unwrap();
+    let p1 = repo
+        .get_task_log_parts("task-logs", "", 1, 3)
+        .await
+        .unwrap();
     assert_eq!(p1.items.len(), 3);
     assert_eq!(p1.total_items, 7);
     assert_eq!(p1.total_pages, 3, "7 items / size 3 => ceil(7/3) = 3 pages");
 
     // Page 2: items 3-5
-    let p2 = repo.get_task_log_parts("task-logs", "", 2, 3).await.unwrap();
+    let p2 = repo
+        .get_task_log_parts("task-logs", "", 2, 3)
+        .await
+        .unwrap();
     assert_eq!(p2.items.len(), 3);
 
     // Page 3: item 6
-    let p3 = repo.get_task_log_parts("task-logs", "", 3, 3).await.unwrap();
+    let p3 = repo
+        .get_task_log_parts("task-logs", "", 3, 3)
+        .await
+        .unwrap();
     assert_eq!(p3.items.len(), 1);
 }
 
@@ -430,7 +454,10 @@ async fn paginate_exact_multiple_page_count() {
         repo.create_job(&job).await.unwrap();
     }
     let page = repo.get_jobs("", "", 1, 2).await.unwrap();
-    assert_eq!(page.total_pages, 2, "4 items / size 2 must be exactly 2 pages");
+    assert_eq!(
+        page.total_pages, 2,
+        "4 items / size 2 must be exactly 2 pages"
+    );
     assert_eq!(page.total_items, 4);
 }
 
@@ -485,7 +512,11 @@ async fn get_all_tasks_for_job_returns_only_matching_job() {
     let result = repo.get_all_tasks_for_job(job_a.as_str()).await.unwrap();
 
     // Must have exactly 2 tasks for job_a, not 3 (which would happen if != replaced ==)
-    assert_eq!(result.len(), 2, "only tasks belonging to job_a should be returned");
+    assert_eq!(
+        result.len(),
+        2,
+        "only tasks belonging to job_a should be returned"
+    );
 
     // Verify the exact task IDs to catch any default/empty return mutation
     let ids: Vec<&str> = result
@@ -548,7 +579,11 @@ async fn get_all_tasks_for_job_includes_all_states() {
 
     let result = repo.get_all_tasks_for_job(job_id.as_str()).await.unwrap();
     // Unlike get_active_tasks, get_all_tasks_for_job returns ALL states
-    assert_eq!(result.len(), 6, "all 6 tasks across all states must be returned");
+    assert_eq!(
+        result.len(),
+        6,
+        "all 6 tasks across all states must be returned"
+    );
 
     let states: Vec<TaskState> = result.iter().map(|t| t.state).collect();
     assert!(states.contains(&TaskState::Created));

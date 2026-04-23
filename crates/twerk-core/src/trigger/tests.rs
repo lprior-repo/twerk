@@ -1,9 +1,9 @@
 //! Unit, property-based, and formal verification tests for the trigger system.
 //!
 //! This module contains comprehensive tests including:
-//! - Unit tests for TriggerId, TriggerState, TriggerVariant, TriggerError
+//! - Unit tests for `TriggerId`, `TriggerState`, `TriggerVariant`, `TriggerError`
 //! - State transition matrix validation tests
-//! - InMemoryTriggerRegistry integration tests
+//! - `InMemoryTriggerRegistry` integration tests
 //! - Proptest property-based tests
 //! - Kani formal verification proofs
 

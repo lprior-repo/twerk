@@ -16,7 +16,7 @@ fn config_string_opt(key: &str) -> Option<String> {
 }
 
 pub fn env_string(key: &str) -> String {
-    var_with_twerk_prefix(key).map_or_else(|| config_string(key), |v| v)
+    var_with_twerk_prefix(key).unwrap_or_else(|| config_string(key))
 }
 
 pub fn env_string_default(key: &str, default: &str) -> String {
@@ -59,7 +59,7 @@ pub fn resolve_engine_id(config_engine_id: Option<String>) -> Option<String> {
 }
 
 pub fn resolve_broker_type() -> String {
-    env_or_config_string("broker.type").map_or_else(|| "inmemory".to_string(), |v| v)
+    env_or_config_string("broker.type").unwrap_or_else(|| "inmemory".to_string())
 }
 
 /// Resolves the locker type from environment variables.
@@ -70,7 +70,7 @@ pub fn resolve_broker_type() -> String {
 pub fn resolve_locker_type() -> String {
     env_or_config_string("locker.type")
         .or_else(|| env_or_config_string("datastore.type"))
-        .map_or_else(|| "inmemory".to_string(), |v| v)
+        .unwrap_or_else(|| "inmemory".to_string())
 }
 
 /// Mock runtime for testing

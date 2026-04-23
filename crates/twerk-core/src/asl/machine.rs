@@ -1,4 +1,4 @@
-//! StateMachine: the top-level container for an ASL state machine definition.
+//! `StateMachine`: the top-level container for an ASL state machine definition.
 //!
 //! Holds an ordered map of named states with a designated start state.
 //! Validation checks inter-state references via `validate()`.
@@ -56,7 +56,7 @@ pub struct StateMachine {
 }
 
 impl StateMachine {
-    /// Creates a new StateMachine with required fields.
+    /// Creates a new `StateMachine` with required fields.
     #[must_use]
     pub fn new(start_at: StateName, states: IndexMap<StateName, State>) -> Self {
         Self {

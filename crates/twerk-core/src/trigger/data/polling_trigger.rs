@@ -43,7 +43,7 @@ pub struct PollingTrigger {
     pub disabled: bool,
 }
 
-/// Intermediate struct for PollingTrigger deserialization with validation.
+/// Intermediate struct for `PollingTrigger` deserialization with validation.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PollingTriggerRaw {
@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for PollingTrigger {
 }
 
 impl PollingTrigger {
-    /// Validates the raw fields of a PollingTrigger.
+    /// Validates the raw fields of a `PollingTrigger`.
     #[allow(clippy::too_many_arguments)]
     fn validate(
         id: &str,
@@ -128,9 +128,9 @@ impl PollingTrigger {
     /// - `method: HttpMethod` - HTTP method
     /// - `auth: WebhookAuth` - Authentication config (default: `WebhookAuth::None`)
     /// - `headers: Option<HashMap<String, String>>` - Custom HTTP headers
-    /// - `interval: impl Into<String>` - Polling interval in GoDuration format (e.g., "30s", "1m", "1h")
+    /// - `interval: impl Into<String>` - Polling interval in `GoDuration` format (e.g., "30s", "1m", "1h")
     /// - `timeout: Option<GoDuration>` - Optional request timeout
-    /// - `stop_condition: Option<String>` - Optional JMESPath expression to stop polling
+    /// - `stop_condition: Option<String>` - Optional `JMESPath` expression to stop polling
     /// - `payload: Option<serde_json::Value>` - Optional JSON payload
     /// - `disabled: bool` - Whether trigger is disabled (default: false)
     ///
@@ -138,9 +138,9 @@ impl PollingTrigger {
     /// - `Ok(PollingTrigger { ... })` when all validations pass
     /// - `Err(TriggerDataError::InvalidTriggerId)` when `id` is invalid
     /// - `Err(TriggerDataError::InvalidUrl)` when `url` is not valid HTTP(S) URL
-    /// - `Err(TriggerDataError::InvalidInterval)` when `interval` is not valid GoDuration or is zero
-    /// - `Err(TriggerDataError::InvalidInterval)` when `timeout` is present but not valid GoDuration
-    /// - `Err(TriggerDataError::InvalidJmespath)` when `stop_condition` is present but invalid JMESPath
+    /// - `Err(TriggerDataError::InvalidInterval)` when `interval` is not valid `GoDuration` or is zero
+    /// - `Err(TriggerDataError::InvalidInterval)` when `timeout` is present but not valid `GoDuration`
+    /// - `Err(TriggerDataError::InvalidJmespath)` when `stop_condition` is present but invalid `JMESPath`
     /// - `Err(TriggerDataError::EmptyRequiredField)` when auth variant requires non-empty field
     /// - `Err(TriggerDataError::HeaderLimitExceeded)` when header limits are exceeded
     #[allow(clippy::too_many_arguments)]

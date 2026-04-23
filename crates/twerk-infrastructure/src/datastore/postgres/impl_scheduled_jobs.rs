@@ -68,10 +68,7 @@ impl PostgresDatastore {
             .bind(&sj.description)
             .bind(sj.tags.as_ref().map_or_else(Vec::new, Clone::clone))
             .bind(sj.state.to_string())
-            .bind(
-                sj.created_at
-                    .map_or_else(time::OffsetDateTime::now_utc, |t| t),
-            )
+            .bind(sj.created_at.unwrap_or_else(time::OffsetDateTime::now_utc))
             .bind(&*created_by)
             .bind(&tasks)
             .bind(&inputs)

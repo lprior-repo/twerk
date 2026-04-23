@@ -1,6 +1,6 @@
 //! ASL data flow processing — `input_path`, `result_path`, `output_path`.
 //!
-//! Implements the subset of JSONPath needed for AWS Step Functions data flow:
+//! Implements the subset of `JSONPath` needed for AWS Step Functions data flow:
 //! `$`, `$.field`, `$.field.nested`, `$.field[0]`.
 
 use serde_json::Value;

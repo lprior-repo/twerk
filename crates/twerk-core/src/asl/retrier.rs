@@ -1,4 +1,4 @@
-//! Retrier and JitterStrategy types for ASL retry policies.
+//! Retrier and `JitterStrategy` types for ASL retry policies.
 //!
 //! A Retrier specifies how a state retries on specific errors,
 //! with exponential backoff and optional jitter.

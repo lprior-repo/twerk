@@ -1,4 +1,4 @@
-//! CronExpression newtype wrapper.
+//! `CronExpression` newtype wrapper.
 
 use std::fmt;
 use std::ops::Deref;
@@ -55,7 +55,7 @@ fn validate_field_count(s: &str) -> Result<usize, CronExpressionError> {
 fn normalize_for_cron(s: &str, field_count: usize) -> String {
     let normalized = s.to_uppercase();
     if field_count == 5 {
-        format!("0 {}", normalized)
+        format!("0 {normalized}")
     } else {
         normalized
     }

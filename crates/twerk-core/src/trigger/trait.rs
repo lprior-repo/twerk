@@ -1,4 +1,4 @@
-//! TriggerRegistry trait definition.
+//! `TriggerRegistry` trait definition.
 //!
 //! Defines the interface for trigger lifecycle management.
 
@@ -7,10 +7,10 @@ use std::pin::Pin;
 
 use super::types::{JobId, Trigger, TriggerContext, TriggerError, TriggerId, TriggerState};
 
-/// Result type for TriggerRegistry operations
+/// Result type for `TriggerRegistry` operations
 pub type TriggerRegistryResult<T> = std::result::Result<T, TriggerError>;
 
-/// Boxed future type for TriggerRegistry operations
+/// Boxed future type for `TriggerRegistry` operations
 pub type BoxedTriggerFuture<T> =
     Pin<Box<dyn std::future::Future<Output = TriggerRegistryResult<T>> + Send>>;
 

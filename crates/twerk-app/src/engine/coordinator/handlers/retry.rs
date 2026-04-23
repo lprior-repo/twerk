@@ -16,10 +16,7 @@ pub(crate) async fn create_retry_task(
     job: &twerk_core::job::Job,
     now: time::OffsetDateTime,
 ) -> Result<()> {
-    let retry_config = task
-        .retry
-        .clone()
-        .ok_or_else(|| HandlerError::MissingRetryConfig)?;
+    let retry_config = task.retry.clone().ok_or(HandlerError::MissingRetryConfig)?;
 
     let mut retry_task = task;
     retry_task.id = Some(new_short_uuid().into());

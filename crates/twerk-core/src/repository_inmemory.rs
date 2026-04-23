@@ -26,6 +26,7 @@ pub struct InMemoryRepository {
 }
 
 impl InMemoryRepository {
+    #[must_use]
     pub fn new(options: Options) -> Self {
         Self {
             tasks: RwLock::new(HashMap::new()),
@@ -77,7 +78,7 @@ impl Repository for InMemoryRepository {
         }
         let mut tasks = self.tasks.write();
         if tasks.contains_key(&id_str) {
-            return Err(Error::Database(format!("task {} already exists", id_str)));
+            return Err(Error::Database(format!("task {id_str} already exists")));
         }
         tasks.insert(id_str, task.clone());
         Ok(())
@@ -182,7 +183,7 @@ impl Repository for InMemoryRepository {
         }
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id_str) {
-            return Err(Error::Database(format!("node {} already exists", id_str)));
+            return Err(Error::Database(format!("node {id_str} already exists")));
         }
         nodes.insert(id_str, node.clone());
         Ok(())
@@ -224,7 +225,7 @@ impl Repository for InMemoryRepository {
         }
         let mut jobs = self.jobs.write();
         if jobs.contains_key(&id_str) {
-            return Err(Error::Database(format!("job {} already exists", id_str)));
+            return Err(Error::Database(format!("job {id_str} already exists")));
         }
         jobs.insert(id_str, job.clone());
         Ok(())
@@ -285,8 +286,7 @@ impl Repository for InMemoryRepository {
         let mut sjs = self.scheduled_jobs.write();
         if sjs.contains_key(&id_str) {
             return Err(Error::Database(format!(
-                "scheduled job {} already exists",
-                id_str
+                "scheduled job {id_str} already exists"
             )));
         }
         sjs.insert(id_str, sj.clone());
@@ -349,7 +349,7 @@ impl Repository for InMemoryRepository {
         }
         let mut users = self.users.write();
         if users.contains_key(&id_str) {
-            return Err(Error::Database(format!("user {} already exists", id_str)));
+            return Err(Error::Database(format!("user {id_str} already exists")));
         }
         users.insert(id_str, user.clone());
         Ok(())
@@ -374,7 +374,7 @@ impl Repository for InMemoryRepository {
         }
         let mut roles = self.roles.write();
         if roles.contains_key(&id_str) {
-            return Err(Error::Database(format!("role {} already exists", id_str)));
+            return Err(Error::Database(format!("role {id_str} already exists")));
         }
         roles.insert(id_str, role.clone());
         Ok(())

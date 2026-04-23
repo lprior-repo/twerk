@@ -229,7 +229,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             task.id
                 .clone()
                 .map_or_else(String::new, |id| id.to_string()),
-            task.run.clone().map_or_else(String::new, |r| r),
+            task.run.clone().unwrap_or_default(),
             task.env.clone(),
             self.active_processes.clone(),
             self.temp_dirs.clone(),
@@ -265,9 +265,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             temp_dirs.insert(tid.to_string(), td_path.clone());
 
             // Spawn process
-            let (program, base_args) = sc
-                .split_first()
-                .ok_or_else(|| ShellError::ShellCommandRequired)?;
+            let (program, base_args) = sc.split_first().ok_or(ShellError::ShellCommandRequired)?;
             let mut cmd = Command::new(program);
             cmd.args(base_args)
                 .arg(sp.to_string_lossy().as_ref())
@@ -288,7 +286,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Track the child handle for potential future use
             let child = cmd.spawn()?;
 
-            let pid = child.id().ok_or_else(|| ShellError::PidUnavailable)?;
+            let pid = child.id().ok_or(ShellError::PidUnavailable)?;
             let handle = ProcessHandle { pid };
 
             // Store handle for stop() to use

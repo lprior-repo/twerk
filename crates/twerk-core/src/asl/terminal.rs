@@ -1,4 +1,4 @@
-//! Terminal state types for ASL: SucceedState and FailState.
+//! Terminal state types for ASL: `SucceedState` and `FailState`.
 //!
 //! Terminal states have no outgoing transition — execution ends here.
 

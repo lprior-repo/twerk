@@ -96,7 +96,7 @@ pub async fn probe_if_configured(
     probe_container(
         client,
         container_id,
-        u16::try_from(probe.port).map_or_else(|_| 0, |p| p),
+        u16::try_from(probe.port).unwrap_or(0),
         probe.path.as_deref(),
         probe.timeout.as_deref(),
     )

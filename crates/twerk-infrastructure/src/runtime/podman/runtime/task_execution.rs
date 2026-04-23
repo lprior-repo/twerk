@@ -52,7 +52,10 @@ impl PodmanRuntime {
         if let Some(ref mounts) = task.mounts {
             for core_mnt in mounts {
                 let mut mnt = Mount::from(core_mnt);
-                mnt.id = core_mnt.id.as_ref().map_or_else(new_uuid, |id| id.clone());
+                mnt.id = core_mnt
+                    .id
+                    .as_ref()
+                    .map_or_else(new_uuid, std::clone::Clone::clone);
                 if let Err(e) = self.mounter.mount(&mut mnt) {
                     error!("error mounting volume: {}", e);
                     return Err(PodmanError::WorkdirCreation(e.to_string()));

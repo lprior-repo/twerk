@@ -1,7 +1,7 @@
-//! StateKind enum and State wrapper for ASL state machine states.
+//! `StateKind` enum and State wrapper for ASL state machine states.
 //!
-//! StateKind is the 8-variant discriminated union replacing the Go Task god object.
-//! State wraps StateKind with shared fields (comment, input_path, output_path, assign).
+//! `StateKind` is the 8-variant discriminated union replacing the Go Task god object.
+//! State wraps `StateKind` with shared fields (comment, `input_path`, `output_path`, assign).
 
 use std::collections::HashMap;
 
@@ -61,7 +61,7 @@ impl StateKind {
 // State
 // ---------------------------------------------------------------------------
 
-/// Wrapper combining shared fields with a StateKind variant.
+/// Wrapper combining shared fields with a `StateKind` variant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct State {

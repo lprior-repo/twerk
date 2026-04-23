@@ -269,4 +269,99 @@ mod tests {
         assert_eq!(tracing::Level::from(Level::Warn), tracing::Level::WARN);
         assert_eq!(tracing::Level::from(Level::Error), tracing::Level::ERROR);
     }
+
+    // --- Kill io::Write mutants: write returning Ok(buf.len()), flush returning Ok(()) ---
+
+    #[test]
+    fn test_io_write_returns_buffer_length() {
+        let mut writer: Box<dyn std::io::Write> =
+            Box::new(TracingWriter::new("task-io".to_string(), Level::Info));
+        let data = b"hello world";
+        let result = writer.write(data);
+        assert!(result.is_ok());
+        // Must be buf.len(), not Ok(1) or any other constant
+        assert_eq!(result.unwrap(), data.len());
+    }
+
+    #[test]
+    fn test_io_write_empty_returns_zero() {
+        let mut writer: Box<dyn std::io::Write> =
+            Box::new(TracingWriter::new("task-io".to_string(), Level::Info));
+        let result = writer.write(b"");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0);
+    }
+
+    #[test]
+    fn test_io_write_large_buffer_returns_full_length() {
+        let mut writer: Box<dyn std::io::Write> =
+            Box::new(TracingWriter::new("task-io".to_string(), Level::Info));
+        let data = vec![b'x'; 4096];
+        let result = writer.write(&data);
+        assert_eq!(result.unwrap(), 4096);
+    }
+
+    #[test]
+    fn test_io_flush_returns_ok() {
+        let mut writer: Box<dyn std::io::Write> =
+            Box::new(TracingWriter::new("task-io".to_string(), Level::Info));
+        let result = writer.flush();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_io_write_all_returns_ok() {
+        let mut writer: Box<dyn std::io::Write> =
+            Box::new(TracingWriter::new("task-io".to_string(), Level::Info));
+        let data = b"multi\nline\noutput\n";
+        let result = writer.write_all(data);
+        assert!(result.is_ok());
+    }
+
+    // --- Kill write() early-return on empty/whitespace mutant ---
+
+    #[test]
+    fn test_write_skips_empty() {
+        let writer = TracingWriter::new("task-skip".to_string(), Level::Info);
+        // Should not panic - exercises the early return for empty trimmed line
+        writer.write("");
+        writer.write("   \n");
+        writer.write("\n");
+    }
+
+    #[test]
+    fn test_write_all_levels() {
+        // Exercises each match arm in write() to kill match-arm mutants
+        for level in [Level::Trace, Level::Debug, Level::Info, Level::Warn, Level::Error] {
+            let writer = TracingWriter::new("task-levels".to_string(), level);
+            writer.write("test message");
+        }
+    }
+
+    // --- Kill setup_logging mutants: InvalidLevel / InvalidFormat ---
+
+    #[test]
+    fn test_setup_logging_invalid_format() {
+        use std::sync::Mutex;
+        static LOGGING_TEST_LOCK: Mutex<()> = Mutex::new(());
+        let _lock = LOGGING_TEST_LOCK.lock().unwrap();
+
+        // Load a config with invalid format
+        let mut state = crate::conf::types::ConfigState::new();
+        state.insert("logging.level".to_string(), toml::Value::String("info".to_string()));
+        state.insert("logging.format".to_string(), toml::Value::String("xml".to_string()));
+        {
+            let mut guard = crate::conf::CONFIG.write().unwrap();
+            *guard = Some(state);
+        }
+        let result = setup_logging();
+        assert!(matches!(result, Err(LoggingError::InvalidFormat { .. })));
+    }
+
+    #[test]
+    fn test_zerolog_writer_alias() {
+        let writer = new_zerolog_writer("task-zero".to_string(), Level::Debug);
+        writer.write("zerolog test");
+        // Just verifying the type alias and constructor work
+    }
 }

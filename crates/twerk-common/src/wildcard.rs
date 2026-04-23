@@ -100,6 +100,115 @@ mod tests {
         assert!(wildcard_match("*:*", "foo:bar"));
         assert!(wildcard_match("a*b*c", "axbxc"));
     }
+
+    // --- is_wild_pattern tests (kill -> true / -> false mutants) ---
+
+    #[test]
+    fn test_is_wild_pattern_with_star() {
+        assert!(is_wild_pattern("a*b"));
+        assert!(is_wild_pattern("*"));
+        assert!(is_wild_pattern("prefix*"));
+        assert!(is_wild_pattern("*suffix"));
+    }
+
+    #[test]
+    fn test_is_wild_pattern_without_star() {
+        assert!(!is_wild_pattern("abc"));
+        assert!(!is_wild_pattern(""));
+        assert!(!is_wild_pattern("hello world"));
+    }
+
+    // --- match_pattern alias tests (kill -> true / -> false mutants) ---
+
+    #[test]
+    fn test_match_pattern_positive() {
+        assert!(match_pattern("abc", "abc"));
+        assert!(match_pattern("*", "anything"));
+        assert!(match_pattern("a*c", "abc"));
+    }
+
+    #[test]
+    fn test_match_pattern_negative() {
+        assert!(!match_pattern("abc", "def"));
+        assert!(!match_pattern("a*c", "abd"));
+        assert!(!match_pattern("", "a"));
+    }
+
+    // --- match_wildcard alias tests (kill -> true / -> false mutants) ---
+
+    #[test]
+    fn test_match_wildcard_positive() {
+        assert!(match_wildcard("hello", "hello"));
+        assert!(match_wildcard("*", "anything_at_all"));
+        assert!(match_wildcard("prefix*", "prefix_suffix"));
+    }
+
+    #[test]
+    fn test_match_wildcard_negative() {
+        assert!(!match_wildcard("hello", "world"));
+        assert!(!match_wildcard("a*b", "aXXc"));
+        assert!(!match_wildcard("a", ""));
+    }
+
+    // --- r#match alias tests (kill -> true / -> false mutants) ---
+
+    #[test]
+    fn test_r_match_positive() {
+        assert!(r#match("x", "x"));
+        assert!(r#match("*", "anything"));
+        assert!(r#match("a*b*c", "aXbYc"));
+    }
+
+    #[test]
+    fn test_r_match_negative() {
+        assert!(!r#match("x", "y"));
+        assert!(!r#match("a*c", "aXb"));
+        assert!(!r#match("abc", ""));
+    }
+
+    // --- DP operator mutants: test the wildcard_match internal logic ---
+
+    #[test]
+    fn test_wildcard_match_star_prefix() {
+        // Tests prefix star: "*suffix" matches "anything_suffix"
+        assert!(wildcard_match("*suffix", "anything_suffix"));
+        assert!(wildcard_match("*suffix", "suffix"));
+        assert!(!wildcard_match("*suffix", "not_matching"));
+    }
+
+    #[test]
+    fn test_wildcard_match_star_infix_exhaustive() {
+        // Kill operator mutants: * replaced with +, etc.
+        assert!(wildcard_match("a*b", "a_b"));
+        assert!(wildcard_match("a*b", "aXXXb"));
+        assert!(!wildcard_match("a*b", "ab_c")); // should not match trailing char
+
+        // Ensure exact char matching in non-wild positions
+        assert!(wildcard_match("x*y", "xy"));
+        assert!(wildcard_match("x*y", "x_mid_y"));
+        assert!(!wildcard_match("x*y", "a_mid_y"));
+        assert!(!wildcard_match("x*y", "x_mid_z"));
+    }
+
+    #[test]
+    fn test_wildcard_match_single_star_matches_empty() {
+        // "*" should match empty string
+        assert!(wildcard_match("*", ""));
+    }
+
+    #[test]
+    fn test_wildcard_match_consecutive_stars() {
+        assert!(wildcard_match("a**b", "a_b"));
+        assert!(wildcard_match("a**b", "aXXXb"));
+        assert!(wildcard_match("**", "anything"));
+    }
+
+    #[test]
+    fn test_wildcard_match_char_mismatch_in_dp() {
+        // Exercises the `pc == s_chars[j]` comparison path and _ => false branch
+        assert!(!wildcard_match("abc", "abd")); // last char differs
+        assert!(!wildcard_match("aXc", "abc")); // middle char differs
+    }
 }
 
 #[cfg(test)]

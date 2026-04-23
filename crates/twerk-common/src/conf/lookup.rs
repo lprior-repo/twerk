@@ -536,3 +536,125 @@ pub fn middleware_web_logger_skip_paths() -> Vec<String> {
         paths
     }
 }
+
+#[cfg(test)]
+mod duration_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::*;
+    use time::Duration;
+
+    #[test]
+    fn test_parse_duration_seconds() {
+        let d = parse_duration("30s").unwrap();
+        assert_eq!(d, Duration::seconds(30));
+    }
+
+    #[test]
+    fn test_parse_duration_minutes() {
+        let d = parse_duration("5m").unwrap();
+        assert_eq!(d, Duration::minutes(5));
+    }
+
+    #[test]
+    fn test_parse_duration_hours() {
+        let d = parse_duration("2h").unwrap();
+        assert_eq!(d, Duration::hours(2));
+    }
+
+    #[test]
+    fn test_parse_duration_days() {
+        let d = parse_duration("1d").unwrap();
+        assert_eq!(d, Duration::days(1));
+    }
+
+    #[test]
+    fn test_parse_duration_milliseconds() {
+        let d = parse_duration("500ms").unwrap();
+        assert_eq!(d, Duration::milliseconds(500));
+    }
+
+    #[test]
+    fn test_parse_duration_microseconds() {
+        let d = parse_duration("100us").unwrap();
+        assert_eq!(d, Duration::microseconds(100));
+    }
+
+    #[test]
+    fn test_parse_duration_microseconds_unicode() {
+        let d = parse_duration("100\u{b5}s").unwrap();
+        assert_eq!(d, Duration::microseconds(100));
+    }
+
+    #[test]
+    fn test_parse_duration_nanoseconds() {
+        let d = parse_duration("1000ns").unwrap();
+        assert_eq!(d, Duration::nanoseconds(1000));
+    }
+
+    #[test]
+    fn test_parse_duration_complex() {
+        let d = parse_duration("1h30m").unwrap();
+        assert_eq!(d, Duration::hours(1) + Duration::minutes(30));
+    }
+
+    #[test]
+    fn test_parse_duration_complex_multiple() {
+        let d = parse_duration("1d2h30m").unwrap();
+        assert_eq!(
+            d,
+            Duration::days(1) + Duration::hours(2) + Duration::minutes(30)
+        );
+    }
+
+    #[test]
+    fn test_parse_duration_empty_returns_none() {
+        assert!(parse_duration("").is_none());
+    }
+
+    #[test]
+    fn test_parse_duration_whitespace_returns_none() {
+        assert!(parse_duration("   ").is_none());
+    }
+
+    #[test]
+    fn test_parse_duration_invalid_returns_none() {
+        assert!(parse_duration("invalid").is_none());
+    }
+
+    #[test]
+    fn test_parse_duration_float_seconds() {
+        let d = parse_duration("1.5s").unwrap();
+        assert_eq!(d, Duration::seconds(2)); // 1.5 rounds to 2
+    }
+
+    #[test]
+    fn test_parse_single_duration_no_unit() {
+        assert!(parse_single_duration("42").is_none());
+    }
+
+    #[test]
+    fn test_parse_single_duration_with_value_invalid() {
+        let result = parse_single_duration_with_value("abc", "s");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_complex_duration_single_unit() {
+        // "30s" is handled by parse_single_duration first, but complex can parse it too
+        let d = parse_complex_duration("30s").unwrap();
+        assert_eq!(d, Duration::seconds(30));
+    }
+
+    #[test]
+    fn test_parse_complex_duration_with_negative() {
+        let d = parse_complex_duration("-1h30m");
+        // Negative hours should parse
+        assert!(d.is_some());
+    }
+
+    #[test]
+    fn test_parse_complex_duration_trailing_unit() {
+        // "30" without unit should return None from complex
+        assert!(parse_complex_duration("30").is_none());
+    }
+}

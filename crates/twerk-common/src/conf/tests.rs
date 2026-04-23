@@ -14,11 +14,16 @@ use std::sync::Mutex;
 
 use tempfile::TempDir;
 
+use time::Duration;
+
 use crate::conf::env::extract_env_vars;
+use crate::conf::lookup::*;
 use crate::conf::parsing::{expand_path, flatten_table, merge_values, parse_toml_file};
 use crate::conf::types::{ConfigError, ConfigState};
+use crate::conf::CONFIG;
 
 static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
+static CONFIG_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn reset_env() {
     let keys: Vec<String> = env::vars()
@@ -674,4 +679,258 @@ interval = "5m"
             .and_then(|v| v.as_str()),
         Some("5m")
     );
+}
+
+// ============================================================================
+// Lookup function tests — kill mutants in conf/lookup.rs
+// ============================================================================
+
+/// Helper: acquire the config test lock and populate CONFIG.
+/// Returns the MutexGuard so the lock is held until the test completes.
+fn setup_config(state: ConfigState) -> std::sync::MutexGuard<'static, ()> {
+    let guard = CONFIG_TEST_LOCK.lock().unwrap();
+    *CONFIG.write().unwrap() = Some(state);
+    guard
+}
+
+/// Helper: acquire the config test lock with empty CONFIG.
+fn setup_empty_config() -> std::sync::MutexGuard<'static, ()> {
+    let guard = CONFIG_TEST_LOCK.lock().unwrap();
+    *CONFIG.write().unwrap() = None;
+    guard
+}
+
+/// Build a ConfigState from key-value pairs (string values).
+fn config_from_pairs(pairs: &[(&str, &str)]) -> ConfigState {
+    let mut state = ConfigState::new();
+    for (k, v) in pairs {
+        state.insert(k.to_string(), toml::Value::String(v.to_string()));
+    }
+    state
+}
+
+/// Build a ConfigState from mixed toml values.
+fn config_from_values(pairs: &[(&str, toml::Value)]) -> ConfigState {
+    let mut state = ConfigState::new();
+    for (k, v) in pairs {
+        state.insert(k.to_string(), v.clone());
+    }
+    state
+}
+
+// --- string / string_default ---
+
+#[test]
+fn test_string_returns_value_when_present() {
+    let _guard = setup_config(config_from_pairs(&[("greeting", "hello")]));
+    assert_eq!(string("greeting"), "hello");
+}
+
+#[test]
+fn test_string_returns_empty_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert_eq!(string("nonexistent"), "");
+}
+
+#[test]
+fn test_string_returns_empty_when_config_not_loaded() {
+    let _guard = setup_empty_config();
+    assert_eq!(string("any.key"), "");
+}
+
+#[test]
+fn test_string_default_returns_value_when_present() {
+    let _guard = setup_config(config_from_pairs(&[("name", "alice")]));
+    assert_eq!(string_default("name", "fallback"), "alice");
+}
+
+#[test]
+fn test_string_default_returns_default_when_empty() {
+    let _guard = setup_config(config_from_pairs(&[("name", "")]));
+    assert_eq!(string_default("name", "fallback"), "fallback");
+}
+
+#[test]
+fn test_string_default_returns_default_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert_eq!(string_default("missing", "default_val"), "default_val");
+}
+
+// --- bool / bool_default ---
+
+#[test]
+fn test_bool_returns_true() {
+    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(true))]));
+    assert!(bool("flag"));
+}
+
+#[test]
+fn test_bool_returns_false_when_false() {
+    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(false))]));
+    assert!(!bool("flag"));
+}
+
+#[test]
+fn test_bool_returns_false_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(!bool("nonexistent"));
+}
+
+#[test]
+fn test_bool_default_returns_value_when_present() {
+    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(true))]));
+    assert!(bool_default("flag", false));
+}
+
+#[test]
+fn test_bool_default_returns_default_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(bool_default("flag", true));
+    assert!(!bool_default("flag", false));
+}
+
+// --- int / int_default ---
+
+#[test]
+fn test_int_returns_value_when_present() {
+    let _guard = setup_config(config_from_values(&[("count", toml::Value::Integer(42))]));
+    assert_eq!(int("count"), 42);
+}
+
+#[test]
+fn test_int_returns_zero_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert_eq!(int("nonexistent"), 0);
+}
+
+#[test]
+fn test_int_default_returns_value_when_present() {
+    let _guard = setup_config(config_from_values(&[("count", toml::Value::Integer(99))]));
+    assert_eq!(int_default("count", 0), 99);
+}
+
+#[test]
+fn test_int_default_returns_default_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert_eq!(int_default("missing", 42), 42);
+}
+
+// --- int_map / bool_map / string_map ---
+
+#[test]
+fn test_int_map_from_table() {
+    let mut inner = toml::value::Table::new();
+    inner.insert("a".to_string(), toml::Value::Integer(1));
+    inner.insert("b".to_string(), toml::Value::Integer(2));
+    let _guard = setup_config(config_from_values(&[("nums", toml::Value::Table(inner))]));
+    let map = int_map("nums");
+    assert_eq!(map.get("a"), Some(&1));
+    assert_eq!(map.get("b"), Some(&2));
+}
+
+#[test]
+fn test_int_map_empty_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(int_map("nonexistent").is_empty());
+}
+
+#[test]
+fn test_bool_map_from_table() {
+    let mut inner = toml::value::Table::new();
+    inner.insert("on".to_string(), toml::Value::Boolean(true));
+    inner.insert("off".to_string(), toml::Value::Boolean(false));
+    let _guard = setup_config(config_from_values(&[("flags", toml::Value::Table(inner))]));
+    let map = bool_map("flags");
+    assert_eq!(map.get("on"), Some(&true));
+    assert_eq!(map.get("off"), Some(&false));
+}
+
+#[test]
+fn test_bool_map_empty_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(bool_map("nonexistent").is_empty());
+}
+
+#[test]
+fn test_string_map_from_table() {
+    let mut inner = toml::value::Table::new();
+    inner.insert("x".to_string(), toml::Value::String("hello".to_string()));
+    inner.insert("y".to_string(), toml::Value::String("world".to_string()));
+    let _guard = setup_config(config_from_values(&[("greetings", toml::Value::Table(inner))]));
+    let map = string_map("greetings");
+    assert_eq!(map.get("x"), Some(&"hello".to_string()));
+    assert_eq!(map.get("y"), Some(&"world".to_string()));
+}
+
+#[test]
+fn test_string_map_empty_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(string_map("nonexistent").is_empty());
+}
+
+// --- strings / strings_default ---
+
+#[test]
+fn test_strings_from_array() {
+    let _guard = setup_config(config_from_values(&[(
+        "hosts",
+        toml::Value::Array(vec![
+            toml::Value::String("a".to_string()),
+            toml::Value::String("b".to_string()),
+        ]),
+    )]));
+    assert_eq!(strings("hosts"), vec!["a", "b"]);
+}
+
+#[test]
+fn test_strings_from_comma_separated() {
+    let _guard = setup_config(config_from_pairs(&[("hosts", "alpha,beta")]));
+    assert_eq!(strings("hosts"), vec!["alpha", "beta"]);
+}
+
+#[test]
+fn test_strings_empty_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert!(strings("nonexistent").is_empty());
+}
+
+#[test]
+fn test_strings_default_returns_default_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    assert_eq!(
+        strings_default("missing", &["fallback"]),
+        vec!["fallback".to_string()]
+    );
+}
+
+#[test]
+fn test_strings_default_returns_value_when_present() {
+    let _guard = setup_config(config_from_values(&[(
+        "hosts",
+        toml::Value::Array(vec![toml::Value::String("real".to_string())]),
+    )]));
+    assert_eq!(strings_default("hosts", &["fallback"]), vec!["real"]);
+}
+
+// --- duration_default ---
+
+#[test]
+fn test_duration_default_returns_parsed() {
+    let _guard = setup_config(config_from_pairs(&[("timeout", "30s")]));
+    let d = duration_default("timeout", Duration::minutes(5));
+    assert_eq!(d, Duration::seconds(30));
+}
+
+#[test]
+fn test_duration_default_returns_default_when_missing() {
+    let _guard = setup_config(ConfigState::new());
+    let d = duration_default("missing", Duration::hours(1));
+    assert_eq!(d, Duration::hours(1));
+}
+
+#[test]
+fn test_duration_default_returns_default_on_invalid() {
+    let _guard = setup_config(config_from_pairs(&[("timeout", "notaduration")]));
+    let d = duration_default("timeout", Duration::hours(1));
+    assert_eq!(d, Duration::hours(1));
 }

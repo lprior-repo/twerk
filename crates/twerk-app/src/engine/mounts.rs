@@ -62,7 +62,7 @@ impl Default for MountRegistry {
 
 /// Error type for mounter registration
 #[derive(Debug, thiserror::Error)]
-pub enum MountError {
+pub enum MountRegistryError {
     #[error("mounter already registered: {0}")]
     DuplicateMounter(String),
     #[error("runtime not found: {0}")]

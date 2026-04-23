@@ -30,7 +30,7 @@ pub struct HealthResponse {
 
 /// Errors that can occur during worker API operations
 #[derive(Debug, Error)]
-pub enum ApiError {
+pub enum WorkerApiError {
     #[error("failed to bind to address: {0}")]
     BindError(String),
 

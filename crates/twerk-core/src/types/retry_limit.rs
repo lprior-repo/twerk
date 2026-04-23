@@ -10,8 +10,9 @@ use thiserror::Error;
 
 /// A validated task retry limit (non-negative u32).
 ///
-/// Unlike the Priority type in domain_types, this is a simple u32 wrapper
-/// with no upper bound restriction.
+/// Unlike the Priority type in domain, this is a simple u32 wrapper
+/// with no upper bound restriction. Range validation (1-10) is handled by
+/// [`crate::validation::parse_retry`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[must_use = "RetryLimit should be used; it validates at construction"]
@@ -19,7 +20,7 @@ pub struct RetryLimit(u32);
 
 /// Errors that can arise when constructing a [`RetryLimit`].
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum RetryLimitError {
+pub enum OptionalRetryLimitError {
     #[error("Optional retry limit must be present")]
     NoneNotAllowed,
 }
@@ -28,16 +29,16 @@ impl RetryLimit {
     /// Create a new `RetryLimit` from a u32 value.
     ///
     /// This always succeeds since u32 is always non-negative.
-    pub fn new(value: u32) -> Result<Self, RetryLimitError> {
+    pub fn new(value: u32) -> Result<Self, OptionalRetryLimitError> {
         Ok(Self(value))
     }
 
     /// Create a new `RetryLimit` from an `Option<u32>`.
     ///
     /// # Errors
-    /// Returns [`RetryLimitError::NoneNotAllowed`] if value is None.
-    pub fn from_option(value: Option<u32>) -> Result<Self, RetryLimitError> {
-        value.ok_or(RetryLimitError::NoneNotAllowed).map(Self)
+    /// Returns [`OptionalRetryLimitError::NoneNotAllowed`] if value is None.
+    pub fn from_option(value: Option<u32>) -> Result<Self, OptionalRetryLimitError> {
+        value.ok_or(OptionalRetryLimitError::NoneNotAllowed).map(Self)
     }
 
     /// Returns the raw retry limit value.

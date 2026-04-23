@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use serde_json;
 
-use crate::domain_types::{CronError, CronExpression, GoDuration, GoDurationError};
+use crate::domain::{CronExpression, CronExpressionError, GoDuration, GoDurationError};
 use crate::id::{IdError, TriggerId};
 
 use super::data::{
@@ -2540,7 +2540,7 @@ mod error_type_coverage_tests {
 
     #[test]
     fn trigger_data_error_invalid_cron_expression() {
-        let err = TriggerDataError::InvalidCronExpression(CronError::InvalidExpression(
+        let err = TriggerDataError::InvalidCronExpression(CronExpressionError::ParseError(
             "bad cron".to_string(),
         ));
         assert!(format!("{}", err).contains("invalid cron expression"));
@@ -2961,8 +2961,8 @@ mod additional_coverage_tests {
 
     #[test]
     fn cronscheduler_new_rejects_cron_with_too_few_fields() {
-        // 5 fields is invalid
-        let result = CronTrigger::new("trigger-001", None, None, "0 0 * * *", "UTC", false, None);
+        // 4 fields is invalid (5-field cron is normalized to 6-field by domain::CronExpression)
+        let result = CronTrigger::new("trigger-001", None, None, "0 * * *", "UTC", false, None);
         assert!(matches!(
             result,
             Err(TriggerDataError::InvalidCronExpression(_))

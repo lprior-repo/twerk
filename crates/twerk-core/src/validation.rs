@@ -1,20 +1,22 @@
 //! Validation and parsing for domain types.
 //!
 //! This module follows the **Parse, Don't Validate** principle: every `parse_*`
-//! function returns a *validated* newtype from [`domain_types`](crate::domain_types),
+//! function returns a *validated* newtype from [`domain`](crate::domain),
 //! so callers receive a value that is correct by construction.
 //!
 //! The legacy `validate_*` functions are retained for backwards compatibility;
 //! they simply delegate to the new parsers and discard the typed return value.
 
+use crate::domain::ParseRetryError;
 use crate::job::JobDefaults;
 use crate::mount::Mount;
 use crate::task::Task;
+use crate::types::RetryLimit;
 use crate::webhook::Webhook;
 use std::time::Duration as StdDuration;
 
-pub use crate::domain_types::{
-    CronExpression, DomainParseError, GoDuration, Priority, QueueName, RetryLimit,
+pub use crate::domain::{
+    CronExpression, DomainParseError, GoDuration, Priority, QueueName, QueueNameError,
 };
 
 // ---------------------------------------------------------------------------
@@ -109,7 +111,7 @@ pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
     // Check for reserved names
     if name == "x-jobs" || name.starts_with("x-exclusive.") {
         return Err(DomainParseError::QueueName(
-            crate::domain_types::QueueNameError::Reserved(name.to_string()),
+            QueueNameError::Reserved(name.to_string()),
         ));
     }
     QueueName::new(name).map_err(DomainParseError::QueueName)
@@ -117,10 +119,24 @@ pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
 
 /// Parse a retry limit into a validated [`RetryLimit`].
 ///
+/// Validates that the value is in 1..=10 before constructing a [`RetryLimit`].
+///
 /// # Errors
 /// Returns [`DomainParseError::RetryLimit`] if not in 1..=10.
 pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
-    RetryLimit::new(limit).map_err(DomainParseError::RetryLimit)
+    if !(1..=10).contains(&limit) {
+        return Err(DomainParseError::RetryLimit(ParseRetryError::OutOfRange(
+            limit,
+        )));
+    }
+    match u32::try_from(limit) {
+        Ok(v) => RetryLimit::new(v).map_err(|_| {
+            DomainParseError::RetryLimit(ParseRetryError::OutOfRange(limit))
+        }),
+        Err(_) => Err(DomainParseError::RetryLimit(ParseRetryError::OutOfRange(
+            limit,
+        ))),
+    }
 }
 
 /// Parse a priority value into a validated [`Priority`].

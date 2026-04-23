@@ -9,4 +9,4 @@ mod types;
 
 pub use server::{new_api, WorkerApi};
 #[allow(unused_imports)]
-pub use types::{ApiError, HealthResponse, HealthStatus};
+pub use types::{HealthResponse, HealthStatus, WorkerApiError};

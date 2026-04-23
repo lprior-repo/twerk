@@ -14,7 +14,7 @@ use crate::datastore::Datastore;
 use crate::runtime::Runtime as RuntimeTrait;
 
 use super::types::{
-    ApiError, HealthResponse, HealthStatus, MAX_PORT, MIN_PORT, POLLING_DELAY_MS,
+    WorkerApiError, HealthResponse, HealthStatus, MAX_PORT, MIN_PORT, POLLING_DELAY_MS,
     POLLING_MAX_ATTEMPTS,
 };
 
@@ -85,8 +85,8 @@ impl WorkerApi {
     ///
     /// # Errors
     ///
-    /// Returns `ApiError` if the server fails to start.
-    pub async fn start(&mut self) -> Result<(), ApiError> {
+    /// Returns `WorkerApiError` if the server fails to start.
+    pub async fn start(&mut self) -> Result<(), WorkerApiError> {
         self.start_on_port(0).await
     }
 
@@ -94,8 +94,8 @@ impl WorkerApi {
     ///
     /// # Errors
     ///
-    /// Returns `ApiError` if the server fails to start.
-    pub async fn start_on_port(&mut self, port: u16) -> Result<(), ApiError> {
+    /// Returns `WorkerApiError` if the server fails to start.
+    pub async fn start_on_port(&mut self, port: u16) -> Result<(), WorkerApiError> {
         if port == 0 {
             // Dynamic port assignment
             self.start_on_available_port().await
@@ -108,7 +108,7 @@ impl WorkerApi {
     }
 
     /// Start the API server, finding an available port
-    async fn start_on_available_port(&mut self) -> Result<(), ApiError> {
+    async fn start_on_available_port(&mut self) -> Result<(), WorkerApiError> {
         for port in MIN_PORT..MAX_PORT {
             let addr = format!(":{port}");
             match self.try_start_server(&addr).await {
@@ -117,30 +117,30 @@ impl WorkerApi {
                     self.port = port;
                     return Ok(());
                 }
-                Err(ApiError::AddressInUse) => {}
+                Err(WorkerApiError::AddressInUse) => {}
                 Err(e) => return Err(e),
             }
         }
-        Err(ApiError::AddressInUse)
+        Err(WorkerApiError::AddressInUse)
     }
 
     /// Try to start the server on the given address
-    async fn try_start_server(&mut self, addr: &str) -> Result<(), ApiError> {
+    async fn try_start_server(&mut self, addr: &str) -> Result<(), WorkerApiError> {
         let addr_parsed: SocketAddr = addr
             .parse()
-            .map_err(|e| ApiError::BindError(format!("invalid address: {e}")))?;
+            .map_err(|e| WorkerApiError::BindError(format!("invalid address: {e}")))?;
 
         let listener = TcpListener::bind(addr_parsed).await.map_err(|e| {
             if e.to_string().contains("address already in use") {
-                ApiError::AddressInUse
+                WorkerApiError::AddressInUse
             } else {
-                ApiError::BindError(e.to_string())
+                WorkerApiError::BindError(e.to_string())
             }
         })?;
 
         self.port = listener
             .local_addr()
-            .map_err(|e| ApiError::ServerError(e.to_string()))?
+            .map_err(|e| WorkerApiError::ServerError(e.to_string()))?
             .port();
 
         let router = self.create_router();
@@ -160,18 +160,18 @@ impl WorkerApi {
     }
 
     /// Start the server on the given address, returning error if address is in use
-    async fn start_server(&mut self, addr: &str) -> Result<(), ApiError> {
+    async fn start_server(&mut self, addr: &str) -> Result<(), WorkerApiError> {
         let addr_parsed: SocketAddr = addr
             .parse()
-            .map_err(|e| ApiError::BindError(format!("invalid address: {e}")))?;
+            .map_err(|e| WorkerApiError::BindError(format!("invalid address: {e}")))?;
 
         let listener = TcpListener::bind(addr_parsed)
             .await
-            .map_err(|e| ApiError::BindError(e.to_string()))?;
+            .map_err(|e| WorkerApiError::BindError(e.to_string()))?;
 
         self.port = listener
             .local_addr()
-            .map_err(|e| ApiError::ServerError(e.to_string()))?
+            .map_err(|e| WorkerApiError::ServerError(e.to_string()))?
             .port();
 
         let router = self.create_router();
@@ -191,7 +191,7 @@ impl WorkerApi {
     }
 
     /// Wait for the server to be ready by polling
-    async fn wait_for_server(&self) -> Result<(), ApiError> {
+    async fn wait_for_server(&self) -> Result<(), WorkerApiError> {
         let addr = format!("127.0.0.1:{}", self.port);
         let delay = Duration::from_millis(POLLING_DELAY_MS);
 
@@ -202,7 +202,7 @@ impl WorkerApi {
             tokio::time::sleep(delay).await;
         }
 
-        Err(ApiError::StartupTimeout)
+        Err(WorkerApiError::StartupTimeout)
     }
 
     /// Shutdown the API server gracefully
@@ -211,7 +211,7 @@ impl WorkerApi {
     ///
     /// Returns an error if the shutdown operation fails.
     #[allow(clippy::unused_async)]
-    pub async fn shutdown(&self) -> Result<(), ApiError> {
+    pub async fn shutdown(&self) -> Result<(), WorkerApiError> {
         // In this implementation, the server is spawned on a tokio task
         // Graceful shutdown would require storing the shutdown signal
         // For now, this is a placeholder

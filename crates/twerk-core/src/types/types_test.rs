@@ -203,7 +203,7 @@ mod port_tests {
 
 mod retry_limit_tests {
     use super::*;
-    use crate::types::{RetryLimit, RetryLimitError};
+    use crate::types::{RetryLimit, OptionalRetryLimitError};
 
     #[test]
     fn retry_limit_new_accepts_zero() {
@@ -232,7 +232,7 @@ mod retry_limit_tests {
     #[test]
     fn retry_limit_from_option_rejects_none() {
         let err = RetryLimit::from_option(None).unwrap_err();
-        assert!(matches!(err, RetryLimitError::NoneNotAllowed));
+        assert!(matches!(err, OptionalRetryLimitError::NoneNotAllowed));
     }
 
     #[test]

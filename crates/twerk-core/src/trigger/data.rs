@@ -11,7 +11,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
-pub use crate::domain_types::{CronError, CronExpression, GoDuration, GoDurationError};
+pub use crate::domain::{CronExpression, CronExpressionError, GoDuration, GoDurationError};
 pub use crate::id::{IdError, TriggerId};
 
 // =============================================================================
@@ -25,7 +25,7 @@ pub enum TriggerDataError {
     InvalidTriggerId(#[from] IdError),
 
     #[error("invalid cron expression: {0}")]
-    InvalidCronExpression(#[from] CronError),
+    InvalidCronExpression(#[from] CronExpressionError),
 
     #[error("invalid interval: {0}")]
     InvalidInterval(#[from] GoDurationError),

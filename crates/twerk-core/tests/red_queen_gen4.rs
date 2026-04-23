@@ -5,8 +5,7 @@
 //! - Domain types (CronExpression, Hostname, WebhookUrl)
 //! - Type invariants and serialization contracts
 
-use twerk_core::domain::{CronExpression, Hostname, WebhookUrl};
-use twerk_core::domain_types::{GoDuration, Priority, QueueName, RetryLimit};
+use twerk_core::domain::{CronExpression, GoDuration, Hostname, Priority, QueueName, WebhookUrl};
 use twerk_core::trigger::types::{Trigger, TriggerVariant};
 
 // =========================================================================
@@ -328,14 +327,14 @@ mod domain_types_adversarial {
 
     #[test]
     fn retry_limit_zero_rejected() {
-        let result = RetryLimit::new(0);
-        assert!(result.is_err(), "RetryLimit is 1-10, not 0");
+        let result = twerk_core::validation::parse_retry(0);
+        assert!(result.is_err(), "parse_retry enforces 1-10, not 0");
     }
 
     #[test]
     fn retry_limit_large_rejected() {
-        let result = RetryLimit::new(1000);
-        assert!(result.is_err(), "RetryLimit is 1-10, not 1000");
+        let result = twerk_core::validation::parse_retry(1000);
+        assert!(result.is_err(), "parse_retry enforces 1-10, not 1000");
     }
 
     #[test]

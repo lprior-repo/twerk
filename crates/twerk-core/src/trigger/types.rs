@@ -257,5 +257,5 @@ impl From<serde_json::Error> for TriggerError {
 // implemented in crates that use reqwest (e.g., twerk-app).
 //
 // NOTE: cron::Error conversion is NOT implemented because the cron crate uses
-// a custom error mechanism wrapped by domain_types::CronError. Cron expression
-// errors are handled via CronError::InvalidExpression in domain_types.rs.
+// a custom error mechanism wrapped by domain::CronExpressionError. Cron expression
+// errors are handled via CronExpressionError in domain/cron_expression.rs.

@@ -26,7 +26,7 @@ fn test_validate_cron_valid() {
 fn test_validate_cron_invalid() {
     assert!(validate_cron("").is_err());
     assert!(validate_cron("invalid").is_err());
-    assert!(validate_cron("* * * * *").is_err());
+    assert!(validate_cron("* * *").is_err()); // 3 fields — invalid (5-field is normalized to 6-field)
 }
 
 #[test]

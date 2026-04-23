@@ -77,9 +77,8 @@ impl Endpoint {
     }
 
     /// Parse and return the URL components.
-    #[must_use]
-    pub fn as_url(&self) -> url::Url {
-        url::Url::parse(&self.0).expect("validated URL should always parse")
+    pub fn as_url(&self) -> Result<url::Url, EndpointError> {
+        validate_and_parse_url(&self.0)
     }
 }
 
@@ -138,12 +137,14 @@ mod tests {
     fn valid_http_endpoint() {
         let ep = Endpoint::new("http://localhost:8000").unwrap();
         assert_eq!(ep.as_str(), "http://localhost:8000");
+        assert!(ep.as_url().is_ok());
     }
 
     #[test]
     fn valid_https_endpoint() {
         let ep = Endpoint::new("https://api.example.com/health").unwrap();
         assert_eq!(ep.as_str(), "https://api.example.com/health");
+        assert!(ep.as_url().is_ok());
     }
 
     #[test]
@@ -168,5 +169,11 @@ mod tests {
     fn from_str_trait() {
         let ep: Endpoint = "http://localhost:8000".parse().unwrap();
         assert_eq!(ep.as_str(), "http://localhost:8000");
+    }
+
+    #[test]
+    fn unchecked_endpoint_returns_parse_error_from_as_url() {
+        let ep = Endpoint::new_unchecked("not-a-url");
+        assert!(matches!(ep.as_url(), Err(EndpointError::UrlParseError(_))));
     }
 }

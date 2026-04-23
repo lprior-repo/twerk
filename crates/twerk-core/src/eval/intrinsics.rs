@@ -277,13 +277,12 @@ pub fn array_range_fn(args: &Value) -> Result<Value, String> {
     if step == 0 {
         return Err("arrayRange: step must not be zero".into());
     }
-    let mut result = Vec::new();
-    let mut current = start;
-    while (step > 0 && current < end) || (step < 0 && current > end) {
-        result.push(Value::Int(current));
-        current = current.saturating_add(step);
-    }
-    Ok(Value::Tuple(result))
+    Ok(Value::Tuple(
+        std::iter::successors(Some(start), |current| Some(current.saturating_add(step)))
+            .take_while(|current| (step > 0 && *current < end) || (step < 0 && *current > end))
+            .map(Value::Int)
+            .collect(),
+    ))
 }
 
 pub fn array_length_fn(args: &Value) -> Result<Value, String> {
@@ -313,11 +312,13 @@ pub fn array_unique_fn(args: &Value) -> Result<Value, String> {
             | Value::Tuple(_) => return Err("arrayUnique: argument must be an array".into()),
         },
     };
-    let mut seen = Vec::new();
-    for item in &items {
-        if !seen.contains(item) {
-            seen.push(item.clone());
-        }
-    }
-    Ok(Value::Tuple(seen))
+    Ok(Value::Tuple(items.iter().fold(
+        Vec::new(),
+        |mut seen, item| {
+            if !seen.contains(item) {
+                seen.push(item.clone());
+            }
+            seen
+        },
+    )))
 }

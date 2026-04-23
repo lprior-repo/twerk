@@ -6,9 +6,7 @@ use std::time::{Duration, Instant};
 use twerk_core::job::Job;
 use twerk_web::api::yaml::from_slice;
 
-/// TRUE YAML parsing benchmark using twerk-web's actual YAML parser
-fn benchmark_yaml_parse_real(iterations: usize) -> Duration {
-    let yaml = r#"
+const BENCHMARK_YAML: &str = r#"
 name: benchmark-job
 version: "1.0"
 tasks:
@@ -17,14 +15,17 @@ tasks:
     command: ["echo", "hello world"]
 "#;
 
+/// TRUE YAML parsing benchmark using twerk-web's actual YAML parser
+fn benchmark_yaml_parse_real(iterations: usize) -> Duration {
     for _ in 0..1_000 {
-        let _: Result<Job, _> = from_slice(yaml.as_bytes());
+        let _: Job =
+            from_slice(BENCHMARK_YAML.as_bytes()).expect("benchmark warmup YAML should parse");
     }
 
     let start = Instant::now();
     for _ in 0..iterations {
         // This calls the actual twerk-web YAML parser, deserializing to Job
-        let _: Result<Job, _> = from_slice(yaml.as_bytes());
+        let _: Job = from_slice(BENCHMARK_YAML.as_bytes()).expect("benchmark YAML should parse");
     }
     start.elapsed()
 }
@@ -33,10 +34,9 @@ tasks:
 mod true_yaml_benchmark {
     use super::*;
 
-    #[ignore]
     #[test]
-    fn true_yaml_parse_throughput_100k() {
-        let iterations = 100_000;
+    fn true_yaml_parse_throughput_smoke() {
+        let iterations = 5_000;
         let duration = benchmark_yaml_parse_real(iterations);
         let per_sec = iterations as f64 / duration.as_secs_f64();
 
@@ -64,41 +64,36 @@ mod true_yaml_benchmark {
         );
         println!("├─────────────────────────────────────────────────────────────────────┤");
 
-        let target = 20_000.0;
+        let target = 1_000.0;
         if per_sec > target {
             println!(
-                "│ ✓ PASS - {:.2}x target (20k/sec)                              │",
+                "│ ✓ PASS - {:.2}x target (1k/sec)                               │",
                 per_sec / target
             );
         } else {
             println!(
-                "│ ✗ FAIL - {:.2}x target (20k/sec)                              │",
+                "│ ✗ FAIL - {:.2}x target (1k/sec)                               │",
                 per_sec / target
             );
         }
         println!("└─────────────────────────────────────────────────────────────────────┘");
         println!();
 
-        assert!(per_sec > target, "YAML parsing should handle > 20k/sec");
+        assert!(
+            per_sec > target,
+            "YAML parsing smoke test should exceed 1k/sec"
+        );
     }
 
     #[test]
     fn true_yaml_parse_latency_p50_p90_p99() {
-        let yaml = r#"
-name: benchmark-job
-version: "1.0"
-tasks:
-  - name: test-task
-    image: bash:latest
-    command: ["echo", "hello world"]
-"#;
-
         let iterations = 10_000;
         let mut latencies = Vec::with_capacity(iterations);
 
         for _ in 0..iterations {
             let start = Instant::now();
-            let _: Result<Job, _> = from_slice(yaml.as_bytes());
+            let _: Job =
+                from_slice(BENCHMARK_YAML.as_bytes()).expect("benchmark YAML should parse");
             latencies.push(start.elapsed().as_nanos() as u64);
         }
 

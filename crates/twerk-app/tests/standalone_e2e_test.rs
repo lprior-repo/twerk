@@ -8,11 +8,31 @@ use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
 use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
+use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 use uuid::Uuid;
 
 fn to_job_id(value: impl Into<String>) -> JobId {
     JobId::new(value).expect("test job id should be valid")
+}
+
+async fn wait_for_job_state(
+    datastore: &dyn Datastore,
+    job_id: &str,
+    expected: JobState,
+) -> Result<Job> {
+    timeout(Duration::from_secs(10), async {
+        loop {
+            match datastore.get_job_by_id(job_id).await {
+                Ok(job) if job.state == expected => return Ok(job),
+                Ok(_) | Err(_) => {}
+            }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("timed out waiting for job state")
 }
 
 /// Mock runtime for testing
@@ -70,18 +90,7 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
 
     // Wait for state to reach FAILED
     let datastore = engine.datastore();
-    let failed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Failed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for job failure")?;
+    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -132,18 +141,7 @@ async fn standalone_engine_retries_failed_task() -> Result<()> {
 
     // Wait for the job to fail after retries exhausted
     let datastore = engine.datastore();
-    let failed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Failed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for retry job failure")?;
+    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -201,18 +199,7 @@ async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> 
 
     // Wait for state to reach FAILED
     let datastore = engine.datastore();
-    let failed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Failed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for parallel job failure")?;
+    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -260,18 +247,7 @@ async fn standalone_engine_completes_job_naturally() -> Result<()> {
 
     // Wait for the job to reach COMPLETED state naturally
     let datastore = engine.datastore();
-    let completed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Completed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for job completion")?;
+    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
     assert!(completed_job.completed_at.is_some());
@@ -335,18 +311,7 @@ async fn standalone_engine_completes_parallel_job_naturally() -> Result<()> {
 
     // Wait for the job to reach COMPLETED state
     let datastore = engine.datastore();
-    let completed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Completed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for parallel job completion")?;
+    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
 
@@ -402,18 +367,7 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
 
     // Wait for the job to reach COMPLETED state
     let datastore = engine.datastore();
-    let completed_job = timeout(Duration::from_secs(10), async {
-        loop {
-            if let Ok(j) = datastore.get_job_by_id(&job_id).await {
-                if j.state == JobState::Completed {
-                    return Ok::<Job, anyhow::Error>(j);
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    })
-    .await
-    .expect("timeout waiting for each job completion")?;
+    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
 

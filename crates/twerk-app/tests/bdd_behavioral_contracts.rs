@@ -354,8 +354,8 @@ fn broker_type_parse_mapping() {
 async fn broker_proxy_returns_error_on_operations_when_uninit() {
     let proxy = BrokerProxy::new();
     let result = proxy.health_check().await;
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("not initialized"));
+    let err = result.expect_err("uninitialized broker proxy should reject health_check");
+    assert!(err.to_string().contains("not initialized"));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -368,7 +368,7 @@ async fn datastore_proxy_errors_before_init() {
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
     let proxy = DatastoreProxy::new();
     let result = proxy.health_check().await;
-    assert!(result.is_err());
+    let _err = result.expect_err("uninitialized datastore proxy should reject health_check");
 }
 
 // --- Claim: DatastoreProxy works after init ---
@@ -688,21 +688,21 @@ async fn all_mounters_unmount_noop() {
 #[test]
 fn hostenv_rejects_invalid_spec() {
     let result = HostEnv::new(&["a:b:c".to_string()]);
-    assert!(result.is_err());
+    let _err = result.expect_err("invalid hostenv spec should be rejected");
 }
 
 // --- Claim: HostEnv::new accepts single var specs ---
 #[test]
 fn hostenv_accepts_single_var() {
     let result = HostEnv::new(&["HOME".to_string()]);
-    assert!(result.is_ok());
+    let _hostenv = result.expect("single variable hostenv spec should be accepted");
 }
 
 // --- Claim: HostEnv::new accepts mapping specs ---
 #[test]
 fn hostenv_accepts_mapping_spec() {
     let result = HostEnv::new(&["HOST_VAR:TASK_VAR".to_string()]);
-    assert!(result.is_ok());
+    let _hostenv = result.expect("mapping hostenv spec should be accepted");
 }
 
 // --- Claim: HostEnv middleware injects on StateChange->Running ---

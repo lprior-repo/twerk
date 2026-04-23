@@ -8,6 +8,7 @@ use tokio::time::sleep;
 
 /// Errors that can occur during HTTP server operations.
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum HttpxError {
     /// The server failed to start.
     #[error("server error: {0}")]
@@ -43,6 +44,7 @@ impl Default for PollingConfig {
 /// Checks if a TCP connection can be established to the given address.
 /// This is the core connectivity calculation - a pure function with no side effects.
 #[must_use]
+#[allow(dead_code)]
 pub fn can_connect(address: &str) -> bool {
     address
         .parse::<SocketAddr>()
@@ -52,6 +54,7 @@ pub fn can_connect(address: &str) -> bool {
 }
 
 /// Spawns the HTTP server and returns an error receiver channel.
+#[allow(dead_code)]
 fn spawn_server(
     listener: tokio::net::TcpListener,
     router: axum::Router,
@@ -72,6 +75,7 @@ fn spawn_server(
 }
 
 /// Handles retry logic when binding to an address fails.
+#[allow(dead_code)]
 async fn handle_bind_retry(
     addr: &str,
     bind_error: std::io::Error,
@@ -89,6 +93,7 @@ async fn handle_bind_retry(
 }
 
 /// Polls for server readiness until connected or timeout.
+#[allow(dead_code)]
 async fn poll_for_readiness(
     addr: &str,
     delay: Duration,
@@ -131,6 +136,7 @@ async fn poll_for_readiness(
 /// Returns [`HttpxError::ServerError`] if the server fails to bind or serve.
 /// Returns [`HttpxError::ConnectionTimeout`] if the server doesn't become
 /// reachable within the configured number of attempts.
+#[allow(dead_code)]
 pub async fn start_async(
     address: &str,
     router: axum::Router,

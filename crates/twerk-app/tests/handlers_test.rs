@@ -62,13 +62,14 @@ async fn handle_redelivered_requeues_task() -> Result<()> {
     };
     datastore.clone_inner().create_task(&task).await?;
 
-    let result = handlers::handle_redelivered(ds, b, task.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_redelivered(ds, b, task.clone()).await?;
 
     let queues = broker.clone_inner().queues().await?;
-    let default_queue = queues.iter().find(|q| q.name == "default");
-    assert!(default_queue.is_some());
-    assert_eq!(default_queue.unwrap().size, 1);
+    let default_queue = queues
+        .iter()
+        .find(|q| q.name == "default")
+        .expect("default queue should exist");
+    assert_eq!(default_queue.size, 1);
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.redelivered, 2);
@@ -100,8 +101,7 @@ async fn handle_started_updates_task_state() -> Result<()> {
     };
     datastore.clone_inner().create_task(&task).await?;
 
-    let result = handlers::handle_started(ds, b, task.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_started(ds, b, task.clone()).await?;
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TaskState::Running);
@@ -135,8 +135,7 @@ async fn handle_error_updates_task_state() -> Result<()> {
     };
     datastore.clone_inner().create_task(&task).await?;
 
-    let result = handlers::handle_error(ds, b, task.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_error(ds, b, task.clone()).await?;
 
     let updated_task = datastore.clone_inner().get_task_by_id(task_id).await?;
     assert_eq!(updated_task.state, TaskState::Failed);
@@ -171,13 +170,14 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
     };
     datastore.clone_inner().create_task(&task).await?;
 
-    let result = handlers::handle_error(ds, b, task.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_error(ds, b, task.clone()).await?;
 
     let queues = broker.clone_inner().queues().await?;
-    let failed_queue = queues.iter().find(|q| q.name == QUEUE_FAILED);
-    assert!(failed_queue.is_some());
-    assert_eq!(failed_queue.unwrap().size, 1);
+    let failed_queue = queues
+        .iter()
+        .find(|q| q.name == QUEUE_FAILED)
+        .expect("failed queue should exist");
+    assert_eq!(failed_queue.size, 1);
 
     Ok(())
 }
@@ -199,8 +199,7 @@ async fn handle_heartbeat_updates_node_status() -> Result<()> {
 
     datastore.clone_inner().create_node(&node).await?;
 
-    let result = handlers::handle_heartbeat(ds, b, node.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_heartbeat(ds, b, node.clone()).await?;
 
     let updated_node = datastore.clone_inner().get_node_by_id("worker-1").await?;
     assert_eq!(updated_node.status, Some(NodeStatus::UP));
@@ -240,8 +239,7 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
         ..Default::default()
     };
 
-    let result = handlers::handle_log_part(ds, b, log_part.clone()).await;
-    assert!(matches!(result, Ok(_)));
+    handlers::handle_log_part(ds, b, log_part.clone()).await?;
 
     let parts = datastore
         .clone_inner()
@@ -285,8 +283,7 @@ async fn handle_log_part_multiple_parts_for_same_task() -> Result<()> {
             contents: Some(format!("Log line {}", i)),
             ..Default::default()
         };
-        let result = handlers::handle_log_part(ds.clone(), b.clone(), log_part.clone()).await;
-        assert!(matches!(result, Ok(_)));
+        handlers::handle_log_part(ds.clone(), b.clone(), log_part.clone()).await?;
     }
 
     let parts = datastore

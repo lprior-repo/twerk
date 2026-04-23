@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 use anyhow::Result;
+use std::future::Future;
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
 use twerk_core::id::JobId;
@@ -12,6 +13,34 @@ use twerk_infrastructure::datastore::Datastore;
 
 fn to_job_id(value: impl Into<String>) -> JobId {
     JobId::new(value).expect("test job id should be valid")
+}
+
+async fn wait_for_condition<T, Fut, Fetch, Ready>(
+    timeout: std::time::Duration,
+    step: std::time::Duration,
+    mut fetch: Fetch,
+    ready: Ready,
+) -> Result<T>
+where
+    Fetch: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<T, twerk_infrastructure::datastore::Error>>,
+    Ready: Fn(&T) -> bool,
+{
+    let max_attempts = (timeout.as_millis() / step.as_millis()).max(1);
+
+    for attempt in 0..max_attempts {
+        let value = fetch().await?;
+        if ready(&value) {
+            return Ok(value);
+        }
+
+        if attempt + 1 < max_attempts {
+            tokio::time::advance(step).await;
+            tokio::task::yield_now().await;
+        }
+    }
+
+    anyhow::bail!("condition was not met within {timeout:?}")
 }
 
 #[tokio::test(start_paused = true)]
@@ -45,20 +74,13 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for task to be created
-    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let tasks = datastore
-                .get_active_tasks("550e8400-e29b-41d4-a716-446655440001")
-                .await?;
-            if !tasks.is_empty() {
-                return Ok::<_, anyhow::Error>(tasks);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for tasks")?;
+    let tasks = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440001"),
+        |tasks: &Vec<Task>| !tasks.is_empty(),
+    )
+    .await?;
 
     assert_eq!(tasks.len(), 1);
     let task = tasks[0].clone();
@@ -71,20 +93,13 @@ async fn job_completes_when_tasks_are_finished() -> Result<()> {
     broker.publish_task_progress(&completed_task).await?;
 
     // Wait for job to be completed
-    let persisted = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let persisted = datastore
-                .get_job_by_id("550e8400-e29b-41d4-a716-446655440001")
-                .await?;
-            if persisted.state == JobState::Completed {
-                return Ok::<_, anyhow::Error>(persisted);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for job completion")?;
+    let persisted = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_job_by_id("550e8400-e29b-41d4-a716-446655440001"),
+        |job: &Job| job.state == JobState::Completed,
+    )
+    .await?;
 
     assert_eq!(persisted.state, JobState::Completed);
     assert!(persisted.completed_at.is_some());
@@ -121,20 +136,13 @@ async fn first_top_level_task_is_scheduled_immediately_when_job_submitted() -> R
 
     coordinator.submit_job(job).await?;
 
-    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let tasks = datastore
-                .get_all_tasks_for_job("550e8400-e29b-41d4-a716-446655440002")
-                .await?;
-            if !tasks.is_empty() {
-                return Ok::<_, anyhow::Error>(tasks);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for scheduled task")?;
+    let tasks = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_all_tasks_for_job("550e8400-e29b-41d4-a716-446655440002"),
+        |tasks: &Vec<Task>| !tasks.is_empty(),
+    )
+    .await?;
 
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].state, TaskState::Scheduled);
@@ -191,20 +199,13 @@ async fn parallel_tasks_scheduled_when_job_submitted() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for the parallel task to be "running" and subtasks to be "pending"
-    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let tasks = datastore
-                .get_active_tasks("550e8400-e29b-41d4-a716-446655440003")
-                .await?;
-            if tasks.len() >= 3 {
-                return Ok::<_, anyhow::Error>(tasks);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for parallel tasks")?;
+    let tasks = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440003"),
+        |tasks: &Vec<Task>| tasks.len() >= 3,
+    )
+    .await?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -266,20 +267,13 @@ async fn each_tasks_scheduled_when_job_submitted() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for the each task to be "running" and subtasks to be "scheduled"
-    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let tasks = datastore
-                .get_active_tasks("550e8400-e29b-41d4-a716-446655440004")
-                .await?;
-            if tasks.len() >= 3 {
-                return Ok::<_, anyhow::Error>(tasks);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for each tasks")?;
+    let tasks = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440004"),
+        |tasks: &Vec<Task>| tasks.len() >= 3,
+    )
+    .await?;
 
     assert_eq!(tasks.len(), 3);
 
@@ -334,20 +328,13 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     coordinator.submit_job(job).await?;
 
     // Wait for the subjob task to be "running"
-    let tasks = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let tasks = datastore
-                .get_active_tasks("550e8400-e29b-41d4-a716-446655440005")
-                .await?;
-            if !tasks.is_empty() && tasks[0].state == TaskState::Running {
-                return Ok::<_, anyhow::Error>(tasks);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for subjob task")?;
+    let tasks = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_active_tasks("550e8400-e29b-41d4-a716-446655440005"),
+        |tasks: &Vec<Task>| !tasks.is_empty() && tasks[0].state == TaskState::Running,
+    )
+    .await?;
 
     assert_eq!(tasks.len(), 1);
     let subjob_task = &tasks[0];
@@ -364,18 +351,13 @@ async fn subjob_scheduled_when_parent_job_running() -> Result<()> {
     assert_eq!(subjob.name.as_deref(), Some("my subjob"));
 
     // Subjob should be scheduled because coordinator handles PENDING jobs
-    let persisted_sj = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let persisted = datastore.get_job_by_id(&subjob_id).await?;
-            if persisted.state == JobState::Scheduled {
-                return Ok::<_, anyhow::Error>(persisted);
-            }
-            tokio::time::advance(std::time::Duration::from_millis(100)).await;
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("timeout waiting for subjob scheduling")?;
+    let persisted_sj = wait_for_condition(
+        std::time::Duration::from_secs(5),
+        std::time::Duration::from_millis(100),
+        || datastore.get_job_by_id(&subjob_id),
+        |job: &Job| job.state == JobState::Scheduled,
+    )
+    .await?;
 
     assert_eq!(persisted_sj.state, JobState::Scheduled);
 

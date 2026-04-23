@@ -1,42 +1,241 @@
-crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with - in InMemoryRepository::paginate_vec
-crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with * in InMemoryRepository::paginate_vec
-crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with == in InMemoryRepository::paginate_vec
-crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with > in InMemoryRepository::paginate_vec
-crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with <= in InMemoryRepository::paginate_vec
-crates/twerk-core/src/repository_inmemory.rs:72:9: replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:93:9: replace <impl Repository for InMemoryRepository>::update_task -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:101:9: replace <impl Repository for InMemoryRepository>::get_task_by_id -> Result<Task> with Ok(Default::default())
-crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![])
-crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![Default::default()])
-crates/twerk-core/src/repository_inmemory.rs:115:21: replace && with || in <impl Repository for InMemoryRepository>::get_active_tasks
-crates/twerk-core/src/repository_inmemory.rs:113:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_tasks
-crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![])
-crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![Default::default()])
-crates/twerk-core/src/repository_inmemory.rs:129:41: replace == with != in <impl Repository for InMemoryRepository>::get_all_tasks_for_job
-crates/twerk-core/src/repository_inmemory.rs:137:9: replace <impl Repository for InMemoryRepository>::get_next_task -> Result<Task> with Ok(Default::default())
-crates/twerk-core/src/repository_inmemory.rs:156:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:152:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:150:41: replace == with != in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:154:45: replace == with != in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with == in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with < in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with >= in <impl Repository for InMemoryRepository>::get_next_task
-crates/twerk-core/src/repository_inmemory.rs:164:9: replace <impl Repository for InMemoryRepository>::create_task_log_part -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:190:9: replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:211:9: replace <impl Repository for InMemoryRepository>::update_node -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:219:9: replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())
-crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![])
-crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![Default::default()])
-crates/twerk-core/src/repository_inmemory.rs:230:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_nodes
-crates/twerk-core/src/repository_inmemory.rs:238:9: replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:259:9: replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:267:9: replace <impl Repository for InMemoryRepository>::get_job_by_id -> Result<Job> with Ok(Default::default())
-crates/twerk-core/src/repository_inmemory.rs:296:9: replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])
-crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![Default::default()])
-crates/twerk-core/src/repository_inmemory.rs:319:35: replace == with != in <impl Repository for InMemoryRepository>::get_active_scheduled_jobs
-crates/twerk-core/src/repository_inmemory.rs:339:9: replace <impl Repository for InMemoryRepository>::get_scheduled_job_by_id -> Result<ScheduledJob> with Ok(Default::default())
-crates/twerk-core/src/repository_inmemory.rs:348:9: replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:356:9: replace <impl Repository for InMemoryRepository>::delete_scheduled_job -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:362:9: replace <impl Repository for InMemoryRepository>::create_user -> Result<()> with Ok(())
-crates/twerk-core/src/repository_inmemory.rs:379:9: replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())
+crates/twerk-common/src/env.rs:8:5: replace var_with_twerk_prefix -> Option<String> with None
+crates/twerk-common/src/env.rs:8:5: replace var_with_twerk_prefix -> Option<String> with Some(String::new())
+crates/twerk-common/src/env.rs:8:5: replace var_with_twerk_prefix -> Option<String> with Some("xyzzy".into())
+crates/twerk-common/src/env.rs:9:44: delete ! in var_with_twerk_prefix
+crates/twerk-common/src/logging.rs:104:9: replace <impl io::Write for TracingWriter>::write -> io::Result<usize> with Ok(0)
+crates/twerk-common/src/logging.rs:104:9: replace <impl io::Write for TracingWriter>::write -> io::Result<usize> with Ok(1)
+crates/twerk-common/src/logging.rs:134:5: replace normalize_level -> String with String::new()
+crates/twerk-common/src/logging.rs:134:5: replace normalize_level -> String with "xyzzy".into()
+crates/twerk-common/src/logging.rs:156:5: replace setup_logging -> Result<(), LoggingError> with Ok(())
+crates/twerk-common/src/reexec.rs:48:5: replace register -> Result<(), CommonReexecError> with Ok(())
+crates/twerk-common/src/reexec.rs:69:5: replace init -> bool with true
+crates/twerk-common/src/reexec.rs:69:5: replace init -> bool with false
+crates/twerk-common/src/reexec.rs:97:5: replace naive_self -> PathBuf with Default::default()
+crates/twerk-common/src/reexec.rs:108:5: replace resolve_naive_self -> PathBuf with Default::default()
+crates/twerk-common/src/reexec.rs:138:5: replace self_path -> PathBuf with Default::default()
+crates/twerk-common/src/slices.rs:33:5: replace intersect -> bool with true
+crates/twerk-common/src/slices.rs:33:5: replace intersect -> bool with false
+crates/twerk-common/src/slices.rs:60:5: replace map_slice -> Vec<U> with vec![]
+crates/twerk-common/src/uuid.rs:24:5: replace encode_base57 -> String with String::new()
+crates/twerk-common/src/uuid.rs:24:5: replace encode_base57 -> String with "xyzzy".into()
+crates/twerk-common/src/uuid.rs:28:17: replace > with < in encode_base57
+crates/twerk-common/src/uuid.rs:29:32: replace % with / in encode_base57
+crates/twerk-common/src/uuid.rs:29:32: replace % with + in encode_base57
+crates/twerk-common/src/uuid.rs:31:15: replace /= with *= in encode_base57
+crates/twerk-common/src/uuid.rs:50:5: replace new_uuid -> String with String::new()
+crates/twerk-common/src/uuid.rs:50:5: replace new_uuid -> String with "xyzzy".into()
+crates/twerk-common/src/uuid.rs:59:5: replace new_short_uuid -> String with String::new()
+crates/twerk-common/src/uuid.rs:59:5: replace new_short_uuid -> String with "xyzzy".into()
+crates/twerk-common/src/wildcard.rs:4:5: replace is_wild_pattern -> bool with true
+crates/twerk-common/src/wildcard.rs:4:5: replace is_wild_pattern -> bool with false
+crates/twerk-common/src/wildcard.rs:10:5: replace wildcard_match -> bool with true
+crates/twerk-common/src/wildcard.rs:10:5: replace wildcard_match -> bool with false
+crates/twerk-common/src/wildcard.rs:13:16: replace == with != in wildcard_match
+crates/twerk-common/src/wildcard.rs:16:8: delete ! in wildcard_match
+crates/twerk-common/src/wildcard.rs:17:24: replace == with != in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:27: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:27: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:22: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:22: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:33: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:30:33: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:31:39: replace == with != in wildcard_match
+crates/twerk-common/src/wildcard.rs:32:18: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:32:18: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:42: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:42: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:31: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:31: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:26: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:26: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:37: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:37: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:47: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:40:47: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:42:17: delete match arm '*' in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:22: replace match guard pc == s_chars[j] with true in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:22: replace match guard pc == s_chars[j] with false in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:72: replace || with && in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:42: replace || with && in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:37: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:37: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:26: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:61: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:61: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:50: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:50: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:56: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:56: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:66: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:66: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:97: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:97: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:86: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:86: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:81: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:81: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:92: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:92: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:25: replace == with != in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:58: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:58: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:47: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:47: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:53: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:45:53: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:22: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:22: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:11: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:11: replace * with / in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:17: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:51:17: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:57:5: replace match_pattern -> bool with true
+crates/twerk-common/src/wildcard.rs:57:5: replace match_pattern -> bool with false
+crates/twerk-common/src/wildcard.rs:63:5: replace match_wildcard -> bool with true
+crates/twerk-common/src/wildcard.rs:63:5: replace match_wildcard -> bool with false
+crates/twerk-common/src/wildcard.rs:70:5: replace r#match -> bool with true
+crates/twerk-common/src/wildcard.rs:70:5: replace r#match -> bool with false
+crates/twerk-common/src/conf/env.rs:8:5: replace extract_env_vars -> HashMap<String, toml::Value> with HashMap::new()
+crates/twerk-common/src/conf/lookup.rs:12:5: replace get_config -> Result<ConfigState, ConfigError> with Ok(Default::default())
+crates/twerk-common/src/conf/lookup.rs:29:5: replace string -> String with String::new()
+crates/twerk-common/src/conf/lookup.rs:29:5: replace string -> String with "xyzzy".into()
+crates/twerk-common/src/conf/lookup.rs:44:5: replace string_default -> String with String::new()
+crates/twerk-common/src/conf/lookup.rs:44:5: replace string_default -> String with "xyzzy".into()
+crates/twerk-common/src/conf/lookup.rs:62:5: replace bool -> bool with true
+crates/twerk-common/src/conf/lookup.rs:62:5: replace bool -> bool with false
+crates/twerk-common/src/conf/lookup.rs:78:5: replace bool_default -> bool with true
+crates/twerk-common/src/conf/lookup.rs:78:5: replace bool_default -> bool with false
+crates/twerk-common/src/conf/lookup.rs:97:5: replace int -> i64 with 0
+crates/twerk-common/src/conf/lookup.rs:97:5: replace int -> i64 with 1
+crates/twerk-common/src/conf/lookup.rs:97:5: replace int -> i64 with -1
+crates/twerk-common/src/conf/lookup.rs:113:5: replace int_default -> i64 with 0
+crates/twerk-common/src/conf/lookup.rs:113:5: replace int_default -> i64 with 1
+crates/twerk-common/src/conf/lookup.rs:113:5: replace int_default -> i64 with -1
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::new()
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([(String::new(), 0)])
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([(String::new(), 1)])
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([(String::new(), -1)])
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), 0)])
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), 1)])
+crates/twerk-common/src/conf/lookup.rs:132:5: replace int_map -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), -1)])
+crates/twerk-common/src/conf/lookup.rs:148:5: replace bool_map -> HashMap<String, bool> with HashMap::new()
+crates/twerk-common/src/conf/lookup.rs:148:5: replace bool_map -> HashMap<String, bool> with HashMap::from_iter([(String::new(), true)])
+crates/twerk-common/src/conf/lookup.rs:148:5: replace bool_map -> HashMap<String, bool> with HashMap::from_iter([(String::new(), false)])
+crates/twerk-common/src/conf/lookup.rs:148:5: replace bool_map -> HashMap<String, bool> with HashMap::from_iter([("xyzzy".into(), true)])
+crates/twerk-common/src/conf/lookup.rs:148:5: replace bool_map -> HashMap<String, bool> with HashMap::from_iter([("xyzzy".into(), false)])
+crates/twerk-common/src/conf/lookup.rs:164:5: replace string_map -> HashMap<String, String> with HashMap::new()
+crates/twerk-common/src/conf/lookup.rs:164:5: replace string_map -> HashMap<String, String> with HashMap::from_iter([(String::new(), String::new())])
+crates/twerk-common/src/conf/lookup.rs:164:5: replace string_map -> HashMap<String, String> with HashMap::from_iter([(String::new(), "xyzzy".into())])
+crates/twerk-common/src/conf/lookup.rs:164:5: replace string_map -> HashMap<String, String> with HashMap::from_iter([("xyzzy".into(), String::new())])
+crates/twerk-common/src/conf/lookup.rs:164:5: replace string_map -> HashMap<String, String> with HashMap::from_iter([("xyzzy".into(), "xyzzy".into())])
+crates/twerk-common/src/conf/lookup.rs:179:5: replace strings -> Vec<String> with vec![]
+crates/twerk-common/src/conf/lookup.rs:179:5: replace strings -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/lookup.rs:179:5: replace strings -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/lookup.rs:195:5: replace strings_default -> Vec<String> with vec![]
+crates/twerk-common/src/conf/lookup.rs:195:5: replace strings_default -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/lookup.rs:195:5: replace strings_default -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/lookup.rs:206:5: replace parse_duration -> Option<Duration> with None
+crates/twerk-common/src/conf/lookup.rs:206:5: replace parse_duration -> Option<Duration> with Some(Default::default())
+crates/twerk-common/src/conf/lookup.rs:216:5: replace parse_single_duration -> Option<Duration> with None
+crates/twerk-common/src/conf/lookup.rs:216:5: replace parse_single_duration -> Option<Duration> with Some(Default::default())
+crates/twerk-common/src/conf/lookup.rs:218:33: replace || with && in parse_single_duration
+crates/twerk-common/src/conf/lookup.rs:243:5: replace parse_single_duration_with_value -> Option<Duration> with None
+crates/twerk-common/src/conf/lookup.rs:243:5: replace parse_single_duration_with_value -> Option<Duration> with Some(Default::default())
+crates/twerk-common/src/conf/lookup.rs:245:9: delete match arm "ns" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:246:9: delete match arm "us" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:247:9: delete match arm "ms" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:248:9: delete match arm "s" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:249:9: delete match arm "m" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:250:9: delete match arm "h" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:251:9: delete match arm "d" in parse_single_duration_with_value
+crates/twerk-common/src/conf/lookup.rs:259:5: replace parse_complex_duration -> Option<Duration> with None
+crates/twerk-common/src/conf/lookup.rs:259:5: replace parse_complex_duration -> Option<Duration> with Some(Default::default())
+crates/twerk-common/src/conf/lookup.rs:266:13: replace < with == in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:266:13: replace < with > in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:266:13: replace < with <= in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:268:31: replace || with && in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:268:36: replace == with != in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:268:48: replace == with != in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:269:16: delete ! in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:270:32: replace += with -= in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:279:11: replace += with -= in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:282:8: delete ! in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:282:35: delete ! in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:283:24: replace += with -= in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:302:5: replace duration_default -> Duration with Default::default()
+crates/twerk-common/src/conf/parsing.rs:27:5: replace expand_path -> PathBuf with Default::default()
+crates/twerk-common/src/conf/parsing.rs:40:8: delete ! in parse_toml_file
+crates/twerk-common/src/conf/parsing.rs:56:5: replace flatten_table -> HashMap<String, toml::Value> with HashMap::new()
+crates/twerk-common/src/conf/parsing.rs:86:5: replace merge_values -> HashMap<String, toml::Value> with HashMap::new()
+crates/twerk-common/src/conf/types.rs:51:9: replace TomlValue::get_str -> Option<&str> with None
+crates/twerk-common/src/conf/types.rs:51:9: replace TomlValue::get_str -> Option<&str> with Some("")
+crates/twerk-common/src/conf/types.rs:51:9: replace TomlValue::get_str -> Option<&str> with Some("xyzzy")
+crates/twerk-common/src/conf/types.rs:55:9: replace TomlValue::get_bool -> Option<bool> with None
+crates/twerk-common/src/conf/types.rs:55:9: replace TomlValue::get_bool -> Option<bool> with Some(true)
+crates/twerk-common/src/conf/types.rs:55:9: replace TomlValue::get_bool -> Option<bool> with Some(false)
+crates/twerk-common/src/conf/types.rs:59:9: replace TomlValue::get_int -> Option<i64> with None
+crates/twerk-common/src/conf/types.rs:59:9: replace TomlValue::get_int -> Option<i64> with Some(0)
+crates/twerk-common/src/conf/types.rs:59:9: replace TomlValue::get_int -> Option<i64> with Some(1)
+crates/twerk-common/src/conf/types.rs:59:9: replace TomlValue::get_int -> Option<i64> with Some(-1)
+crates/twerk-common/src/conf/types.rs:63:9: replace TomlValue::get_array -> Option<&toml::value::Array> with None
+crates/twerk-common/src/conf/types.rs:63:9: replace TomlValue::get_array -> Option<&toml::value::Array> with Some(Box::leak(Box::new(Default::default())))
+crates/twerk-common/src/conf/types.rs:67:9: replace TomlValue::get_table -> Option<&toml::value::Table> with None
+crates/twerk-common/src/conf/types.rs:67:9: replace TomlValue::get_table -> Option<&toml::value::Table> with Some(Box::leak(Box::new(Default::default())))
+crates/twerk-common/src/conf/types.rs:71:9: replace TomlValue::entries_for_key -> HashMap<String, toml::Value> with HashMap::new()
+crates/twerk-common/src/conf/types.rs:91:9: replace ConfigState::insert with ()
+crates/twerk-common/src/conf/types.rs:95:9: replace ConfigState::get_str -> Option<&str> with None
+crates/twerk-common/src/conf/types.rs:95:9: replace ConfigState::get_str -> Option<&str> with Some("")
+crates/twerk-common/src/conf/types.rs:95:9: replace ConfigState::get_str -> Option<&str> with Some("xyzzy")
+crates/twerk-common/src/conf/types.rs:99:9: replace ConfigState::get_bool -> Option<bool> with None
+crates/twerk-common/src/conf/types.rs:99:9: replace ConfigState::get_bool -> Option<bool> with Some(true)
+crates/twerk-common/src/conf/types.rs:99:9: replace ConfigState::get_bool -> Option<bool> with Some(false)
+crates/twerk-common/src/conf/types.rs:103:25: delete match arm "true" in ConfigState::get_bool
+crates/twerk-common/src/conf/types.rs:104:25: delete match arm "false" in ConfigState::get_bool
+crates/twerk-common/src/conf/types.rs:112:9: replace ConfigState::get_int -> Option<i64> with None
+crates/twerk-common/src/conf/types.rs:112:9: replace ConfigState::get_int -> Option<i64> with Some(0)
+crates/twerk-common/src/conf/types.rs:112:9: replace ConfigState::get_int -> Option<i64> with Some(1)
+crates/twerk-common/src/conf/types.rs:112:9: replace ConfigState::get_int -> Option<i64> with Some(-1)
+crates/twerk-common/src/conf/types.rs:119:9: replace ConfigState::get_array -> Option<&toml::value::Array> with None
+crates/twerk-common/src/conf/types.rs:119:9: replace ConfigState::get_array -> Option<&toml::value::Array> with Some(Box::leak(Box::new(Default::default())))
+crates/twerk-common/src/conf/types.rs:123:9: replace ConfigState::get_table -> Option<&toml::value::Table> with None
+crates/twerk-common/src/conf/types.rs:123:9: replace ConfigState::get_table -> Option<&toml::value::Table> with Some(Box::leak(Box::new(Default::default())))
+crates/twerk-common/src/conf/types.rs:127:9: replace ConfigState::contains_key -> bool with true
+crates/twerk-common/src/conf/types.rs:127:9: replace ConfigState::contains_key -> bool with false
+crates/twerk-common/src/conf/types.rs:131:9: replace ConfigState::string_map_for_key -> HashMap<String, String> with HashMap::new()
+crates/twerk-common/src/conf/types.rs:131:9: replace ConfigState::string_map_for_key -> HashMap<String, String> with HashMap::from_iter([(String::new(), String::new())])
+crates/twerk-common/src/conf/types.rs:131:9: replace ConfigState::string_map_for_key -> HashMap<String, String> with HashMap::from_iter([(String::new(), "xyzzy".into())])
+crates/twerk-common/src/conf/types.rs:131:9: replace ConfigState::string_map_for_key -> HashMap<String, String> with HashMap::from_iter([("xyzzy".into(), String::new())])
+crates/twerk-common/src/conf/types.rs:131:9: replace ConfigState::string_map_for_key -> HashMap<String, String> with HashMap::from_iter([("xyzzy".into(), "xyzzy".into())])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::new()
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([(String::new(), 0)])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([(String::new(), 1)])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([(String::new(), -1)])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), 0)])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), 1)])
+crates/twerk-common/src/conf/types.rs:149:9: replace ConfigState::int_map_for_key -> HashMap<String, i64> with HashMap::from_iter([("xyzzy".into(), -1)])
+crates/twerk-common/src/conf/types.rs:169:9: replace ConfigState::bool_map_for_key -> HashMap<String, bool> with HashMap::new()
+crates/twerk-common/src/conf/types.rs:169:9: replace ConfigState::bool_map_for_key -> HashMap<String, bool> with HashMap::from_iter([(String::new(), true)])
+crates/twerk-common/src/conf/types.rs:169:9: replace ConfigState::bool_map_for_key -> HashMap<String, bool> with HashMap::from_iter([(String::new(), false)])
+crates/twerk-common/src/conf/types.rs:169:9: replace ConfigState::bool_map_for_key -> HashMap<String, bool> with HashMap::from_iter([("xyzzy".into(), true)])
+crates/twerk-common/src/conf/types.rs:169:9: replace ConfigState::bool_map_for_key -> HashMap<String, bool> with HashMap::from_iter([("xyzzy".into(), false)])
+crates/twerk-common/src/conf/types.rs:186:33: delete match arm "true" in ConfigState::bool_map_for_key
+crates/twerk-common/src/conf/types.rs:187:33: delete match arm "false" in ConfigState::bool_map_for_key
+crates/twerk-common/src/conf/types.rs:197:9: replace ConfigState::strings_for_key -> Vec<String> with vec![]
+crates/twerk-common/src/conf/types.rs:197:9: replace ConfigState::strings_for_key -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/types.rs:197:9: replace ConfigState::strings_for_key -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/types.rs:205:9: replace ConfigState::strings_from_string -> Vec<String> with vec![]
+crates/twerk-common/src/conf/types.rs:205:9: replace ConfigState::strings_from_string -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/types.rs:205:9: replace ConfigState::strings_from_string -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/types.rs:211:9: replace ConfigState::strings_for_key_or_string -> Vec<String> with vec![]
+crates/twerk-common/src/conf/types.rs:211:9: replace ConfigState::strings_for_key_or_string -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/types.rs:211:9: replace ConfigState::strings_for_key_or_string -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/types.rs:212:12: delete ! in ConfigState::strings_for_key_or_string
+crates/twerk-common/src/conf/types.rs:219:9: replace ConfigState::build_table_from_flat -> toml::value::Table with Default::default()
+crates/twerk-common/src/conf/types.rs:225:32: replace == with != in ConfigState::build_table_from_flat
+crates/twerk-common/src/conf/types.rs:236:9: replace ConfigState::insert_nested with ()
+crates/twerk-common/src/conf/types.rs:239:24: replace == with != in ConfigState::insert_nested
+crates/twerk-common/src/syncx/map.rs:44:9: replace <impl Clone for Map<K, V>>::clone -> Self with Default::default()
+crates/twerk-common/src/syncx/map.rs:78:9: replace Map<K, V>::delete with ()
+crates/twerk-common/src/syncx/map.rs:89:9: replace Map<K, V>::set with ()
+crates/twerk-common/src/syncx/map.rs:98:9: replace Map<K, V>::iterate with ()
+crates/twerk-common/src/syncx/map.rs:127:9: replace Map<K, V>::get -> Option<V> with None

@@ -1,0 +1,40 @@
+crates/twerk-common/src/logging.rs:83:9: replace TracingWriter::write with ()
+crates/twerk-common/src/wildcard.rs:32:24: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:32:24: replace + with * in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:26: replace * with + in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:32: replace + with - in wildcard_match
+crates/twerk-common/src/wildcard.rs:43:32: replace + with * in wildcard_match
+crates/twerk-common/src/conf/lookup.rs:268:43: replace || with && in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:282:32: replace && with || in parse_complex_duration
+crates/twerk-common/src/conf/lookup.rs:395:5: replace broker_rabbitmq_consumer_timeout -> Duration with Default::default()
+crates/twerk-common/src/conf/lookup.rs:405:5: replace broker_rabbitmq_durable_queues -> bool with true
+crates/twerk-common/src/conf/lookup.rs:405:5: replace broker_rabbitmq_durable_queues -> bool with false
+crates/twerk-common/src/conf/lookup.rs:415:5: replace broker_rabbitmq_queue_type -> String with String::new()
+crates/twerk-common/src/conf/lookup.rs:415:5: replace broker_rabbitmq_queue_type -> String with "xyzzy".into()
+crates/twerk-common/src/conf/lookup.rs:425:5: replace worker_limits -> WorkerLimits with Default::default()
+crates/twerk-common/src/conf/lookup.rs:439:5: replace mounts_bind_allowed -> bool with true
+crates/twerk-common/src/conf/lookup.rs:439:5: replace mounts_bind_allowed -> bool with false
+crates/twerk-common/src/conf/lookup.rs:449:5: replace mounts_bind_sources -> Vec<String> with vec![]
+crates/twerk-common/src/conf/lookup.rs:449:5: replace mounts_bind_sources -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/lookup.rs:449:5: replace mounts_bind_sources -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/lookup.rs:459:5: replace mounts_temp_dir -> String with String::new()
+crates/twerk-common/src/conf/lookup.rs:459:5: replace mounts_temp_dir -> String with "xyzzy".into()
+crates/twerk-common/src/conf/lookup.rs:469:5: replace runtime_docker_privileged -> bool with true
+crates/twerk-common/src/conf/lookup.rs:469:5: replace runtime_docker_privileged -> bool with false
+crates/twerk-common/src/conf/lookup.rs:481:5: replace runtime_docker_image_ttl -> Duration with Default::default()
+crates/twerk-common/src/conf/lookup.rs:491:5: replace runtime_podman_privileged -> bool with true
+crates/twerk-common/src/conf/lookup.rs:491:5: replace runtime_podman_privileged -> bool with false
+crates/twerk-common/src/conf/lookup.rs:501:5: replace runtime_podman_host_network -> bool with true
+crates/twerk-common/src/conf/lookup.rs:501:5: replace runtime_podman_host_network -> bool with false
+crates/twerk-common/src/conf/lookup.rs:511:5: replace middleware_web_logger_enabled -> bool with true
+crates/twerk-common/src/conf/lookup.rs:511:5: replace middleware_web_logger_enabled -> bool with false
+crates/twerk-common/src/conf/lookup.rs:521:5: replace middleware_web_logger_level -> String with String::new()
+crates/twerk-common/src/conf/lookup.rs:521:5: replace middleware_web_logger_level -> String with "xyzzy".into()
+crates/twerk-common/src/conf/lookup.rs:532:5: replace middleware_web_logger_skip_paths -> Vec<String> with vec![]
+crates/twerk-common/src/conf/lookup.rs:532:5: replace middleware_web_logger_skip_paths -> Vec<String> with vec![String::new()]
+crates/twerk-common/src/conf/lookup.rs:532:5: replace middleware_web_logger_skip_paths -> Vec<String> with vec!["xyzzy".into()]
+crates/twerk-common/src/conf/parsing.rs:94:5: replace load_config -> Result<(), ConfigError> with Ok(())
+crates/twerk-common/src/conf/parsing.rs:95:18: replace match guard !v.is_empty() with true in load_config
+crates/twerk-common/src/conf/parsing.rs:95:18: replace match guard !v.is_empty() with false in load_config
+crates/twerk-common/src/conf/parsing.rs:95:18: delete ! in load_config
+crates/twerk-common/src/conf/parsing.rs:119:8: delete ! in load_config

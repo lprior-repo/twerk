@@ -1,0 +1,4 @@
+crates/twerk-common/src/uuid.rs:28:17: replace > with == in encode_base57
+crates/twerk-common/src/uuid.rs:28:17: replace > with >= in encode_base57
+crates/twerk-common/src/uuid.rs:31:15: replace /= with %= in encode_base57
+crates/twerk-common/src/conf/lookup.rs:279:11: replace += with *= in parse_complex_duration

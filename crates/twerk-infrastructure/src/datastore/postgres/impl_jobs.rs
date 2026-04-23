@@ -4,7 +4,6 @@ use sqlx::Postgres;
 use time::OffsetDateTime;
 use twerk_core::job::{new_job_summary, Job, JobSummary};
 use twerk_core::task::{Permission, Task};
-use twerk_core::user::User;
 use twerk_core::uuid::new_uuid;
 
 use crate::datastore::postgres::encrypt;

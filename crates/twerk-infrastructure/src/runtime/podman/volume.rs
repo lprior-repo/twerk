@@ -61,8 +61,6 @@ impl super::types::Mounter for VolumeMounter {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-    #![allow(clippy::expect_used)]
     use super::*;
     use crate::runtime::podman::types::{MountType, Mounter};
 
@@ -78,7 +76,7 @@ mod tests {
             opts: None,
         };
 
-        vm.mount(&mut mount).expect("mount should succeed");
+        assert!(vm.mount(&mut mount).is_ok(), "mount should succeed");
         assert_eq!("/somevol", mount.target);
         assert!(!mount.source.is_empty(), "source should be populated");
 
@@ -89,12 +87,17 @@ mod tests {
         // Verify the directory is world-writable
         #[cfg(unix)]
         {
-            let mode = metadata.expect("metadata ok").permissions().mode();
-            assert_eq!(mode & 0o777, 0o777);
+            match metadata {
+                Ok(metadata) => {
+                    let mode = metadata.permissions().mode();
+                    assert_eq!(mode & 0o777, 0o777);
+                }
+                Err(err) => panic!("metadata should be available for mounted directory: {err}"),
+            }
         }
 
         // Unmount should remove the directory
-        vm.unmount(&mount).expect("unmount should succeed");
+        assert!(vm.unmount(&mount).is_ok(), "unmount should succeed");
 
         // Verify directory no longer exists
         let metadata = std::fs::metadata(&mount.source);
@@ -116,8 +119,10 @@ mod tests {
         };
 
         // Should not error on nonexistent path
-        vm.unmount(&mount)
-            .expect("unmount of nonexistent path should succeed");
+        assert!(
+            vm.unmount(&mount).is_ok(),
+            "unmount of nonexistent path should succeed"
+        );
     }
 
     #[test]
@@ -131,8 +136,10 @@ mod tests {
             opts: None,
         };
 
-        vm.unmount(&mount)
-            .expect("unmount with empty source should succeed");
+        assert!(
+            vm.unmount(&mount).is_ok(),
+            "unmount with empty source should succeed"
+        );
     }
 
     #[test]
@@ -148,10 +155,10 @@ mod tests {
                 opts: None,
             };
 
-            vm.mount(&mut mount).expect("mount should succeed");
+            assert!(vm.mount(&mut mount).is_ok(), "mount should succeed");
             assert!(std::path::Path::new(&mount.source).exists());
 
-            vm.unmount(&mount).expect("unmount should succeed");
+            assert!(vm.unmount(&mount).is_ok(), "unmount should succeed");
             assert!(!std::path::Path::new(&mount.source).exists());
         }
     }

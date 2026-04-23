@@ -139,7 +139,16 @@ pub async fn fire_job_webhooks(job: &Job, event: &str) {
     for wh in matching_webhooks {
         let job = job.clone();
         let wh = wh.clone();
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    "[Webhook] failed to acquire semaphore permit"
+                );
+                continue;
+            }
+        };
         tokio::spawn(async move {
             let _permit = permit;
             if let Err(e) = call_webhook_async(&wh, &job).await {
@@ -189,7 +198,16 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
     for wh in matching_webhooks {
         let summary = summary.clone();
         let wh = wh.clone();
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    "[Webhook] failed to acquire semaphore permit"
+                );
+                continue;
+            }
+        };
         tokio::spawn(async move {
             let _permit = permit;
             if let Err(e) = call_webhook_async(&wh, &summary).await {

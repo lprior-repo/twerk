@@ -1,14 +1,3 @@
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    clippy::semicolon_if_nothing_returned,
-    clippy::too_many_lines,
-    clippy::items_after_statements,
-    clippy::unused_async,
-    clippy::needless_raw_string_hashes
-)]
-
 //! 12-Step QA Test Suite
 //!
 //! Exercises every API endpoint and end-user workflow via in-memory

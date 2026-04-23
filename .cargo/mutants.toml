@@ -1,8 +1,9 @@
 # cargo-mutants configuration
 # See https://mutants.rs/ for documentation
 
-# Run tests from these packages
-test_package = ["twerk-common", "twerk-core", "twerk-infrastructure", "twerk-web", "twerk-app", "twerk-cli"]
+# Run tests from the mutated package only (faster than full workspace)
+# Use --test-package to override for specific runs
+# test_package = ["twerk-common", "twerk-core", "twerk-infrastructure", "twerk-web", "twerk-app", "twerk-cli"]
 
 # Exclude problematic files from mutation testing
 exclude_globs = [

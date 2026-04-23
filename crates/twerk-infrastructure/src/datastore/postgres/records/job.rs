@@ -127,6 +127,11 @@ impl JobRecordExt for JobRecord {
             secrets = encrypt::decrypt_secrets(&secrets, encryption_key)?;
         }
 
+        let state = self
+            .state
+            .parse()
+            .map_err(|e| DatastoreError::Serialization(format!("job.state: {e}")))?;
+
         let schedule = match &self.scheduled_job_id {
             Some(id) => Some(JobSchedule {
                 id: Some(ScheduledJobId::new(id.clone())?),
@@ -146,10 +151,7 @@ impl JobRecordExt for JobRecord {
             name: self.name.clone(),
             description: self.description.clone(),
             tags: self.tags.clone(),
-            state: self
-                .state
-                .parse()
-                .map_or(twerk_core::job::JobState::Pending, |s| s),
+            state,
             created_at: Some(self.created_at),
             created_by: Some(created_by),
             started_at: self.started_at,

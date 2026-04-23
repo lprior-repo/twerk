@@ -77,14 +77,8 @@ impl Endpoint {
     }
 
     /// Parse and return the URL components.
-    ///
-    /// # Errors
-    /// This will never return an error because the underlying string was
-    /// validated at [`Endpoint::new`]. The [`Result`] return type exists
-    /// solely to uphold the zero-panic invariant.
-    #[must_use = "returns Result that must be handled for zero-panic invariant"]
     pub fn as_url(&self) -> Result<url::Url, EndpointError> {
-        url::Url::parse(&self.0).map_err(|e| EndpointError::UrlParseError(e.to_string()))
+        validate_and_parse_url(&self.0)
     }
 }
 
@@ -143,12 +137,14 @@ mod tests {
     fn valid_http_endpoint() {
         let ep = Endpoint::new("http://localhost:8000").unwrap();
         assert_eq!(ep.as_str(), "http://localhost:8000");
+        assert!(ep.as_url().is_ok());
     }
 
     #[test]
     fn valid_https_endpoint() {
         let ep = Endpoint::new("https://api.example.com/health").unwrap();
         assert_eq!(ep.as_str(), "https://api.example.com/health");
+        assert!(ep.as_url().is_ok());
     }
 
     #[test]
@@ -173,5 +169,11 @@ mod tests {
     fn from_str_trait() {
         let ep: Endpoint = "http://localhost:8000".parse().unwrap();
         assert_eq!(ep.as_str(), "http://localhost:8000");
+    }
+
+    #[test]
+    fn unchecked_endpoint_returns_parse_error_from_as_url() {
+        let ep = Endpoint::new_unchecked("not-a-url");
+        assert!(matches!(ep.as_url(), Err(EndpointError::UrlParseError(_))));
     }
 }

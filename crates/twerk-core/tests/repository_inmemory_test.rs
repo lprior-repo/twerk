@@ -11,7 +11,7 @@ use twerk_core::user::User;
 fn create_test_task(id: &str, job_id: Option<&JobId>, state: TaskState) -> Task {
     Task {
         id: Some(TaskId::new(id).unwrap()),
-        job_id: job_id.map(|j| j.clone()),
+        job_id: job_id.cloned(),
         state,
         ..Default::default()
     }

@@ -244,9 +244,8 @@ fn rq_ti_unicode_homoglyph_attack() {
     let result = TriggerId::new("ａbc"); // fullwidth 'a' = U+FF41
                                          // Rust's is_alphanumeric() returns true for fullwidth Latin
                                          // So this is actually ACCEPTED — verify that
-    if result.is_ok() {
-        // If accepted, verify it was preserved correctly
-        assert_eq!(result.unwrap().as_str(), "ａbc");
+    if let Ok(id) = result {
+        assert_eq!(id.as_str(), "ａbc");
     }
     // Either accepted or rejected is fine, as long as it's consistent
 }

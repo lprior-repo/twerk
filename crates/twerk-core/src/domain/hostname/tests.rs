@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::domain::testing::{arb_valid_hostname, max_length_hostname};
     use crate::Hostname;
@@ -151,7 +152,7 @@ mod tests {
     fn hostname_as_str_length_is_always_between_1_and_253() {
         let host = Hostname::new("example.com").unwrap();
         let len = host.as_str().len();
-        assert!(len >= 1 && len <= 253);
+        assert!((1..=253).contains(&len));
     }
 
     // -------------------------------------------------------------------------

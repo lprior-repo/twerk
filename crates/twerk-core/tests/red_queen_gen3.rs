@@ -69,7 +69,7 @@ fn rq3_ts_copy_then_compare() {
 #[test]
 fn rq3_ts_clone_same_as_copy() {
     let original = TriggerState::Paused;
-    let cloned = original.clone();
+    let cloned = original;
     assert_eq!(original, cloned);
 }
 
@@ -126,7 +126,7 @@ fn rq3_ti_default_is_empty() {
 fn rq3_ti_as_ref_and_deref_agree() {
     let id = TriggerId::new("ref-deref-test").unwrap();
     let as_ref: &str = id.as_ref();
-    let deref: &str = &*id;
+    let deref: &str = &id;
     let as_str = id.as_str();
     assert_eq!(as_ref, deref);
     assert_eq!(as_ref, as_str);
@@ -248,7 +248,7 @@ fn rq3_ti_1000_random_valid_ids() {
     use std::collections::hash_map::DefaultHasher;
     let mut hashes = HashSet::new();
     for i in 0..1000 {
-        let id = TriggerId::new(&format!("trigger-{i:06}")).unwrap();
+        let id = TriggerId::new(format!("trigger-{i:06}")).unwrap();
         let mut hasher = DefaultHasher::new();
         id.hash(&mut hasher);
         hashes.insert(hasher.finish());

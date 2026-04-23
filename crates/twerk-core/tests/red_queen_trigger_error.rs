@@ -69,10 +69,7 @@ fn rq_te_variant_count_exact() {
 
     // If we got here without panic, we successfully constructed all 11 variants
     // The count is verified by the number of lines above (11 total)
-    assert!(
-        true,
-        "All 11 TriggerError variants constructed successfully"
-    );
+    // All 11 TriggerError variants constructed successfully
 }
 
 // =========================================================================
@@ -123,7 +120,7 @@ fn rq_te_from_io_error_all_kinds() {
 }
 
 #[test]
-fn rq_te_from_serde_json_error_NOT_IMPLEMENTED() {
+fn rq_te_from_serde_json_error_not_implemented() {
     // BUG FOUND: From<serde_json::Error> is NOT implemented for TriggerError
     // The compile error "the trait `From<serde_json::Error>` is not implemented for `TriggerError`"
     // proves this is a MISSING implementation bug
@@ -133,10 +130,7 @@ fn rq_te_from_serde_json_error_NOT_IMPLEMENTED() {
     let _json_err_type = json_err.to_string();
 
     // The missing From impl means you can't do: TriggerError::from(json_err)
-    assert!(
-        true,
-        "serde_json::Error exists but From<TriggerError> is missing"
-    );
+    // serde_json::Error exists but From<TriggerError> is missing
 }
 
 // =========================================================================
@@ -663,7 +657,7 @@ fn rq_te_clone_preserves_equality() {
 #[test]
 fn rq_te_into_datastore_unavailable() {
     let err: Result<(), TriggerError> = Err(TriggerError::DatastoreUnavailable("test".into()));
-    let result: Result<(), TriggerError> = err.map_err(|e| e);
+    let result: Result<(), TriggerError> = err;
     assert!(result.is_err());
 }
 
@@ -671,7 +665,7 @@ fn rq_te_into_datastore_unavailable() {
 fn rq_te_conversion_preserves_message() {
     use std::io;
 
-    let io_err = io::Error::new(io::ErrorKind::Other, "specific error message");
+    let io_err = io::Error::other("specific error message");
     let trigger_err: TriggerError = TriggerError::from(io_err);
 
     let display = format!("{}", trigger_err);
@@ -697,7 +691,7 @@ fn rq_bug_trigger_error_missing_hash_trait() {
 
     // We verify the bug exists by noting the compile error from the original test run
     // that said: "doesn't satisfy `TriggerError: Eq` or `TriggerError: Hash`"
-    assert!(true, "Bug confirmed: TriggerError lacks Hash trait");
+    // Bug confirmed: TriggerError lacks Hash trait
 }
 
 #[test]
@@ -712,14 +706,14 @@ fn rq_bug_trigger_error_missing_eq_trait() {
     assert_eq!(err1, err2); // PartialEq works
 
     // But Hash doesn't work (see rq_bug_trigger_error_missing_hash_trait)
-    assert!(true, "PartialEq works but Hash is missing");
+    // PartialEq works but Hash is missing
 }
 
 #[test]
 fn rq_bug_trigger_error_missing_serde_json_from() {
     // BUG: From<serde_json::Error> is not implemented
     // Compile error proves it: "the trait `From<serde_json::Error>` is not implemented for `TriggerError`"
-    assert!(true, "Bug confirmed: Missing From<serde_json::Error>");
+    // Bug confirmed: Missing From<serde_json::Error>
 }
 
 // =========================================================================

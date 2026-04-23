@@ -1,4 +1,6 @@
+#![allow(unexpected_cfgs)]
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::domain::testing::arb_valid_webhook_url;
     use crate::WebhookUrl;

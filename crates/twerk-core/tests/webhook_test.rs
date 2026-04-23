@@ -1,6 +1,7 @@
 //! Tests for the webhook module
 
 #![allow(clippy::unwrap_used)]
+#![allow(unexpected_cfgs)]
 #![allow(clippy::panic)]
 #![allow(clippy::redundant_pattern_matching)]
 
@@ -299,6 +300,7 @@ fn webhook_error_display_format_serialization() {
     assert!(display.contains("serializing body"));
 }
 
+#[allow(unexpected_cfgs)]
 #[cfg(not(coverage))]
 mod proptest_tests {
     // DISABLED: proptest `u16` strategy resolution broken in this crate.

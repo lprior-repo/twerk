@@ -132,7 +132,7 @@ fn yaml_files_are_valid_utf8() {
     assert!(!files.is_empty(), "No YAML files found in examples/");
     for file in &files {
         let content =
-            std::fs::read_to_string(file).expect(&format!("Failed to read {}", file.display()));
+            std::fs::read_to_string(file).unwrap();
         assert!(
             content.is_ascii()
                 || content

@@ -19,6 +19,7 @@ use crate::trigger::{is_valid_transition, InMemoryTriggerRegistry, TriggerRegist
 // =============================================================================
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use super::*;
 

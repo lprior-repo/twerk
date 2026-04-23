@@ -41,6 +41,7 @@ fn expected_version_line(command_name: &str) -> String {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonCliOutput {
     #[serde(rename = "type")]
     output_type: String,

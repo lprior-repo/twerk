@@ -12,8 +12,6 @@
 
 use std::collections::HashMap;
 
-use serde_json;
-
 use twerk_core::domain::{CronExpression, CronExpressionError, GoDuration, GoDurationError};
 use twerk_core::id::{IdError, TriggerId};
 
@@ -517,7 +515,7 @@ mod cronscheduler_tests {
             trigger.description,
             Some("Runs daily at midnight".to_string())
         );
-        assert_eq!(trigger.disabled, false);
+        assert!(!trigger.disabled);
         assert!(trigger.payload.is_none());
     }
 
@@ -528,7 +526,7 @@ mod cronscheduler_tests {
         assert_eq!(trigger.id.to_string(), "abc");
         assert!(trigger.name.is_none());
         assert!(trigger.description.is_none());
-        assert_eq!(trigger.disabled, false);
+        assert!(!trigger.disabled);
     }
 
     // Behavior 22: CronTrigger::new returns Err when id is too short

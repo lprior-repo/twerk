@@ -14,6 +14,7 @@
 
 pub mod data;
 pub mod in_memory;
+#[cfg(test)]
 pub mod tests;
 pub mod r#trait;
 pub mod types;

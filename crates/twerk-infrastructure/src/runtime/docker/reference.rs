@@ -502,7 +502,7 @@ mod tests {
         let domain = prop_oneof![
             Just(String::new()),
             "[a-z]{1,8}".prop_map(|s| format!("{s}.io")),
-            "[a-z]{3,6}".prop_map(|s| format!("{s}")),
+            "[a-z]{3,6}".prop_map(|s| s.to_string()),
             "[a-z]{3,6}".prop_map(|s| format!("{s}:{port}", port = 5000u16 + s.len() as u16)),
         ];
         let path = prop_oneof![

@@ -8,5 +8,3 @@ mod tests;
 mod types;
 
 pub use server::{new_api, WorkerApi};
-#[allow(unused_imports)]
-pub use types::{HealthResponse, HealthStatus, WorkerApiError};

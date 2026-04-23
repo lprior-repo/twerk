@@ -16,15 +16,14 @@ pub mod item;
 pub mod janitor;
 pub mod operations;
 
-pub use error::CacheError;
-pub use item::{Expiration, Item};
+pub use item::Item;
 
 /// A filter function type for use with [`Cache::list`].
 /// Matches items where the function returns `true`.
 pub type ListFilter<'a, V> = Box<dyn Fn(&V) -> bool + 'a>;
 
 /// Callback type for eviction notifications, wrapped in Mutex for interior mutability.
-pub type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
+pub(crate) type OnEvictedCallback<K, V> = Arc<Mutex<Option<Arc<dyn Fn(&K, &V) + Send + Sync>>>>;
 
 /// A thread-safe cache with optional automatic expiration cleanup.
 ///

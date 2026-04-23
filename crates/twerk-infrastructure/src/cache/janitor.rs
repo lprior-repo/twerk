@@ -49,7 +49,7 @@ fn check_shutdown(shutdown_flag: &std::sync::atomic::AtomicBool) -> bool {
 
 /// Deletes all expired items from the given map and invokes callbacks.
 #[allow(clippy::type_complexity)]
-pub fn delete_expired_from_map<K, V>(
+pub(crate) fn delete_expired_from_map<K, V>(
     items: &Arc<DashMap<K, Item<V>>>,
     on_evicted: Option<Arc<dyn Fn(&K, &V) + Send + Sync>>,
 ) where

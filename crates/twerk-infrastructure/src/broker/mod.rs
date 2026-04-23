@@ -15,7 +15,7 @@ use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
 pub type BoxedFuture<T> = Pin<Box<dyn Future<Output = Result<T>> + Send>>;
-pub type BoxedHandlerFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
+pub(crate) type BoxedHandlerFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
 
 pub type TaskHandler = Arc<dyn Fn(Arc<Task>) -> BoxedHandlerFuture + Send + Sync>;
 pub type TaskProgressHandler = Arc<dyn Fn(Task) -> BoxedHandlerFuture + Send + Sync>;

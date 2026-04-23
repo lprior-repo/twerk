@@ -88,11 +88,7 @@ impl InMemoryBroker {
     }
 }
 
-/// Creates a new in-memory broker.
-#[must_use]
-pub fn new_in_memory_broker() -> Box<dyn Broker + Send + Sync> {
-    Box::new(InMemoryBroker::new())
-}
+
 
 impl Broker for InMemoryBroker {
     fn publish_task(&self, qname: String, task: &twerk_core::task::Task) -> BoxedFuture<()> {

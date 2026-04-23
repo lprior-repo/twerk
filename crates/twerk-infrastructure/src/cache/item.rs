@@ -110,8 +110,7 @@ impl<V: Clone> Clone for Item<V> {
     }
 }
 
-/// A guard for accessing the value inside an `Item`.
-pub type MutexGuardAlias<'a, V> = MutexGuard<'a, V>;
+
 
 #[cfg(test)]
 mod tests {

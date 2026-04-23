@@ -92,7 +92,7 @@ struct PostgresLock {
 // ── Data (pure) ──────────────────────────────────────────────
 
 #[must_use]
-pub fn hash_key(key: &str) -> i64 {
+pub(crate) fn hash_key(key: &str) -> i64 {
     let result = Sha256::digest(key.as_bytes());
     i64::from_be_bytes([
         result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],

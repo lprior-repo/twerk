@@ -6,16 +6,16 @@ use serde::Serialize;
 use thiserror::Error;
 
 /// Default port range for dynamic port assignment
-pub const MIN_PORT: u16 = 8001;
-pub const MAX_PORT: u16 = 8100;
+pub(crate) const MIN_PORT: u16 = 8001;
+pub(crate) const MAX_PORT: u16 = 8100;
 
 /// Polling configuration for server startup
-pub const POLLING_MAX_ATTEMPTS: u32 = 100;
-pub const POLLING_DELAY_MS: u64 = 100;
+pub(crate) const POLLING_MAX_ATTEMPTS: u32 = 100;
+pub(crate) const POLLING_DELAY_MS: u64 = 100;
 
 /// Health check result status
 #[derive(Debug, Clone, Serialize)]
-pub enum HealthStatus {
+pub(crate) enum HealthStatus {
     Up,
     Down,
 }

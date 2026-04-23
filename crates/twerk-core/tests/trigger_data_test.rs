@@ -14,10 +14,10 @@ use std::collections::HashMap;
 
 use serde_json;
 
-use crate::domain::{CronExpression, CronExpressionError, GoDuration, GoDurationError};
-use crate::id::{IdError, TriggerId};
+use twerk_core::domain::{CronExpression, CronExpressionError, GoDuration, GoDurationError};
+use twerk_core::id::{IdError, TriggerId};
 
-use super::data::{
+use twerk_core::trigger::data::{
     CronTrigger, HttpMethod, PollingTrigger, Trigger, TriggerDataError, WebhookAuth, WebhookTrigger,
 };
 

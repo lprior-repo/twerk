@@ -13,7 +13,6 @@
 //! - `TriggerRegistry`: trait for trigger lifecycle management
 
 pub mod data;
-pub mod data_tests;
 pub mod in_memory;
 pub mod tests;
 pub mod r#trait;

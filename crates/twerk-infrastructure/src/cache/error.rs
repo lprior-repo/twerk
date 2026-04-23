@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// Errors that can occur during cache operations.
 #[derive(Debug, Error)]
-pub enum CacheError {
+pub(crate) enum CacheError {
     /// The requested key was not found in the cache.
     #[error("key not found: {0}")]
     KeyNotFound(String),

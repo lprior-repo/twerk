@@ -2,7 +2,8 @@
 
 use std::time::Duration;
 
-use super::{Cache, Expiration, Item, ListFilter};
+use super::{Cache, Item, ListFilter};
+use super::item::Expiration;
 
 impl<K, V> Cache<K, V>
 where
@@ -115,7 +116,7 @@ where
     /// Items are returned as clones and order is not guaranteed.
     #[must_use]
     #[allow(clippy::type_complexity)]
-    pub fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
+    pub(crate) fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
     where
         V: Clone,
     {

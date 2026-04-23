@@ -17,7 +17,7 @@ use std::pin::Pin;
 
 pub use error::LockError;
 pub use inmemory::InMemoryLocker;
-pub use postgres::{hash_key, PostgresLocker};
+pub use postgres::PostgresLocker;
 
 /// Locker type constant — in-memory (single process only).
 pub const LOCKER_INMEMORY: &str = "inmemory";

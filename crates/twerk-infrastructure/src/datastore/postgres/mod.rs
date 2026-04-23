@@ -32,9 +32,6 @@ pub mod impl_transaction;
 pub mod impl_users_roles;
 pub mod records;
 pub mod schema;
-#[cfg(test)]
-pub mod schema_tests;
-
 pub use schema::SCHEMA;
 
 use twerk_core::job::{JOB_STATE_COMPLETED, JOB_STATE_FAILED};

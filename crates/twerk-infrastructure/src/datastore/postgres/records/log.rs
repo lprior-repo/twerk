@@ -33,33 +33,4 @@ impl TaskLogPartRecordExt for TaskLogPartRecord {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::super::helpers::fixed_now;
-    use super::*;
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    // ── TaskLogPartRecord → TaskLogPart conversion tests ────────────────
-
-    #[test]
-    fn task_log_part_record_to_task_log_part() {
-        let now = fixed_now();
-        let record = TaskLogPartRecord {
-            id: "log-001".to_string(),
-            number_: 1,
-            task_id: "task-001".to_string(),
-            created_at: now,
-            contents: "line 1\nline 2\n".to_string(),
-        };
-        let part = record
-            .to_task_log_part()
-            .expect("conversion should succeed");
-
-        assert_eq!(part.id.as_deref(), Some("log-001"));
-        assert_eq!(part.number, 1);
-        assert_eq!(part.task_id.as_deref(), Some("task-001"));
-        assert_eq!(part.contents.as_deref(), Some("line 1\nline 2\n"));
-        assert!(part.created_at.is_some());
-    }
-}

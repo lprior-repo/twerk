@@ -1,6 +1,8 @@
 //! Tests for the PostgreSQL schema.
+//!
+//! Moved from `src/datastore/postgres/schema_tests.rs`.
 
-use crate::datastore::postgres::schema::SCHEMA;
+use twerk_infrastructure::datastore::postgres::SCHEMA;
 
 /// Normalizes whitespace in the SCHEMA string for flexible matching.
 /// Collapses all runs of whitespace into single spaces.

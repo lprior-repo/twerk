@@ -435,6 +435,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "ID cannot be empty")]
     fn validate_task_returns_error_when_id_is_empty() {
         let task = create_test_task("", TaskState::Running);
         let result = ShellRuntimeAdapter::validate_task(&task);

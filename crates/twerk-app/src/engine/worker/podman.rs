@@ -317,6 +317,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "ID cannot be empty")]
     fn test_validate_task_empty_id() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("", TaskState::Running);

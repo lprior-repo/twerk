@@ -1,6 +1,6 @@
-//! `PassState` type for ASL no-op states.
+//! PassState type for ASL no-op states.
 //!
-//! A `PassState` optionally injects a result value, then transitions.
+//! A PassState optionally injects a result value, then transitions.
 
 use serde::{Deserialize, Serialize};
 

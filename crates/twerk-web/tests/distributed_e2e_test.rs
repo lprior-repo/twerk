@@ -1,6 +1,14 @@
 //! Distributed E2E tests - require PostgreSQL and RabbitMQ containers.
 //! Run with: cargo test -p twerk-web --test distributed_e2e_test --features integration
 #![cfg(feature = "integration")]
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::needless_for_each,
+    clippy::doc_markdown,
+    clippy::uninlined_format_args
+)]
 
 use std::sync::Arc;
 use std::time::Duration;

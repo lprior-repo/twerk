@@ -26,7 +26,7 @@ impl HttpMethod {
     /// Parses an HTTP method string (case-insensitive).
     ///
     /// # Parameters
-    /// - `s: impl Into<String>` - The string to parse (e.g., "GET", "post", "`PuT`")
+    /// - `s: impl Into<String>` - The string to parse (e.g., "GET", "post", "PuT")
     ///
     /// # Returns
     /// - `Ok(HttpMethod)` on valid HTTP method

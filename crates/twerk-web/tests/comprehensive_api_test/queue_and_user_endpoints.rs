@@ -1,7 +1,9 @@
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::support::{assert_empty_body, assert_json_message, assert_queue_state, TestHarness};
+use super::super::support::{
+    assert_empty_body, assert_json_message, assert_queue_state, TestHarness,
+};
 
 #[tokio::test]
 async fn queues_list_returns_queue_list() {

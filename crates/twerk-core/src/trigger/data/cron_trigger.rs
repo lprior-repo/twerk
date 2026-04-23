@@ -30,7 +30,7 @@ pub struct CronTrigger {
     pub payload: Option<serde_json::Value>,
 }
 
-/// Intermediate struct for `CronTrigger` deserialization with validation.
+/// Intermediate struct for CronTrigger deserialization with validation.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CronTriggerRaw {
@@ -77,7 +77,7 @@ impl CronTrigger {
     /// - `name: Option<String>` - Optional human-readable name
     /// - `description: Option<String>` - Optional description
     /// - `cron: impl Into<String>` - Cron expression (e.g., "0 0 * * * *")
-    /// - `timezone: impl Into<String>` - IANA timezone string (e.g., "UTC", "Z", "`America/New_York`")
+    /// - `timezone: impl Into<String>` - IANA timezone string (e.g., "UTC", "Z", "America/New_York")
     /// - `disabled: bool` - Whether trigger is disabled (default: false)
     /// - `payload: Option<serde_json::Value>` - Optional JSON payload
     ///

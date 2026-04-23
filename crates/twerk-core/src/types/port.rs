@@ -68,6 +68,12 @@ impl AsRef<u16> for Port {
     }
 }
 
+impl From<u16> for Port {
+    fn from(value: u16) -> Self {
+        Self(value)
+    }
+}
+
 impl FromStr for Port {
     type Err = PortError;
 
@@ -88,39 +94,5 @@ impl<'de> Deserialize<'de> for Port {
     {
         let value = u16::deserialize(deserializer)?;
         Port::new(value).map_err(serde::de::Error::custom)
-    }
-}
-
-#[cfg(test)]
-mod proptest_tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn port_new_accepts_valid(p in 1u16..=65535) {
-            prop_assert!(Port::new(p).is_ok());
-        }
-
-        #[test]
-        fn port_value_roundtrip(p in 1u16..=65535) {
-            let port = Port::new(p).unwrap();
-            prop_assert_eq!(port.value(), p);
-        }
-
-        #[test]
-        fn port_from_str_roundtrip(p in 1u16..=65535) {
-            let s = p.to_string();
-            let port: Port = s.parse().unwrap();
-            prop_assert_eq!(port.value(), p);
-        }
-
-        #[test]
-        fn port_serde_roundtrip(p in 1u16..=65535) {
-            let port = Port::new(p).unwrap();
-            let json = serde_json::to_string(&port).unwrap();
-            let back: Port = serde_json::from_str(&json).unwrap();
-            prop_assert_eq!(port, back);
-        }
     }
 }

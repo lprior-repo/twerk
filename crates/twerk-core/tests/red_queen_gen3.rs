@@ -186,17 +186,15 @@ fn rq3_ts_iterate_all_variants() {
 fn rq3_ti_all_ascii_letters_valid() {
     for c in b'a'..=b'z' {
         let s = format!("{}bc", c as char);
-        assert!(
-            TriggerId::new(&s).is_ok(),
-            "3-char ID with '{c}' must be valid"
-        );
+        let result =
+            TriggerId::new(&s).unwrap_or_else(|_| panic!("3-char ID with '{c}' must be valid"));
+        assert_eq!(result.as_str(), s);
     }
     for c in b'A'..=b'Z' {
         let s = format!("{}bc", c as char);
-        assert!(
-            TriggerId::new(&s).is_ok(),
-            "3-char ID with '{c}' must be valid"
-        );
+        let result =
+            TriggerId::new(&s).unwrap_or_else(|_| panic!("3-char ID with '{c}' must be valid"));
+        assert_eq!(result.as_str(), s);
     }
 }
 
@@ -204,10 +202,9 @@ fn rq3_ti_all_ascii_letters_valid() {
 fn rq3_ti_all_digits_valid() {
     for c in b'0'..=b'9' {
         let s = format!("{}bc", c as char);
-        assert!(
-            TriggerId::new(&s).is_ok(),
-            "3-char ID with '{c}' must be valid"
-        );
+        let result =
+            TriggerId::new(&s).unwrap_or_else(|_| panic!("3-char ID with '{c}' must be valid"));
+        assert_eq!(result.as_str(), s);
     }
 }
 
@@ -220,8 +217,9 @@ fn rq3_ti_all_ascii_printable_special_chars_rejected() {
             continue;
         }
         let s = format!("a{c}b");
-        assert!(
-            TriggerId::new(&s).is_err(),
+        assert_eq!(
+            TriggerId::new(&s),
+            Err(twerk_core::trigger::TriggerIdError::InvalidCharacters),
             "ASCII char '{c}' (0x{byte:02X}) must be rejected"
         );
     }
@@ -236,8 +234,9 @@ fn rq3_ts_all_ascii_printable_rejected_by_fromstr() {
         let result: Result<TriggerState, _> = s.parse();
         // Only 'a', 'A' are single chars that could start a match,
         // but none of the valid variants are single-char
-        assert!(
-            result.is_err(),
+        assert_eq!(
+            result,
+            Err(ParseTriggerStateError(s.clone())),
             "single char '{c}' must be rejected as TriggerState"
         );
     }
@@ -294,7 +293,12 @@ fn rq3_ts_hash_distribution() {
 fn rq3_serde_ti_valid_then_invalid_then_valid() {
     let valid1: TriggerId = serde_json::from_str("\"abc\"").unwrap();
     let invalid: Result<TriggerId, _> = serde_json::from_str("\"x\"");
-    assert!(invalid.is_err());
+    assert_eq!(
+        invalid
+            .expect_err("1-char TriggerId JSON must fail")
+            .classify(),
+        serde_json::error::Category::Data
+    );
     let valid2: TriggerId = serde_json::from_str("\"def\"").unwrap();
     assert_eq!(valid1.as_str(), "abc");
     assert_eq!(valid2.as_str(), "def");
@@ -304,7 +308,12 @@ fn rq3_serde_ti_valid_then_invalid_then_valid() {
 fn rq3_serde_ts_valid_then_invalid_then_valid() {
     let valid1: TriggerState = serde_json::from_str("\"ACTIVE\"").unwrap();
     let invalid: Result<TriggerState, _> = serde_json::from_str("\"INVALID\"");
-    assert!(invalid.is_err());
+    assert_eq!(
+        invalid
+            .expect_err("invalid TriggerState JSON must fail")
+            .classify(),
+        serde_json::error::Category::Data
+    );
     let valid2: TriggerState = serde_json::from_str("\"PAUSED\"").unwrap();
     assert_eq!(valid1, TriggerState::Active);
     assert_eq!(valid2, TriggerState::Paused);
@@ -314,40 +323,62 @@ fn rq3_serde_ts_valid_then_invalid_then_valid() {
 fn rq3_serde_ti_escaped_chars_in_json() {
     // Valid JSON escape sequences that produce invalid TriggerId chars
     let cases = [
-        ("\"abc\\ndef\"", "newline"),
-        ("\"abc\\rdef\"", "carriage return"),
-        ("\"abc\\tdef\"", "tab"),
-        ("\"abc\\0def\"", "null"),
+        (
+            "\"abc\\ndef\"",
+            "newline",
+            serde_json::error::Category::Data,
+        ),
+        (
+            "\"abc\\rdef\"",
+            "carriage return",
+            serde_json::error::Category::Data,
+        ),
+        ("\"abc\\tdef\"", "tab", serde_json::error::Category::Data),
+        ("\"abc\\0def\"", "null", serde_json::error::Category::Syntax),
     ];
-    for (json, desc) in cases {
+    for (json, desc, expected_category) in cases {
         let result: Result<TriggerId, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "JSON with {desc} must be rejected");
+        let err = result
+            .err()
+            .unwrap_or_else(|| panic!("JSON with {desc} must be rejected"));
+        assert_eq!(
+            err.classify(),
+            expected_category,
+            "unexpected error class for {json}: {err}"
+        );
     }
 }
 
 #[test]
 fn rq3_serde_ti_large_valid_payload() {
     // 64-char string via JSON
-    let json = format!("\"{}\"", "a".repeat(64));
+    let expected = "a".repeat(64);
+    let json = format!("\"{}\"", expected);
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(result.is_ok());
+    assert_eq!(
+        result
+            .expect("64-character JSON payload should deserialize")
+            .as_str(),
+        expected
+    );
 }
 
 #[test]
 fn rq3_serde_ti_json_whitespace_around_string() {
     // JSON whitespace around the value should be handled by serde
     let result: Result<TriggerId, _> = serde_json::from_str("  \"abc\"  ");
-    assert!(
-        result.is_ok(),
+    assert_eq!(
+        result
+            .expect("JSON whitespace around string should be handled by serde")
+            .as_str(),
+        "abc",
         "JSON whitespace around string should be handled by serde"
     );
-    assert_eq!(result.unwrap().as_str(), "abc");
 }
 
 #[test]
 fn rq3_serde_ts_json_whitespace_around_string() {
     let result: Result<TriggerState, _> = serde_json::from_str("  \"ACTIVE\"  ");
-    assert!(result.is_ok());
     assert_eq!(result.unwrap(), TriggerState::Active);
 }
 
@@ -372,9 +403,9 @@ fn rq3_fromstr_ts_repeated_parses() {
 #[test]
 fn rq3_fromstr_ti_repeated_parses() {
     for _ in 0..1000 {
-        assert!("abc".parse::<TriggerId>().is_ok());
-        assert!("ab".parse::<TriggerId>().is_err());
-        assert!("".parse::<TriggerId>().is_err());
+        assert_eq!("abc".parse::<TriggerId>().unwrap().as_str(), "abc");
+        assert_eq!("ab".parse::<TriggerId>(), Err(IdError::TooShort(2)));
+        assert_eq!("".parse::<TriggerId>(), Err(IdError::Empty));
     }
 }
 

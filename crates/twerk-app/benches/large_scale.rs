@@ -3,7 +3,6 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use twerk_core::id::JobId;
 use twerk_core::task::Task;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_infrastructure::datastore::Datastore;
@@ -18,12 +17,10 @@ fn bench_get_active_tasks(c: &mut Criterion) {
 
             // Populate datastore
             rt.block_on(async {
-                let target_job = JobId::new("target-job").unwrap();
-                let other_job = JobId::new("other-job").unwrap();
                 for i in 0..size {
                     let task = Task {
                         id: Some(format!("task-{i}").into()),
-                        job_id: Some(target_job.clone()),
+                        job_id: Some("target-job".into()),
                         ..Default::default()
                     };
                     let _ = ds.create_task(&task).await;
@@ -32,7 +29,7 @@ fn bench_get_active_tasks(c: &mut Criterion) {
                 for i in 0..(size * 2) {
                     let task = Task {
                         id: Some(format!("noise-task-{i}").into()),
-                        job_id: Some(other_job.clone()),
+                        job_id: Some("other-job".into()),
                         ..Default::default()
                     };
                     let _ = ds.create_task(&task).await;

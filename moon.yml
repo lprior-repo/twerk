@@ -145,6 +145,12 @@ tasks:
       runInCI: true
     description: 'Full CI including docs validation and standalone E2E'
 
+  quick:
+    script: 'moon run :fmt && moon run :lint-src && moon run :check'
+    options:
+      runInCI: false
+    description: 'Fast parity gate: fmt, source lint, and check'
+
   quality:
     script: 'moon run :fmt && moon run :lint-src && moon run :test'
     options:

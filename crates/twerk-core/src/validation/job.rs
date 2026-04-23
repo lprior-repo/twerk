@@ -54,7 +54,7 @@ pub(super) fn check_job_tasks(tasks: Option<&Vec<Task>>) -> Vec<ValidationFault>
                 })
                 .collect::<Vec<_>>()
         })
-        .map_or_else(Vec::new, std::convert::identity);
+        .unwrap_or_default();
     empty_fault.into_iter().chain(task_name_faults).collect()
 }
 
@@ -113,6 +113,6 @@ fn collect_job_faults(
     check_job_name(name)
         .into_iter()
         .chain(check_job_tasks(tasks))
-        .chain(defaults.map_or_else(Vec::new, check_job_defaults))
+        .chain(defaults.map(check_job_defaults).unwrap_or_default())
         .collect()
 }

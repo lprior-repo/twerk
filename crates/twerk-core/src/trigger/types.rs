@@ -31,7 +31,7 @@ pub enum TriggerState {
     Error,    // Terminal state for polling failures, requires manual resume
 }
 
-/// Case-insensitive string matching for `FromStr` (accepts all case variants).
+/// Case-insensitive string matching for FromStr (accepts all case variants).
 fn match_state_variant_for_fromstr(s: &str) -> Option<TriggerState> {
     match s.to_uppercase().as_str() {
         "ACTIVE" => Some(TriggerState::Active),
@@ -42,8 +42,8 @@ fn match_state_variant_for_fromstr(s: &str) -> Option<TriggerState> {
     }
 }
 
-/// Serde-friendly matching: accepts `PascalCase` and UPPERCASE variants.
-/// Serialization outputs `PascalCase` ("Active"), deserialization also accepts
+/// Serde-friendly matching: accepts PascalCase and UPPERCASE variants.
+/// Serialization outputs PascalCase ("Active"), deserialization also accepts
 /// UPPERCASE ("ACTIVE") for backward compatibility.
 fn match_state_variant_for_serde(s: &str) -> Option<TriggerState> {
     match s {
@@ -73,7 +73,7 @@ impl std::str::FromStr for TriggerState {
     }
 }
 
-/// Custom serializer for `TriggerState` - outputs `PascalCase` (matches Display).
+/// Custom serializer for TriggerState - outputs PascalCase (matches Display).
 impl Serialize for TriggerState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -89,7 +89,7 @@ impl Serialize for TriggerState {
     }
 }
 
-/// Custom deserializer for `TriggerState` - accepts uppercase variants only.
+/// Custom deserializer for TriggerState - accepts uppercase variants only.
 impl<'de> Deserialize<'de> for TriggerState {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -97,7 +97,7 @@ impl<'de> Deserialize<'de> for TriggerState {
     {
         struct TriggerStateVisitor;
 
-        impl serde::de::Visitor<'_> for TriggerStateVisitor {
+        impl<'de> serde::de::Visitor<'de> for TriggerStateVisitor {
             type Value = TriggerState;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -118,7 +118,7 @@ impl<'de> Deserialize<'de> for TriggerState {
     }
 }
 
-/// Error type for `TriggerState` parsing failures.
+/// Error type for TriggerState parsing failures.
 #[derive(Debug, Clone, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ParseTriggerStateError(pub String);
 
@@ -156,7 +156,7 @@ pub struct Trigger {
     pub variant: TriggerVariant,
 }
 
-/// Execution context passed to `TriggerRegistry::fire`.
+/// Execution context passed to TriggerRegistry::fire.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TriggerContext {

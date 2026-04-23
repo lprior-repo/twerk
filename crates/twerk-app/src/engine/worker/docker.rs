@@ -69,7 +69,7 @@ impl DockerMounter for DockerMounterAdapter {
 #[derive(Clone)]
 pub struct DockerRuntimeAdapter {
     #[allow(dead_code)]
-    privileged: bool,
+    privilege: DockerPrivilege,
     #[allow(dead_code)]
     image_ttl_secs: u64,
     active_tasks: Arc<DashMap<TaskId, String>>,
@@ -77,17 +77,38 @@ pub struct DockerRuntimeAdapter {
     broker: Arc<dyn Broker>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DockerPrivilege {
+    Restricted,
+    Privileged,
+}
+
+impl From<bool> for DockerPrivilege {
+    fn from(privileged: bool) -> Self {
+        if privileged {
+            Self::Privileged
+        } else {
+            Self::Restricted
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DockerRuntimePolicy {
+    pub privilege: DockerPrivilege,
+    pub image_ttl_secs: u64,
+}
+
 impl DockerRuntimeAdapter {
     #[must_use]
     pub fn new(
-        privileged: bool,
-        image_ttl_secs: u64,
+        policy: DockerRuntimePolicy,
         mounter: Arc<dyn Mounter + Send + Sync>,
         broker: Arc<dyn Broker>,
     ) -> Self {
         Self {
-            privileged,
-            image_ttl_secs,
+            privilege: policy.privilege,
+            image_ttl_secs: policy.image_ttl_secs,
             active_tasks: Arc::new(DashMap::new()),
             mounter,
             broker,

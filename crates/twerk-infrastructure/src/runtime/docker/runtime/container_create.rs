@@ -137,10 +137,7 @@ pub(super) async fn create_container(
     .await
     .map_err(|_| DockerError::ContainerCreate(CREATION_TIMED_OUT.to_string()))?
     .map_err(|e| {
-        let image_str = task
-            .image
-            .as_deref()
-            .map_or(DEFAULT_TASK_NAME, std::convert::identity);
+        let image_str = task.image.as_deref().unwrap_or(DEFAULT_TASK_NAME);
         tracing::error!(image = image_str, error = %e, "Error creating container");
         DockerError::ContainerCreate(e.to_string())
     })?;
@@ -205,10 +202,7 @@ pub(super) async fn create_container(
         .map_or(super::types::DEFAULT_WORKDIR, |w| w);
 
     // Clean up container and volume on initialization failure (Go parity: defer tc.Remove)
-    let files = task
-        .files
-        .as_ref()
-        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
+    let files = task.files.clone().unwrap_or_default();
     if let Err(e) = container.init_workdir(&files, effective_workdir).await {
         let _ = cleanup_client
             .remove_container(

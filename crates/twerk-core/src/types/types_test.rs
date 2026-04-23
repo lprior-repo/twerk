@@ -206,9 +206,15 @@ mod retry_limit_tests {
     use crate::types::{RetryLimit, OptionalRetryLimitError};
 
     #[test]
-    fn retry_limit_new_accepts_zero() {
-        let rl = RetryLimit::new(0).unwrap();
-        assert_eq!(rl.value(), 0);
+    fn retry_limit_new_rejects_zero() {
+        assert_eq!(
+            RetryLimit::new(0),
+            Err(OptionalRetryLimitError::OutOfRange {
+                value: 0,
+                min: 1,
+                max: 10,
+            })
+        );
     }
 
     #[test]
@@ -218,9 +224,15 @@ mod retry_limit_tests {
     }
 
     #[test]
-    fn retry_limit_new_accepts_u32_max() {
-        let rl = RetryLimit::new(u32::MAX).unwrap();
-        assert_eq!(rl.value(), u32::MAX);
+    fn retry_limit_new_rejects_values_above_max() {
+        assert_eq!(
+            RetryLimit::new(11),
+            Err(OptionalRetryLimitError::OutOfRange {
+                value: 11,
+                min: 1,
+                max: 10,
+            })
+        );
     }
 
     #[test]

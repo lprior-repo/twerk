@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[allow(clippy::module_inception)]
 mod tests {
     use crate::domain::testing::arb_valid_cron_expression;
     use crate::domain::CronExpression;

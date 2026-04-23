@@ -54,39 +54,32 @@ fn apply_trigger_update_sets_updated_at_correctly() {
 
 #[test]
 fn apply_trigger_update_rejects_blank_required_fields() {
-    let cases = [
-        (
-            {
-                let mut req = valid_request();
-                req.name = "   ".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(NAME_REQUIRED_MSG.to_string()),
-        ),
-        (
-            {
-                let mut req = valid_request();
-                req.event = "\t".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(EVENT_REQUIRED_MSG.to_string()),
-        ),
-        (
-            {
-                let mut req = valid_request();
-                req.action = " ".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(ACTION_REQUIRED_MSG.to_string()),
-        ),
-    ];
+    let mut blank_name = valid_request();
+    blank_name.name = "   ".to_string();
+    assert_eq!(
+        apply_trigger_update(base_trigger(), blank_name, base_trigger().updated_at),
+        Err(TriggerUpdateError::ValidationFailed(
+            NAME_REQUIRED_MSG.to_string(),
+        ))
+    );
 
-    for (req, expected) in cases {
-        assert_eq!(
-            apply_trigger_update(base_trigger(), req, base_trigger().updated_at),
-            Err(expected)
-        );
-    }
+    let mut blank_event = valid_request();
+    blank_event.event = "\t".to_string();
+    assert_eq!(
+        apply_trigger_update(base_trigger(), blank_event, base_trigger().updated_at),
+        Err(TriggerUpdateError::ValidationFailed(
+            EVENT_REQUIRED_MSG.to_string(),
+        ))
+    );
+
+    let mut blank_action = valid_request();
+    blank_action.action = " ".to_string();
+    assert_eq!(
+        apply_trigger_update(base_trigger(), blank_action, base_trigger().updated_at),
+        Err(TriggerUpdateError::ValidationFailed(
+            ACTION_REQUIRED_MSG.to_string(),
+        ))
+    );
 }
 
 #[test]

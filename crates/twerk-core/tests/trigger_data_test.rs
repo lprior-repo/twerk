@@ -645,9 +645,7 @@ mod cronscheduler_tests {
         // Note: field names use camelCase per struct rename_all attribute
         // Note: variant names are also converted by rename_all = "camelCase", so "Cron" -> "cron"
         let json = r#"{"type":"cron","id":"trigger-001","cron":"0 0 * * * *","timezone":"UTC"}"#;
-        let result: Result<Trigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        match serde_json::from_str::<Trigger>(json).unwrap() {
             Trigger::Cron(cron) => {
                 assert_eq!(cron.id.to_string(), "trigger-001");
             }
@@ -1240,9 +1238,7 @@ mod webhooktrigger_tests {
     fn webhooktrigger_deserialization_produces_correct_variant() {
         // Note: variant names are converted by rename_all = "camelCase", so "Webhook" -> "webhook"
         let json = r#"{"type":"webhook","id":"webhook-001","url":"https://example.com/hook","method":"POST"}"#;
-        let result: Result<Trigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        match serde_json::from_str::<Trigger>(json).unwrap() {
             Trigger::Webhook(webhook) => {
                 assert_eq!(webhook.id.to_string(), "webhook-001");
             }
@@ -1982,9 +1978,7 @@ mod pollingtrigger_tests {
     fn pollingtrigger_deserialization_produces_correct_variant() {
         // Note: variant names are converted by rename_all = "camelCase", so "Polling" -> "polling"
         let json = r#"{"type":"polling","id":"polling-001","url":"https://api.example.com/data","method":"GET","interval":"30s"}"#;
-        let result: Result<Trigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        match result.unwrap() {
+        match serde_json::from_str::<Trigger>(json).unwrap() {
             Trigger::Polling(polling) => {
                 assert_eq!(polling.id.to_string(), "polling-001");
             }
@@ -2484,16 +2478,22 @@ mod trigger_root_enum_tests {
     #[test]
     fn trigger_deserialization_fails_with_unknown_type() {
         let json = r#"{"type":"Unknown","id":"test"}"#;
-        let result: Result<Trigger, _> = serde_json::from_str(json);
-        assert!(result.is_err());
+        let error = serde_json::from_str::<Trigger>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "unknown variant `Unknown`, expected one of `cron`, `webhook`, `polling` at line 1 column 17"
+        );
     }
 
     // Additional: missing type field returns error
     #[test]
     fn trigger_deserialization_fails_without_type_field() {
         let json = r#"{"id":"test","cron":"0 0 * * * *","timezone":"UTC"}"#;
-        let result: Result<Trigger, _> = serde_json::from_str(json);
-        assert!(result.is_err());
+        let error = serde_json::from_str::<Trigger>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "missing field `type` at line 1 column 51"
+        );
     }
 
     // CamelCase field naming - note: fields are already camelCase in the struct,
@@ -3068,9 +3068,7 @@ mod additional_coverage_tests {
     #[test]
     fn cronscheduler_deserialization_with_all_fields() {
         let json = r#"{"id":"trigger-001","name":"Test","description":"A test trigger","cron":"0 0 * * * *","timezone":"America/New_York","disabled":true,"payload":{"key":"value"}}"#;
-        let result: Result<CronTrigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        let trigger = result.unwrap();
+        let trigger: CronTrigger = serde_json::from_str(json).unwrap();
         assert_eq!(trigger.id.to_string(), "trigger-001");
         assert_eq!(trigger.name.as_ref().unwrap(), "Test");
         assert_eq!(trigger.description.as_ref().unwrap(), "A test trigger");
@@ -3085,9 +3083,7 @@ mod additional_coverage_tests {
     #[test]
     fn webhooktrigger_deserialization_with_all_fields() {
         let json = r#"{"id":"webhook-001","name":"Test","url":"https://example.com/hook","method":"POST","headers":{"X-Test":"value"},"bodyTemplate":"{{ body }}","disabled":true}"#;
-        let result: Result<WebhookTrigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        let trigger = result.unwrap();
+        let trigger: WebhookTrigger = serde_json::from_str(json).unwrap();
         assert_eq!(trigger.id.to_string(), "webhook-001");
         assert_eq!(trigger.name.as_ref().unwrap(), "Test");
         assert!(trigger.disabled);
@@ -3102,9 +3098,7 @@ mod additional_coverage_tests {
     #[test]
     fn pollingtrigger_deserialization_with_all_fields() {
         let json = r#"{"id":"polling-001","name":"Test","url":"https://api.example.com/data","method":"GET","headers":{"X-Test":"value"},"interval":"1m","timeout":"30s","stopCondition":"data.complete","disabled":true}"#;
-        let result: Result<PollingTrigger, _> = serde_json::from_str(json);
-        assert!(result.is_ok());
-        let trigger = result.unwrap();
+        let trigger: PollingTrigger = serde_json::from_str(json).unwrap();
         assert_eq!(trigger.id.to_string(), "polling-001");
         assert_eq!(trigger.name.as_ref().unwrap(), "Test");
         assert!(trigger.disabled);

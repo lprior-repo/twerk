@@ -1,4 +1,4 @@
-//! `MapState`: iterate over an array with a sub-state-machine per element.
+//! MapState: iterate over an array with a sub-state-machine per element.
 //!
 //! Enforces INV-MS1 through INV-MS5 at construction time.
 

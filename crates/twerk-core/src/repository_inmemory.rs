@@ -1,5 +1,9 @@
 //! In-memory implementation of the Repository trait.
 
+use async_trait::async_trait;
+use parking_lot::RwLock;
+use std::collections::{HashMap, HashSet};
+
 use crate::job::{Job, JobSummary, ScheduledJob, ScheduledJobSummary};
 use crate::node::Node;
 use crate::repository::{Error, Options, Page, Repository, Result};
@@ -7,9 +11,6 @@ use crate::role::Role;
 use crate::stats::{JobMetrics, Metrics, NodeMetrics, TaskMetrics};
 use crate::task::{Task, TaskLogPart, TaskState};
 use crate::user::User;
-use async_trait::async_trait;
-use parking_lot::RwLock;
-use std::collections::{HashMap, HashSet};
 
 pub struct InMemoryRepository {
     tasks: RwLock<HashMap<String, Task>>,
@@ -26,7 +27,6 @@ pub struct InMemoryRepository {
 }
 
 impl InMemoryRepository {
-    #[must_use]
     pub fn new(options: Options) -> Self {
         Self {
             tasks: RwLock::new(HashMap::new()),
@@ -72,13 +72,14 @@ impl Repository for InMemoryRepository {
         let id_str = task
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("task has no id".to_string()));
         }
         let mut tasks = self.tasks.write();
         if tasks.contains_key(&id_str) {
-            return Err(Error::Database(format!("task {id_str} already exists")));
+            return Err(Error::Database(format!("task {} already exists", id_str)));
         }
         tasks.insert(id_str, task.clone());
         Ok(())
@@ -107,7 +108,11 @@ impl Repository for InMemoryRepository {
         Ok(tasks
             .values()
             .filter(|t| {
-                t.job_id.as_ref().is_some_and(|j| j.as_str() == job_id_str) && t.state.is_active()
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
+                    && t.state.is_active()
             })
             .cloned()
             .collect())
@@ -118,7 +123,12 @@ impl Repository for InMemoryRepository {
         let job_id_str = job_id.to_string();
         Ok(tasks
             .values()
-            .filter(|t| t.job_id.as_ref().is_some_and(|j| j.as_str() == job_id_str))
+            .filter(|t| {
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
+            })
             .cloned()
             .collect())
     }
@@ -129,15 +139,20 @@ impl Repository for InMemoryRepository {
         let job_id_str = parent
             .job_id
             .as_ref()
-            .map_or_else(String::new, |j| j.as_str().to_string());
+            .map(|j| j.as_str().to_string())
+            .unwrap_or_default();
         let parent_position = parent.position;
         Ok(tasks
             .values()
             .filter(|t| {
-                t.job_id.as_ref().is_some_and(|j| j.as_str() == job_id_str)
+                t.job_id
+                    .as_ref()
+                    .map(|j| j.as_str() == job_id_str)
+                    .unwrap_or(false)
                     && t.parent_id
                         .as_ref()
-                        .is_some_and(|p| p.as_str() == parent_task_id)
+                        .map(|p| p.as_str() == parent_task_id)
+                        .unwrap_or(false)
                     && t.position > parent_position
             })
             .min_by_key(|t| t.position)
@@ -149,7 +164,8 @@ impl Repository for InMemoryRepository {
         let task_id_str = part
             .task_id
             .as_ref()
-            .map_or_else(String::new, |t| t.as_str().to_string());
+            .map(|t| t.as_str().to_string())
+            .unwrap_or_default();
         if task_id_str.is_empty() {
             return Err(Error::InvalidId("task log part has no task_id".to_string()));
         }
@@ -166,10 +182,7 @@ impl Repository for InMemoryRepository {
         size: i64,
     ) -> Result<Page<TaskLogPart>> {
         let logs = self.task_logs.read();
-        let parts = match logs.get(task_id) {
-            Some(v) => v.clone(),
-            None => Vec::new(),
-        };
+        let parts = logs.get(task_id).cloned().unwrap_or_default();
         Ok(Self::paginate_vec(parts, page, size))
     }
 
@@ -177,13 +190,14 @@ impl Repository for InMemoryRepository {
         let id_str = node
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("node has no id".to_string()));
         }
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id_str) {
-            return Err(Error::Database(format!("node {id_str} already exists")));
+            return Err(Error::Database(format!("node {} already exists", id_str)));
         }
         nodes.insert(id_str, node.clone());
         Ok(())
@@ -210,7 +224,12 @@ impl Repository for InMemoryRepository {
         let nodes = self.nodes.read();
         Ok(nodes
             .values()
-            .filter(|n| n.status.as_ref().is_some_and(|s| s.as_ref() == "UP"))
+            .filter(|n| {
+                n.status
+                    .as_ref()
+                    .map(|s| s.as_ref() == "UP")
+                    .unwrap_or(false)
+            })
             .cloned()
             .collect())
     }
@@ -219,13 +238,14 @@ impl Repository for InMemoryRepository {
         let id_str = job
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("job has no id".to_string()));
         }
         let mut jobs = self.jobs.write();
         if jobs.contains_key(&id_str) {
-            return Err(Error::Database(format!("job {id_str} already exists")));
+            return Err(Error::Database(format!("job {} already exists", id_str)));
         }
         jobs.insert(id_str, job.clone());
         Ok(())
@@ -256,10 +276,7 @@ impl Repository for InMemoryRepository {
         size: i64,
     ) -> Result<Page<TaskLogPart>> {
         let logs = self.job_logs.read();
-        let parts = match logs.get(job_id) {
-            Some(v) => v.clone(),
-            None => Vec::new(),
-        };
+        let parts = logs.get(job_id).cloned().unwrap_or_default();
         Ok(Self::paginate_vec(parts, page, size))
     }
 
@@ -279,14 +296,16 @@ impl Repository for InMemoryRepository {
         let id_str = sj
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("scheduled job has no id".to_string()));
         }
         let mut sjs = self.scheduled_jobs.write();
         if sjs.contains_key(&id_str) {
             return Err(Error::Database(format!(
-                "scheduled job {id_str} already exists"
+                "scheduled job {} already exists",
+                id_str
             )));
         }
         sjs.insert(id_str, sj.clone());
@@ -343,13 +362,14 @@ impl Repository for InMemoryRepository {
         let id_str = user
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("user has no id".to_string()));
         }
         let mut users = self.users.write();
         if users.contains_key(&id_str) {
-            return Err(Error::Database(format!("user {id_str} already exists")));
+            return Err(Error::Database(format!("user {} already exists", id_str)));
         }
         users.insert(id_str, user.clone());
         Ok(())
@@ -368,13 +388,14 @@ impl Repository for InMemoryRepository {
         let id_str = role
             .id
             .as_ref()
-            .map_or_else(String::new, |id| id.as_str().to_string());
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         if id_str.is_empty() {
             return Err(Error::InvalidId("role has no id".to_string()));
         }
         let mut roles = self.roles.write();
         if roles.contains_key(&id_str) {
-            return Err(Error::Database(format!("role {id_str} already exists")));
+            return Err(Error::Database(format!("role {} already exists", id_str)));
         }
         roles.insert(id_str, role.clone());
         Ok(())
@@ -393,17 +414,15 @@ impl Repository for InMemoryRepository {
     async fn get_user_roles(&self, user_id: &str) -> Result<Vec<Role>> {
         let user_roles = self.user_roles.read();
         let roles = self.roles.read();
-        let role_ids = match user_roles.get(user_id) {
-            Some(v) => v.clone(),
-            None => HashSet::new(),
-        };
+        let role_ids = user_roles.get(user_id).cloned().unwrap_or_default();
         Ok(roles
             .values()
             .filter(|r| {
                 role_ids.contains(
                     &r.id
                         .as_ref()
-                        .map_or_else(String::new, |id| id.as_str().to_string()),
+                        .map(|id| id.as_str().to_string())
+                        .unwrap_or_default(),
                 )
             })
             .cloned()
@@ -442,7 +461,12 @@ impl Repository for InMemoryRepository {
             .count() as i32;
         let nodes_online = nodes
             .values()
-            .filter(|n| n.status.as_ref().is_some_and(|s| s.as_ref() == "UP"))
+            .filter(|n| {
+                n.status
+                    .as_ref()
+                    .map(|s| s.as_ref() == "UP")
+                    .unwrap_or(false)
+            })
             .count() as i32;
         let avg_cpu = nodes
             .values()

@@ -16,90 +16,150 @@ use twerk_core::webhook::Webhook;
 
 #[test]
 fn test_validate_cron_valid() {
-    assert!(validate_cron("0 0 0 * * *").is_ok());
-    assert!(validate_cron("0 */5 * * * *").is_ok());
-    assert!(validate_cron("0 0 12 * * *").is_ok());
-    assert!(validate_cron("0 0 0 1 * *").is_ok());
+    assert_eq!(validate_cron("0 0 0 * * *"), Ok(()));
+    assert_eq!(validate_cron("0 */5 * * * *"), Ok(()));
+    assert_eq!(validate_cron("0 0 12 * * *"), Ok(()));
+    assert_eq!(validate_cron("0 0 0 1 * *"), Ok(()));
 }
 
 #[test]
 fn test_validate_cron_invalid() {
-    assert!(validate_cron("").is_err());
-    assert!(validate_cron("invalid").is_err());
-    assert!(validate_cron("* * *").is_err()); // 3 fields — invalid (5-field is normalized to 6-field)
+    assert_eq!(
+        validate_cron(""),
+        Err("invalid cron expression: cron expression cannot be empty".to_string())
+    );
+    assert_eq!(
+        validate_cron("invalid"),
+        Err("invalid cron expression: invalid field count: 1 (must be 5 or 6)".to_string())
+    );
+    assert_eq!(
+        validate_cron("* * *"),
+        Err("invalid cron expression: invalid field count: 3 (must be 5 or 6)".to_string())
+    ); // 3 fields — invalid (5-field is normalized to 6-field)
 }
 
 #[test]
 fn test_validate_duration_valid() {
-    assert!(validate_duration("5s").is_ok());
-    assert!(validate_duration("30s").is_ok());
-    assert!(validate_duration("1m").is_ok());
-    assert!(validate_duration("5m").is_ok());
-    assert!(validate_duration("1h").is_ok());
-    assert!(validate_duration("2h").is_ok());
-    assert!(validate_duration("1d").is_ok());
-    assert!(validate_duration("1h30m").is_ok());
-    assert!(validate_duration("1d2h30m15s").is_ok());
-    assert!(validate_duration("0s").is_ok());
+    assert_eq!(validate_duration("5s"), Ok(()));
+    assert_eq!(validate_duration("30s"), Ok(()));
+    assert_eq!(validate_duration("1m"), Ok(()));
+    assert_eq!(validate_duration("5m"), Ok(()));
+    assert_eq!(validate_duration("1h"), Ok(()));
+    assert_eq!(validate_duration("2h"), Ok(()));
+    assert_eq!(validate_duration("1d"), Ok(()));
+    assert_eq!(validate_duration("1h30m"), Ok(()));
+    assert_eq!(validate_duration("1d2h30m15s"), Ok(()));
+    assert_eq!(validate_duration("0s"), Ok(()));
 }
 
 #[test]
 fn test_validate_duration_invalid() {
-    assert!(validate_duration("").is_err());
-    assert!(validate_duration("   ").is_err());
-    assert!(validate_duration("abc").is_err());
-    assert!(validate_duration("5x").is_err());
-    assert!(validate_duration("-5s").is_err());
-    assert!(validate_duration("5w").is_err());
-    assert!(validate_duration("5xs").is_err());
+    assert_eq!(
+        validate_duration(""),
+        Err("invalid duration: empty duration string".to_string())
+    );
+    assert_eq!(
+        validate_duration("   "),
+        Err("invalid duration: failed to parse duration number near index 0".to_string())
+    );
+    assert_eq!(
+        validate_duration("abc"),
+        Err("invalid duration: failed to parse duration number near index 0".to_string())
+    );
+    assert_eq!(
+        validate_duration("5x"),
+        Err("invalid duration: unknown duration unit: 'x'".to_string())
+    );
+    assert_eq!(
+        validate_duration("-5s"),
+        Err("invalid duration: failed to parse duration number near index 0".to_string())
+    );
+    assert_eq!(
+        validate_duration("5w"),
+        Err("invalid duration: unknown duration unit: 'w'".to_string())
+    );
+    assert_eq!(
+        validate_duration("5xs"),
+        Err("invalid duration: unknown duration unit: 'x'".to_string())
+    );
 }
 
 #[test]
 fn test_validate_queue_name_valid() {
-    assert!(validate_queue_name("default").is_ok());
-    assert!(validate_queue_name("my-queue").is_ok());
-    assert!(validate_queue_name("priority").is_ok());
-    assert!(validate_queue_name("x-custom").is_ok());
+    assert_eq!(validate_queue_name("default"), Ok(()));
+    assert_eq!(validate_queue_name("my-queue"), Ok(()));
+    assert_eq!(validate_queue_name("priority"), Ok(()));
+    assert_eq!(validate_queue_name("x-custom"), Ok(()));
 }
 
 #[test]
 fn test_validate_queue_name_invalid() {
-    let r = validate_queue_name("x-exclusive.myqueue");
-    assert!(r.is_err());
-    assert!(r.unwrap_err().contains("x-exclusive"));
+    assert_eq!(
+        validate_queue_name("x-exclusive.myqueue"),
+        Err("invalid queue name: queue name \"x-exclusive.myqueue\" is reserved".to_string())
+    );
 
-    let r = validate_queue_name("x-jobs");
-    assert!(r.is_err());
-    assert!(r.unwrap_err().contains("reserved"));
+    assert_eq!(
+        validate_queue_name("x-jobs"),
+        Err("invalid queue name: queue name \"x-jobs\" is reserved".to_string())
+    );
 }
 
 #[test]
 fn test_validate_retry_valid() {
-    for i in 1..=10 {
-        assert!(validate_retry(i).is_ok());
-    }
+    assert_eq!(validate_retry(1), Ok(()));
+    assert_eq!(validate_retry(5), Ok(()));
+    assert_eq!(validate_retry(10), Ok(()));
 }
 
 #[test]
 fn test_validate_retry_invalid() {
-    assert!(validate_retry(0).is_err());
-    assert!(validate_retry(-1).is_err());
-    assert!(validate_retry(11).is_err());
-    assert!(validate_retry(100).is_err());
+    assert_eq!(
+        validate_retry(0),
+        Err("invalid retry limit: retry limit 0 is out of range (must be 1-10)".to_string())
+    );
+    assert_eq!(
+        validate_retry(-1),
+        Err("invalid retry limit: retry limit -1 is out of range (must be 1-10)".to_string())
+    );
+    assert_eq!(
+        validate_retry(11),
+        Err("invalid retry limit: retry limit 11 is out of range (must be 1-10)".to_string())
+    );
+    assert_eq!(
+        validate_retry(100),
+        Err("invalid retry limit: retry limit 100 is out of range (must be 1-10)".to_string())
+    );
 }
 
 #[test]
 fn test_validate_priority_valid() {
-    for i in 0..=9 {
-        assert!(validate_priority(i).is_ok());
-    }
+    assert_eq!(validate_priority(0), Ok(()));
+    assert_eq!(validate_priority(1), Ok(()));
+    assert_eq!(validate_priority(2), Ok(()));
+    assert_eq!(validate_priority(3), Ok(()));
+    assert_eq!(validate_priority(4), Ok(()));
+    assert_eq!(validate_priority(5), Ok(()));
+    assert_eq!(validate_priority(6), Ok(()));
+    assert_eq!(validate_priority(7), Ok(()));
+    assert_eq!(validate_priority(8), Ok(()));
+    assert_eq!(validate_priority(9), Ok(()));
 }
 
 #[test]
 fn test_validate_priority_invalid() {
-    assert!(validate_priority(-1).is_err());
-    assert!(validate_priority(10).is_err());
-    assert!(validate_priority(100).is_err());
+    assert_eq!(
+        validate_priority(-1),
+        Err("invalid priority: priority -1 is out of range (must be 0-9)".to_string())
+    );
+    assert_eq!(
+        validate_priority(10),
+        Err("invalid priority: priority 10 is out of range (must be 0-9)".to_string())
+    );
+    assert_eq!(
+        validate_priority(100),
+        Err("invalid priority: priority 100 is out of range (must be 0-9)".to_string())
+    );
 }
 
 #[test]
@@ -212,7 +272,7 @@ fn test_validate_task_valid() {
         priority: 5,
         ..Default::default()
     };
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 
     let mut task = Task::default();
     task.timeout = Some("30s".to_string());
@@ -222,7 +282,7 @@ fn test_validate_task_valid() {
         attempts: 0,
     });
     task.priority = 3;
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -372,16 +432,17 @@ fn validation_job_fails_when_name_empty() {
 
 #[test]
 fn validation_queue_passes_when_valid_name() {
-    assert!(validate_queue_name("urgent").is_ok());
-    assert!(validate_queue_name("default").is_ok());
-    assert!(validate_queue_name("x-custom").is_ok());
+    assert_eq!(validate_queue_name("urgent"), Ok(()));
+    assert_eq!(validate_queue_name("default"), Ok(()));
+    assert_eq!(validate_queue_name("x-custom"), Ok(()));
 }
 
 #[test]
 fn validation_queue_fails_when_x_jobs() {
-    let r = validate_queue_name("x-jobs");
-    assert!(r.is_err());
-    assert!(r.unwrap_err().contains("reserved"));
+    assert_eq!(
+        validate_queue_name("x-jobs"),
+        Err("invalid queue name: queue name \"x-jobs\" is reserved".to_string())
+    );
 }
 
 #[test]
@@ -391,7 +452,7 @@ fn validation_task_passes_when_retry_limit_1() {
         limit: 1,
         attempts: 0,
     });
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -401,7 +462,7 @@ fn validation_task_passes_when_retry_limit_10() {
         limit: 10,
         attempts: 0,
     });
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -423,7 +484,7 @@ fn validation_task_fails_when_retry_limit_50() {
 fn validation_task_passes_when_timeout_6h() {
     let mut task = Task::default();
     task.timeout = Some("6h".to_string());
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -490,14 +551,14 @@ fn validation_var_passes_when_64_chars() {
     let var_64 = "a".repeat(64);
     let mut task = Task::default();
     task.var = Some(var_64);
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
 fn validation_var_passes_when_shorter() {
     let mut task = Task::default();
     task.var = Some("somevar".to_string());
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -532,7 +593,7 @@ fn validation_expr_passes_when_valid_arithmetic() {
         })),
         ..Default::default()
     }));
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -547,7 +608,7 @@ fn validation_expr_passes_when_valid_template() {
         })),
         ..Default::default()
     }));
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -576,13 +637,22 @@ fn validation_webhook_passes_when_url_valid() {
 
 #[test]
 fn validation_cron_fails_when_invalid_expression() {
-    assert!(validate_cron("invalid-cron").is_err());
-    assert!(validate_cron("").is_err());
+    assert_eq!(
+        validate_cron("invalid-cron"),
+        Err("invalid cron expression: invalid field count: 1 (must be 5 or 6)".to_string())
+    );
+    assert_eq!(
+        validate_cron(""),
+        Err("invalid cron expression: cron expression cannot be empty".to_string())
+    );
 }
 
 #[test]
 fn validation_cron_fails_when_too_many_fields() {
-    assert!(validate_cron("0 0 0 0 * * *").is_err());
+    assert_eq!(
+        validate_cron("0 0 0 0 * * *"),
+        Err("invalid cron expression: invalid field count: 7 (must be 5 or 6)".to_string())
+    );
 }
 
 #[test]
@@ -596,7 +666,7 @@ fn validation_parallel_passes_when_single_task() {
         }]),
         completions: 0,
     });
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -611,7 +681,7 @@ fn validation_each_passes_when_expression_valid() {
         })),
         ..Default::default()
     }));
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -658,7 +728,7 @@ fn validation_subjob_passes_when_webhook_valid() {
         }]),
         ..Default::default()
     });
-    assert!(validate_task(&task).is_ok());
+    assert_eq!(validate_task(&task), Ok(()));
 }
 
 #[test]
@@ -735,7 +805,7 @@ fn validation_mount_passes_when_type_custom() {
         target: Some("/some/target".to_string()),
         ..Default::default()
     }];
-    assert!(validate_mounts(&Some(mounts)).is_ok());
+    assert_eq!(validate_mounts(&Some(mounts)), Ok(()));
 }
 
 #[test]
@@ -762,7 +832,7 @@ fn validation_mount_passes_when_bind_has_source_and_target() {
         target: Some("/some/target".to_string()),
         ..Default::default()
     }];
-    assert!(validate_mounts(&Some(mounts)).is_ok());
+    assert_eq!(validate_mounts(&Some(mounts)), Ok(()));
 }
 
 #[test]
@@ -821,5 +891,5 @@ fn validation_mount_passes_when_bind_with_options() {
         target: Some("/some/path".to_string()),
         ..Default::default()
     }];
-    assert!(validate_mounts(&Some(mounts)).is_ok());
+    assert_eq!(validate_mounts(&Some(mounts)), Ok(()));
 }

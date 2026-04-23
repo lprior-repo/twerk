@@ -23,7 +23,7 @@ use twerk_infrastructure::broker::queue::QUEUE_FAILED;
 ///
 /// # Errors
 /// Returns error if task update fails.
-#[instrument(name = "handle_task_progress", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s), state = %task.state))]
+#[instrument(name = "handle_task_progress", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown"), state = %task.state))]
 pub async fn handle_task_progress(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -38,23 +38,7 @@ pub async fn handle_task_progress(
         | TaskState::Running
         | TaskState::Cancelled
         | TaskState::Stopped
-        | TaskState::Skipped => {
-            let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
-            ds.update_task(
-                task_id,
-                Box::new(move |mut u| {
-                    u.state = task.state;
-                    u.started_at = task.started_at;
-                    u.completed_at = task.completed_at;
-                    u.failed_at = task.failed_at;
-                    u.result.clone_from(&task.result);
-                    u.error.clone_from(&task.error);
-                    Ok(u)
-                }),
-            )
-            .await
-            .map_err(anyhow::Error::from)
-        }
+        | TaskState::Skipped => persist_task_progress(ds, task).await,
     }
 }
 
@@ -155,37 +139,19 @@ pub async fn handle_log_part(
 ///
 /// # Errors
 /// Returns error if task update or next step scheduling fails.
-#[instrument(name = "handle_task_completed", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s)))]
+#[instrument(name = "handle_task_completed", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
 pub async fn handle_task_completed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
-    let completed_at = task.completed_at;
-    let result = task.result.clone();
-
-    ds.update_task(
-        task_id,
-        Box::new(move |mut u| {
-            u.state = TaskState::Completed;
-            u.completed_at = completed_at;
-            u.result = result;
-            Ok(u)
-        }),
-    )
-    .await?;
+    persist_completed_task(ds.clone(), &task).await?;
 
     if let Err(e) = fire_task_webhooks(ds.clone(), &task, "task.Completed").await {
         warn!(error = %e, "failed to fire task.Completed webhook");
     }
 
-    if let Some(pid) = task.parent_id.clone() {
-        handle_subtask_completed(ds, broker, task, pid.as_str()).await
-    } else {
-        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
-        handle_top_level_task_completed(ds, broker, job_id.to_string()).await
-    }
+    route_completed_task(ds, broker, task).await
 }
 
 /// Handles task failure.
@@ -197,38 +163,20 @@ pub async fn handle_task_failed(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     task: twerk_core::task::Task,
 ) -> Result<()> {
-    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
-    let failed_at = task.failed_at;
-    let task_error = task.error.clone();
-
-    ds.update_task(
-        task_id,
-        Box::new(move |mut u| {
-            u.state = TaskState::Failed;
-            u.failed_at = failed_at;
-            u.error = task_error;
-            Ok(u)
-        }),
-    )
-    .await?;
+    persist_failed_task(ds.clone(), &task).await?;
 
     if let Err(e) = fire_task_webhooks(ds.clone(), &task, "task.Failed").await {
         warn!(error = %e, "failed to fire task.Failed webhook");
     }
 
-    if let Some(pid) = task.parent_id.clone() {
-        handle_subtask_failed(ds, broker, task, pid.to_string()).await
-    } else {
-        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
-        handle_top_level_task_failed(ds, broker, job_id.to_string(), task.error.clone()).await
-    }
+    route_failed_task(ds, broker, task).await
 }
 
 /// Handles task error event.
 ///
 /// # Errors
 /// Returns error if task update or retry logic fails.
-#[instrument(name = "handle_error", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s)))]
+#[instrument(name = "handle_error", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
 pub async fn handle_error(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -236,26 +184,13 @@ pub async fn handle_error(
 ) -> Result<()> {
     error!(
         task_id = task_id_str(&task),
-        error = task.error.as_deref().map_or("unknown error", |s| s),
+        error = task.error.as_deref().unwrap_or("unknown error"),
         "Task failed"
     );
     let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
     let now = time::OffsetDateTime::now_utc();
-    let task_error = task.error.clone();
-    let task_result = task.result.clone();
-
-    ds.update_task(
-        task_id,
-        Box::new(move |mut u| {
-            u.state = TaskState::Failed;
-            u.failed_at = Some(now);
-            u.error.clone_from(&task_error);
-            u.result.clone_from(&task_result);
-            Ok(u)
-        }),
-    )
-    .await?;
+    persist_task_error(ds.clone(), task_id, &task, now).await?;
 
     let job = ds.get_job_by_id(job_id).await?;
 
@@ -266,10 +201,8 @@ pub async fn handle_error(
         return Ok(());
     }
 
-    if let Some(ref retry) = task.retry {
-        if can_retry(retry) {
-            return create_retry_task(ds, broker, task, &job, now).await;
-        }
+    if task.retry.as_ref().is_some_and(can_retry) {
+        return create_retry_task(ds, broker, task, &job, now).await;
     }
 
     let mut failed_task = task.clone();
@@ -280,4 +213,117 @@ pub async fn handle_error(
         .await?;
 
     handle_task_failed(ds, broker, failed_task).await
+}
+
+async fn persist_task_progress(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
+
+    ds.update_task(
+        task_id,
+        Box::new(move |mut current| {
+            current.state = task.state;
+            current.started_at = task.started_at;
+            current.completed_at = task.completed_at;
+            current.failed_at = task.failed_at;
+            current.result.clone_from(&task.result);
+            current.error.clone_from(&task.error);
+            Ok(current)
+        }),
+    )
+    .await
+    .map_err(anyhow::Error::from)
+}
+
+async fn persist_completed_task(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    task: &twerk_core::task::Task,
+) -> Result<()> {
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
+    let completed_at = task.completed_at;
+    let result = task.result.clone();
+
+    ds.update_task(
+        task_id,
+        Box::new(move |mut current| {
+            current.state = TaskState::Completed;
+            current.completed_at = completed_at;
+            current.result = result;
+            Ok(current)
+        }),
+    )
+    .await
+    .map_err(anyhow::Error::from)
+}
+
+async fn route_completed_task(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    if let Some(parent_id) = task.parent_id.clone() {
+        handle_subtask_completed(ds, broker, task, parent_id.as_str()).await
+    } else {
+        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
+        handle_top_level_task_completed(ds, broker, job_id.to_string()).await
+    }
+}
+
+async fn persist_failed_task(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    task: &twerk_core::task::Task,
+) -> Result<()> {
+    let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
+    let failed_at = task.failed_at;
+    let task_error = task.error.clone();
+
+    ds.update_task(
+        task_id,
+        Box::new(move |mut current| {
+            current.state = TaskState::Failed;
+            current.failed_at = failed_at;
+            current.error = task_error;
+            Ok(current)
+        }),
+    )
+    .await
+    .map_err(anyhow::Error::from)
+}
+
+async fn route_failed_task(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: Arc<dyn twerk_infrastructure::broker::Broker>,
+    task: twerk_core::task::Task,
+) -> Result<()> {
+    if let Some(parent_id) = task.parent_id.clone() {
+        handle_subtask_failed(ds, broker, task, parent_id.to_string()).await
+    } else {
+        let job_id = task.job_id.as_deref().ok_or(HandlerError::MissingJobId)?;
+        handle_top_level_task_failed(ds, broker, job_id.to_string(), task.error.clone()).await
+    }
+}
+
+async fn persist_task_error(
+    ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    task_id: &str,
+    task: &twerk_core::task::Task,
+    now: time::OffsetDateTime,
+) -> Result<()> {
+    let task_error = task.error.clone();
+    let task_result = task.result.clone();
+
+    ds.update_task(
+        task_id,
+        Box::new(move |mut current| {
+            current.state = TaskState::Failed;
+            current.failed_at = Some(now);
+            current.error.clone_from(&task_error);
+            current.result.clone_from(&task_result);
+            Ok(current)
+        }),
+    )
+    .await
+    .map_err(anyhow::Error::from)
 }

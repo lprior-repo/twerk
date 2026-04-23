@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::rabbitmq::RabbitMq;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use twerk_core::job::Job;
 use twerk_core::node::Node;
 use twerk_core::task::Task;
@@ -113,6 +113,7 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
 
     let qname = format!("worker-priority-{}", twerk_core::uuid::new_short_uuid());
     let (tx, mut rx) = mpsc::channel(4);
+    let (ready_tx, ready_rx) = watch::channel(false);
 
     broker
         .subscribe_for_tasks(
@@ -120,8 +121,11 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
             Arc::new(move |task| {
                 let tx = tx.clone();
                 let task = task.clone();
+                let mut ready_rx = ready_rx.clone();
                 Box::pin(async move {
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    if !*ready_rx.borrow() {
+                        ready_rx.changed().await.map_err(|e| anyhow::anyhow!(e))?;
+                    }
                     tx.send(task.priority)
                         .await
                         .map_err(|e| anyhow::anyhow!(e))?;
@@ -130,8 +134,6 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
             }),
         )
         .await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
 
     broker
         .publish_task(
@@ -169,6 +171,10 @@ async fn tasks_delivered_in_priority_order_when_buffered_in_rabbitmq() -> anyhow
             },
         )
         .await?;
+
+    ready_tx
+        .send(true)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     let mut results = Vec::new();
     for _ in 0..4 {
@@ -294,7 +300,9 @@ async fn test_rabbitmq_all() -> anyhow::Result<()> {
             Arc::new(move |_| {
                 let tx = tx.clone();
                 Box::pin(async move {
-                    let _ = tx.send(()).await;
+                    tx.send(())
+                        .await
+                        .map_err(|_| anyhow::anyhow!("failed to send rabbitmq test signal"))?;
                     Ok(())
                 })
             }),

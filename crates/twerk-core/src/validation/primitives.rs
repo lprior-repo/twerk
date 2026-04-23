@@ -46,16 +46,9 @@ pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
 
 /// Parse a retry limit into a validated [`RetryLimit`].
 ///
-/// Validates that the value is in 1..=10 before constructing a [`RetryLimit`].
-///
 /// # Errors
 /// Returns [`DomainParseError::RetryLimit`] if not in 1..=10.
 pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
-    if !(1..=10).contains(&limit) {
-        return Err(DomainParseError::RetryLimit(ParseRetryError::OutOfRange(
-            limit,
-        )));
-    }
     match u32::try_from(limit) {
         Ok(v) => RetryLimit::new(v)
             .map_err(|_| DomainParseError::RetryLimit(ParseRetryError::OutOfRange(limit))),

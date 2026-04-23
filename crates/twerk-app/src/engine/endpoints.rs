@@ -70,11 +70,7 @@ impl EndpointRegistry {
             let path_pattern = if path.ends_with('*') {
                 PathPattern::Wildcard
             } else {
-                PathPattern::Param(
-                    path.split(':')
-                        .nth(1)
-                        .map_or_else(String::new, |s| s.to_string()),
-                )
+                PathPattern::Param(path.split(':').nth(1).unwrap_or("").to_string())
             };
             self.patterns.push(PatternEntry {
                 method: method.to_string(),
@@ -138,7 +134,6 @@ impl Default for EndpointRegistry {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
     use std::sync::Arc;
 

@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace <impl FromStr for GoDuration>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -205,17 +205,17 @@
+         f.write_str(&self.0)
+     }
+ }
+ 
+ impl FromStr for GoDuration {
+     type Err = GoDurationError;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+-        Self::new(s)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Parse a Go-style duration string into a [`Duration`].
+ ///
+ /// Supported units: `ns`, `us`/`µs`, `ms`, `s`, `m`, `h`, `d`.
+ /// Segments can be combined, e.g. `"1h30m"`, `"2d12h30m"`.
+ fn parse_go_duration(s: &str) -> Result<Duration, GoDurationError> {

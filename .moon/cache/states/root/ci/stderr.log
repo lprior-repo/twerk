@@ -1,0 +1,77 @@
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
+warning: unexpected `cfg` condition name: `kani`
+   --> crates/twerk-core/src/domain/webhook_url/tests.rs:266:11
+    |
+266 |     #[cfg(kani)]
+    |           ^^^^
+    |
+    = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
+    = help: consider using a Cargo feature instead
+    = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+             [lints.rust]
+             unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+    = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(kani)");` to the top of the `build.rs`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: `twerk-core` (lib test) generated 1 warning
+warning: unused import: `std::str::FromStr`
+ --> crates/twerk-core/tests/mutation_kill_test.rs:2:5
+  |
+2 | use std::str::FromStr;
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `twerk-core` (test "mutation_kill_test") generated 1 warning (run `cargo fix --test "mutation_kill_test" -p twerk-core` to apply 1 suggestion)
+warning: variable does not need to be mutable
+   --> crates/twerk-infrastructure/tests/docker_cleanup_test.rs:139:13
+    |
+139 |         let mut stream = client.create_image(
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `JobId`, `NodeId`, and `UserId`
+   --> crates/twerk-infrastructure/src/datastore/inmemory.rs:440:26
+    |
+440 |     use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
+    |                          ^^^^^  ^^^^^^                  ^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `twerk-infrastructure` (test "docker_cleanup_test") generated 1 warning (run `cargo fix --test "docker_cleanup_test" -p twerk-infrastructure` to apply 1 suggestion)
+warning: `twerk-infrastructure` (lib test) generated 1 warning (run `cargo fix --lib -p twerk-infrastructure --tests` to apply 1 suggestion)
+warning: fields `command` and `exit_code` are never read
+  --> crates/twerk-cli/tests/e2e_cli_test.rs:58:5
+   |
+44 | struct JsonCliOutput {
+   |        ------------- fields in this struct
+...
+58 |     command: Option<String>,
+   |     ^^^^^^^
+59 |     #[serde(default)]
+60 |     exit_code: Option<i32>,
+   |     ^^^^^^^^^
+   |
+   = note: `JsonCliOutput` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.43s
+     Running unittests src/lib.rs (target/debug/deps/twerk_app-fe05b43e13ca2dbc)
+     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-306ef8b5eaa30a06)
+     Running tests/bdd_behavioral_contracts.rs (target/debug/deps/bdd_behavioral_contracts-c221452eff746b91)
+     Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-9d4bb9f7c06cfc11)
+     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-97449607e99e955c)
+     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-1c712991c26d193a)
+     Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-816f0d119fe914ea)
+     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-71495acac2c1e822)
+     Running tests/handlers_test.rs (target/debug/deps/handlers_test-efdb10e1445ce545)
+     Running tests/middleware_test.rs (target/debug/deps/middleware_test-1d961b0aa6c5326a)
+     Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-7402909e8d0eddfc)
+     Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-5451e9e47d4ce750)

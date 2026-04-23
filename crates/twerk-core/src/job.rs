@@ -427,25 +427,25 @@ impl JobContext {
         if let Some(ref inputs) = self.inputs {
             m.insert(
                 String::from("inputs"),
-                serde_json::to_value(inputs).map_or(serde_json::Value::Null, |v| v),
+                serde_json::to_value(inputs).unwrap_or(serde_json::Value::Null),
             );
         }
         if let Some(ref secrets) = self.secrets {
             m.insert(
                 String::from("secrets"),
-                serde_json::to_value(secrets).map_or(serde_json::Value::Null, |v| v),
+                serde_json::to_value(secrets).unwrap_or(serde_json::Value::Null),
             );
         }
         if let Some(ref tasks) = self.tasks {
             m.insert(
                 String::from("tasks"),
-                serde_json::to_value(tasks).map_or(serde_json::Value::Null, |v| v),
+                serde_json::to_value(tasks).unwrap_or(serde_json::Value::Null),
             );
         }
         if let Some(ref job) = self.job {
             m.insert(
                 String::from("job"),
-                serde_json::to_value(job).map_or(serde_json::Value::Null, |v| v),
+                serde_json::to_value(job).unwrap_or(serde_json::Value::Null),
             );
         }
         m

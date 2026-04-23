@@ -52,10 +52,7 @@ impl PodmanRuntime {
         if let Some(ref mounts) = task.mounts {
             for core_mnt in mounts {
                 let mut mnt = Mount::from(core_mnt);
-                mnt.id = core_mnt
-                    .id
-                    .as_ref()
-                    .map_or_else(new_uuid, std::clone::Clone::clone);
+                mnt.id = core_mnt.id.clone().unwrap_or_else(new_uuid);
                 if let Err(e) = self.mounter.mount(&mut mnt) {
                     error!("error mounting volume: {}", e);
                     return Err(PodmanError::WorkdirCreation(e.to_string()));
@@ -179,10 +176,10 @@ impl PodmanRuntime {
         create_file_with_permissions(&progress_file, 0o777).await?;
 
         let entrypoint_path = workdir.join("entrypoint.sh");
-        let run_script = match task.run {
-            Some(ref cmd) => cmd.clone(),
-            None => task.cmd.as_ref().map_or(String::new(), |c| c.join(" ")),
-        };
+        let run_script = task
+            .run
+            .clone()
+            .unwrap_or_else(|| task.cmd.as_ref().map_or(String::new(), |cmd| cmd.join(" ")));
         tokio::fs::write(&entrypoint_path, &run_script)
             .await
             .map_err(|e| PodmanError::FileWrite(e.to_string()))?;

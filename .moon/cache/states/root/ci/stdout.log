@@ -1,0 +1,301 @@
+▮▮▮▮ root:ci-source (e2fefae6)
+
+running 59 tests
+test engine::coordinator::hostenv::tests::parse_var_spec_single_host_var ... ok
+test engine::coordinator::hostenv::tests::parse_var_spec_with_task_mapping ... ok
+test engine::coordinator::hostenv::tests::parse_var_spec_invalid_too_many_colons ... ok
+test engine::coordinator::hostenv::tests::parse_var_specs_multiple ... ok
+test engine::coordinator::utils::tests::parse_body_limit_returns_parsed_bytes_when_valid_input ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_empty ... ok
+test engine::coordinator::utils::tests::parse_body_limit_returns_none_when_invalid_input ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_multiple_stars ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_exact_match ... ok
+test engine::coordinator::utils::tests::wildcard_match_returns_true_when_star_used ... ok
+test engine::endpoints::tests::test_contains_with_pattern ... ok
+test engine::endpoints::tests::test_multiple_params ... ok
+test engine::endpoints::tests::test_exact_match_takes_priority ... ok
+test engine::endpoints::tests::test_wildcard_pattern_matches ... ok
+test engine::endpoints::tests::test_named_param_pattern_matches ... ok
+test engine::locker::tests::env_duration_default_parses_seconds_from_env ... ok
+test engine::locker::tests::env_duration_default_falls_back_on_invalid_value ... ok
+test engine::locker::tests::env_duration_default_returns_default_when_unset ... ok
+test engine::endpoints::tests::test_conflicting_patterns_detected ... ok
+test engine::coordinator::scheduler::tests::schedule_regular_task_sets_scheduled_state_when_task_is_regular ... ok
+test engine::coordinator::scheduler::tests::schedule_task_dispatches_to_subjob_scheduler_when_subjob_block_present ... ok
+test engine::coordinator::scheduler::tests::schedule_subjob_task_creates_subjob_and_marks_parent_running ... ok
+test engine::coordinator::scheduler::tests::schedule_regular_task_applies_job_defaults_when_task_omits_overrides ... ok
+test engine::locker::tests::env_int_default_returns_default_when_unset ... ok
+test engine::locker::tests::env_string_default_returns_env_value_when_set ... ok
+test engine::locker::tests::env_string_default_returns_default_when_unset ... ok
+test engine::worker::mounter::tests::test_bind_config_default ... ok
+test engine::worker::mounter::tests::test_bind_mounter_is_source_allowed_empty_sources ... ok
+test engine::endpoints::tests::test_no_match_returns_none ... ok
+test engine::worker::mounter::tests::test_bind_mounter_mount_disallowed ... ok
+test engine::locker::tests::env_int_default_falls_back_on_invalid_value ... ok
+test engine::worker::mounter::tests::test_volume_mounter_mount ... ok
+test engine::worker::podman::tests::test_validate_task_empty_id ... ok
+test engine::worker::podman::tests::test_validate_task_running_state ... ok
+test engine::coordinator::scheduler::tests::schedule_regular_task_sets_default_queue_when_queue_is_missing ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_id_is_empty ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_state_is_completed ... ok
+test engine::locker::tests::env_int_default_parses_valid_integer_from_env ... ok
+test engine::worker::podman::tests::test_validate_task_completed_state ... ok
+test engine::coordinator::scheduler::tests::schedule_task_dispatches_to_regular_scheduler_when_no_special_block_present ... ok
+test engine::worker::shell::tests::validate_task_returns_error_when_state_is_stopped ... ok
+test engine::worker::shell::tests::validate_task_returns_ok_when_state_is_running ... ok
+test engine::worker::runtime_adapter::tests::read_runtime_config_reads_shell_cmd_array_from_config_file ... ok
+test engine::worker::shell::tests::shell_runtime_defaults_command_when_config_is_empty ... ok
+test engine::worker::shell::tests::shell_runtime_publishes_stdout_to_task_logs ... ok
+test engine::coordinator::webhook::tests::should_fire_webhook_with_matching_event ... ok
+test engine::locker::tests::create_locker_inmemory_returns_ok ... ok
+test engine::locker::tests::create_locker_unknown_type_returns_err ... ok
+test engine::coordinator::scheduler::tests::schedule_each_task_sets_parent_size_to_expanded_item_count ... ok
+test engine::coordinator::scheduler::tests::schedule_parallel_task_creates_child_tasks_when_children_are_defined ... ok
+test engine::coordinator::scheduler::tests::schedule_task_dispatches_to_each_scheduler_when_each_block_present ... ok
+test engine::coordinator::scheduler::tests::schedule_parallel_task_sets_parent_id_on_children_when_scheduled ... ok
+test engine::coordinator::scheduler::tests::schedule_task_dispatches_to_parallel_scheduler_when_parallel_block_present ... ok
+test engine::coordinator::scheduler::tests::schedule_each_task_creates_one_child_task_per_list_item ... ok
+test engine::default::tests::test_default_run_standalone ... ok
+test engine::coordinator::scheduler::tests::schedule_each_task_expands_sequence_expression_into_children ... ok
+test engine::coordinator::scheduler::tests::schedule_each_task_handles_real_yaml_template_from_examples ... ok
+test engine::worker::tests::send_heartbeat_when_health_check_fails_returns_down_status ... ok
+test engine::worker::tests::send_heartbeat_when_health_check_succeeds_returns_up_status ... ok
+
+test result: ok. 59 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+
+running 9 tests
+test test_missing_api_key_returns_401 ... ok
+test test_invalid_api_key_returns_401 ... ok
+test test_missing_basic_auth_credentials_return_401 ... ok
+test test_valid_api_key_passes ... ok
+test test_wildcard_skip_path_matching ... ok
+test test_request_matching_skip_path_bypasses_auth ... ok
+test test_api_key_in_query_param_passes ... ok
+test test_invalid_basic_auth_credentials_return_401 ... ok
+test test_valid_basic_auth_credentials_pass ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+
+
+running 79 tests
+test broker_proxy_debug ... ok
+test config_defaults ... ok
+test all_mounters_unmount_noop ... ok
+test bind_mounter_allows_empty_allowed_list ... ok
+test bind_mounter_rejects_denied_policy ... ok
+test broker_proxy_returns_error_on_operations_when_uninit ... ok
+test broker_proxy_check_init_fails_uninitialized ... ok
+test broker_type_parse_mapping ... ok
+test broker_proxy_clone_inner_shares_state ... ok
+test broker_proxy_delegates_after_init ... ok
+test broker_proxy_set_broker_enables_use ... ok
+test create_broker_inmemory ... ok
+test datastore_proxy_errors_before_init ... ok
+test broker_provider_first_wins ... ok
+test endpoint_registry_iter ... ok
+test endpoint_registry_overwrites_duplicate ... ok
+test endpoint_registry_stores_and_retrieves ... ok
+test engine_endpoint_key_format ... ok
+test create_datastore_inmemory ... ok
+test datastore_proxy_works_after_set ... ok
+test datastore_proxy_works_after_init ... ok
+test engine_default_creates_standalone_idle ... ok
+test engine_id_from_config ... ok
+test datastore_proxy_clone_inner_shares ... ok
+test engine_id_defaults_to_none ... ok
+test engine_debug_shows_state_mode ... ok
+test engine_new_preserves_config_mode_and_starts_idle ... ok
+test hostenv_accepts_mapping_spec ... ok
+test hostenv_accepts_single_var ... ok
+test datastore_provider_first_wins ... ok
+test hostenv_rejects_invalid_spec ... ok
+test idle_can_transition_to_any_state ... ok
+test log_handler_error_variants ... ok
+test limits_defaults ... ok
+test job_event_type_variants ... ok
+test job_handler_error_variants ... ok
+test middleware_defaults ... ok
+test hostenv_middleware_skips_non_running_state ... ok
+test hostenv_middleware_skips_non_statechange_event ... ok
+test hostenv_middleware_injects_on_statechange_running ... ok
+test middleware_composer_applies_task_middleware_lifo ... ok
+test mock_runtime_is_usable ... ok
+test job_listeners_can_be_added_outside_runtime ... ok
+test middleware_composer_identity ... ok
+test mount_registry_registers_per_runtime ... ok
+test new_inmemory_datastore_works ... ok
+test only_terminated_is_terminal ... ok
+test mode_default_is_standalone ... ok
+test node_handler_error_variants ... ok
+test running_can_only_transition_to_terminating ... ok
+test terminated_cannot_transition ... ok
+test volume_mounter_succeeds_with_id ... ok
+test volume_mounter_requires_id ... ok
+test state_default_is_idle ... ok
+test task_handler_error_variants ... ok
+test runtime_registration_is_first_wins ... ok
+test provider_registry_first_wins ... ok
+test set_mode_works_when_idle ... ok
+test task_event_type_variants ... ok
+test tmpfs_mounter_rejects_nonempty_source ... ok
+test worker_default_constants ... ok
+test submit_job_fails_when_not_running ... ok
+test provider_registry_registers_and_retrieves ... ok
+test topic_constants ... ok
+test terminating_can_only_transition_to_terminated ... ok
+test tmpfs_mounter_requires_target ... ok
+test terminate_fails_when_not_running ... ok
+test coordinator_submit_job_persists ... ok
+test coordinator_generates_id_when_missing ... ok
+test coordinator_sets_created_at ... ok
+test coordinator_mode_starts_coordinator ... ok
+test worker_mode_starts_worker ... ok
+test run_completes_full_lifecycle ... ok
+test start_fails_when_not_idle ... ok
+test submit_job_fails_in_worker_mode ... ok
+test standalone_starts_worker_and_coordinator ... ok
+test submit_job_standalone_e2e ... ok
+test registrations_ignored_when_running ... ok
+test full_state_lifecycle ... ok
+
+test result: ok. 79 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test id_benchmarks::latency_single_id_operation ... ok
+test id_benchmarks::throughput_batch_id_creation ... ok
+test id_benchmarks::benchmark_id_creation_100k ... ok
+test id_benchmarks::stress_id_creation_1m ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+
+running 3 tests
+test submit_job_returns_error_when_datastore_create_fails ... ok
+test submit_job_returns_error_when_broker_publish_fails ... ok
+test start_job_returns_scheduled_state_when_broker_fails_to_publish_task ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test first_top_level_task_is_scheduled_immediately_when_job_submitted ... ok
+test job_completes_when_tasks_are_finished ... ok
+test subjob_scheduled_when_parent_job_running ... ok
+test parallel_tasks_scheduled_when_job_submitted ... ok
+test each_tasks_scheduled_when_job_submitted ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 5 tests
+test db_concurrent_write_test ... ignored, requires running PostgreSQL with migrated schema
+test db_query_under_load_test ... ignored, requires running PostgreSQL with migrated schema
+test db_write_throughput_test ... ignored, requires running PostgreSQL with migrated schema
+test e2e_load_test_1000_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+test e2e_load_test_100_tasks ... ignored, requires running PostgreSQL and RabbitMQ
+
+test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 43 tests
+test cors_layer_creation_succeeds ... ok
+test broker_proxy_check_init_returns_error_when_not_initialized ... ok
+test broker_proxy_clone_inner_creates_independent_copy ... ok
+test broker_proxy_set_broker_allows_custom_implementation ... ok
+test create_runtime_from_config_fails_clearly_when_runtime_is_invalid ... ok
+test broker_proxy_init_creates_inmemory_broker ... ok
+test broker_proxy_can_be_used_as_broker_trait ... ok
+test datastore_proxy_can_be_used_as_datastore_trait ... ok
+test datastore_proxy_init_creates_inmemory_datastore ... ok
+test datastore_proxy_set_datastore_allows_custom_implementation ... ok
+test engine_register_middleware_allowed_when_idle ... ok
+test engine_debug_shows_state_and_mode ... ok
+test create_datastore_inmemory_creates_datastore ... ok
+test datastore_proxy_clone_inner_creates_independent_copy ... ok
+test engine_register_runtime_ignored_when_already_set ... ok
+test engine_register_runtime_allowed_when_idle ... ok
+test engine_register_broker_provider_allowed_when_idle ... ok
+test engine_set_mode_only_allowed_when_idle ... ok
+test engine_register_datastore_provider_allowed_when_idle ... ok
+test state_idle_can_transition_to_any_state ... ok
+test state_can_transition_to_terminating_from_running ... ok
+test engine_terminate_fails_when_not_running ... ok
+test http_log_config_default_creates_successfully ... ok
+test coordinator_stop_cancels_tasks ... ok
+test coordinator_submit_job_creates_job_in_datastore ... ok
+test coordinator_submit_job_generates_id_when_missing ... ok
+test coordinator_submit_job_sets_created_at ... ok
+test start_coordinator_initializes_broker_and_datastore ... ok
+test engine_submit_job_returns_error_when_not_coordinator_mode ... ok
+test engine_run_starts_without_panic ... ok
+test engine_register_endpoint_ignored_when_running ... ok
+test start_standalone_initializes_broker_and_datastore ... ok
+test engine_register_middleware_ignored_when_running ... ok
+test engine_submit_job_submits_to_coordinator_in_standalone_mode ... ok
+test broker_proxy_init_accepts_rabbitmq_type ... ok
+test state_is_terminal_for_terminated ... ok
+test http_log_config_debug_shows_level ... ok
+test engine_new_creates_idle_engine ... ok
+test engine_submit_job_returns_error_when_engine_not_running ... ok
+test engine_register_endpoint_allowed_when_idle ... ok
+test create_broker_inmemory_creates_broker ... ok
+test start_worker_initializes_broker ... ok
+test engine_start_fails_when_not_idle ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 7 tests
+test handle_started_updates_task_state ... ok
+test handle_log_part_stores_log_parts ... ok
+test handle_heartbeat_updates_node_status ... ok
+test handle_log_part_multiple_parts_for_same_task ... ok
+test handle_redelivered_requeues_task ... ok
+test handle_error_updates_task_state ... ok
+test handle_error_publishes_to_failed_queue ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 20 tests
+test hostenv_middleware_empty_does_nothing ... ok
+test hostenv_middleware_does_not_inject_on_other_events ... ok
+test hostenv_middleware_injects_env_vars_on_state_change ... ok
+test job_middleware_after_runs_after_handler ... ok
+test job_no_middleware_calls_handler_directly ... ok
+test log_middleware_redact_on_read ... ok
+test node_middleware_after_runs_after_handler ... ok
+test node_middleware_before_runs_before_handler ... ok
+test node_no_middleware_calls_handler_directly ... ok
+test task_middleware_before_runs_before_handler ... ok
+test task_middleware_after_runs_after_handler ... ok
+test task_middleware_error_propagates ... ok
+test task_no_middleware_calls_handler_directly ... ok
+test job_middleware_before_runs_before_handler ... ok
+test log_no_middleware_calls_handler_with_original_logs ... ok
+test job_middleware_error_propagates ... ok
+test hostenv_middleware_preserves_existing_env ... ok
+test node_middleware_error_propagates ... ok
+test hostenv_middleware_multiple_vars_injected ... ok
+test middleware_composer_chains_multiple_middleware_types ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test pokemon_api_benchmark_through_twerk ... ignored, requires running twerk server on localhost:8000 and Pokemon API on port 8080
+test verify_pokemon_api_direct ... ignored, requires Pokemon API running on port 8080
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test profiling_benchmarks::service_time_distribution ... ok
+test profiling_benchmarks::latency_id_creation_p50_p90_p99 ... ok
+test profiling_benchmarks::throughput_batch_operations ... ok
+▮▮▮▮ root:ci-source (6s 71ms, e2fefae6)
+
+Tasks: 1 skipped
+ Time: 6s 593ms (interrupted)

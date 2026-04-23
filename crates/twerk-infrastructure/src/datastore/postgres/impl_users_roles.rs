@@ -15,7 +15,7 @@ impl PostgresDatastore {
         let username = user.username.as_ref().ok_or(DatastoreError::InvalidInput(
             "username is required".to_string(),
         ))?;
-        let name = user.name.as_deref().map_or("", |s| s);
+        let name = user.name.as_deref().unwrap_or("");
         let password_hash = user
             .password_hash
             .as_ref()
@@ -85,7 +85,7 @@ impl PostgresDatastore {
         let slug = role.slug.as_ref().ok_or(DatastoreError::InvalidInput(
             "role slug is required".to_string(),
         ))?;
-        let name = role.name.as_deref().map_or("", |s| s);
+        let name = role.name.as_deref().unwrap_or("");
 
         let q = r"INSERT INTO roles (id, slug, name, created_at) VALUES ($1, $2, $3, $4)";
         let query = sqlx::query(q).bind(&**id).bind(slug).bind(name).bind(

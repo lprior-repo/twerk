@@ -1,0 +1,42 @@
+crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with - in InMemoryRepository::paginate_vec
+crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with * in InMemoryRepository::paginate_vec
+crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with == in InMemoryRepository::paginate_vec
+crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with > in InMemoryRepository::paginate_vec
+crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with <= in InMemoryRepository::paginate_vec
+crates/twerk-core/src/repository_inmemory.rs:72:9: replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:93:9: replace <impl Repository for InMemoryRepository>::update_task -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:101:9: replace <impl Repository for InMemoryRepository>::get_task_by_id -> Result<Task> with Ok(Default::default())
+crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![])
+crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![Default::default()])
+crates/twerk-core/src/repository_inmemory.rs:115:21: replace && with || in <impl Repository for InMemoryRepository>::get_active_tasks
+crates/twerk-core/src/repository_inmemory.rs:113:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_tasks
+crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![])
+crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![Default::default()])
+crates/twerk-core/src/repository_inmemory.rs:129:41: replace == with != in <impl Repository for InMemoryRepository>::get_all_tasks_for_job
+crates/twerk-core/src/repository_inmemory.rs:137:9: replace <impl Repository for InMemoryRepository>::get_next_task -> Result<Task> with Ok(Default::default())
+crates/twerk-core/src/repository_inmemory.rs:156:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:152:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:150:41: replace == with != in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:154:45: replace == with != in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with == in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with < in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with >= in <impl Repository for InMemoryRepository>::get_next_task
+crates/twerk-core/src/repository_inmemory.rs:164:9: replace <impl Repository for InMemoryRepository>::create_task_log_part -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:190:9: replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:211:9: replace <impl Repository for InMemoryRepository>::update_node -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:219:9: replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())
+crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![])
+crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![Default::default()])
+crates/twerk-core/src/repository_inmemory.rs:230:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_nodes
+crates/twerk-core/src/repository_inmemory.rs:238:9: replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:259:9: replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:267:9: replace <impl Repository for InMemoryRepository>::get_job_by_id -> Result<Job> with Ok(Default::default())
+crates/twerk-core/src/repository_inmemory.rs:296:9: replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])
+crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![Default::default()])
+crates/twerk-core/src/repository_inmemory.rs:319:35: replace == with != in <impl Repository for InMemoryRepository>::get_active_scheduled_jobs
+crates/twerk-core/src/repository_inmemory.rs:339:9: replace <impl Repository for InMemoryRepository>::get_scheduled_job_by_id -> Result<ScheduledJob> with Ok(Default::default())
+crates/twerk-core/src/repository_inmemory.rs:348:9: replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:356:9: replace <impl Repository for InMemoryRepository>::delete_scheduled_job -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:362:9: replace <impl Repository for InMemoryRepository>::create_user -> Result<()> with Ok(())
+crates/twerk-core/src/repository_inmemory.rs:379:9: replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())

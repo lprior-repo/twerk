@@ -64,9 +64,7 @@ impl InMemoryTriggerDatastore {
             event: req.event.trim().to_string(),
             condition: req.condition,
             action: req.action.trim().to_string(),
-            metadata: req
-                .metadata
-                .map_or_else(std::collections::HashMap::new, |v| v.clone()),
+            metadata: req.metadata.unwrap_or_default(),
             version: 1,
             created_at: now_utc,
             updated_at: now_utc,

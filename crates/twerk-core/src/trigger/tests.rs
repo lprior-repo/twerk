@@ -1,9 +1,9 @@
 //! Unit, property-based, and formal verification tests for the trigger system.
 //!
 //! This module contains comprehensive tests including:
-//! - Unit tests for `TriggerId`, `TriggerState`, `TriggerVariant`, `TriggerError`
+//! - Unit tests for TriggerId, TriggerState, TriggerVariant, TriggerError
 //! - State transition matrix validation tests
-//! - `InMemoryTriggerRegistry` integration tests
+//! - InMemoryTriggerRegistry integration tests
 //! - Proptest property-based tests
 //! - Kani formal verification proofs
 
@@ -19,7 +19,6 @@ use crate::trigger::{is_valid_transition, InMemoryTriggerRegistry, TriggerRegist
 // =============================================================================
 
 #[cfg(test)]
-#[allow(clippy::module_inception)]
 mod tests {
     use super::*;
 
@@ -86,7 +85,7 @@ mod tests {
     #[test]
     fn trigger_id_returns_ok_when_input_contains_unicode() {
         let result = TriggerId::new("触发器");
-        assert!(result.is_ok());
+        assert_eq!(result, Ok(TriggerId::from("触发器")));
     }
 
     #[test]
@@ -1492,25 +1491,246 @@ mod kani_proofs {
     #[cfg(kani)]
     #[kani::proof]
     fn verify_state_transition_matrix_completeness() {
-        let states = [
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Active,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Active,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Active,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
             TriggerState::Active,
             TriggerState::Paused,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Paused,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Paused,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Disabled,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Disabled,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Disabled,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Error,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Error,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Active,
+            TriggerState::Error,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Active,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Active,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Active,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Paused,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Paused,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Paused,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Disabled,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Disabled,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Disabled,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Error,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Error,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Paused,
+            TriggerState::Error,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Active,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Active,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Active,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Paused,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Paused,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Paused,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Disabled,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Disabled,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Disabled,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
             TriggerState::Disabled,
             TriggerState::Error,
-        ];
-        let variants = [
             TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Error,
             TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Disabled,
+            TriggerState::Error,
             TriggerVariant::Polling,
-        ];
-
-        for from in &states {
-            for to in &states {
-                for variant in &variants {
-                    let _ = is_valid_transition(*from, *to, *variant);
-                }
-            }
-        }
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Active,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Active,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Active,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Paused,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Paused,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Paused,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Disabled,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Disabled,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Disabled,
+            TriggerVariant::Polling,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Error,
+            TriggerVariant::Cron,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Error,
+            TriggerVariant::Webhook,
+        ));
+        kani::cover(is_valid_transition(
+            TriggerState::Error,
+            TriggerState::Error,
+            TriggerVariant::Polling,
+        ));
     }
 
     #[cfg(kani)]

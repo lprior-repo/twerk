@@ -319,7 +319,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_concurrent_delete_during_iterate() {
         use std::sync::Arc;
         use std::thread;
@@ -359,7 +358,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_concurrent_iterate_and_set() {
         use std::sync::Arc;
         use std::thread;

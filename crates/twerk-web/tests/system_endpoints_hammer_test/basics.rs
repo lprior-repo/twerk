@@ -1,6 +1,9 @@
 use axum::http::StatusCode;
 
-use crate::support::{assert_health_up, assert_metrics, assert_node_entry, node, TestHarness};
+use super::black_box_support::{
+    assert_health_up, assert_metrics, assert_node_entry, direct_task, job_with_state, node,
+    TestHarness,
+};
 
 #[tokio::test]
 async fn health_returns_200_with_status_up() {
@@ -31,14 +34,14 @@ async fn metrics_are_zeroed_for_empty_state() {
 async fn metrics_reflect_seeded_running_work_and_nodes() {
     let harness = TestHarness::new().await;
     harness
-        .seed_job(&crate::support::job_with_state(
+        .seed_job(&job_with_state(
             "00000000-0000-0000-0000-000000000101",
             "running-job",
             twerk_core::job::JobState::Running,
         ))
         .await;
     harness
-        .seed_task(&crate::support::direct_task(
+        .seed_task(&direct_task(
             "00000000-0000-0000-0000-000000000101",
             "00000000-0000-0000-0000-000000000201",
             "running-task",

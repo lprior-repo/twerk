@@ -1,4 +1,4 @@
-//! `TaskState`: the primary execution state that runs a container image.
+//! TaskState: the primary execution state that runs a container image.
 //!
 //! Enforces all invariants at construction time (INV-TS1 through INV-TS11).
 //! Immutable after construction — no setters.
@@ -53,7 +53,7 @@ impl TaskState {
     /// Validated constructor.
     ///
     /// Returns `Err` if any invariant (INV-TS1 through INV-TS11) is violated.
-    /// Field types that are already-validated newtypes (`ImageRef`, `ShellScript`,
+    /// Field types that are already-validated newtypes (ImageRef, ShellScript,
     /// etc.) guarantee their own invariants via the type system.
     #[allow(clippy::too_many_arguments)]
     pub fn new(

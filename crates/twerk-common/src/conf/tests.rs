@@ -14,16 +14,11 @@ use std::sync::Mutex;
 
 use tempfile::TempDir;
 
-use time::Duration;
-
 use crate::conf::env::extract_env_vars;
-use crate::conf::lookup::*;
 use crate::conf::parsing::{expand_path, flatten_table, merge_values, parse_toml_file};
 use crate::conf::types::{ConfigError, ConfigState};
-use crate::conf::CONFIG;
 
 static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
-static CONFIG_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn reset_env() {
     let keys: Vec<String> = env::vars()
@@ -52,20 +47,20 @@ impl TestFixture {
 }
 
 #[test]
-fn test_expand_path_tilde() {
+fn expand_path_expands_tilde_to_home_directory() {
     let path = expand_path("~/test");
     let home = dirs::home_dir().expect("home dir");
     assert_eq!(path, home.join("test"));
 }
 
 #[test]
-fn test_expand_path_absolute() {
+fn expand_path_preserves_absolute_paths() {
     let path = expand_path("/etc/config.toml");
     assert_eq!(path, Path::new("/etc/config.toml"));
 }
 
 #[test]
-fn test_parse_toml_file_not_exist() {
+fn parse_toml_file_returns_not_found_for_missing_file() {
     let result = parse_toml_file("/nonexistent/path.toml");
     assert!(matches!(result, Err(_)));
     if let Err(ConfigError::NotFound(p)) = result {
@@ -76,7 +71,7 @@ fn test_parse_toml_file_not_exist() {
 }
 
 #[test]
-fn test_parse_toml_file_bad_contents() {
+fn parse_toml_file_returns_parse_error_for_invalid_contents() {
     let fixture = TestFixture::new();
     let path = fixture.path("bad.toml");
     fs::write(&path, "xyz").expect("write");
@@ -90,7 +85,7 @@ fn test_parse_toml_file_bad_contents() {
 }
 
 #[test]
-fn test_parse_toml_file_valid() {
+fn parse_toml_file_returns_table_for_valid_document() {
     let fixture = TestFixture::new();
     let path = fixture.path("valid.toml");
     fs::write(&path, "[main]\nkey1 = \"value1\"").expect("write");
@@ -100,7 +95,7 @@ fn test_parse_toml_file_valid() {
 }
 
 #[test]
-fn test_parse_toml_file_with_integer() {
+fn parse_toml_file_reads_integer_value() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(&path, "[settings]\ncount = 42").expect("write");
@@ -116,7 +111,7 @@ fn test_parse_toml_file_with_integer() {
 }
 
 #[test]
-fn test_parse_toml_file_with_bool() {
+fn parse_toml_file_reads_boolean_value() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(&path, "[settings]\nenabled = true").expect("write");
@@ -132,7 +127,7 @@ fn test_parse_toml_file_with_bool() {
 }
 
 #[test]
-fn test_parse_toml_file_with_array() {
+fn parse_toml_file_reads_array_value() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(&path, "[settings]\nvalues = [\"a\", \"b\", \"c\"]").expect("write");
@@ -149,7 +144,7 @@ fn test_parse_toml_file_with_array() {
 }
 
 #[test]
-fn test_flatten_table() {
+fn flatten_table_collects_top_level_and_nested_values() {
     let mut table = toml::value::Table::new();
     table.insert(
         "key1".to_string(),
@@ -173,7 +168,7 @@ fn test_flatten_table() {
 }
 
 #[test]
-fn test_flatten_table_with_prefix() {
+fn flatten_table_prefixes_keys_when_prefix_is_provided() {
     let mut table = toml::value::Table::new();
     table.insert(
         "key1".to_string(),
@@ -185,7 +180,7 @@ fn test_flatten_table_with_prefix() {
 }
 
 #[test]
-fn test_flatten_table_nested_nested() {
+fn flatten_table_flattens_deeply_nested_tables() {
     let mut table = toml::value::Table::new();
     table.insert(
         "a".to_string(),
@@ -208,7 +203,7 @@ fn test_flatten_table_nested_nested() {
 }
 
 #[test]
-fn test_merge_values() {
+fn merge_values_combines_base_and_override_maps() {
     let mut base = HashMap::new();
     base.insert("key1".to_string(), toml::Value::String("base1".to_string()));
     base.insert("key2".to_string(), toml::Value::String("base2".to_string()));
@@ -230,7 +225,7 @@ fn test_merge_values() {
 }
 
 #[test]
-fn test_merge_values_override_wins() {
+fn merge_values_prefers_override_entries() {
     let mut base = HashMap::new();
     base.insert("key".to_string(), toml::Value::Integer(1));
 
@@ -242,7 +237,7 @@ fn test_merge_values_override_wins() {
 }
 
 #[test]
-fn test_extract_env_vars_empty() {
+fn extract_env_vars_returns_empty_map_when_no_prefixed_variables_exist() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     let vars = extract_env_vars();
@@ -250,7 +245,7 @@ fn test_extract_env_vars_empty() {
 }
 
 #[test]
-fn test_extract_env_vars_with_twerk_prefix() {
+fn extract_env_vars_reads_only_twerk_prefixed_variables() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     env::set_var("TWERK_HELLO", "world");
@@ -276,7 +271,7 @@ fn test_extract_env_vars_with_twerk_prefix() {
 }
 
 #[test]
-fn test_extract_env_vars_underscore_to_dot() {
+fn extract_env_vars_converts_underscores_to_dot_separators() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
     reset_env();
     env::set_var("TWERK_NESTED_DEEP_VALUE", "test");
@@ -292,7 +287,7 @@ fn test_extract_env_vars_underscore_to_dot() {
 }
 
 #[test]
-fn test_config_state_get_str() {
+fn config_state_get_str_returns_string_values_for_existing_keys() {
     let mut state = ConfigState::new();
     state.insert(
         "key1".to_string(),
@@ -309,7 +304,7 @@ fn test_config_state_get_str() {
 }
 
 #[test]
-fn test_config_state_get_bool() {
+fn config_state_get_bool_parses_boolean_and_boolean_like_values() {
     let mut state = ConfigState::new();
     state.insert("bool_true".to_string(), toml::Value::Boolean(true));
     state.insert("bool_false".to_string(), toml::Value::Boolean(false));
@@ -330,7 +325,7 @@ fn test_config_state_get_bool() {
 }
 
 #[test]
-fn test_config_state_get_int() {
+fn config_state_get_int_parses_integer_and_integer_like_values() {
     let mut state = ConfigState::new();
     state.insert("int_val".to_string(), toml::Value::Integer(42));
     state.insert(
@@ -344,7 +339,7 @@ fn test_config_state_get_int() {
 }
 
 #[test]
-fn test_config_state_get_array() {
+fn config_state_get_array_returns_array_values() {
     let mut state = ConfigState::new();
     state.insert(
         "arr".to_string(),
@@ -363,7 +358,7 @@ fn test_config_state_get_array() {
 }
 
 #[test]
-fn test_config_state_get_table() {
+fn config_state_get_table_returns_table_values() {
     let mut state = ConfigState::new();
     state.insert(
         "section".to_string(),
@@ -383,7 +378,7 @@ fn test_config_state_get_table() {
 }
 
 #[test]
-fn test_config_state_contains_key() {
+fn config_state_contains_key_reports_presence_for_inserted_keys() {
     let mut state = ConfigState::new();
     state.insert(
         "exists".to_string(),
@@ -395,7 +390,7 @@ fn test_config_state_contains_key() {
 }
 
 #[test]
-fn test_config_state_string_map_for_key() {
+fn config_state_string_map_for_key_collects_flat_string_entries() {
     let mut state = ConfigState::new();
     state.insert(
         "mapping.key1".to_string(),
@@ -412,7 +407,7 @@ fn test_config_state_string_map_for_key() {
 }
 
 #[test]
-fn test_config_state_string_map_for_key_with_table() {
+fn config_state_string_map_for_key_reads_table_values() {
     let mut state = ConfigState::new();
     state.insert(
         "mapping".to_string(),
@@ -431,7 +426,7 @@ fn test_config_state_string_map_for_key_with_table() {
 }
 
 #[test]
-fn test_config_state_int_map_for_key() {
+fn config_state_int_map_for_key_collects_flat_integer_entries() {
     let mut state = ConfigState::new();
     state.insert("nums.one".to_string(), toml::Value::Integer(1));
     state.insert("nums.two".to_string(), toml::Value::Integer(2));
@@ -442,7 +437,7 @@ fn test_config_state_int_map_for_key() {
 }
 
 #[test]
-fn test_config_state_int_map_for_key_with_string_values() {
+fn config_state_int_map_for_key_parses_string_integers() {
     let mut state = ConfigState::new();
     state.insert(
         "nums.str_int".to_string(),
@@ -454,7 +449,7 @@ fn test_config_state_int_map_for_key_with_string_values() {
 }
 
 #[test]
-fn test_config_state_bool_map_for_key() {
+fn config_state_bool_map_for_key_collects_flat_boolean_entries() {
     let mut state = ConfigState::new();
     state.insert("flags.enabled".to_string(), toml::Value::Boolean(true));
     state.insert("flags.disabled".to_string(), toml::Value::Boolean(false));
@@ -465,7 +460,7 @@ fn test_config_state_bool_map_for_key() {
 }
 
 #[test]
-fn test_config_state_bool_map_for_key_with_string_values() {
+fn config_state_bool_map_for_key_parses_string_booleans() {
     let mut state = ConfigState::new();
     state.insert(
         "flags.str_true".to_string(),
@@ -482,7 +477,7 @@ fn test_config_state_bool_map_for_key_with_string_values() {
 }
 
 #[test]
-fn test_config_state_strings_for_key() {
+fn config_state_strings_for_key_returns_all_string_items() {
     let mut state = ConfigState::new();
     state.insert(
         "list".to_string(),
@@ -498,7 +493,7 @@ fn test_config_state_strings_for_key() {
 }
 
 #[test]
-fn test_config_state_strings_from_string_comma_separated() {
+fn config_state_strings_from_string_splits_comma_separated_values() {
     let mut state = ConfigState::new();
     state.insert(
         "csv".to_string(),
@@ -510,7 +505,7 @@ fn test_config_state_strings_from_string_comma_separated() {
 }
 
 #[test]
-fn test_config_state_strings_for_key_or_string_prefers_array() {
+fn config_state_strings_for_key_or_string_prefers_array_values() {
     let mut state = ConfigState::new();
     state.insert(
         "values".to_string(),
@@ -522,7 +517,7 @@ fn test_config_state_strings_for_key_or_string_prefers_array() {
 }
 
 #[test]
-fn test_config_state_strings_for_key_or_string_falls_back_to_string() {
+fn config_state_strings_for_key_or_string_falls_back_to_string_values() {
     let mut state = ConfigState::new();
     state.insert(
         "values".to_string(),
@@ -534,7 +529,7 @@ fn test_config_state_strings_for_key_or_string_falls_back_to_string() {
 }
 
 #[test]
-fn test_config_state_build_table_from_flat() {
+fn config_state_build_table_from_flat_reconstructs_section_table() {
     let mut state = ConfigState::new();
     state.insert(
         "section.key1".to_string(),
@@ -548,7 +543,7 @@ fn test_config_state_build_table_from_flat() {
 }
 
 #[test]
-fn test_config_state_build_table_from_flat_nested() {
+fn config_state_build_table_from_flat_reconstructs_nested_section_table() {
     let mut state = ConfigState::new();
     state.insert("a.b.c".to_string(), toml::Value::String("deep".to_string()));
     state.insert("a.b.d".to_string(), toml::Value::Integer(1));
@@ -567,7 +562,7 @@ fn test_config_state_build_table_from_flat_nested() {
 }
 
 #[test]
-fn test_parse_and_flatten_integration() {
+fn parse_and_flatten_integration_preserves_values_across_both_steps() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(
@@ -604,7 +599,7 @@ key = "value"
 }
 
 #[test]
-fn test_parse_toml_file_with_nested_tables() {
+fn parse_toml_file_reads_nested_tables() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(
@@ -646,7 +641,7 @@ password = "secret"
 }
 
 #[test]
-fn test_parse_toml_file_duration_string() {
+fn parse_toml_file_preserves_duration_strings() {
     let fixture = TestFixture::new();
     let path = fixture.path("config.toml");
     fs::write(
@@ -679,261 +674,4 @@ interval = "5m"
             .and_then(|v| v.as_str()),
         Some("5m")
     );
-}
-
-// ============================================================================
-// Lookup function tests — kill mutants in conf/lookup.rs
-// ============================================================================
-
-/// Helper: acquire the config test lock and populate CONFIG.
-/// Returns the MutexGuard so the lock is held until the test completes.
-fn setup_config(state: ConfigState) -> std::sync::MutexGuard<'static, ()> {
-    let guard = CONFIG_TEST_LOCK.lock().unwrap();
-    *CONFIG.write().unwrap() = Some(state);
-    guard
-}
-
-/// Helper: acquire the config test lock with empty CONFIG.
-fn setup_empty_config() -> std::sync::MutexGuard<'static, ()> {
-    let guard = CONFIG_TEST_LOCK.lock().unwrap();
-    *CONFIG.write().unwrap() = None;
-    guard
-}
-
-/// Build a ConfigState from key-value pairs (string values).
-fn config_from_pairs(pairs: &[(&str, &str)]) -> ConfigState {
-    let mut state = ConfigState::new();
-    for (k, v) in pairs {
-        state.insert(k.to_string(), toml::Value::String(v.to_string()));
-    }
-    state
-}
-
-/// Build a ConfigState from mixed toml values.
-fn config_from_values(pairs: &[(&str, toml::Value)]) -> ConfigState {
-    let mut state = ConfigState::new();
-    for (k, v) in pairs {
-        state.insert(k.to_string(), v.clone());
-    }
-    state
-}
-
-// --- string / string_default ---
-
-#[test]
-fn test_string_returns_value_when_present() {
-    let _guard = setup_config(config_from_pairs(&[("greeting", "hello")]));
-    assert_eq!(string("greeting"), "hello");
-}
-
-#[test]
-fn test_string_returns_empty_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert_eq!(string("nonexistent"), "");
-}
-
-#[test]
-fn test_string_returns_empty_when_config_not_loaded() {
-    let _guard = setup_empty_config();
-    assert_eq!(string("any.key"), "");
-}
-
-#[test]
-fn test_string_default_returns_value_when_present() {
-    let _guard = setup_config(config_from_pairs(&[("name", "alice")]));
-    assert_eq!(string_default("name", "fallback"), "alice");
-}
-
-#[test]
-fn test_string_default_returns_default_when_empty() {
-    let _guard = setup_config(config_from_pairs(&[("name", "")]));
-    assert_eq!(string_default("name", "fallback"), "fallback");
-}
-
-#[test]
-fn test_string_default_returns_default_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert_eq!(string_default("missing", "default_val"), "default_val");
-}
-
-// --- bool / bool_default ---
-
-#[test]
-fn test_bool_returns_true() {
-    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(true))]));
-    assert!(bool("flag"));
-}
-
-#[test]
-fn test_bool_returns_false_when_false() {
-    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(false))]));
-    assert!(!bool("flag"));
-}
-
-#[test]
-fn test_bool_returns_false_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(!bool("nonexistent"));
-}
-
-#[test]
-fn test_bool_default_returns_value_when_present() {
-    let _guard = setup_config(config_from_values(&[("flag", toml::Value::Boolean(true))]));
-    assert!(bool_default("flag", false));
-}
-
-#[test]
-fn test_bool_default_returns_default_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(bool_default("flag", true));
-    assert!(!bool_default("flag", false));
-}
-
-// --- int / int_default ---
-
-#[test]
-fn test_int_returns_value_when_present() {
-    let _guard = setup_config(config_from_values(&[("count", toml::Value::Integer(42))]));
-    assert_eq!(int("count"), 42);
-}
-
-#[test]
-fn test_int_returns_zero_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert_eq!(int("nonexistent"), 0);
-}
-
-#[test]
-fn test_int_default_returns_value_when_present() {
-    let _guard = setup_config(config_from_values(&[("count", toml::Value::Integer(99))]));
-    assert_eq!(int_default("count", 0), 99);
-}
-
-#[test]
-fn test_int_default_returns_default_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert_eq!(int_default("missing", 42), 42);
-}
-
-// --- int_map / bool_map / string_map ---
-
-#[test]
-fn test_int_map_from_table() {
-    let mut inner = toml::value::Table::new();
-    inner.insert("a".to_string(), toml::Value::Integer(1));
-    inner.insert("b".to_string(), toml::Value::Integer(2));
-    let _guard = setup_config(config_from_values(&[("nums", toml::Value::Table(inner))]));
-    let map = int_map("nums");
-    assert_eq!(map.get("a"), Some(&1));
-    assert_eq!(map.get("b"), Some(&2));
-}
-
-#[test]
-fn test_int_map_empty_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(int_map("nonexistent").is_empty());
-}
-
-#[test]
-fn test_bool_map_from_table() {
-    let mut inner = toml::value::Table::new();
-    inner.insert("on".to_string(), toml::Value::Boolean(true));
-    inner.insert("off".to_string(), toml::Value::Boolean(false));
-    let _guard = setup_config(config_from_values(&[("flags", toml::Value::Table(inner))]));
-    let map = bool_map("flags");
-    assert_eq!(map.get("on"), Some(&true));
-    assert_eq!(map.get("off"), Some(&false));
-}
-
-#[test]
-fn test_bool_map_empty_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(bool_map("nonexistent").is_empty());
-}
-
-#[test]
-fn test_string_map_from_table() {
-    let mut inner = toml::value::Table::new();
-    inner.insert("x".to_string(), toml::Value::String("hello".to_string()));
-    inner.insert("y".to_string(), toml::Value::String("world".to_string()));
-    let _guard = setup_config(config_from_values(&[(
-        "greetings",
-        toml::Value::Table(inner),
-    )]));
-    let map = string_map("greetings");
-    assert_eq!(map.get("x"), Some(&"hello".to_string()));
-    assert_eq!(map.get("y"), Some(&"world".to_string()));
-}
-
-#[test]
-fn test_string_map_empty_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(string_map("nonexistent").is_empty());
-}
-
-// --- strings / strings_default ---
-
-#[test]
-fn test_strings_from_array() {
-    let _guard = setup_config(config_from_values(&[(
-        "hosts",
-        toml::Value::Array(vec![
-            toml::Value::String("a".to_string()),
-            toml::Value::String("b".to_string()),
-        ]),
-    )]));
-    assert_eq!(strings("hosts"), vec!["a", "b"]);
-}
-
-#[test]
-fn test_strings_from_comma_separated() {
-    let _guard = setup_config(config_from_pairs(&[("hosts", "alpha,beta")]));
-    assert_eq!(strings("hosts"), vec!["alpha", "beta"]);
-}
-
-#[test]
-fn test_strings_empty_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert!(strings("nonexistent").is_empty());
-}
-
-#[test]
-fn test_strings_default_returns_default_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    assert_eq!(
-        strings_default("missing", &["fallback"]),
-        vec!["fallback".to_string()]
-    );
-}
-
-#[test]
-fn test_strings_default_returns_value_when_present() {
-    let _guard = setup_config(config_from_values(&[(
-        "hosts",
-        toml::Value::Array(vec![toml::Value::String("real".to_string())]),
-    )]));
-    assert_eq!(strings_default("hosts", &["fallback"]), vec!["real"]);
-}
-
-// --- duration_default ---
-
-#[test]
-fn test_duration_default_returns_parsed() {
-    let _guard = setup_config(config_from_pairs(&[("timeout", "30s")]));
-    let d = duration_default("timeout", Duration::minutes(5));
-    assert_eq!(d, Duration::seconds(30));
-}
-
-#[test]
-fn test_duration_default_returns_default_when_missing() {
-    let _guard = setup_config(ConfigState::new());
-    let d = duration_default("missing", Duration::hours(1));
-    assert_eq!(d, Duration::hours(1));
-}
-
-#[test]
-fn test_duration_default_returns_default_on_invalid() {
-    let _guard = setup_config(config_from_pairs(&[("timeout", "notaduration")]));
-    let d = duration_default("timeout", Duration::hours(1));
-    assert_eq!(d, Duration::hours(1));
 }

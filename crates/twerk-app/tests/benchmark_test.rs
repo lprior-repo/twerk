@@ -7,6 +7,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::redundant_pattern_matching)]
 
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use twerk_core::id::TaskId;
 
@@ -25,7 +26,9 @@ pub fn benchmark_id_creation(iterations: usize) -> Duration {
 pub fn benchmark_id_creation_validated(iterations: usize) -> Duration {
     let start = Instant::now();
     (0..iterations).for_each(|i| {
-        let _ = TaskId::new(format!("task-{i:08}"));
+        let task_id = TaskId::new(format!("task-{i:08}"))
+            .expect("zero-padded benchmark task ids should always be valid");
+        black_box(task_id);
     });
     start.elapsed()
 }

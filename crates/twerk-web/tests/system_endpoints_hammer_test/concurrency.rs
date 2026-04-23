@@ -1,13 +1,13 @@
 use axum::http::StatusCode;
 use tokio::task::JoinSet;
 
-use crate::support::{assert_health_up, assert_metrics, node, TestHarness};
+use super::black_box_support::{assert_health_up, assert_metrics, node, TestHarness, TestResponse};
 
 async fn spawn_concurrent_requests(
     harness: &TestHarness,
     uri: &'static str,
     count: usize,
-) -> Vec<crate::support::TestResponse> {
+) -> Vec<TestResponse> {
     let mut set = JoinSet::new();
 
     (0..count).for_each(|_| {
@@ -15,12 +15,7 @@ async fn spawn_concurrent_requests(
         set.spawn(async move { harness.get(uri).await });
     });
 
-    let mut responses = Vec::with_capacity(count);
-    while let Some(result) = set.join_next().await {
-        responses.push(result.unwrap());
-    }
-
-    responses
+    set.join_all().await
 }
 
 #[tokio::test]

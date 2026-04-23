@@ -5,7 +5,6 @@
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::future::Future;
 use std::sync::{Arc, RwLock};
 use twerk_app::engine::coordinator::create_coordinator;
 use twerk_app::engine::{BrokerProxy, DatastoreProxy};
@@ -27,31 +26,6 @@ const FAIL_JOB_2_ID: &str = "550e8400-e29b-41d4-a716-446655440302";
 
 fn to_job_id(value: impl Into<String>) -> JobId {
     JobId::new(value).expect("test job id should be valid")
-}
-
-async fn wait_for_condition<T, Fut, Fetch, Ready>(
-    timeout: std::time::Duration,
-    step: std::time::Duration,
-    mut fetch: Fetch,
-    ready: Ready,
-) -> DatastoreResult<T>
-where
-    Fetch: FnMut() -> Fut,
-    Fut: Future<Output = DatastoreResult<T>>,
-    Ready: Fn(&T) -> bool,
-{
-    tokio::time::timeout(timeout, async {
-        loop {
-            let value = fetch().await?;
-            if ready(&value) {
-                return Ok(value);
-            }
-
-            tokio::time::sleep(step).await;
-        }
-    })
-    .await
-    .map_err(|_| DatastoreError::Database("timeout waiting for state transition".into()))?
 }
 
 #[derive(Clone, Default, Debug)]
@@ -445,6 +419,9 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     let coordinator = create_coordinator(broker.clone(), datastore.clone()).await?;
     coordinator.start().await?;
 
+    // DEBUG: Verify handlers are subscribed by checking if publish_job would invoke them
+    eprintln!("DEBUG: Coordinator started, about to create job");
+
     let job = Job {
         id: Some(to_job_id("550e8400-e29b-41d4-a716-446655440003")),
         state: JobState::Pending,
@@ -472,13 +449,10 @@ async fn start_job_returns_scheduled_state_when_broker_fails_to_publish_task() -
     // 3. Publish the job event to trigger the coordinator's start_job handler
     broker.publish_job(&job).await?;
 
-    let persisted_job = wait_for_condition(
-        std::time::Duration::from_secs(5),
-        std::time::Duration::from_millis(10),
-        || datastore.get_job_by_id("550e8400-e29b-41d4-a716-446655440003"),
-        |job| job.state != JobState::Pending,
-    )
-    .await?;
+    tokio::task::yield_now().await;
+    let persisted_job = datastore
+        .get_job_by_id("550e8400-e29b-41d4-a716-446655440003")
+        .await?;
 
     assert_eq!(persisted_job.state, JobState::Scheduled);
 

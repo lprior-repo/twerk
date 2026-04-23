@@ -34,7 +34,7 @@ fn base_queue_name(qname: &str) -> &str {
             let dotted = format!("{queue_name}.");
             qname.starts_with(&dotted)
         })
-        .map_or(qname, |s| s)
+        .unwrap_or(qname)
 }
 
 /// Extracts `engine_id` from a prefixed queue name.

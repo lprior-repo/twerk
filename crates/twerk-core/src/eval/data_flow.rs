@@ -1,6 +1,6 @@
 //! ASL data flow processing — `input_path`, `result_path`, `output_path`.
 //!
-//! Implements the subset of `JSONPath` needed for AWS Step Functions data flow:
+//! Implements the subset of JSONPath needed for AWS Step Functions data flow:
 //! `$`, `$.field`, `$.field.nested`, `$.field[0]`.
 
 use serde_json::Value;
@@ -45,10 +45,7 @@ fn parse_segments(path: &JsonPath) -> Result<Vec<Segment>, DataFlowError> {
         return Ok(vec![]);
     }
     // Strip leading "."
-    let rest = match rest.strip_prefix('.') {
-        Some(s) => s,
-        None => rest,
-    };
+    let rest = rest.strip_prefix('.').unwrap_or(rest);
     if rest.is_empty() {
         return Ok(vec![]);
     }

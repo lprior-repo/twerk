@@ -215,7 +215,7 @@ mod tests {
     use clap::error::ErrorKind;
 
     #[test]
-    fn test_commands_derive() {
+    fn commands_run_variant_matches_run_shape_when_constructed_directly() {
         let cmd = Commands::Run {
             mode: RunMode::Standalone,
             hostname: None,
@@ -224,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn test_commands_default() {
+    fn commands_default_returns_standalone_run_mode_when_no_override_exists() {
         let cmd = Commands::default();
         assert!(matches!(
             cmd,
@@ -236,15 +236,16 @@ mod tests {
     }
 
     #[test]
-    fn test_commands_help() {
+    fn cli_command_renders_help_without_panicking() {
         use clap::CommandFactory;
 
         let mut cmd = Cli::command();
-        let _ = cmd.render_help().to_string();
+        let help = cmd.render_help().to_string();
+        assert!(help.contains("Usage:"));
     }
 
     #[test]
-    fn test_help_contains_examples() {
+    fn help_contains_examples_when_rendered() {
         use clap::CommandFactory;
 
         let help = Cli::command().render_long_help().to_string();
@@ -256,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn test_version_flag_is_supported() {
+    fn version_flag_is_supported_when_requested() {
         match Cli::try_parse_from(["twerk", "--version"]) {
             Ok(_) => unreachable!("expected clap to short-circuit with version output"),
             Err(error) => assert_eq!(error.kind(), ErrorKind::DisplayVersion),
@@ -264,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn test_run_mode_value_parser_accepts_known_modes() {
+    fn run_mode_value_parser_accepts_known_modes_when_parsing_run_command() {
         let cli = Cli::try_parse_from(["twerk", "run", "worker"]);
 
         assert!(matches!(
@@ -280,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn test_version_subcommand_is_supported() {
+    fn version_subcommand_is_supported_when_parsing_cli() {
         let cli = Cli::try_parse_from(["twerk", "version"]);
 
         assert!(matches!(
@@ -293,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_task_get_subcommand_parses() {
+    fn task_get_subcommand_parses_when_id_is_present() {
         let cli = Cli::try_parse_from(["twerk", "task", "get", "task-123"]);
 
         assert!(matches!(
@@ -306,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn test_task_log_subcommand_parses() {
+    fn task_log_subcommand_parses_when_id_is_present() {
         let cli = Cli::try_parse_from(["twerk", "task", "log", "task-456"]);
 
         assert!(matches!(
@@ -319,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn test_queue_subcommands_parse() {
+    fn queue_subcommands_parse_when_list_and_get_are_requested() {
         let list = Cli::try_parse_from(["twerk", "queue", "list"]);
         assert!(matches!(
             list,
@@ -340,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trigger_subcommands_parse() {
+    fn trigger_subcommands_parse_when_list_and_get_are_requested() {
         let list = Cli::try_parse_from(["twerk", "trigger", "list"]);
         assert!(matches!(
             list,

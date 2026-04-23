@@ -152,5 +152,4 @@ impl<'de> Deserialize<'de> for WebhookUrl {
     }
 }
 
-#[cfg(test)]
 mod tests;

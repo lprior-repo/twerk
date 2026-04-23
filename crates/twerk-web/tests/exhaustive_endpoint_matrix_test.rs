@@ -1,3 +1,14 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::semicolon_if_nothing_returned,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    clippy::unused_async,
+    clippy::needless_raw_string_hashes
+)]
+
 //! Exhaustive endpoint matrix tests for twerk-web.
 //!
 //! Tests ALL 23 Coordinator API endpoints with every error permutation.

@@ -60,13 +60,7 @@ pub async fn send_heartbeats(
 
         // Create node for heartbeat
         let node = Node {
-            id: Some(match NodeId::new(id.clone()) {
-                Ok(nid) => nid,
-                Err(e) => {
-                    warn!("invalid node id {}: {}", id, e);
-                    return;
-                }
-            }),
+            id: Some(NodeId::from(id.clone())),
             name: Some(name.clone()),
             hostname: Some(hostname),
             cpu_percent,

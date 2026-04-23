@@ -52,7 +52,7 @@ impl PodmanRuntime {
                     if trimmed.is_empty() {
                         0.0
                     } else {
-                        trimmed.parse().map_or(0.0, std::convert::identity)
+                        trimmed.parse().unwrap_or(0.0)
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,

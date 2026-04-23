@@ -8,7 +8,7 @@ use twerk_infrastructure::runtime::Runtime;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 
 fn config_string_opt(key: &str) -> Option<String> {
-    let _ = load_config(); // side-effect: ensure config loaded; error irrelevant
+    let _ = load_config();
     match config_string(key) {
         value if value.is_empty() => None,
         value => Some(value),

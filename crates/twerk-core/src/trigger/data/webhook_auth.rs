@@ -91,7 +91,7 @@ impl WebhookAuth {
         Ok(WebhookAuth::Bearer { token })
     }
 
-    /// Creates a `WebhookAuth::ApiKey` variant with key, value, and `header_name`.
+    /// Creates a `WebhookAuth::ApiKey` variant with key, value, and header_name.
     ///
     /// # Parameters
     /// - `key: impl Into<String>` - Key identifier (required, non-empty)

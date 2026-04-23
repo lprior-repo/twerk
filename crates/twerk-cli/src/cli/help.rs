@@ -58,9 +58,7 @@ pub(super) fn render_help_for_path(
                 HelpVariant::Long => {
                     target.write_long_help(&mut buffer).map_err(CliError::Io)?;
                 }
-                HelpVariant::None => {
-                    return Ok(String::new());
-                }
+                HelpVariant::None => unreachable!(),
             }
             String::from_utf8(buffer).map_err(|error| CliError::Config(error.to_string()))
         }

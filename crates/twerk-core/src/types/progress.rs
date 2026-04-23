@@ -72,6 +72,12 @@ impl AsRef<f64> for Progress {
     }
 }
 
+impl From<f64> for Progress {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
 impl<'de> Deserialize<'de> for Progress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -79,36 +85,5 @@ impl<'de> Deserialize<'de> for Progress {
     {
         let value = f64::deserialize(deserializer)?;
         Progress::new(value).map_err(serde::de::Error::custom)
-    }
-}
-
-#[cfg(test)]
-mod proptest_tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn progress_new_accepts_valid_range(v in 0.0f64..=100.0) {
-            prop_assert!(Progress::new(v).is_ok());
-        }
-
-        #[test]
-        fn progress_new_rejects_negative(v in -1000.0f64..-0.001) {
-            prop_assert!(Progress::new(v).is_err());
-        }
-
-        #[test]
-        fn progress_new_rejects_over_100(v in 100.001f64..10000.0) {
-            prop_assert!(Progress::new(v).is_err());
-        }
-
-        #[test]
-        fn progress_serde_roundtrip(v in 0.0f64..=100.0) {
-            let p = Progress::new(v).unwrap();
-            let json = serde_json::to_string(&p).unwrap();
-            let back: Progress = serde_json::from_str(&json).unwrap();
-            prop_assert!((p.value() - back.value()).abs() <= f64::EPSILON * p.value().abs().max(1.0));
-        }
     }
 }

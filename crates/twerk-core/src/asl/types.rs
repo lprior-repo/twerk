@@ -1,4 +1,4 @@
-//! `NewType` wrappers for ASL (Amazon States Language) primitives.
+//! NewType wrappers for ASL (Amazon States Language) primitives.
 //!
 //! Each type enforces validation at construction time, making illegal states
 //! unrepresentable. Custom `Deserialize` impls reject invalid values.
@@ -10,7 +10,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
-/// Generates Display, `FromStr`, `AsRef<str>`, `Deref<Target=str>`, and
+/// Generates Display, FromStr, `AsRef<str>`, `Deref<Target=str>`, and
 /// validating Serialize/Deserialize for a string newtype.
 macro_rules! str_newtype_impls {
     ($ty:ident, $err:ty) => {
@@ -223,7 +223,7 @@ impl ImageRef {
         if s.is_empty() {
             return Err(ImageRefError::Empty);
         }
-        if s.chars().any(char::is_whitespace) {
+        if s.chars().any(|c| c.is_whitespace()) {
             return Err(ImageRefError::ContainsWhitespace);
         }
         Ok(Self(s))

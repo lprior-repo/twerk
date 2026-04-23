@@ -254,7 +254,8 @@ mod bdd_commands_enum {
 mod bdd_setup_logging {
     #[test]
     fn then_setup_logging_function_exists_and_is_callable() {
-        let _ = twerk_cli::cli::setup_logging();
+        twerk_cli::cli::setup_logging()
+            .unwrap_or_else(|error| panic!("setup_logging should be callable: {error}"));
     }
 }
 
@@ -265,43 +266,57 @@ mod bdd_completeness_check {
 
     #[test]
     fn then_all_public_constants_are_accessible() {
-        let _ = VERSION;
-        let _ = DEFAULT_ENDPOINT;
-        let _ = DEFAULT_DATASTORE_TYPE;
+        assert_eq!(VERSION, env!("CARGO_PKG_VERSION"));
+        assert_eq!(DEFAULT_ENDPOINT, "http://localhost:8000");
+        assert_eq!(DEFAULT_DATASTORE_TYPE, "postgres");
     }
 
     #[test]
     fn then_error_enum_variants_are_constructible() {
         use std::io;
-        let _ = CliError::Config("test".to_string());
-        let _ = CliError::HealthFailed { status: 200 };
-        let _ = CliError::InvalidBody("test".to_string());
-        let _ = CliError::MissingArgument("test".to_string());
-        let _ = CliError::Migration("test".to_string());
-        let _ = CliError::UnknownDatastore("test".to_string());
-        let _ = CliError::Logging("test".to_string());
-        let _ = CliError::Engine("test".to_string());
-        let _ = CliError::Io(io::Error::other("test"));
+        let variants = [
+            CliError::Config("test".to_string()).to_string(),
+            CliError::HealthFailed { status: 200 }.to_string(),
+            CliError::InvalidBody("test".to_string()).to_string(),
+            CliError::MissingArgument("test".to_string()).to_string(),
+            CliError::Migration("test".to_string()).to_string(),
+            CliError::UnknownDatastore("test".to_string()).to_string(),
+            CliError::Logging("test".to_string()).to_string(),
+            CliError::Engine("test".to_string()).to_string(),
+            CliError::Io(io::Error::other("test")).to_string(),
+        ];
+
+        assert_eq!(variants.len(), 9);
     }
 
     #[test]
     fn then_commands_enum_variants_are_constructible() {
         use twerk_cli::commands::RunMode;
-        let _ = Commands::default();
-        let _ = Commands::Run {
-            mode: RunMode::Standalone,
-            hostname: None,
-        };
-        let _ = Commands::Run {
-            mode: RunMode::Coordinator,
-            hostname: None,
-        };
-        let _ = Commands::Run {
-            mode: RunMode::Worker,
-            hostname: None,
-        };
-        let _ = Commands::Health { endpoint: None };
-        let _ = Commands::Migration { yes: false };
+        let variants = [
+            Commands::default(),
+            Commands::Run {
+                mode: RunMode::Standalone,
+                hostname: None,
+            },
+            Commands::Run {
+                mode: RunMode::Coordinator,
+                hostname: None,
+            },
+            Commands::Run {
+                mode: RunMode::Worker,
+                hostname: None,
+            },
+            Commands::Health { endpoint: None },
+            Commands::Migration { yes: false },
+        ];
+
+        assert_eq!(variants.len(), 6);
+        assert!(matches!(variants[0], Commands::Run { .. }));
+        assert!(matches!(variants[1], Commands::Run { .. }));
+        assert!(matches!(variants[2], Commands::Run { .. }));
+        assert!(matches!(variants[3], Commands::Run { .. }));
+        assert!(matches!(variants[4], Commands::Health { .. }));
+        assert!(matches!(variants[5], Commands::Migration { .. }));
     }
 }
 

@@ -1,4 +1,4 @@
-//! `ParallelState`: concurrent branch execution.
+//! ParallelState: concurrent branch execution.
 //!
 //! Runs multiple independent branches concurrently, with optional fail-fast.
 //! Enforces INV-PS1 (non-empty branches) at construction time.

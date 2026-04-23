@@ -16,47 +16,50 @@ struct ProgressWrapper(Progress);
 #[test]
 fn port_zero_should_fail_deserialization() {
     // Port 0 is invalid - should FAIL to deserialize
-    let result: Result<PortWrapper, _> = serde_json::from_str("0");
+    let error = serde_json::from_str::<PortWrapper>("0")
+        .expect_err("Port(0) should be rejected by deserialization");
     assert!(
-        result.is_err(),
-        "Port(0) should be rejected by deserialization"
+        error.to_string().contains('0'),
+        "expected rejected port error to mention 0, got: {error}"
     );
 }
 
 #[test]
 fn progress_negative_should_fail_deserialization() {
     // Progress -0.001 is out of range - should FAIL to deserialize
-    let result: Result<ProgressWrapper, _> = serde_json::from_str("-0.001");
+    let error = serde_json::from_str::<ProgressWrapper>("-0.001")
+        .expect_err("Progress(-0.001) should be rejected by deserialization");
     assert!(
-        result.is_err(),
-        "Progress(-0.001) should be rejected by deserialization"
+        error.to_string().contains("-0.001"),
+        "expected rejected progress error to mention -0.001, got: {error}"
     );
 }
 
 #[test]
 fn progress_over_100_should_fail_deserialization() {
     // Progress 100.001 is out of range - should FAIL to deserialize
-    let result: Result<ProgressWrapper, _> = serde_json::from_str("100.001");
+    let error = serde_json::from_str::<ProgressWrapper>("100.001")
+        .expect_err("Progress(100.001) should be rejected by deserialization");
     assert!(
-        result.is_err(),
-        "Progress(100.001) should be rejected by deserialization"
+        error.to_string().contains("100.001"),
+        "expected rejected progress error to mention 100.001, got: {error}"
     );
 }
 
 #[test]
 fn valid_port_deserializes_correctly() {
     // Valid port should work
-    let result: Result<PortWrapper, _> = serde_json::from_str("8080");
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap().0.value(), 8080);
+    let port = serde_json::from_str::<PortWrapper>("8080")
+        .unwrap_or_else(|error| panic!("valid port should deserialize: {error}"));
+    assert_eq!(port.0.value(), 8080);
 }
 
 #[test]
 fn valid_progress_deserializes_correctly() {
     // Valid progress should work
-    let result: Result<ProgressWrapper, _> = serde_json::from_str("50.0");
-    assert!(result.is_ok());
-    assert!((result.unwrap().0.value() - 50.0).abs() < f64::EPSILON);
+    let progress = serde_json::from_str::<ProgressWrapper>("50.0")
+        .unwrap_or_else(|error| panic!("valid progress should deserialize: {error}"));
+    assert!((progress.0.value() - 50.0).abs() < f64::EPSILON);
 }
 
 #[test]

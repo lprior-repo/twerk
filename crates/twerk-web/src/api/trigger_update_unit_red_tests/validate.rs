@@ -62,48 +62,58 @@ fn validate_trigger_update_rejects_invalid_ids() {
 }
 
 #[test]
-fn validate_trigger_update_rejects_invalid_fields_and_metadata() {
-    let cases = [
-        (
-            {
-                let mut req = valid_request();
-                req.name = "  ".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(NAME_REQUIRED_MSG.to_string()),
-        ),
-        (
-            {
-                let mut req = valid_request();
-                req.event = "\n\t".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(EVENT_REQUIRED_MSG.to_string()),
-        ),
-        (
-            {
-                let mut req = valid_request();
-                req.action = " ".to_string();
-                req
-            },
-            TriggerUpdateError::ValidationFailed(ACTION_REQUIRED_MSG.to_string()),
-        ),
-        (
-            {
-                let mut req = valid_request();
-                req.metadata = Some(std::collections::HashMap::from([(
-                    "ключ".to_string(),
-                    "v".to_string(),
-                )]));
-                req
-            },
-            TriggerUpdateError::ValidationFailed(METADATA_KEY_MSG.to_string()),
-        ),
-    ];
+fn validate_trigger_update_rejects_blank_name() {
+    let mut req = valid_request();
+    req.name = "  ".to_string();
 
-    for (req, expected) in cases {
-        assert_eq!(validate_trigger_update("trg_1", &req), Err(expected));
-    }
+    assert_eq!(
+        validate_trigger_update("trg_1", &req),
+        Err(TriggerUpdateError::ValidationFailed(
+            NAME_REQUIRED_MSG.to_string(),
+        ))
+    );
+}
+
+#[test]
+fn validate_trigger_update_rejects_blank_event() {
+    let mut req = valid_request();
+    req.event = "\n\t".to_string();
+
+    assert_eq!(
+        validate_trigger_update("trg_1", &req),
+        Err(TriggerUpdateError::ValidationFailed(
+            EVENT_REQUIRED_MSG.to_string(),
+        ))
+    );
+}
+
+#[test]
+fn validate_trigger_update_rejects_blank_action() {
+    let mut req = valid_request();
+    req.action = " ".to_string();
+
+    assert_eq!(
+        validate_trigger_update("trg_1", &req),
+        Err(TriggerUpdateError::ValidationFailed(
+            ACTION_REQUIRED_MSG.to_string(),
+        ))
+    );
+}
+
+#[test]
+fn validate_trigger_update_rejects_non_ascii_metadata_key() {
+    let mut req = valid_request();
+    req.metadata = Some(std::collections::HashMap::from([(
+        "ключ".to_string(),
+        "v".to_string(),
+    )]));
+
+    assert_eq!(
+        validate_trigger_update("trg_1", &req),
+        Err(TriggerUpdateError::ValidationFailed(
+            METADATA_KEY_MSG.to_string(),
+        ))
+    );
 }
 
 #[test]

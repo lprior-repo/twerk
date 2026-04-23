@@ -91,7 +91,7 @@ async fn run_task_with_cancel(
     runtime: Arc<dyn RuntimeTrait>,
     cancel_rx: &mut broadcast::Receiver<()>,
 ) -> Result<()> {
-    let task_id_str = t.id.as_deref().map_or(DEFAULT_TASK_NAME, |s| s);
+    let task_id_str = t.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
     let timeout = t.timeout.clone();
 
     if let Some(dur) = timeout.as_ref().and_then(|s| parse_duration(s)) {
@@ -108,7 +108,7 @@ async fn run_with_timeout(
     task_id_str: &str,
     dur: Duration,
 ) -> Result<()> {
-    let timeout_str = t.timeout.as_ref().map_or_else(String::new, Clone::clone);
+    let timeout_str = t.timeout.clone().unwrap_or_default();
     tokio::select! {
         result = runtime.run(t) => result,
         _ = cancel_rx.recv() => {

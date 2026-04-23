@@ -1,7 +1,5 @@
-#![allow(unexpected_cfgs)]
 #[cfg(test)]
-#[allow(clippy::module_inception)]
-mod tests {
+mod webhook_url_spec {
     use crate::domain::testing::arb_valid_webhook_url;
     use crate::WebhookUrl;
     use crate::WebhookUrlError;
@@ -12,9 +10,8 @@ mod tests {
 
     #[test]
     fn webhook_url_new_returns_ok_when_given_valid_https_url() {
-        let result = WebhookUrl::new("https://example.com:8080/webhook");
-        assert!(result.is_ok());
-        let url = result.unwrap();
+        let url = WebhookUrl::new("https://example.com:8080/webhook")
+            .expect("valid https URL should construct WebhookUrl");
         assert_eq!(url.as_str(), "https://example.com:8080/webhook");
         assert_eq!(url.as_url().unwrap().scheme(), "https");
         assert_eq!(url.as_url().unwrap().host_str(), Some("example.com"));
@@ -28,9 +25,8 @@ mod tests {
 
     #[test]
     fn webhook_url_new_returns_ok_when_given_valid_http_url() {
-        let result = WebhookUrl::new("http://localhost:3000/");
-        assert!(result.is_ok());
-        let url = result.unwrap();
+        let url = WebhookUrl::new("http://localhost:3000/")
+            .expect("valid http URL should construct WebhookUrl");
         assert_eq!(url.as_str(), "http://localhost:3000/");
         assert_eq!(url.as_url().unwrap().scheme(), "http");
         assert_eq!(url.as_url().unwrap().host_str(), Some("localhost"));
@@ -43,17 +39,9 @@ mod tests {
 
     #[test]
     fn webhook_url_new_returns_url_parse_error_when_input_is_invalid() {
-        let result = WebhookUrl::new("not a url");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::UrlParseError(_)));
-        // In RED phase, the actual error variant extraction is unreachable
-        // because new() returns todo!(). But we structure it properly for when
-        // implementation exists.
-        if let WebhookUrlError::UrlParseError(s) = e {
-            assert!(!s.is_empty());
+        match WebhookUrl::new("not a url").expect_err("invalid URL should fail") {
+            WebhookUrlError::UrlParseError(message) => assert!(!message.is_empty()),
+            other => panic!("expected UrlParseError, got {other:?}"),
         }
     }
 
@@ -63,53 +51,34 @@ mod tests {
 
     #[test]
     fn webhook_url_new_returns_invalid_scheme_error_when_scheme_is_ftp() {
-        let result = WebhookUrl::new("ftp://example.com/file");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::InvalidScheme(_)));
-        if let WebhookUrlError::InvalidScheme(scheme) = e {
-            assert_eq!(scheme, "ftp");
+        match WebhookUrl::new("ftp://example.com/file").expect_err("ftp scheme must fail") {
+            WebhookUrlError::InvalidScheme(scheme) => assert_eq!(scheme, "ftp"),
+            other => panic!("expected InvalidScheme, got {other:?}"),
         }
     }
 
     #[test]
     fn webhook_url_new_returns_invalid_scheme_error_when_scheme_is_file() {
-        let result = WebhookUrl::new("file:///path/to/file");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::InvalidScheme(_)));
-        if let WebhookUrlError::InvalidScheme(s) = e {
-            assert_eq!(s, "file");
+        match WebhookUrl::new("file:///path/to/file").expect_err("file scheme must fail") {
+            WebhookUrlError::InvalidScheme(scheme) => assert_eq!(scheme, "file"),
+            other => panic!("expected InvalidScheme, got {other:?}"),
         }
     }
 
     #[test]
     fn webhook_url_new_returns_invalid_scheme_error_when_scheme_is_ws() {
-        let result = WebhookUrl::new("ws://example.com/socket");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::InvalidScheme(_)));
-        if let WebhookUrlError::InvalidScheme(s) = e {
-            assert_eq!(s, "ws");
+        match WebhookUrl::new("ws://example.com/socket").expect_err("ws scheme must fail") {
+            WebhookUrlError::InvalidScheme(scheme) => assert_eq!(scheme, "ws"),
+            other => panic!("expected InvalidScheme, got {other:?}"),
         }
     }
 
     #[test]
     fn webhook_url_new_returns_invalid_scheme_error_when_scheme_is_wss() {
-        let result = WebhookUrl::new("wss://secure.example.com/socket");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::InvalidScheme(_)));
-        if let WebhookUrlError::InvalidScheme(s) = e {
-            assert_eq!(s, "wss");
+        match WebhookUrl::new("wss://secure.example.com/socket").expect_err("wss scheme must fail")
+        {
+            WebhookUrlError::InvalidScheme(scheme) => assert_eq!(scheme, "wss"),
+            other => panic!("expected InvalidScheme, got {other:?}"),
         }
     }
 
@@ -121,14 +90,9 @@ mod tests {
     fn webhook_url_new_returns_url_parse_error_when_host_is_empty() {
         // "http://" is rejected by the url crate with "empty host" because
         // it cannot parse URLs with missing authority sections
-        let result = WebhookUrl::new("http://");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::UrlParseError(_)));
-        if let WebhookUrlError::UrlParseError(s) = &e {
-            assert!(s.contains("empty host"));
+        match WebhookUrl::new("http://").expect_err("empty host must fail") {
+            WebhookUrlError::UrlParseError(message) => assert!(message.contains("empty host")),
+            other => panic!("expected UrlParseError, got {other:?}"),
         }
     }
 
@@ -136,14 +100,11 @@ mod tests {
     fn webhook_url_new_returns_invalid_scheme_error_when_url_has_no_authority() {
         // "file:///path/only" has scheme "file" which is not http/https,
         // so scheme validation fails before we can check for missing host
-        let result = WebhookUrl::new("file:///path/only");
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::InvalidScheme(_)));
-        if let WebhookUrlError::InvalidScheme(s) = &e {
-            assert_eq!(s, "file");
+        match WebhookUrl::new("file:///path/only")
+            .expect_err("missing authority file URL must fail scheme validation")
+        {
+            WebhookUrlError::InvalidScheme(scheme) => assert_eq!(scheme, "file"),
+            other => panic!("expected InvalidScheme, got {other:?}"),
         }
     }
 
@@ -212,9 +173,8 @@ mod tests {
     #[test]
     fn webhook_url_new_returns_ok_when_given_minimal_valid_url() {
         // Minimal valid URL with just scheme and host
-        let result = WebhookUrl::new("https://a.b");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().as_str(), "https://a.b");
+        let url = WebhookUrl::new("https://a.b").expect("minimal valid URL should pass");
+        assert_eq!(url.as_str(), "https://a.b");
     }
 
     #[test]
@@ -233,12 +193,8 @@ mod tests {
         // "https://example.com/" = 20 chars, so path = 2049 - 20 = 2029
         let long_url = format!("https://example.com/{}", "a".repeat(2029));
         assert_eq!(long_url.len(), 2049);
-        let result = WebhookUrl::new(long_url);
-        assert!(result.is_err());
-        let Err(e) = result else {
-            panic!("expected error")
-        };
-        assert!(matches!(e, WebhookUrlError::UrlTooLong));
+        let error = WebhookUrl::new(long_url).expect_err("2049-char URL must fail");
+        assert_eq!(error, WebhookUrlError::UrlTooLong);
     }
 
     #[test]
@@ -247,8 +203,8 @@ mod tests {
         // "https://example.com/" = 20 chars, so path = 2048 - 20 = 2028
         let max_url = format!("https://example.com/{}", "a".repeat(2028));
         assert_eq!(max_url.len(), 2048);
-        let result = WebhookUrl::new(max_url);
-        assert!(result.is_ok());
+        let url = WebhookUrl::new(max_url.clone()).expect("2048-char URL should pass");
+        assert_eq!(url.as_str(), max_url);
     }
 
     // -------------------------------------------------------------------------
@@ -274,17 +230,13 @@ mod tests {
         proptest! {
             #[test]
             fn webhook_url_new_preserves_input_valid_urls(url in arb_valid_webhook_url()) {
-                let result = WebhookUrl::new(url);
-                prop_assert!(result.is_ok());
-                let url_obj = result.unwrap();
+                let url_obj = WebhookUrl::new(url).expect("generated URL should be valid");
                 prop_assert_eq!(url_obj.as_str(), url);
             }
 
             #[test]
             fn webhook_url_url_components_are_always_valid(url in arb_valid_webhook_url()) {
-                let result = WebhookUrl::new(url);
-                prop_assert!(result.is_ok());
-                let url_obj = result.unwrap();
+                let url_obj = WebhookUrl::new(url).expect("generated URL should be valid");
                 let parsed = url_obj.as_url().unwrap();
                 prop_assert!(parsed.scheme() == "http" || parsed.scheme() == "https");
                 prop_assert!(parsed.host().is_some());

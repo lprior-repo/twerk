@@ -65,10 +65,9 @@ impl PodmanRuntime {
         } else {
             Arc::new(super::super::volume::VolumeMounter::new())
         };
-        let image_ttl = config.image_ttl.map_or(
-            super::super::types::DEFAULT_IMAGE_TTL,
-            std::convert::identity,
-        );
+        let image_ttl = config
+            .image_ttl
+            .unwrap_or(super::super::types::DEFAULT_IMAGE_TTL);
 
         let images = Arc::new(RwLock::new(HashMap::new()));
         let tasks = Arc::new(RwLock::new(HashMap::new()));

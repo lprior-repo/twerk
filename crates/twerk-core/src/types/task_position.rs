@@ -10,7 +10,7 @@ use thiserror::Error;
 
 /// A validated task position (any i64 including negative).
 ///
-/// `TaskPosition` supports negative values for relative offsets from the end
+/// TaskPosition supports negative values for relative offsets from the end
 /// (e.g., -1 for the last task, -2 for second to last).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -89,9 +89,7 @@ impl PodmanRuntimeAdapter {
         // Check for empty task ID
         if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
-                task.id
-                    .clone()
-                    .map_or_else(String::new, |id| id.to_string()),
+                task.id.clone().unwrap_or_default().to_string(),
             ));
         }
 
@@ -109,9 +107,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
         let (p, h, tid, img, cmd, wd, env) = (
             self.config.privileged,
             self.config.host_network,
-            task.id
-                .clone()
-                .map_or_else(String::new, |id| id.to_string()),
+            task.id.clone().unwrap_or_default(),
             task.image.clone().unwrap_or_default(),
             task.cmd.clone(),
             task.workdir.clone(),
@@ -160,9 +156,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
 
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let (task_id_str, task_state, config, active_containers) = (
-            task.id
-                .clone()
-                .map_or_else(String::new, |id| id.to_string()),
+            task.id.clone().unwrap_or_default().to_string(),
             task.state,
             self.config.clone(),
             self.active_containers.clone(),
@@ -317,7 +311,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ID cannot be empty")]
     fn test_validate_task_empty_id() {
         let _adapter = PodmanRuntimeAdapter::new(false, false);
         let task = create_test_task("", TaskState::Running);

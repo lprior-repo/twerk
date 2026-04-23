@@ -114,7 +114,7 @@ impl Worker for DefaultWorker {
     fn stop(&self) -> BoxedFuture<()> {
         let (terminate_tx, active_tasks) = (self.terminate_tx.clone(), self.active_tasks.clone());
         Box::pin(async move {
-            let _ = terminate_tx.send(()); // best-effort: worker stopping anyway
+            let _ = terminate_tx.send(());
             let start = std::time::Instant::now();
             while !active_tasks.is_empty() && start.elapsed() < std::time::Duration::from_secs(10) {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -252,10 +252,7 @@ async fn send_heartbeat(
         }
     };
     let node = Node {
-        id: NodeId::new(id).map(Some).unwrap_or_else(|e| {
-            tracing::error!(error = %e, "invalid worker node id, using fallback");
-            None
-        }),
+        id: Some(NodeId::from(id)),
         name: Some(name.to_string()),
         hostname: Some(
             hostname::get()

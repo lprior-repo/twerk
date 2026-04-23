@@ -1,0 +1,21 @@
+--- crates/twerk-core/src/domain_types.rs
++++ replace * with / in parse_go_duration
+@@ -271,17 +271,17 @@
+                 .parse()
+                 .map_err(|_| GoDurationError::ParseNumber(start))?;
+             // Safe: multiplier fits in f64 without precision loss for reasonable durations
+             #[allow(
+                 clippy::cast_possible_truncation,
+                 clippy::cast_sign_loss,
+                 clippy::cast_precision_loss
+             )]
+-            let result = (val * multiplier as f64) as u128;
++            let result = (val / /* ~ changed by cargo-mutants ~ */ multiplier as f64) as u128;
+             result
+         } else {
+             let val: u64 = num_str
+                 .parse()
+                 .map_err(|_| GoDurationError::ParseNumber(start))?;
+             u128::from(val) * multiplier
+         };
+ 

@@ -1,4 +1,4 @@
-use crate::engine::worker::docker::DockerRuntimeAdapter;
+use crate::engine::worker::docker::{DockerPrivilege, DockerRuntimeAdapter, DockerRuntimePolicy};
 use crate::engine::worker::mounter::{
     BindConfig, BindMounter, MountPolicy, TmpfsMounter, VolumeMounter,
 };
@@ -69,8 +69,10 @@ pub async fn create_runtime_from_config(
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
                 .map_err(RuntimeAdapterError::MountRegistration)?;
             Ok(Box::new(DockerRuntimeAdapter::new(
-                config.docker_privileged,
-                config.docker_image_ttl_secs,
+                DockerRuntimePolicy {
+                    privilege: DockerPrivilege::from(config.docker_privileged),
+                    image_ttl_secs: config.docker_image_ttl_secs,
+                },
                 Arc::new(m),
                 broker,
             )))

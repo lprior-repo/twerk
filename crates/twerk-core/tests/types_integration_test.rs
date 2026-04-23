@@ -5,7 +5,10 @@
 //!
 //! RED PHASE: All tests are designed to FAIL because the type implementations are stubbed/wrong.
 
-use twerk_core::types::{Port, Progress, RetryAttempt, RetryLimit, TaskCount, TaskPosition};
+use twerk_core::types::{
+    OptionalRetryLimitError, Port, Progress, RetryAttempt, RetryLimit, TaskCount, TaskCountError,
+    TaskPosition,
+};
 
 fn round_trip<T: serde::Serialize + serde::de::DeserializeOwned + std::fmt::Debug + PartialEq>(
     value: T,
@@ -63,11 +66,11 @@ fn retry_limit_serialization_roundtrip() {
 }
 
 #[test]
-fn retry_limit_serialization_roundtrip_zero() {
-    let rl = RetryLimit::new(0).unwrap();
+fn retry_limit_serialization_roundtrip_min_boundary() {
+    let rl = RetryLimit::new(1).unwrap();
     let recovered = round_trip(rl);
     assert_eq!(rl.value(), recovered.value());
-    assert_eq!(recovered.value(), 0);
+    assert_eq!(recovered.value(), 1);
 }
 
 #[test]
@@ -498,9 +501,9 @@ fn port_deref_yields_u16() {
 
 #[test]
 fn retry_limit_deref_yields_u32() {
-    let rl = RetryLimit::new(100).unwrap();
+    let rl = RetryLimit::new(10).unwrap();
     let dereferenced: u32 = *rl;
-    assert_eq!(dereferenced, 100);
+    assert_eq!(dereferenced, 10);
 }
 
 #[test]
@@ -537,9 +540,9 @@ fn port_asref_yields_u16_ref() {
 
 #[test]
 fn retry_limit_asref_yields_u32_ref() {
-    let rl = RetryLimit::new(50).unwrap();
+    let rl = RetryLimit::new(10).unwrap();
     let reference: &u32 = rl.as_ref();
-    assert_eq!(reference, &50);
+    assert_eq!(reference, &10);
 }
 
 #[test]
@@ -576,8 +579,11 @@ fn retry_limit_from_option_accepts_some() {
 
 #[test]
 fn retry_limit_from_option_rejects_none() {
-    let result = RetryLimit::from_option(None);
-    assert!(result.is_err(), "RetryLimit::from_option(None) should fail");
+    assert_eq!(
+        RetryLimit::from_option(None),
+        Err(OptionalRetryLimitError::NoneNotAllowed),
+        "RetryLimit::from_option(None) should fail with the exact none variant"
+    );
 }
 
 #[test]
@@ -588,8 +594,11 @@ fn task_count_from_option_accepts_some() {
 
 #[test]
 fn task_count_from_option_rejects_none() {
-    let result = TaskCount::from_option(None);
-    assert!(result.is_err(), "TaskCount::from_option(None) should fail");
+    assert_eq!(
+        TaskCount::from_option(None),
+        Err(TaskCountError::NoneNotAllowed),
+        "TaskCount::from_option(None) should fail with the exact none variant"
+    );
 }
 
 // ===========================================================================

@@ -496,7 +496,7 @@ fn rq2_from_bypass_into_string_then_parse() {
 fn rq2_hash_ti_many_distinct_ids() {
     let mut set = HashSet::new();
     for i in 0..100 {
-        let id = TriggerId::new(format!("id-{i:03}")).unwrap();
+        let id = TriggerId::new(&format!("id-{i:03}")).unwrap();
         set.insert(id);
     }
     assert_eq!(
@@ -510,11 +510,11 @@ fn rq2_hash_ti_many_distinct_ids() {
 fn rq2_hash_ti_hashmap_lookup_after_many_inserts() {
     let mut map = HashMap::new();
     for i in 0..50 {
-        let id = TriggerId::new(format!("key-{i:03}")).unwrap();
+        let id = TriggerId::new(&format!("key-{i:03}")).unwrap();
         map.insert(id, i);
     }
     for i in 0..50 {
-        let id = TriggerId::new(format!("key-{i:03}")).unwrap();
+        let id = TriggerId::new(&format!("key-{i:03}")).unwrap();
         assert_eq!(map.get(&id), Some(&i), "lookup failed for key-{i:03}");
     }
 }
@@ -673,15 +673,15 @@ fn rq2_error_ti_too_short_captures_length() {
 #[test]
 fn rq2_error_ti_too_long_captures_actual_length() {
     assert!(matches!(
-        TriggerId::new("x".repeat(100)),
+        TriggerId::new(&"x".repeat(100)),
         Err(IdError::TooLong(100))
     ));
     assert!(matches!(
-        TriggerId::new("y".repeat(65)),
+        TriggerId::new(&"y".repeat(65)),
         Err(IdError::TooLong(65))
     ));
     assert!(matches!(
-        TriggerId::new("z".repeat(500)),
+        TriggerId::new(&"z".repeat(500)),
         Err(IdError::TooLong(500))
     ));
 }

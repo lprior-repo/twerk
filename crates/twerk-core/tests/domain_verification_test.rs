@@ -17,122 +17,81 @@ use twerk_core::domain::{
 fn webhook_url_valid_https_urls_1() {
     let url = "https://example.com";
     let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url = result.expect("https://example.com should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_valid_https_urls_2() {
     let url = "https://example.com/path";
     let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url = result.expect("https://example.com/path should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_valid_https_urls_3() {
     let url = "https://example.com/path?query=value";
-    let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url = WebhookUrl::new(url)
+        .expect("https://example.com/path?query=value should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_valid_https_urls_4() {
     let url = "https://localhost";
-    let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url =
+        WebhookUrl::new(url).expect("https://localhost should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_valid_https_urls_5() {
     let url = "https://localhost:8080";
-    let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url =
+        WebhookUrl::new(url).expect("https://localhost:8080 should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_valid_https_urls_6() {
     let url = "http://example.com";
     let result = WebhookUrl::new(url);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        url,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), url);
+    let webhook_url = result.expect("http://example.com should be a valid webhook URL");
+    assert_eq!(webhook_url.as_str(), url);
 }
 
 #[test]
 fn webhook_url_invalid_scheme_rejected() {
     // file:// scheme
     let result = WebhookUrl::new("file:///path");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("file scheme should be rejected");
     assert!(matches!(err, WebhookUrlError::InvalidScheme(s) if s == "file"));
 
     // ws:// scheme
     let result = WebhookUrl::new("ws://example.com");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("ws scheme should be rejected");
     assert!(matches!(err, WebhookUrlError::InvalidScheme(s) if s == "ws"));
 
     // ftp:// scheme
     let result = WebhookUrl::new("ftp://example.com");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("ftp scheme should be rejected");
     assert!(matches!(err, WebhookUrlError::InvalidScheme(s) if s == "ftp"));
 }
 
 #[test]
 fn webhook_url_empty_string_rejected() {
     let result = WebhookUrl::new("");
-    assert!(result.is_err());
-    // Empty string fails URL parsing, so we get UrlParseError
-    assert!(matches!(
-        result.unwrap_err(),
-        WebhookUrlError::UrlParseError(_)
-    ));
+    let error = result.expect_err("empty webhook URL should be rejected");
+    assert!(matches!(error, WebhookUrlError::UrlParseError(_)));
 }
 
 #[test]
 fn webhook_url_empty_host_rejected() {
     // URL with empty host - the url crate rejects this with UrlParseError("empty host")
     let result = WebhookUrl::new("http://");
-    assert!(result.is_err());
-    // The url crate is strict and rejects empty hosts at parse time
-    assert!(matches!(
-        result.unwrap_err(),
-        WebhookUrlError::UrlParseError(msg) if msg.contains("empty host")
-    ));
+    let error = result.expect_err("empty-host webhook URL should be rejected");
+    assert!(matches!(error, WebhookUrlError::UrlParseError(msg) if msg.contains("empty host")));
 }
 
 #[test]
@@ -147,55 +106,38 @@ fn webhook_url_json_roundtrip() {
 #[test]
 fn webhook_url_fromstr_trait() {
     let url: Result<WebhookUrl, _> = "https://example.com".parse();
-    assert!(url.is_ok());
-    assert_eq!(url.unwrap().as_str(), "https://example.com");
+    let webhook_url = url.expect("FromStr should accept a valid https URL");
+    assert_eq!(webhook_url.as_str(), "https://example.com");
 }
 
 #[test]
 fn webhook_url_minimal_valid_url_accepted() {
     // Minimal valid URL with just scheme and single-char host
     let result = WebhookUrl::new("http://a.b");
-    assert!(
-        result.is_ok(),
-        "Expected minimal URL to be valid, got: {:?}",
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), "http://a.b");
+    let webhook_url = result.expect("minimal valid webhook URL should be accepted");
+    assert_eq!(webhook_url.as_str(), "http://a.b");
 }
 
 #[test]
 fn webhook_url_https_minimal_accepted() {
     // Minimal https URL
-    let result = WebhookUrl::new("https://x.y");
-    assert!(
-        result.is_ok(),
-        "Expected minimal https URL to be valid, got: {:?}",
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), "https://x.y");
+    let webhook_url = WebhookUrl::new("https://x.y").expect("minimal https URL should be valid");
+    assert_eq!(webhook_url.as_str(), "https://x.y");
 }
 
 #[test]
 fn webhook_url_http_with_path_accepted() {
     // Minimal URL with path
-    let result = WebhookUrl::new("http://localhost/");
-    assert!(
-        result.is_ok(),
-        "Expected URL with root path to be valid, got: {:?}",
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), "http://localhost/");
+    let webhook_url =
+        WebhookUrl::new("http://localhost/").expect("URL with root path should be valid");
+    assert_eq!(webhook_url.as_str(), "http://localhost/");
 }
 
 #[test]
 fn webhook_url_localhost_accepted() {
     // Localhost variations
-    let result = WebhookUrl::new("http://localhost");
-    assert!(
-        result.is_ok(),
-        "Expected localhost URL to be valid, got: {:?}",
-        result.err()
-    );
+    let webhook_url = WebhookUrl::new("http://localhost").expect("localhost URL should be valid");
+    assert_eq!(webhook_url.as_str(), "http://localhost");
 }
 
 // ============================================================================
@@ -205,92 +147,57 @@ fn webhook_url_localhost_accepted() {
 #[test]
 fn hostname_valid_hostnames_1() {
     let hostname = "localhost";
-    let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname = Hostname::new(hostname).expect("localhost should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_valid_hostnames_2() {
     let hostname = "example.com";
-    let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname = Hostname::new(hostname).expect("example.com should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_valid_hostnames_3() {
     let hostname = "api.example.com";
-    let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname =
+        Hostname::new(hostname).expect("api.example.com should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_valid_hostnames_4() {
     let hostname = "my-host.example.com";
-    let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname =
+        Hostname::new(hostname).expect("my-host.example.com should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_valid_hostnames_5() {
     let hostname = "a.b.c.d";
-    let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname = Hostname::new(hostname).expect("a.b.c.d should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_valid_hostnames_6() {
     let hostname = "example-domain.com";
     let result = Hostname::new(hostname);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        hostname,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname = result.expect("example-domain.com should be a valid hostname");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_port_rejected() {
     // Hostname with port should be rejected with InvalidCharacter(':')
     let result = Hostname::new("example.com:8080");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("hostnames containing ports should be rejected");
     assert!(matches!(err, HostnameError::InvalidCharacter(':')));
 
     let result = Hostname::new("localhost:3000");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("localhost with port should be rejected");
     assert!(matches!(err, HostnameError::InvalidCharacter(':')));
 }
 
@@ -299,16 +206,15 @@ fn hostname_too_long_rejected() {
     // 254 characters should fail (> 253)
     let long_hostname = "a".repeat(254);
     let result = Hostname::new(&long_hostname);
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("254-character hostname should be rejected");
     assert!(matches!(err, HostnameError::TooLong(len) if len == 254));
 }
 
 #[test]
 fn hostname_empty_rejected() {
     let result = Hostname::new("");
-    assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), HostnameError::Empty));
+    let err = result.expect_err("empty hostname should be rejected");
+    assert!(matches!(err, HostnameError::Empty));
 }
 
 #[test]
@@ -316,8 +222,7 @@ fn hostname_all_numeric_rejected() {
     // All-numeric labels should be rejected (avoid IP ambiguity)
     // Labels must start and end with alphanumeric
     let result = Hostname::new("123.456.789.0");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("all-numeric hostname should be rejected");
     assert!(
         matches!(err, HostnameError::InvalidLabel(label, reason) if label == "123" && reason == "all_numeric")
     );
@@ -335,8 +240,8 @@ fn hostname_json_roundtrip() {
 #[test]
 fn hostname_fromstr_trait() {
     let host: Result<Hostname, _> = "example.com".parse();
-    assert!(host.is_ok());
-    assert_eq!(host.unwrap().as_str(), "example.com");
+    let hostname = host.expect("FromStr should accept a valid hostname");
+    assert_eq!(hostname.as_str(), "example.com");
 }
 
 // ============================================================================
@@ -357,25 +262,15 @@ fn hostname_max_length_253_accepted() {
         "a".repeat(49)
     );
     assert_eq!(hostname.len(), 253);
-    let result = Hostname::new(&hostname);
-    assert!(
-        result.is_ok(),
-        "Expected 253-char hostname to be valid, got: {:?}",
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), hostname);
+    let parsed_hostname = Hostname::new(&hostname).expect("253-character hostname should be valid");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
 fn hostname_min_length_single_char_accepted() {
     // Single character hostname is valid (min boundary)
-    let result = Hostname::new("a");
-    assert!(
-        result.is_ok(),
-        "Expected single-char hostname to be valid, got: {:?}",
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), "a");
+    let parsed_hostname = Hostname::new("a").expect("single-character hostname should be valid");
+    assert_eq!(parsed_hostname.as_str(), "a");
 }
 
 #[test]
@@ -384,12 +279,9 @@ fn hostname_label_max_length_63_accepted() {
     let label = "a".repeat(63);
     let hostname = format!("{}.com", label);
     assert_eq!(label.len(), 63);
-    let result = Hostname::new(&hostname);
-    assert!(
-        result.is_ok(),
-        "Expected 63-char label to be valid, got: {:?}",
-        result.err()
-    );
+    let parsed_hostname =
+        Hostname::new(&hostname).expect("63-character label hostname should be valid");
+    assert_eq!(parsed_hostname.as_str(), hostname);
 }
 
 #[test]
@@ -399,8 +291,7 @@ fn hostname_label_exceeds_64_rejected() {
     let hostname = format!("{}.com", label);
     assert_eq!(label.len(), 64);
     let result = Hostname::new(&hostname);
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("64-character label should be rejected");
     assert!(matches!(err, HostnameError::LabelTooLong(l, 64) if l.len() == 64));
 }
 
@@ -408,8 +299,7 @@ fn hostname_label_exceeds_64_rejected() {
 fn hostname_invalid_character_at_start_rejected() {
     // Label starting with hyphen should be rejected
     let result = Hostname::new("-example.com");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("hostname labels must start with an alphanumeric character");
     assert!(
         matches!(err, HostnameError::InvalidLabel(label, reason) if label == "-example" && reason == "must start with alphanumeric")
     );
@@ -419,8 +309,7 @@ fn hostname_invalid_character_at_start_rejected() {
 fn hostname_invalid_character_at_end_rejected() {
     // Label ending with hyphen should be rejected
     let result = Hostname::new("example-.com");
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("hostname labels must end with an alphanumeric character");
     assert!(
         matches!(err, HostnameError::InvalidLabel(label, reason) if label == "example-" && reason == "must end with alphanumeric")
     );
@@ -433,132 +322,84 @@ fn hostname_invalid_character_at_end_rejected() {
 #[test]
 fn cron_expression_valid_5_field_1() {
     let cron = "0 0 * * MON";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 0 * * MON should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_5_field_2() {
     let cron = "0 0 * * *";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 0 * * * should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_5_field_3() {
     let cron = "*/5 * * * *";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("*/5 * * * * should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_5_field_4() {
     let cron = "0 30 8 1 1 *";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 30 8 1 1 * should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_6_field_1() {
     let cron = "0 0 0 1 1 *";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 0 0 1 1 * should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_6_field_2() {
     let cron = "0 30 8 15 * *";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 30 8 15 * * should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_valid_6_field_3() {
     let cron = "0 0 12 * * 1-5";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_ok(),
-        "Expected '{}' to be valid, got: {:?}",
-        cron,
-        result.err()
-    );
-    assert_eq!(result.unwrap().as_str(), cron);
+    let parsed_cron = CronExpression::new(cron).expect("0 0 12 * * 1-5 should be a valid cron");
+    assert_eq!(parsed_cron.as_str(), cron);
 }
 
 #[test]
 fn cron_expression_invalid_rejected_1() {
     let cron = "not a cron";
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_err(),
-        "Expected '{}' to be invalid, but it was valid",
-        cron
+    assert_eq!(
+        CronExpression::new(cron),
+        Err(CronExpressionError::InvalidFieldCount(3))
     );
 }
 
 #[test]
 fn cron_expression_invalid_rejected_2() {
     let cron = "* * *"; // 3 fields
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_err(),
-        "Expected '{}' to be invalid, but it was valid",
-        cron
+    assert_eq!(
+        CronExpression::new(cron),
+        Err(CronExpressionError::InvalidFieldCount(3))
     );
 }
 
 #[test]
 fn cron_expression_invalid_rejected_3() {
     let cron = "* * * * * * *"; // 7 fields
-    let result = CronExpression::new(cron);
-    assert!(
-        result.is_err(),
-        "Expected '{}' to be invalid, but it was valid",
-        cron
+    assert_eq!(
+        CronExpression::new(cron),
+        Err(CronExpressionError::InvalidFieldCount(7))
     );
 }
 
 #[test]
 fn cron_expression_empty_rejected() {
     let result = CronExpression::new("");
-    assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), CronExpressionError::Empty));
+    let err = result.expect_err("empty cron expression should be rejected");
+    assert!(matches!(err, CronExpressionError::Empty));
 }
 
 #[test]
@@ -573,6 +414,6 @@ fn cron_expression_json_roundtrip() {
 #[test]
 fn cron_expression_fromstr_trait() {
     let expr: Result<CronExpression, _> = "0 0 * * *".parse();
-    assert!(expr.is_ok());
-    assert_eq!(expr.unwrap().as_str(), "0 0 * * *");
+    let cron_expression = expr.expect("FromStr should accept a valid cron expression");
+    assert_eq!(cron_expression.as_str(), "0 0 * * *");
 }

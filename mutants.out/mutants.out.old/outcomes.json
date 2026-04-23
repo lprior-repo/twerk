@@ -1,0 +1,3607 @@
+{
+  "outcomes": [
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with - in InMemoryRepository::paginate_vec",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "InMemoryRepository::paginate_vec",
+            "return_type": "-> Page<T>",
+            "span": {
+              "start": {
+                "line": 45,
+                "column": 5
+              },
+              "end": {
+                "line": 66,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 53,
+              "column": 26
+            },
+            "end": {
+              "line": 53,
+              "column": 27
+            }
+          },
+          "replacement": "-",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_53_col_26.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_53_col_26.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.102280768,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.804307673,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with * in InMemoryRepository::paginate_vec",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "InMemoryRepository::paginate_vec",
+            "return_type": "-> Page<T>",
+            "span": {
+              "start": {
+                "line": 45,
+                "column": 5
+              },
+              "end": {
+                "line": 66,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 53,
+              "column": 26
+            },
+            "end": {
+              "line": 53,
+              "column": 27
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_53_col_26_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_53_col_26_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.072013422,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.803197822,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with == in InMemoryRepository::paginate_vec",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "InMemoryRepository::paginate_vec",
+            "return_type": "-> Page<T>",
+            "span": {
+              "start": {
+                "line": 45,
+                "column": 5
+              },
+              "end": {
+                "line": 66,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 54,
+              "column": 43
+            },
+            "end": {
+              "line": 54,
+              "column": 44
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.971725057,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.803893447,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with > in InMemoryRepository::paginate_vec",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "InMemoryRepository::paginate_vec",
+            "return_type": "-> Page<T>",
+            "span": {
+              "start": {
+                "line": 45,
+                "column": 5
+              },
+              "end": {
+                "line": 66,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 54,
+              "column": 43
+            },
+            "end": {
+              "line": 54,
+              "column": 44
+            }
+          },
+          "replacement": ">",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.175397267,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.753180059,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with <= in InMemoryRepository::paginate_vec",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "InMemoryRepository::paginate_vec",
+            "return_type": "-> Page<T>",
+            "span": {
+              "start": {
+                "line": 45,
+                "column": 5
+              },
+              "end": {
+                "line": 66,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 54,
+              "column": 43
+            },
+            "end": {
+              "line": 54,
+              "column": 44
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_54_col_43_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.010998529,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.009657716,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:72:9: replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_task",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 71,
+                "column": 5
+              },
+              "end": {
+                "line": 86,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 72,
+              "column": 9
+            },
+            "end": {
+              "line": 85,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_72_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_72_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.418606826,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.751689824,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:93:9: replace <impl Repository for InMemoryRepository>::update_task -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::update_task",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 88,
+                "column": 5
+              },
+              "end": {
+                "line": 98,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 93,
+              "column": 9
+            },
+            "end": {
+              "line": 97,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_93_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_93_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.519106377,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.752560376,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:101:9: replace <impl Repository for InMemoryRepository>::get_task_by_id -> Result<Task> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_task_by_id",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 100,
+                "column": 5
+              },
+              "end": {
+                "line": 103,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 101,
+              "column": 9
+            },
+            "end": {
+              "line": 102,
+              "column": 58
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_101_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_101_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.571977935,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.802884651,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 119,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 118,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_106_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_106_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.613340977,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.753337038,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![Default::default()])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 119,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 118,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![Default::default()])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_106_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_106_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.573934167,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.804821778,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:115:21: replace && with || in <impl Repository for InMemoryRepository>::get_active_tasks",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 119,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 115,
+              "column": 21
+            },
+            "end": {
+              "line": 115,
+              "column": 23
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_115_col_21.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_115_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.863518632,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.802591339,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:113:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_tasks",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 105,
+                "column": 5
+              },
+              "end": {
+                "line": 119,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 113,
+              "column": 41
+            },
+            "end": {
+              "line": 113,
+              "column": 43
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_113_col_41.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_113_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.166928476,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.854293476,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 5
+              },
+              "end": {
+                "line": 134,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 122,
+              "column": 9
+            },
+            "end": {
+              "line": 133,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_122_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_122_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.566255147,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.005839992,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![Default::default()])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 5
+              },
+              "end": {
+                "line": 134,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 122,
+              "column": 9
+            },
+            "end": {
+              "line": 133,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![Default::default()])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_122_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_122_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.7274898050000003,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.0552197,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:129:41: replace == with != in <impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+            "return_type": "-> Result<Vec<Task>>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 5
+              },
+              "end": {
+                "line": 134,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 129,
+              "column": 41
+            },
+            "end": {
+              "line": 129,
+              "column": 43
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_129_col_41.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_129_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.467459449,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.059402403,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:137:9: replace <impl Repository for InMemoryRepository>::get_next_task -> Result<Task> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 137,
+              "column": 9
+            },
+            "end": {
+              "line": 160,
+              "column": 42
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_137_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_137_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.6660443259999997,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.801659167,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:156:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 156,
+              "column": 21
+            },
+            "end": {
+              "line": 156,
+              "column": 23
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_156_col_21.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_156_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.574272734,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.055465849,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:152:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 152,
+              "column": 21
+            },
+            "end": {
+              "line": 152,
+              "column": 23
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_152_col_21.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_152_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.262305114,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.156781183,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:150:41: replace == with != in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 150,
+              "column": 41
+            },
+            "end": {
+              "line": 150,
+              "column": 43
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_150_col_41.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_150_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.163084201,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.902653594,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:154:45: replace == with != in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 154,
+              "column": 45
+            },
+            "end": {
+              "line": 154,
+              "column": 47
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_154_col_45.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_154_col_45.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.091758272,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.955252554,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with == in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 156,
+              "column": 35
+            },
+            "end": {
+              "line": 156,
+              "column": 36
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.2677974340000002,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.808371025,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with < in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 156,
+              "column": 35
+            },
+            "end": {
+              "line": 156,
+              "column": 36
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.315927454,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.853411904,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with >= in <impl Repository for InMemoryRepository>::get_next_task",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+            "return_type": "-> Result<Task>",
+            "span": {
+              "start": {
+                "line": 136,
+                "column": 5
+              },
+              "end": {
+                "line": 161,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 156,
+              "column": 35
+            },
+            "end": {
+              "line": 156,
+              "column": 36
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_156_col_35_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.07226901,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.856162269,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:164:9: replace <impl Repository for InMemoryRepository>::create_task_log_part -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_task_log_part",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 163,
+                "column": 5
+              },
+              "end": {
+                "line": 175,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 164,
+              "column": 9
+            },
+            "end": {
+              "line": 174,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_164_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_164_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.620248035,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.753547487,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 177,
+                "column": 5
+              },
+              "end": {
+                "line": 187,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 184,
+              "column": 9
+            },
+            "end": {
+              "line": 186,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951866965,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 177,
+                "column": 5
+              },
+              "end": {
+                "line": 187,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 184,
+              "column": 9
+            },
+            "end": {
+              "line": 186,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951816505,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 177,
+                "column": 5
+              },
+              "end": {
+                "line": 187,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 184,
+              "column": 9
+            },
+            "end": {
+              "line": 186,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::new(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951785225,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 177,
+                "column": 5
+              },
+              "end": {
+                "line": 187,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 184,
+              "column": 9
+            },
+            "end": {
+              "line": 186,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::from(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_003.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_184_col_9_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.005542864,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:190:9: replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_node",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 189,
+                "column": 5
+              },
+              "end": {
+                "line": 204,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 190,
+              "column": 9
+            },
+            "end": {
+              "line": 203,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_190_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_190_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.4150495100000002,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.802486869,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:211:9: replace <impl Repository for InMemoryRepository>::update_node -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::update_node",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 206,
+                "column": 5
+              },
+              "end": {
+                "line": 216,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 211,
+              "column": 9
+            },
+            "end": {
+              "line": 215,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_211_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_211_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.423049876,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.804323153,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:219:9: replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_node_by_id",
+            "return_type": "-> Result<Node>",
+            "span": {
+              "start": {
+                "line": 218,
+                "column": 5
+              },
+              "end": {
+                "line": 221,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 219,
+              "column": 9
+            },
+            "end": {
+              "line": 220,
+              "column": 58
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_219_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_219_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.6174212409999997,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.803922816,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+            "return_type": "-> Result<Vec<Node>>",
+            "span": {
+              "start": {
+                "line": 223,
+                "column": 5
+              },
+              "end": {
+                "line": 235,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 224,
+              "column": 9
+            },
+            "end": {
+              "line": 234,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_224_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_224_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.71388257,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.80349505,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![Default::default()])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+            "return_type": "-> Result<Vec<Node>>",
+            "span": {
+              "start": {
+                "line": 223,
+                "column": 5
+              },
+              "end": {
+                "line": 235,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 224,
+              "column": 9
+            },
+            "end": {
+              "line": 234,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![Default::default()])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_224_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_224_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.580780116,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.802027524,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:230:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_nodes",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+            "return_type": "-> Result<Vec<Node>>",
+            "span": {
+              "start": {
+                "line": 223,
+                "column": 5
+              },
+              "end": {
+                "line": 235,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 230,
+              "column": 41
+            },
+            "end": {
+              "line": 230,
+              "column": 43
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_230_col_41.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_230_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.612590155,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.75307095,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:238:9: replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_job",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 237,
+                "column": 5
+              },
+              "end": {
+                "line": 252,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 238,
+              "column": 9
+            },
+            "end": {
+              "line": 251,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_238_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_238_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.520161489,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.803430371,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:259:9: replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::update_job",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 254,
+                "column": 5
+              },
+              "end": {
+                "line": 264,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 259,
+              "column": 9
+            },
+            "end": {
+              "line": 263,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_259_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_259_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.481403994,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.955018596,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:267:9: replace <impl Repository for InMemoryRepository>::get_job_by_id -> Result<Job> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_job_by_id",
+            "return_type": "-> Result<Job>",
+            "span": {
+              "start": {
+                "line": 266,
+                "column": 5
+              },
+              "end": {
+                "line": 269,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 267,
+              "column": 9
+            },
+            "end": {
+              "line": 268,
+              "column": 56
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_267_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_267_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.419773976,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.105494302,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 271,
+                "column": 5
+              },
+              "end": {
+                "line": 281,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 278,
+              "column": 9
+            },
+            "end": {
+              "line": 280,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.901667623,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 271,
+                "column": 5
+              },
+              "end": {
+                "line": 281,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 278,
+              "column": 9
+            },
+            "end": {
+              "line": 280,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951830126,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 271,
+                "column": 5
+              },
+              "end": {
+                "line": 281,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 278,
+              "column": 9
+            },
+            "end": {
+              "line": 280,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::new(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.901760623,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+            "return_type": "-> Result<Page<TaskLogPart>>",
+            "span": {
+              "start": {
+                "line": 271,
+                "column": 5
+              },
+              "end": {
+                "line": 281,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 278,
+              "column": 9
+            },
+            "end": {
+              "line": 280,
+              "column": 50
+            }
+          },
+          "replacement": "Ok(Page::from(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_003.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_278_col_9_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.901731523,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+            "return_type": "-> Result<Page<JobSummary>>",
+            "span": {
+              "start": {
+                "line": 283,
+                "column": 5
+              },
+              "end": {
+                "line": 293,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 290,
+              "column": 9
+            },
+            "end": {
+              "line": 292,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.901802123,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from_iter([Default::default()]))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+            "return_type": "-> Result<Page<JobSummary>>",
+            "span": {
+              "start": {
+                "line": 283,
+                "column": 5
+              },
+              "end": {
+                "line": 293,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 290,
+              "column": 9
+            },
+            "end": {
+              "line": 292,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951820415,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+            "return_type": "-> Result<Page<JobSummary>>",
+            "span": {
+              "start": {
+                "line": 283,
+                "column": 5
+              },
+              "end": {
+                "line": 293,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 290,
+              "column": 9
+            },
+            "end": {
+              "line": 292,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::new(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.951972775,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+            "return_type": "-> Result<Page<JobSummary>>",
+            "span": {
+              "start": {
+                "line": 283,
+                "column": 5
+              },
+              "end": {
+                "line": 293,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 290,
+              "column": 9
+            },
+            "end": {
+              "line": 292,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::from(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_003.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_290_col_9_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.103900197,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:296:9: replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_scheduled_job",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 295,
+                "column": 5
+              },
+              "end": {
+                "line": 313,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 296,
+              "column": 9
+            },
+            "end": {
+              "line": 312,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_296_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_296_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.464493618,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.106784601,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+            "return_type": "-> Result<Vec<ScheduledJob>>",
+            "span": {
+              "start": {
+                "line": 315,
+                "column": 5
+              },
+              "end": {
+                "line": 322,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 316,
+              "column": 9
+            },
+            "end": {
+              "line": 321,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_316_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_316_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.5614235929999998,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.853579923,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![Default::default()])",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+            "return_type": "-> Result<Vec<ScheduledJob>>",
+            "span": {
+              "start": {
+                "line": 315,
+                "column": 5
+              },
+              "end": {
+                "line": 322,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 316,
+              "column": 9
+            },
+            "end": {
+              "line": 321,
+              "column": 24
+            }
+          },
+          "replacement": "Ok(vec![Default::default()])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_316_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_316_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.517360045,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.852667501,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:319:35: replace == with != in <impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+            "return_type": "-> Result<Vec<ScheduledJob>>",
+            "span": {
+              "start": {
+                "line": 315,
+                "column": 5
+              },
+              "end": {
+                "line": 322,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 319,
+              "column": 35
+            },
+            "end": {
+              "line": 319,
+              "column": 37
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_319_col_35.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_319_col_35.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.669755107,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.852983718,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+            "return_type": "-> Result<Page<ScheduledJobSummary>>",
+            "span": {
+              "start": {
+                "line": 324,
+                "column": 5
+              },
+              "end": {
+                "line": 336,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 330,
+              "column": 9
+            },
+            "end": {
+              "line": 335,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.052441307,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from_iter([Default::default()]))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+            "return_type": "-> Result<Page<ScheduledJobSummary>>",
+            "span": {
+              "start": {
+                "line": 324,
+                "column": 5
+              },
+              "end": {
+                "line": 336,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 330,
+              "column": 9
+            },
+            "end": {
+              "line": 335,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_001.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.263530239,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+            "return_type": "-> Result<Page<ScheduledJobSummary>>",
+            "span": {
+              "start": {
+                "line": 324,
+                "column": 5
+              },
+              "end": {
+                "line": 336,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 330,
+              "column": 9
+            },
+            "end": {
+              "line": 335,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::new(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_002.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.001790799,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from(Default::default()))",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+            "return_type": "-> Result<Page<ScheduledJobSummary>>",
+            "span": {
+              "start": {
+                "line": 324,
+                "column": 5
+              },
+              "end": {
+                "line": 336,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 330,
+              "column": 9
+            },
+            "end": {
+              "line": 335,
+              "column": 54
+            }
+          },
+          "replacement": "Ok(Page::from(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_003.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_330_col_9_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.107076937,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:339:9: replace <impl Repository for InMemoryRepository>::get_scheduled_job_by_id -> Result<ScheduledJob> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_job_by_id",
+            "return_type": "-> Result<ScheduledJob>",
+            "span": {
+              "start": {
+                "line": 338,
+                "column": 5
+              },
+              "end": {
+                "line": 341,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 339,
+              "column": 9
+            },
+            "end": {
+              "line": 340,
+              "column": 64
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_339_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_339_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.418285121,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.956475553,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:348:9: replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::update_scheduled_job",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 343,
+                "column": 5
+              },
+              "end": {
+                "line": 353,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 348,
+              "column": 9
+            },
+            "end": {
+              "line": 352,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_348_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_348_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.357716674,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.751746023,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:356:9: replace <impl Repository for InMemoryRepository>::delete_scheduled_job -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::delete_scheduled_job",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 355,
+                "column": 5
+              },
+              "end": {
+                "line": 359,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 356,
+              "column": 9
+            },
+            "end": {
+              "line": 358,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_356_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_356_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.616679919,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.751721163,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:362:9: replace <impl Repository for InMemoryRepository>::create_user -> Result<()> with Ok(())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::create_user",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 361,
+                "column": 5
+              },
+              "end": {
+                "line": 376,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 362,
+              "column": 9
+            },
+            "end": {
+              "line": 375,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_362_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_362_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.572315424,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.804526972,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/twerk-core/src/repository_inmemory.rs:379:9: replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())",
+          "package": "twerk-core",
+          "file": "crates/twerk-core/src/repository_inmemory.rs",
+          "function": {
+            "function_name": "<impl Repository for InMemoryRepository>::get_user",
+            "return_type": "-> Result<User>",
+            "span": {
+              "start": {
+                "line": 378,
+                "column": 5
+              },
+              "end": {
+                "line": 385,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 379,
+              "column": 9
+            },
+            "end": {
+              "line": 384,
+              "column": 40
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__twerk-core__src__repository_inmemory.rs_line_379_col_9.log",
+      "diff_path": "diff/crates__twerk-core__src__repository_inmemory.rs_line_379_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.409939587,
+          "process_status": "Success",
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.803061165,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/lewis/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=twerk-core@0.1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 58,
+  "missed": 0,
+  "caught": 42,
+  "timeout": 0,
+  "unviable": 16,
+  "success": 0,
+  "start_time": "2026-04-18T22:36:16.192742615Z",
+  "end_time": "2026-04-18T22:39:11.394752133Z",
+  "cargo_mutants_version": "27.0.0"
+}

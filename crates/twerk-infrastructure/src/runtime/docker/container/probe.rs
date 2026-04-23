@@ -22,8 +22,8 @@ pub async fn probe_container(
     path: Option<&str>,
     timeout_str: Option<&str>,
 ) -> Result<(), DockerError> {
-    let path = path.map_or(DEFAULT_PROBE_PATH, |s| s);
-    let timeout_str = timeout_str.map_or(DEFAULT_PROBE_TIMEOUT, |s| s);
+    let path = path.unwrap_or(DEFAULT_PROBE_PATH);
+    let timeout_str = timeout_str.unwrap_or(DEFAULT_PROBE_TIMEOUT);
 
     let timeout = parse_go_duration(timeout_str)
         .map_err(|e| DockerError::ProbeTimeout(format!("invalid timeout: {e}")))?;

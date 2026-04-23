@@ -16,38 +16,46 @@ use twerk_core::{ParseTriggerStateError, TriggerId, TriggerState};
 fn rq_ts_unknown_variant_rejected() {
     // Exact match on unknown string — must fail
     let result: Result<TriggerState, _> = "DESTROYED".parse();
-    assert!(result.is_err());
+    assert_eq!(result, Err(ParseTriggerStateError("DESTROYED".to_string())));
 }
 
 #[test]
 fn rq_ts_empty_string_rejected() {
     let result: Result<TriggerState, _> = "".parse();
-    assert!(result.is_err());
+    assert_eq!(result, Err(ParseTriggerStateError(String::new())));
 }
 
 #[test]
 fn rq_ts_whitespace_only_rejected() {
     let result: Result<TriggerState, _> = "   ".parse();
-    assert!(result.is_err());
+    assert_eq!(result, Err(ParseTriggerStateError("   ".to_string())));
 }
 
 #[test]
 fn rq_ts_trailing_whitespace_rejected() {
     // "ACTIVE " should NOT parse — trailing space makes it not match
     let result: Result<TriggerState, _> = "ACTIVE ".parse();
-    assert!(result.is_err(), "trailing space must be rejected");
+    assert_eq!(
+        result,
+        Err(ParseTriggerStateError("ACTIVE ".to_string())),
+        "trailing space must be rejected"
+    );
 }
 
 #[test]
 fn rq_ts_leading_whitespace_rejected() {
     let result: Result<TriggerState, _> = " ACTIVE".parse();
-    assert!(result.is_err(), "leading space must be rejected");
+    assert_eq!(
+        result,
+        Err(ParseTriggerStateError(" ACTIVE".to_string())),
+        "leading space must be rejected"
+    );
 }
 
 #[test]
 fn rq_ts_partial_match_rejected() {
     let result: Result<TriggerState, _> = "ACTIV".parse();
-    assert!(result.is_err());
+    assert_eq!(result, Err(ParseTriggerStateError("ACTIV".to_string())));
 }
 
 #[test]
@@ -130,43 +138,56 @@ fn rq_ts_display_matches_serde_for_all_variants() {
 fn rq_ts_serde_deserialize_rejects_lowercase() {
     // serde uses SCREAMING_SNAKE_CASE — lowercase must be rejected
     let result: Result<TriggerState, _> = serde_json::from_str("\"active\"");
-    assert!(result.is_err(), "serde must reject lowercase 'active'");
+    let err = result.expect_err("serde must reject lowercase 'active'");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_ts_serde_deserialize_rejects_numeric() {
     let result: Result<TriggerState, _> = serde_json::from_str("42");
-    assert!(result.is_err(), "serde must reject numeric JSON");
+    let err = result.expect_err("serde must reject numeric JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_ts_serde_deserialize_rejects_null() {
     let result: Result<TriggerState, _> = serde_json::from_str("null");
-    assert!(result.is_err(), "serde must reject null");
+    let err = result.expect_err("serde must reject null");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_ts_serde_deserialize_rejects_object() {
     let result: Result<TriggerState, _> = serde_json::from_str("{\"Active\":true}");
-    assert!(result.is_err(), "serde must reject object JSON");
+    let err = result.expect_err("serde must reject object JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_ts_serde_deserialize_rejects_empty_string() {
     let result: Result<TriggerState, _> = serde_json::from_str("\"\"");
-    assert!(result.is_err(), "serde must reject empty JSON string");
+    let err = result.expect_err("serde must reject empty JSON string");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_ts_fromstr_rejects_null_byte() {
     let result: Result<TriggerState, _> = "ACTIVE\x00".parse();
-    assert!(result.is_err(), "null byte must be rejected");
+    assert_eq!(
+        result,
+        Err(ParseTriggerStateError("ACTIVE\x00".to_string())),
+        "null byte must be rejected"
+    );
 }
 
 #[test]
 fn rq_ts_fromstr_rejects_newline() {
     let result: Result<TriggerState, _> = "ACTIVE\n".parse();
-    assert!(result.is_err(), "trailing newline must be rejected");
+    assert_eq!(
+        result,
+        Err(ParseTriggerStateError("ACTIVE\n".to_string())),
+        "trailing newline must be rejected"
+    );
 }
 
 // =========================================================================
@@ -175,13 +196,12 @@ fn rq_ts_fromstr_rejects_newline() {
 
 #[test]
 fn rq_ti_exact_min_boundary_3_chars() {
-    assert!(TriggerId::new("abc").is_ok());
+    assert_eq!(TriggerId::new("abc").unwrap().as_str(), "abc");
 }
 
 #[test]
 fn rq_ti_exact_max_boundary_64_chars() {
     let s = "a".repeat(64);
-    assert!(TriggerId::new(&s).is_ok());
     assert_eq!(TriggerId::new(&s).unwrap().as_str().len(), 64);
 }
 
@@ -228,8 +248,9 @@ fn rq_ti_control_chars_rejected() {
     for ctrl in controls {
         let s = format!("ab{ctrl}"); // 3 chars total
         let result = TriggerId::new(&s);
-        assert!(
-            result.is_err(),
+        assert_eq!(
+            result,
+            Err(twerk_core::id::IdError::InvalidCharacters),
             "control char U+{:04X} must be rejected in '{:?}'",
             ctrl.chars().next().unwrap() as u32,
             s
@@ -242,12 +263,8 @@ fn rq_ti_unicode_homoglyph_attack() {
     // Unicode characters that look like ASCII but aren't
     // Fullwidth Latin A (U+FF21) — looks like A but isn't ASCII
     let result = TriggerId::new("ａbc"); // fullwidth 'a' = U+FF41
-                                         // Rust's is_alphanumeric() returns true for fullwidth Latin
-                                         // So this is actually ACCEPTED — verify that
-    if let Ok(id) = result {
-        assert_eq!(id.as_str(), "ａbc");
-    }
-    // Either accepted or rejected is fine, as long as it's consistent
+                                         // Rust's is_alphanumeric() returns true for fullwidth Latin.
+    assert_eq!(result.as_ref().map(TriggerId::as_str), Ok("ａbc"));
 }
 
 #[test]
@@ -256,7 +273,11 @@ fn rq_ti_emoji_rejected() {
     for emoji in emojis {
         let s = format!("ab{emoji}c"); // pad to valid length
         let result = TriggerId::new(&s);
-        assert!(result.is_err(), "emoji '{emoji}' must be rejected");
+        assert_eq!(
+            result,
+            Err(twerk_core::id::IdError::InvalidCharacters),
+            "emoji '{emoji}' must be rejected"
+        );
     }
 }
 
@@ -268,8 +289,9 @@ fn rq_ti_zero_width_chars_rejected() {
         let s = format!("ab{zw}c");
         let result = TriggerId::new(&s);
         // Zero-width space is NOT alphanumeric, should be rejected
-        assert!(
-            result.is_err(),
+        assert_eq!(
+            result,
+            Err(twerk_core::id::IdError::InvalidCharacters),
             "zero-width char U+{:04X} must be rejected",
             zw.chars().next().unwrap() as u32
         );
@@ -280,7 +302,11 @@ fn rq_ti_zero_width_chars_rejected() {
 fn rq_ti_right_to_left_override_rejected() {
     // RTL override can be used for spoofing
     let result = TriggerId::new("ab\u{202E}c");
-    assert!(result.is_err(), "RTL override must be rejected");
+    assert_eq!(
+        result,
+        Err(twerk_core::id::IdError::InvalidCharacters),
+        "RTL override must be rejected"
+    );
 }
 
 #[test]
@@ -289,7 +315,11 @@ fn rq_ti_combining_chars_boundary() {
     // but the combining mark itself is NOT alphanumeric
     let result = TriggerId::new("abe\u{0301}f"); // "abéf" — 4 visible chars, 5 codepoints
                                                  // The combining char (U+0301) is Mark category, is_alphanumeric returns false
-    assert!(result.is_err(), "combining accent must be rejected");
+    assert_eq!(
+        result,
+        Err(twerk_core::id::IdError::InvalidCharacters),
+        "combining accent must be rejected"
+    );
 }
 
 #[test]
@@ -341,8 +371,7 @@ fn rq_ti_preserves_input_exact() {
 #[test]
 fn rq_serde_ti_rejects_empty_json_string() {
     let result: Result<TriggerId, _> = serde_json::from_str("\"\"");
-    assert!(result.is_err());
-    let msg = result.unwrap_err().to_string();
+    let msg = result.expect_err("empty JSON string must fail").to_string();
     assert!(
         msg.to_lowercase().contains("empty"),
         "error must mention 'empty': {msg}"
@@ -352,8 +381,7 @@ fn rq_serde_ti_rejects_empty_json_string() {
 #[test]
 fn rq_serde_ti_rejects_1_char_json() {
     let result: Result<TriggerId, _> = serde_json::from_str("\"x\"");
-    assert!(result.is_err());
-    let msg = result.unwrap_err().to_string();
+    let msg = result.expect_err("1-char JSON must fail").to_string();
     assert!(
         msg.to_lowercase().contains("too short"),
         "error must mention 'too short': {msg}"
@@ -363,15 +391,15 @@ fn rq_serde_ti_rejects_1_char_json() {
 #[test]
 fn rq_serde_ti_rejects_2_char_json() {
     let result: Result<TriggerId, _> = serde_json::from_str("\"ab\"");
-    assert!(result.is_err());
+    let err = result.expect_err("2-char JSON must fail");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_65_char_json() {
     let json = format!("\"{}\"", "a".repeat(65));
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(result.is_err());
-    let msg = result.unwrap_err().to_string();
+    let msg = result.expect_err("65-char JSON must fail").to_string();
     assert!(
         msg.to_lowercase().contains("too long"),
         "error must mention 'too long': {msg}"
@@ -382,7 +410,8 @@ fn rq_serde_ti_rejects_65_char_json() {
 fn rq_serde_ti_rejects_100_char_json() {
     let json = format!("\"{}\"", "a".repeat(100));
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(result.is_err());
+    let err = result.expect_err("100-char JSON must fail");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
@@ -390,84 +419,117 @@ fn rq_serde_ti_rejects_special_chars_json() {
     let cases = ["\"ab@cd\"", "\"ab cd\"", "\"ab\ncd\"", "\"ab\x00cd\""];
     for json in cases {
         let result: Result<TriggerId, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "must reject JSON: {json}");
+        let err = result.expect_err(&format!("must reject JSON: {json}"));
+        assert!(
+            matches!(
+                err.classify(),
+                serde_json::error::Category::Data | serde_json::error::Category::Syntax
+            ),
+            "unexpected error class for {json}: {err}"
+        );
     }
 }
 
 #[test]
 fn rq_serde_ti_rejects_null() {
     let result: Result<TriggerId, _> = serde_json::from_str("null");
-    assert!(result.is_err(), "must reject null JSON");
+    let err = result.expect_err("must reject null JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_number() {
     let result: Result<TriggerId, _> = serde_json::from_str("42");
-    assert!(result.is_err(), "must reject numeric JSON");
+    let err = result.expect_err("must reject numeric JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_boolean() {
     let result: Result<TriggerId, _> = serde_json::from_str("true");
-    assert!(result.is_err(), "must reject boolean JSON");
+    let err = result.expect_err("must reject boolean JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_array() {
     let result: Result<TriggerId, _> = serde_json::from_str("[\"abc\"]");
-    assert!(result.is_err(), "must reject array JSON");
+    let err = result.expect_err("must reject array JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_object() {
     let result: Result<TriggerId, _> = serde_json::from_str("{\"id\":\"abc\"}");
-    assert!(result.is_err(), "must reject object JSON");
+    let err = result.expect_err("must reject object JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_unicode_trick_json() {
     // Unicode null character embedded in JSON string
     let result: Result<TriggerId, _> = serde_json::from_str("\"ab\\u0000cd\"");
-    assert!(result.is_err(), "must reject null byte in JSON");
+    let err = result.expect_err("must reject null byte in JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_rejects_emoji_json() {
     let result: Result<TriggerId, _> = serde_json::from_str("\"ab🔥cd\"");
-    assert!(result.is_err(), "must reject emoji in JSON");
+    let err = result.expect_err("must reject emoji in JSON");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ti_accepts_valid_64_char_json() {
     let json = format!("\"{}\"", "a".repeat(64));
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(result.is_ok(), "must accept 64-char valid JSON");
-    assert_eq!(result.unwrap().as_str().len(), 64);
+    assert_eq!(
+        result
+            .expect("must accept 64-char valid JSON")
+            .as_str()
+            .len(),
+        64
+    );
 }
 
 #[test]
 fn rq_serde_ti_accepts_valid_3_char_json() {
     let result: Result<TriggerId, _> = serde_json::from_str("\"abc\"");
-    assert!(result.is_ok(), "must accept 3-char valid JSON");
+    assert_eq!(
+        result.expect("must accept 3-char valid JSON").as_str(),
+        "abc"
+    );
 }
 
 #[test]
 fn rq_serde_ts_rejects_unknown_variant_json() {
     let result: Result<TriggerState, _> = serde_json::from_str("\"DESTROYED\"");
-    assert!(result.is_err());
+    let err = result.expect_err("unknown variant JSON must fail");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ts_rejects_empty_json() {
     let result: Result<TriggerState, _> = serde_json::from_str("\"\"");
-    assert!(result.is_err());
+    let err = result.expect_err("empty TriggerState JSON must fail");
+    assert_eq!(err.classify(), serde_json::error::Category::Data);
 }
 
 #[test]
 fn rq_serde_ts_accepts_valid_json() {
     for json in ["\"ACTIVE\"", "\"PAUSED\"", "\"DISABLED\"", "\"ERROR\""] {
         let result: Result<TriggerState, _> = serde_json::from_str(json);
-        assert!(result.is_ok(), "must accept {json}");
+        let expected = match json {
+            "\"ACTIVE\"" => TriggerState::Active,
+            "\"PAUSED\"" => TriggerState::Paused,
+            "\"DISABLED\"" => TriggerState::Disabled,
+            _ => TriggerState::Error,
+        };
+        assert_eq!(
+            result.unwrap_or_else(|_| panic!("must accept {json}")),
+            expected
+        );
     }
 }
 
@@ -479,7 +541,11 @@ fn rq_serde_ts_accepts_valid_json() {
 fn rq_fromstr_ts_rejects_all_whitespace() {
     for ws in [" ", "  ", "\t", "\n", "\r\n", " \t\n "] {
         let result: Result<TriggerState, _> = ws.parse();
-        assert!(result.is_err(), "whitespace '{ws:?}' must be rejected");
+        assert_eq!(
+            result,
+            Err(ParseTriggerStateError(ws.to_string())),
+            "whitespace '{ws:?}' must be rejected"
+        );
     }
 }
 
@@ -502,7 +568,11 @@ fn rq_fromstr_ts_rejects_similar_names() {
     ];
     for name in similar {
         let result: Result<TriggerState, _> = name.parse();
-        assert!(result.is_err(), "similar name '{name}' must be rejected");
+        assert_eq!(
+            result,
+            Err(ParseTriggerStateError(name.to_string())),
+            "similar name '{name}' must be rejected"
+        );
     }
 }
 
@@ -527,14 +597,14 @@ fn rq_fromstr_ti_rejects_length_2() {
 #[test]
 fn rq_fromstr_ti_accepts_length_3() {
     let result: Result<TriggerId, _> = "abc".parse();
-    assert!(result.is_ok());
+    assert_eq!(result.as_ref().map(TriggerId::as_str), Ok("abc"));
 }
 
 #[test]
 fn rq_fromstr_ti_accepts_length_64() {
     let s = "x".repeat(64);
     let result: Result<TriggerId, _> = s.parse();
-    assert!(result.is_ok());
+    assert_eq!(result.as_ref().map(TriggerId::as_str), Ok(s.as_str()));
 }
 
 #[test]
@@ -591,10 +661,9 @@ fn rq_from_bypass_serde_roundtrip_validates() {
     let bypass_id = TriggerId::from(String::from("x")); // invalid 1-char
     let json = serde_json::to_string(&bypass_id).unwrap();
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(
-        result.is_err(),
-        "serde deserialize must reject the bypass-constructed invalid value"
-    );
+    let err =
+        result.expect_err("serde deserialize must reject the bypass-constructed invalid value");
+    assert_eq!(err.to_string(), "ID is too short: 1 characters (minimum 3)");
 }
 
 #[test]
@@ -602,10 +671,8 @@ fn rq_from_bypass_empty_serde_roundtrip_validates() {
     let bypass_id = TriggerId::from(String::new()); // invalid empty
     let json = serde_json::to_string(&bypass_id).unwrap();
     let result: Result<TriggerId, _> = serde_json::from_str(&json);
-    assert!(
-        result.is_err(),
-        "serde deserialize must reject empty bypass value"
-    );
+    let err = result.expect_err("serde deserialize must reject empty bypass value");
+    assert_eq!(err.to_string(), "ID cannot be empty");
 }
 
 // =========================================================================
@@ -801,8 +868,9 @@ fn rq_roundtrip_ti_default_not_roundtrippable() {
     let display = format!("{default}");
     assert_eq!(display, "");
     let result: Result<TriggerId, _> = display.parse();
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(twerk_core::id::IdError::Empty),
         "empty string from default must fail FromStr"
     );
 }
@@ -886,20 +954,29 @@ fn rq_error_ts_implements_std_error() {
 #[test]
 fn rq_ti_cjk_accepted_per_contract() {
     // Contract [NG-6]: CJK is accepted via is_alphanumeric()
-    assert!(TriggerId::new("日本語").is_ok());
-    assert!(TriggerId::new("abc-日本語-123").is_ok());
+    assert_eq!(TriggerId::new("日本語").unwrap().as_str(), "日本語");
+    assert_eq!(
+        TriggerId::new("abc-日本語-123").unwrap().as_str(),
+        "abc-日本語-123"
+    );
 }
 
 #[test]
 fn rq_ti_thai_accepted() {
     // Thai characters are also alphanumeric in Unicode
-    assert!(TriggerId::new("abc-ภาษาไทย").is_ok());
+    assert_eq!(
+        TriggerId::new("abc-ภาษาไทย").unwrap().as_str(),
+        "abc-ภาษาไทย"
+    );
 }
 
 #[test]
 fn rq_ti_mixed_scripts_accepted() {
     // Mix of Latin, CJK, digits
-    assert!(TriggerId::new("test-日本語-001").is_ok());
+    assert_eq!(
+        TriggerId::new("test-日本語-001").unwrap().as_str(),
+        "test-日本語-001"
+    );
 }
 
 #[test]
@@ -907,31 +984,31 @@ fn rq_ti_surrogate_pairs_rejected() {
     // Rust strings can't contain unpaired surrogates, but we can test
     // that the validation doesn't panic on multi-byte sequences
     let result = TriggerId::new("abc-🔥def");
-    assert!(result.is_err());
+    assert_eq!(result, Err(twerk_core::id::IdError::InvalidCharacters));
 }
 
 #[test]
 fn rq_ti_only_dashes_and_underscores() {
     // Strings of only separators are valid if they pass length check
-    assert!(TriggerId::new("---").is_ok());
-    assert!(TriggerId::new("___").is_ok());
-    assert!(TriggerId::new("_-_").is_ok());
-    assert!(TriggerId::new("--__--").is_ok());
+    assert_eq!(TriggerId::new("---").unwrap().as_str(), "---");
+    assert_eq!(TriggerId::new("___").unwrap().as_str(), "___");
+    assert_eq!(TriggerId::new("_-_").unwrap().as_str(), "_-_");
+    assert_eq!(TriggerId::new("--__--").unwrap().as_str(), "--__--");
 }
 
 #[test]
 fn rq_ti_leading_trailing_separators() {
     // Leading/trailing dashes and underscores are valid per current rules
-    assert!(TriggerId::new("-abc").is_ok());
-    assert!(TriggerId::new("abc-").is_ok());
-    assert!(TriggerId::new("_abc").is_ok());
-    assert!(TriggerId::new("abc_").is_ok());
+    assert_eq!(TriggerId::new("-abc").unwrap().as_str(), "-abc");
+    assert_eq!(TriggerId::new("abc-").unwrap().as_str(), "abc-");
+    assert_eq!(TriggerId::new("_abc").unwrap().as_str(), "_abc");
+    assert_eq!(TriggerId::new("abc_").unwrap().as_str(), "abc_");
 }
 
 #[test]
 fn rq_ti_numeric_only() {
-    assert!(TriggerId::new("123").is_ok());
-    assert!(TriggerId::new("1234567890").is_ok());
+    assert_eq!(TriggerId::new("123").unwrap().as_str(), "123");
+    assert_eq!(TriggerId::new("1234567890").unwrap().as_str(), "1234567890");
 }
 
 #[test]

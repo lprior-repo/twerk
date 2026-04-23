@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use twerk_core::task::TaskState;
 use twerk_web::api::yaml::from_slice;
 
-use crate::support::{assert_json_message, TestHarness};
+use super::super::support::{assert_json_message, TestHarness};
 
 const TWERK_NOOP_100_YAML: &str = include_str!("../../../../examples/twerk-noop-100.yaml");
 

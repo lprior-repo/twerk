@@ -3,8 +3,8 @@
 //! This module provides broker implementations for delivering tasks
 //! and coordinating between workers and the coordinator.
 
-#[allow(clippy::module_inception)]
-pub mod broker;
+#[path = "broker.rs"]
+mod broker_trait;
 pub mod config;
 pub mod inmemory;
 pub mod queue;
@@ -13,7 +13,7 @@ pub mod types;
 pub mod utils;
 
 // Re-exports to preserve public API paths
-pub use broker::Broker;
+pub use broker_trait::Broker;
 pub use config::RabbitMQOptions;
 pub use queue::QueueInfo;
 pub(crate) use types::BoxedHandlerFuture;

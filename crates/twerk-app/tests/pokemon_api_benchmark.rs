@@ -246,36 +246,21 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
     print_result("Submit Duration", format!("{:?}", submit_duration));
 
     // =========================================================================
-    // Step 6: Poll for job completion
+    // Step 6: Validate blocking submission waited for job completion
     // =========================================================================
     print_header("WAITING FOR JOB COMPLETION");
 
     let start_time = Instant::now();
-    let timeout = Duration::from_secs(120);
-    let poll_interval = Duration::from_secs(1);
+    print_result("Current State", job.state);
+    print_result("Progress", format!("{:.1}%", job.progress * 100.0));
+    print_result("Elapsed", format!("{:?}", start_time.elapsed()));
 
-    let final_job = loop {
-        if start_time.elapsed() > timeout {
-            return Err("Job timed out after 120 seconds".into());
-        }
-
-        let response = client
-            .get(format!("{}/jobs/{}", TWERK_ENDPOINT, job.id))
-            .send()
-            .await?
-            .json::<Job>()
-            .await?;
-
-        print_result("Current State", response.state);
-        print_result("Progress", format!("{:.1}%", response.progress * 100.0));
-        print_result("Elapsed", format!("{:?}", start_time.elapsed()));
-
-        if response.state == JobState::Completed {
-            break response;
-        } else if response.state == JobState::Failed {
-            // Get task details
+    let job_id = job.id.clone();
+    let final_job = match job.state {
+        JobState::Completed => job,
+        JobState::Failed => {
             let task_response = client
-                .get(format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, job.id))
+                .get(format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, job_id))
                 .send()
                 .await?
                 .json::<TasksResponse>()
@@ -288,9 +273,11 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
             }
             return Err("Job failed".into());
         }
-
-        tokio::time::sleep(poll_interval).await;
-        println!();
+        other => {
+            return Err(
+                format!("blocking submission returned unexpected final state: {other}").into(),
+            )
+        }
     };
 
     let total_duration = start_time.elapsed();
@@ -299,7 +286,7 @@ async fn pokemon_api_benchmark_through_twerk() -> Result<(), Box<dyn std::error:
     // Step 7: Get final job details
     // =========================================================================
     let task_response = client
-        .get(format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, job.id))
+        .get(format!("{}/jobs/{}/tasks", TWERK_ENDPOINT, final_job.id))
         .send()
         .await?
         .json::<TasksResponse>()

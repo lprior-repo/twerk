@@ -3,7 +3,7 @@ pub mod cache;
 pub use broker::BoxedFuture;
 pub use twerk_common::conf as config;
 pub mod datastore;
-pub(crate) mod httpx;
+pub mod httpx;
 pub mod locker;
 pub use twerk_common::reexec;
 pub mod runtime;

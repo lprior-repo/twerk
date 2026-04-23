@@ -106,7 +106,9 @@ impl twerk_infrastructure::broker::Broker for SignalingBroker {
         let fut = self.inner.subscribe_for_events(pattern, handler);
         Box::pin(async move {
             fut.await?;
-            let _ = tx.send(()).await;
+            tx.send(())
+                .await
+                .expect("subscription signal should be delivered");
             Ok(())
         })
     }
@@ -399,7 +401,13 @@ async fn job_wait_returns_completed_when_job_finishes() {
     let broker_clone = broker.clone();
     let job_id_clone = job_id.to_string();
     tokio::spawn(async move {
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await;
+        match tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await {
+            Ok(Some(())) => {}
+            Ok(None) => panic!("event subscription channel closed unexpectedly"),
+            Err(error) => {
+                assert_eq!(error.to_string(), "deadline has elapsed");
+            }
+        }
         let finished_job = json!({
             "id": job_id_clone,
             "state": "COMPLETED",
@@ -454,7 +462,10 @@ async fn job_wait_blocking_explicit_string_returns_completed() {
     let broker_clone = broker.clone();
     let job_id_clone = job_id.to_string();
     tokio::spawn(async move {
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await;
+        match tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await {
+            Ok(Some(())) | Err(_) => {}
+            Ok(None) => panic!("event subscription channel closed unexpectedly"),
+        }
         let finished_job = json!({
             "id": job_id_clone,
             "state": "COMPLETED",
@@ -516,7 +527,10 @@ async fn job_wait_truthy_string_values_return_completed() {
         let broker_clone = broker.clone();
         let job_id_clone = job_id.clone();
         tokio::spawn(async move {
-            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await;
+            match tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await {
+                Ok(Some(())) | Err(_) => {}
+                Ok(None) => panic!("event subscription channel closed unexpectedly"),
+            }
             let finished_job = json!({
                 "id": job_id_clone,
                 "state": "COMPLETED",
@@ -769,7 +783,10 @@ async fn job_wait_blocking_returns_failed_when_job_fails() {
     let broker_clone = broker.clone();
     let job_id_clone = job_id.to_string();
     tokio::spawn(async move {
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await;
+        match tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await {
+            Ok(Some(())) | Err(_) => {}
+            Ok(None) => panic!("event subscription channel closed unexpectedly"),
+        }
         let failed_job = json!({
             "id": job_id_clone,
             "state": "FAILED",
@@ -832,7 +849,10 @@ async fn job_wait_blocking_returns_cancelled_when_job_cancelled() {
     let broker_clone = broker.clone();
     let job_id_clone = job_id.to_string();
     tokio::spawn(async move {
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await;
+        match tokio::time::timeout(std::time::Duration::from_secs(5), sub_rx.recv()).await {
+            Ok(Some(())) | Err(_) => {}
+            Ok(None) => panic!("event subscription channel closed unexpectedly"),
+        }
         let cancelled_job = json!({
             "id": job_id_clone,
             "state": "CANCELLED",

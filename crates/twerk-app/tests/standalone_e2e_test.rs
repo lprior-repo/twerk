@@ -2,13 +2,14 @@
 #![allow(clippy::expect_used)]
 
 use anyhow::Result;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::oneshot;
 use tokio::time::timeout;
-use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
+use twerk_app::engine::{Config, Engine, JobListener, MockRuntime, Mode};
 use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
-use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::runtime::{BoxedFuture, ShutdownResult};
 use uuid::Uuid;
 
@@ -16,23 +17,43 @@ fn to_job_id(value: impl Into<String>) -> JobId {
     JobId::new(value).expect("test job id should be valid")
 }
 
-async fn wait_for_job_state(
-    datastore: &dyn Datastore,
-    job_id: &str,
-    expected: JobState,
-) -> Result<Job> {
-    timeout(Duration::from_secs(10), async {
-        loop {
-            match datastore.get_job_by_id(job_id).await {
-                Ok(job) if job.state == expected => return Ok(job),
-                Ok(_) | Err(_) => {}
-            }
+fn listeners_for_job_state(expected_state: JobState) -> (Vec<JobListener>, oneshot::Receiver<Job>) {
+    let (tx, rx) = oneshot::channel();
+    let sender = Arc::new(Mutex::new(Some(tx)));
 
-            tokio::time::sleep(Duration::from_millis(100)).await;
+    let listener: JobListener = Arc::new(move |job| {
+        if job.state == expected_state {
+            let mut guard = sender
+                .lock()
+                .expect("job state listener lock should not be poisoned");
+
+            if let Some(tx) = guard.take() {
+                drop(tx.send(job));
+            }
         }
-    })
-    .await
-    .expect("timed out waiting for job state")
+    });
+
+    (vec![listener], rx)
+}
+
+async fn submit_job_and_wait_for_state(
+    engine: &Engine,
+    job: Job,
+    job_id: &str,
+    expected_state: JobState,
+    timeout_message: &str,
+) -> Result<Job> {
+    let (listeners, receiver) = listeners_for_job_state(expected_state);
+    engine.submit_job(job, listeners).await?;
+    timeout(Duration::from_secs(10), receiver)
+        .await
+        .expect(timeout_message)
+        .expect("job state listener should receive the terminal job");
+    engine
+        .datastore()
+        .get_job_by_id(job_id)
+        .await
+        .map_err(Into::into)
 }
 
 /// Mock runtime for testing
@@ -86,11 +107,14 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
     };
 
     // Submit
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for state to reach FAILED
-    let datastore = engine.datastore();
-    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
+    let failed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Failed,
+        "timeout waiting for job failure",
+    )
+    .await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -137,11 +161,14 @@ async fn standalone_engine_retries_failed_task() -> Result<()> {
     };
 
     // Submit
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for the job to fail after retries exhausted
-    let datastore = engine.datastore();
-    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
+    let failed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Failed,
+        "timeout waiting for retry job failure",
+    )
+    .await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -195,11 +222,14 @@ async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> 
     };
 
     // Submit
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for state to reach FAILED
-    let datastore = engine.datastore();
-    let failed_job = wait_for_job_state(datastore, &job_id, JobState::Failed).await?;
+    let failed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Failed,
+        "timeout waiting for parallel job failure",
+    )
+    .await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
@@ -243,11 +273,14 @@ async fn standalone_engine_completes_job_naturally() -> Result<()> {
     };
 
     // Submit the job
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for the job to reach COMPLETED state naturally
-    let datastore = engine.datastore();
-    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
+    let completed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Completed,
+        "timeout waiting for job completion",
+    )
+    .await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
     assert!(completed_job.completed_at.is_some());
@@ -307,11 +340,14 @@ async fn standalone_engine_completes_parallel_job_naturally() -> Result<()> {
     };
 
     // Submit the job
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for the job to reach COMPLETED state
-    let datastore = engine.datastore();
-    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
+    let completed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Completed,
+        "timeout waiting for parallel job completion",
+    )
+    .await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
 
@@ -363,11 +399,14 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
     };
 
     // Submit the job
-    engine.submit_job(job, vec![]).await?;
-
-    // Wait for the job to reach COMPLETED state
-    let datastore = engine.datastore();
-    let completed_job = wait_for_job_state(datastore, &job_id, JobState::Completed).await?;
+    let completed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Completed,
+        "timeout waiting for each job completion",
+    )
+    .await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
 

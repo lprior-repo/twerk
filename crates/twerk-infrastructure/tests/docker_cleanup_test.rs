@@ -36,7 +36,7 @@ fn make_sidecar_task(id: &str) -> Task {
         cmd: Some(vec!["echo".to_string(), "main".to_string()]),
         sidecars: Some(vec![Task {
             id: Some(format!("{id}-sidecar").into()),
-            name: Some(format!("sidecar-{id}")),
+            name: Some(format!("sidecar-{id}").into()),
             image: Some("busybox:stable".to_string()),
             cmd: Some(vec!["echo".to_string(), "sidecar".to_string()]),
             ..Default::default()
@@ -49,7 +49,7 @@ fn make_multi_sidecar_task(id: &str, count: usize) -> Task {
     let sidecars: Vec<Task> = (0..count)
         .map(|i| Task {
             id: Some(format!("{id}-sc-{i}").into()),
-            name: Some(format!("sc-{id}-{i}")),
+            name: Some(format!("sc-{id}-{i}").into()),
             image: Some("busybox:stable".to_string()),
             cmd: Some(vec!["echo".to_string(), format!("sidecar-{i}")]),
             ..Default::default()
@@ -144,13 +144,16 @@ async fn ensure_busybox(client: &Docker) {
             None,
             None,
         );
-        while stream.next().await.is_some() {}
+        let pull_results = stream.collect::<Vec<_>>().await;
+        pull_results.into_iter().for_each(|result| {
+            result.expect("busybox image pull event should be readable");
+        });
     }
 }
 
 async fn cleanup(client: &Docker, containers: &[String], volumes: &[String]) {
     for id in containers {
-        let _ = client
+        if let Err(error) = client
             .remove_container(
                 id,
                 Some(RemoveContainerOptions {
@@ -158,10 +161,15 @@ async fn cleanup(client: &Docker, containers: &[String], volumes: &[String]) {
                     ..Default::default()
                 }),
             )
-            .await;
+            .await
+        {
+            eprintln!("failed to remove leaked container {id}: {error}");
+        }
     }
     for v in volumes {
-        let _ = client.remove_volume(v, None::<RemoveVolumeOptions>).await;
+        if let Err(error) = client.remove_volume(v, None::<RemoveVolumeOptions>).await {
+            eprintln!("failed to remove leaked volume {v}: {error}");
+        }
     }
 }
 
@@ -176,9 +184,9 @@ async fn run_cleanup_test(label: &str, task: Task) {
     let before = DockerSnapshot::capture(&client).await;
 
     let runtime = DockerRuntime::default_runtime().await.expect("runtime");
-    let _ = Runtime::run(&runtime, &task).await;
-
-    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+    if let Err(error) = Runtime::run(&runtime, &task).await {
+        eprintln!("{label}: runtime returned error during cleanup probe: {error}");
+    }
 
     let after = DockerSnapshot::capture(&client).await;
     let (leaked_c, leaked_v) = before.leaked_from(&after);
@@ -244,8 +252,6 @@ async fn test_concurrent_5_tasks_no_leaks() {
         let result = handle.await.expect("join");
         assert!(result.is_ok(), "task failed: {:?}", result.err());
     }
-
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let after = DockerSnapshot::capture(&client).await;
     let (leaked_c, leaked_v) = before.leaked_from(&after);

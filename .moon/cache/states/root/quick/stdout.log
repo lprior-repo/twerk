@@ -1,0 +1,17 @@
+▮▮▮▮ root:fmt (f6d70f88)
+▮▮▮▮ root:fmt (426ms, f6d70f88)
+
+Tasks: 1 completed
+ Time: 979ms
+
+▮▮▮▮ root:lint-src (66c027ec)
+▮▮▮▮ root:lint-src (849ms, 66c027ec)
+
+Tasks: 1 completed
+ Time: 1s 404ms
+
+▮▮▮▮ root:check (dd81a933)
+▮▮▮▮ root:check (442ms, dd81a933)
+
+Tasks: 1 completed
+ Time: 995ms

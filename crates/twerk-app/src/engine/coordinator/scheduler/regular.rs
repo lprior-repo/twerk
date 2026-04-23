@@ -9,10 +9,7 @@ impl Scheduler {
     /// # Errors
     /// Returns error if task creation or broker publish fails.
     pub async fn schedule_regular_task(&self, mut task: twerk_core::task::Task) -> Result<()> {
-        let task_id = task
-            .id
-            .clone()
-            .map_or_else(String::new, |id| id.to_string());
+        let task_id = task.id.clone().unwrap_or_default();
         let now = time::OffsetDateTime::now_utc();
         let job_id = task
             .job_id

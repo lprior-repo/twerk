@@ -53,11 +53,8 @@ mod contract_violations {
     #[test]
     fn state_name_null_byte_accepted_by_type_system() {
         // Null bytes in the middle: the type doesn't reject them
-        let result = StateName::new("hello\0world");
-        assert!(
-            result.is_ok(),
-            "StateName should accept null bytes (Rust strings allow them)"
-        );
+        let name = StateName::new("hello\0world").unwrap();
+        assert_eq!(name.as_ref(), "hello\0world");
     }
 
     #[test]
@@ -94,11 +91,8 @@ mod contract_violations {
                                     // If limit is char-based: 256 <= 256 → accepted
         let result = StateName::new(&name);
         // The code uses s.len() which is byte length in Rust
-        assert!(
-            result.is_err(),
-            "BUG CANDIDATE: StateName uses byte length (.len()) not char count. \
-             256 'é' chars = 512 bytes > 256 byte limit"
-        );
+        let err = result.unwrap_err();
+        assert_eq!(err, StateNameError::TooLong(512));
     }
 
     // ── BackoffRate ──
@@ -251,15 +245,16 @@ mod contract_violations {
     #[test]
     fn retrier_max_u64_interval_accepted() {
         let rate = BackoffRate::new(1.0).unwrap();
-        let result = Retrier::new(
+        let retrier = Retrier::new(
             vec![ErrorCode::All],
             u64::MAX,
             1,
             rate,
             None,
             JitterStrategy::None,
-        );
-        assert!(result.is_ok());
+        )
+        .unwrap();
+        assert_eq!(retrier.interval_seconds(), u64::MAX);
     }
 
     // ── ChoiceState ──
@@ -615,37 +610,40 @@ mod serde_exploits {
     #[test]
     fn transition_both_next_and_end_rejected() {
         let json = json!({"next": "A", "end": true});
-        let result = serde_json::from_value::<Transition>(json);
-        assert!(
-            result.is_err(),
-            "Should reject transition with both next and end"
+        let error = serde_json::from_value::<Transition>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "transition has both 'next' and 'end' fields set"
         );
     }
 
     #[test]
     fn transition_neither_next_nor_end_rejected() {
         let json = json!({});
-        let result = serde_json::from_value::<Transition>(json);
-        assert!(
-            result.is_err(),
-            "Should reject transition with neither next nor end"
+        let error = serde_json::from_value::<Transition>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "transition has neither 'next' nor 'end' field"
         );
     }
 
     #[test]
     fn transition_end_false_rejected() {
         let json = json!({"end": false});
-        let result = serde_json::from_value::<Transition>(json);
-        assert!(result.is_err(), "Should reject end: false");
+        let error = serde_json::from_value::<Transition>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "transition 'end' field must be true, got false"
+        );
     }
 
     #[test]
     fn transition_next_empty_string_rejected() {
         let json = json!({"next": ""});
-        let result = serde_json::from_value::<Transition>(json);
-        assert!(
-            result.is_err(),
-            "Should reject empty state name in transition"
+        let error = serde_json::from_value::<Transition>(json).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "invalid state name in transition: state name cannot be empty"
         );
     }
 
@@ -653,8 +651,8 @@ mod serde_exploits {
     fn transition_next_too_long_rejected() {
         let name = "a".repeat(257);
         let json = json!({"next": name});
-        let result = serde_json::from_value::<Transition>(json);
-        assert!(result.is_err(), "Should reject oversized state name");
+        let error = serde_json::from_value::<Transition>(json).unwrap_err();
+        assert_eq!(error.to_string(), "invalid state name in transition: state name length 257 exceeds maximum of 256 characters");
     }
 
     #[test]
@@ -663,8 +661,8 @@ mod serde_exploits {
             "type": "unknown_type",
             "end": true
         });
-        let result = serde_json::from_value::<StateKind>(json);
-        assert!(result.is_err(), "Should reject unknown state type");
+        let error = serde_json::from_value::<StateKind>(json).unwrap_err();
+        assert!(error.to_string().contains("unknown variant"));
     }
 
     #[test]
@@ -673,8 +671,8 @@ mod serde_exploits {
             "type": "",
             "end": true
         });
-        let result = serde_json::from_value::<StateKind>(json);
-        assert!(result.is_err(), "Should reject empty type");
+        let error = serde_json::from_value::<StateKind>(json).unwrap_err();
+        assert!(error.to_string().contains("unknown variant"));
     }
 
     #[test]
@@ -700,11 +698,8 @@ mod serde_exploits {
             "maxAttempts": 3,
             "backoffRate": 1.5
         });
-        let result = serde_json::from_value::<Retrier>(json);
-        assert!(
-            result.is_err(),
-            "Deserialized retrier should reject interval=0"
-        );
+        let error = serde_json::from_value::<Retrier>(json).unwrap_err();
+        assert!(error.to_string().contains("interval_seconds must be >= 1"));
     }
 
     #[test]
@@ -715,8 +710,11 @@ mod serde_exploits {
             "maxAttempts": 0,
             "backoffRate": 1.5
         });
-        let result = serde_json::from_value::<Retrier>(json);
-        assert!(result.is_err());
+        let err = serde_json::from_value::<Retrier>(json).unwrap_err();
+        assert!(
+            err.to_string().contains("max_attempts must be >= 1"),
+            "expected max_attempts validation error, got: {err}"
+        );
     }
 
     #[test]
@@ -724,8 +722,8 @@ mod serde_exploits {
         // JSON doesn't have NaN natively, but we can try with a null or string
         let json_str =
             r#"{"errorEquals":["all"],"intervalSeconds":1,"maxAttempts":1,"backoffRate":"NaN"}"#;
-        let result = serde_json::from_str::<Retrier>(json_str);
-        assert!(result.is_err(), "Should reject NaN backoff rate in JSON");
+        let error = serde_json::from_str::<Retrier>(json_str).unwrap_err();
+        assert!(error.to_string().contains("invalid type"));
     }
 
     #[test]
@@ -736,8 +734,8 @@ mod serde_exploits {
             "maxAttempts": 1,
             "backoffRate": -1.0
         });
-        let result = serde_json::from_value::<Retrier>(json);
-        assert!(result.is_err(), "Should reject negative backoff rate");
+        let error = serde_json::from_value::<Retrier>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -748,8 +746,8 @@ mod serde_exploits {
             "maxAttempts": 1,
             "backoffRate": 1.0
         });
-        let result = serde_json::from_value::<Retrier>(json);
-        assert!(result.is_err(), "Should reject empty errorEquals");
+        let error = serde_json::from_value::<Retrier>(json).unwrap_err();
+        assert!(error.to_string().contains("error_equals must not be empty"));
     }
 
     #[test]
@@ -759,18 +757,15 @@ mod serde_exploits {
             "timestamp": "2024-01-01T00:00:00Z",
             "next": "Done"
         });
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(
-            result.is_err(),
-            "Should reject WaitState with both seconds and timestamp"
-        );
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn wait_duration_no_fields_rejected() {
         let json = json!({"next": "Done"});
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(result.is_err(), "Should reject WaitState with no duration");
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -779,8 +774,8 @@ mod serde_exploits {
             "timestamp": "",
             "next": "Done"
         });
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(result.is_err(), "Should reject empty timestamp");
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -792,11 +787,8 @@ mod serde_exploits {
             "timestamp_path": "$.t",
             "end": true
         });
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(
-            result.is_err(),
-            "Should reject all four duration fields at once"
-        );
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -804,8 +796,8 @@ mod serde_exploits {
         let json = json!({
             "choices": []
         });
-        let result = serde_json::from_value::<ChoiceState>(json);
-        assert!(result.is_err());
+        let error = serde_json::from_value::<ChoiceState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -814,8 +806,8 @@ mod serde_exploits {
             "branches": [],
             "end": true
         });
-        let result = serde_json::from_value::<ParallelState>(json);
-        assert!(result.is_err());
+        let error = serde_json::from_value::<ParallelState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -824,8 +816,8 @@ mod serde_exploits {
             "errorEquals": [],
             "next": "Recovery"
         });
-        let result = serde_json::from_value::<Catcher>(json);
-        assert!(result.is_err());
+        let error = serde_json::from_value::<Catcher>(json).unwrap_err();
+        assert!(error.to_string().contains("error_equals must not be empty"));
     }
 
     #[test]
@@ -836,8 +828,8 @@ mod serde_exploits {
             "timeout": 0,
             "end": true
         });
-        let result = serde_json::from_value::<TaskState>(json);
-        assert!(result.is_err());
+        let error = serde_json::from_value::<TaskState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -849,50 +841,50 @@ mod serde_exploits {
             "heartbeat": 10,
             "end": true
         });
-        let result = serde_json::from_value::<TaskState>(json);
-        assert!(result.is_err());
+        let error = serde_json::from_value::<TaskState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn backoff_rate_zero_via_json_rejected() {
-        let result = serde_json::from_value::<BackoffRate>(json!(0.0));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<BackoffRate>(json!(0.0)).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn state_name_empty_via_json_rejected() {
-        let result = serde_json::from_value::<StateName>(json!(""));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<StateName>(json!("")).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn json_path_no_dollar_via_json_rejected() {
-        let result = serde_json::from_value::<JsonPath>(json!("no.dollar"));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<JsonPath>(json!("no.dollar")).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn variable_name_digit_start_via_json_rejected() {
-        let result = serde_json::from_value::<VariableName>(json!("1bad"));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<VariableName>(json!("1bad")).unwrap_err();
+        assert!(error.to_string().contains("must start with"));
     }
 
     #[test]
     fn image_ref_whitespace_via_json_rejected() {
-        let result = serde_json::from_value::<ImageRef>(json!("has space"));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<ImageRef>(json!("has space")).unwrap_err();
+        assert!(error.to_string().contains("whitespace") || error.to_string().contains("space"));
     }
 
     #[test]
     fn expression_empty_via_json_rejected() {
-        let result = serde_json::from_value::<Expression>(json!(""));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<Expression>(json!("")).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
     fn shell_script_empty_via_json_rejected() {
-        let result = serde_json::from_value::<ShellScript>(json!(""));
-        assert!(result.is_err());
+        let error = serde_json::from_value::<ShellScript>(json!("")).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -912,14 +904,18 @@ mod serde_exploits {
             "toleratedFailurePercentage": -5.0,
             "end": true
         });
-        let result = serde_json::from_value::<MapState>(json);
-        assert!(result.is_err(), "Should reject negative tolerance via JSON");
+        let error = serde_json::from_value::<MapState>(json).unwrap_err();
+        assert!(
+            error.to_string().contains("tolerated_failure_percentage")
+                || error.to_string().contains("0.0")
+                || error.to_string().contains("100.0")
+        );
     }
 
     #[test]
     fn jitter_strategy_unknown_value_rejected() {
-        let result = serde_json::from_value::<JitterStrategy>(json!("PARTIAL"));
-        assert!(result.is_err(), "Should reject unknown jitter strategy");
+        let error = serde_json::from_value::<JitterStrategy>(json!("PARTIAL")).unwrap_err();
+        assert!(error.to_string().contains("unknown variant"));
     }
 
     #[test]
@@ -929,11 +925,8 @@ mod serde_exploits {
             "next": "A",
             "end": true
         });
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(
-            result.is_err(),
-            "Should reject both next and end in WaitState"
-        );
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
@@ -942,11 +935,8 @@ mod serde_exploits {
             "seconds_path": "no_dollar",
             "end": true
         });
-        let result = serde_json::from_value::<WaitState>(json);
-        assert!(
-            result.is_err(),
-            "Should reject invalid JSON path in seconds_path"
-        );
+        let error = serde_json::from_value::<WaitState>(json).unwrap_err();
+        assert!(error.to_string().contains("$") || error.to_string().contains("path"));
     }
 }
 
@@ -968,9 +958,9 @@ mod boundary_attacks {
             },
             "timeout": u64::MAX
         });
-        let result = serde_json::from_value::<StateMachine>(json);
-        assert!(result.is_ok(), "Should accept u64::MAX timeout");
-        assert!(result.unwrap().validate().is_ok());
+        let machine = serde_json::from_value::<StateMachine>(json).unwrap();
+        assert_eq!(machine.timeout(), Some(u64::MAX));
+        assert_eq!(machine.validate(), Ok(()));
     }
 
     #[test]
@@ -1131,8 +1121,8 @@ mod boundary_attacks {
         }
 
         let deep = nested_parallel(10);
-        let result = serde_json::from_value::<StateMachine>(deep);
-        assert!(result.is_ok(), "Should handle 10-level nested parallels");
+        let machine = serde_json::from_value::<StateMachine>(deep).unwrap();
+        assert_eq!(machine.validate(), Ok(()));
     }
 
     #[test]
@@ -1181,32 +1171,52 @@ mod data_flow_attacks {
     fn input_path_on_null_value() {
         let input = json!(null);
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should error when resolving path on null");
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 
     #[test]
     fn input_path_on_primitive_string() {
         let input = json!("just a string");
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err());
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 
     #[test]
     fn input_path_on_number() {
         let input = json!(42);
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err());
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 
     #[test]
     fn input_path_on_array() {
         let input = json!([1, 2, 3]);
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should error when field access on array");
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 
     #[test]
@@ -1236,8 +1246,14 @@ mod data_flow_attacks {
     fn path_with_missing_intermediate_field() {
         let input = json!({"a": {"b": 1}});
         let path = JsonPath::new("$.a.missing.field").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err());
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::PathNotFound {
+                path: "$.a.missing.field".into(),
+                available: vec!["b".into()]
+            }
+        );
     }
 
     #[test]
@@ -1252,16 +1268,27 @@ mod data_flow_attacks {
     fn array_index_out_of_bounds() {
         let input = json!({"items": [1, 2, 3]});
         let path = JsonPath::new("$.items[99]").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should error on array index out of bounds");
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::PathNotFound {
+                path: "$.items[99]".into(),
+                available: vec!["0..3".into()]
+            }
+        );
     }
 
     #[test]
     fn array_index_on_non_array() {
         let input = json!({"items": "not an array"});
         let path = JsonPath::new("$.items[0]").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should error on array index of non-array");
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.items[0]".into()
+            }
+        );
     }
 
     #[test]
@@ -1269,8 +1296,7 @@ mod data_flow_attacks {
         let input = json!({"field": "value"});
         let path = JsonPath::new("$.\"; drop table").unwrap();
         let result = apply_input_path(&input, Some(&path));
-        // Should either error gracefully or not find the field — not crash
-        assert!(result.is_err() || result.is_ok());
+        std::mem::drop(result);
     }
 
     #[test]
@@ -1287,8 +1313,14 @@ mod data_flow_attacks {
         let input = json!({"items": [1, 2, 3]});
         let result_val = json!("new");
         let path = JsonPath::new("$.items[0]").unwrap();
-        let result = apply_result_path(&input, &result_val, Some(&path));
-        assert!(result.is_err(), "result_path should reject array index");
+        let error = apply_result_path(&input, &result_val, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::InvalidPath {
+                path: "$.items[0]".into(),
+                reason: "array index not supported in result_path".into()
+            }
+        );
     }
 
     #[test]
@@ -1321,8 +1353,13 @@ mod data_flow_attacks {
     fn output_path_on_null() {
         let output = json!(null);
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_output_path(&output, Some(&path));
-        assert!(result.is_err());
+        let error = apply_output_path(&output, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 
     #[test]
@@ -1341,7 +1378,7 @@ mod data_flow_attacks {
         let input = json!({"a": [1]});
         let path = JsonPath::new("$.a[0").unwrap();
         let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should reject unclosed bracket");
+        assert!(matches!(result, Err(DataFlowError::InvalidPath { .. })));
         if let Err(DataFlowError::InvalidPath { reason, .. }) = result {
             assert!(reason.contains("unclosed bracket"));
         }
@@ -1351,8 +1388,8 @@ mod data_flow_attacks {
     fn non_integer_array_index_in_path() {
         let input = json!({"a": [1]});
         let path = JsonPath::new("$.a[abc]").unwrap();
-        let result = apply_input_path(&input, Some(&path));
-        assert!(result.is_err(), "Should reject non-integer index");
+        let error = apply_input_path(&input, Some(&path)).unwrap_err();
+        assert!(matches!(error, DataFlowError::InvalidPath { .. }));
     }
 
     #[test]
@@ -1370,8 +1407,13 @@ mod data_flow_attacks {
         let input = json!("just a string");
         let result_val = json!(42);
         let path = JsonPath::new("$.field").unwrap();
-        let result = apply_result_path(&input, &result_val, Some(&path));
-        assert!(result.is_err(), "Should error setting path on non-object");
+        let error = apply_result_path(&input, &result_val, Some(&path)).unwrap_err();
+        assert_eq!(
+            error,
+            DataFlowError::NotAnObject {
+                path: "$.field".into()
+            }
+        );
     }
 }
 
@@ -1391,15 +1433,16 @@ mod intrinsic_attacks {
             Value::String("sha512".into()),
         ]);
         let result = hash_fn(&args);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unsupported algorithm"));
+        let error = result.unwrap_err();
+        assert!(error.contains("unsupported algorithm"));
     }
 
     #[test]
     fn hash_empty_algorithm_rejected() {
         let args = Value::Tuple(vec![Value::String("data".into()), Value::String("".into())]);
         let result = hash_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("unsupported algorithm"));
     }
 
     #[test]
@@ -1407,14 +1450,16 @@ mod intrinsic_attacks {
     fn hash_non_string_input_rejected() {
         let args = Value::Tuple(vec![Value::Int(42), Value::String("sha256".into())]);
         let result = hash_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
     fn hash_too_few_args_rejected() {
         let args = Value::Tuple(vec![Value::String("data".into())]);
         let result = hash_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
@@ -1425,7 +1470,8 @@ mod intrinsic_attacks {
             Value::String("extra".into()),
         ]);
         let result = hash_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     // ── base64 ──
@@ -1434,7 +1480,8 @@ mod intrinsic_attacks {
     fn base64_decode_invalid_base64_rejected() {
         let args = Value::String("not-valid-base64!!!".into());
         let result = base64_decode_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("invalid") || error.contains("base64"));
     }
 
     #[test]
@@ -1447,21 +1494,24 @@ mod intrinsic_attacks {
         );
         let args = Value::String(invalid_b64);
         let result = base64_decode_fn(&args);
-        assert!(result.is_err(), "Should reject non-UTF8 decoded output");
+        let error = result.unwrap_err();
+        assert!(error.contains("UTF-8") || error.contains("utf-8"));
     }
 
     #[test]
     fn base64_decode_non_string_rejected() {
         let args = Value::Int(42);
         let result = base64_decode_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
     fn base64_encode_non_string_rejected() {
         let args = Value::Int(42);
         let result = base64_encode_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
@@ -1478,8 +1528,8 @@ mod intrinsic_attacks {
     fn array_range_step_zero_rejected() {
         let args = Value::Tuple(vec![Value::Int(0), Value::Int(10), Value::Int(0)]);
         let result = array_range_fn(&args);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("step must not be zero"));
+        let error = result.unwrap_err();
+        assert!(error.contains("step must not be zero"));
     }
 
     #[test]
@@ -1493,10 +1543,11 @@ mod intrinsic_attacks {
             Value::Int(1),
         ]);
         let result = array_range_fn(&args);
-        assert!(result.is_ok());
-        if let Ok(Value::Tuple(items)) = result {
-            assert_eq!(items.len(), 100_000);
-        }
+        let items = match result.unwrap() {
+            Value::Tuple(items) => items,
+            other => panic!("expected tuple, got {other:?}"),
+        };
+        assert_eq!(items.len(), 100_000);
     }
 
     #[test]
@@ -1533,7 +1584,8 @@ mod intrinsic_attacks {
     fn array_range_non_integer_rejected() {
         let args = Value::Tuple(vec![Value::Float(1.5), Value::Int(10), Value::Int(1)]);
         let result = array_range_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("integer"));
     }
 
     // ── format ──
@@ -1575,14 +1627,16 @@ mod intrinsic_attacks {
     fn format_no_args_errors() {
         let args = Value::Tuple(vec![]);
         let result = format_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
     fn format_non_string_template_rejected() {
         let args = Value::Tuple(vec![Value::Int(42)]);
         let result = format_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("template") || error.contains("string"));
     }
 
     #[test]
@@ -1598,21 +1652,24 @@ mod intrinsic_attacks {
     fn math_random_start_equals_end_rejected() {
         let args = Value::Tuple(vec![Value::Int(5), Value::Int(5)]);
         let result = math_random_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("start") || error.contains("range"));
     }
 
     #[test]
     fn math_random_start_greater_than_end_rejected() {
         let args = Value::Tuple(vec![Value::Int(10), Value::Int(5)]);
         let result = math_random_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("start") || error.contains("range"));
     }
 
     #[test]
     fn math_random_float_rejected() {
         let args = Value::Tuple(vec![Value::Float(1.0), Value::Float(10.0)]);
         let result = math_random_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("integer") || error.contains("int"));
     }
 
     #[test]
@@ -1653,14 +1710,16 @@ mod intrinsic_attacks {
     fn math_add_non_numeric_rejected() {
         let args = Value::Tuple(vec![Value::String("a".into()), Value::Int(1)]);
         let result = math_add_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("numeric") || error.contains("number"));
     }
 
     #[test]
     fn math_add_wrong_arg_count_rejected() {
         let args = Value::Tuple(vec![Value::Int(1)]);
         let result = math_add_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("2 arguments"));
     }
 
     // ── uuid ──
@@ -1669,7 +1728,8 @@ mod intrinsic_attacks {
     fn uuid_with_args_rejected() {
         let args = Value::String("extra".into());
         let result = uuid_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("no arguments") || error.contains("empty"));
     }
 
     #[test]
@@ -1694,14 +1754,16 @@ mod intrinsic_attacks {
     fn string_to_json_invalid_json_rejected() {
         let args = Value::String("{not valid json}".into());
         let result = string_to_json_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     #[test]
     fn string_to_json_non_string_rejected() {
         let args = Value::Int(42);
         let result = string_to_json_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_ne!(error, "");
     }
 
     // ── arrayPartition ──
@@ -1713,7 +1775,8 @@ mod intrinsic_attacks {
             Value::Int(0),
         ]);
         let result = array_partition_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("chunk") || error.contains("positive"));
     }
 
     #[test]
@@ -1723,14 +1786,16 @@ mod intrinsic_attacks {
             Value::Int(-1),
         ]);
         let result = array_partition_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("chunk") || error.contains("positive"));
     }
 
     #[test]
     fn array_partition_non_array_first_arg_rejected() {
         let args = Value::Tuple(vec![Value::String("not array".into()), Value::Int(2)]);
         let result = array_partition_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("array"));
     }
 
     // ── arrayContains ──
@@ -1739,7 +1804,8 @@ mod intrinsic_attacks {
     fn array_contains_non_array_rejected() {
         let args = Value::Tuple(vec![Value::String("not array".into()), Value::Int(1)]);
         let result = array_contains_fn(&args);
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("array"));
     }
 
     #[test]
@@ -1773,7 +1839,8 @@ mod intrinsic_attacks {
     #[test]
     fn array_length_non_array_rejected() {
         let result = array_length_fn(&Value::String("not array".into()));
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("array"));
     }
 
     // ── arrayUnique ──
@@ -1802,7 +1869,8 @@ mod intrinsic_attacks {
     #[test]
     fn array_unique_non_array_rejected() {
         let result = array_unique_fn(&Value::String("nope".into()));
-        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.contains("array"));
     }
 
     // ── json_to_string ──

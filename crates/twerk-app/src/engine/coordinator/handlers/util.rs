@@ -25,21 +25,19 @@ pub fn build_job_context(
 ) -> std::collections::HashMap<String, serde_json::Value> {
     job.context
         .as_ref()
-        .map_or_else(std::collections::HashMap::new, |ctx| {
-            let mut merged: std::collections::HashMap<_, _> = ctx
-                .as_map()
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            ctx.inputs
+        .map(twerk_core::job::JobContext::as_map)
+        .map(|mut ctx| {
+            job.context
                 .as_ref()
+                .and_then(|c| c.inputs.as_ref())
                 .into_iter()
                 .flatten()
                 .for_each(|(k, v)| {
-                    merged.insert(k.clone(), serde_json::Value::String(v.clone()));
+                    ctx.insert(k.clone(), serde_json::Value::String(v.clone()));
                 });
-            merged
+            ctx
         })
+        .unwrap_or_default()
 }
 
 /// Checks if job is in an active state.

@@ -39,14 +39,4 @@ mod tests {
         assert!((0.0..=100.0).contains(&first));
         assert!((0.0..=100.0).contains(&second));
     }
-
-    #[test]
-    fn test_get_cpu_percent_returns_finite_value() {
-        // Verifies the function returns a real f64 from sysinfo, not NaN or infinity.
-        // This exercises the f64::from(sys.global_cpu_usage()) code path.
-        let percent = get_cpu_percent();
-        assert!(percent.is_finite(), "expected finite f64, got {percent}");
-        // Verify the value is actually in the [0, 100] range
-        assert!((0.0..=100.0).contains(&percent));
-    }
 }

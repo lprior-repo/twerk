@@ -70,8 +70,7 @@ fn claim_2_default_datastore_type() {
 fn claim_3_setup_logging_accepts_valid_level() {
     let _lock = LOGGING_ENV_LOCK.lock().unwrap();
     let _guard = LoggingEnvGuard::set("debug");
-    let result = twerk_cli::cli::setup_logging();
-    assert!(result.is_ok(), "setup_logging should accept 'debug'");
+    twerk_cli::cli::setup_logging().expect("setup_logging should accept 'debug'");
 }
 
 #[test]
@@ -112,25 +111,22 @@ fn claim_7_version_flag_returns_display_version_error() {
 #[test]
 fn claim_8_run_command_accepts_standalone_mode() {
     let args = vec!["twerk", "run", "standalone"];
-    let result = Cli::try_parse_from(args);
-    assert!(result.is_ok(), "standalone mode should be accepted");
-    if let Ok(cli) = result {
-        assert!(matches!(cli.command, Some(Commands::Run { .. })));
-    }
+    let cli = Cli::try_parse_from(args).expect("standalone mode should be accepted");
+    assert!(matches!(cli.command, Some(Commands::Run { .. })));
 }
 
 #[test]
 fn claim_9_run_command_accepts_coordinator_mode() {
     let args = vec!["twerk", "run", "coordinator"];
-    let result = Cli::try_parse_from(args);
-    assert!(result.is_ok(), "coordinator mode should be accepted");
+    let cli = Cli::try_parse_from(args).expect("coordinator mode should be accepted");
+    assert!(matches!(cli.command, Some(Commands::Run { .. })));
 }
 
 #[test]
 fn claim_10_run_command_accepts_worker_mode() {
     let args = vec!["twerk", "run", "worker"];
-    let result = Cli::try_parse_from(args);
-    assert!(result.is_ok(), "worker mode should be accepted");
+    let cli = Cli::try_parse_from(args).expect("worker mode should be accepted");
+    assert!(matches!(cli.command, Some(Commands::Run { .. })));
 }
 
 #[test]
@@ -213,8 +209,7 @@ fn claim_16_health_response_deserialize_with_extra_fields() {
 fn claim_17_health_check_error_on_connection_failure() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(health_check("http://localhost:99999", false));
-    assert!(result.is_err());
-    match result.unwrap_err() {
+    match result.expect_err("invalid port should fail health_check") {
         CliError::Http(_) => {}
         other => panic!("expected Http error, got {:?}", other),
     }
@@ -225,16 +220,21 @@ fn claim_18_health_check_endpoint_with_trailing_slash() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result1 = rt.block_on(health_check("http://localhost:99999/", false));
     let result2 = rt.block_on(health_check("http://localhost:99999", false));
-    assert!(result1.is_err());
-    assert!(result2.is_err());
+    assert!(matches!(
+        result1.expect_err("trailing slash endpoint should still fail invalid port"),
+        CliError::Http(_)
+    ));
+    assert!(matches!(
+        result2.expect_err("plain endpoint should fail invalid port"),
+        CliError::Http(_)
+    ));
 }
 
 #[test]
 fn claim_19_migration_rejects_unknown_datastore() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(run_migration("mysql", "dsn"));
-    assert!(result.is_err());
-    match result.unwrap_err() {
+    match result.expect_err("unknown datastore must be rejected") {
         CliError::UnknownDatastore(msg) => {
             assert!(msg.contains("mysql"));
         }
@@ -270,14 +270,18 @@ mod adversarial {
     fn breakage_check_health_with_whitespace() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let result = rt.block_on(health_check("  http://localhost:99999  ", false));
-        assert!(result.is_err());
+        assert!(matches!(
+            result.expect_err("whitespace-padded endpoint should fail"),
+            CliError::Http(_)
+        ));
     }
 
     #[test]
     fn breakage_check_empty_json_body_parsing() {
         let empty_json = r#""#;
         let result: Result<HealthResponse, _> = serde_json::from_str(empty_json);
-        assert!(result.is_err());
+        let error = result.expect_err("empty json body must fail to parse");
+        assert!(error.is_eof());
     }
 
     #[test]

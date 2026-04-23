@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 
-use crate::support::{assert_health_up, assert_metrics, assert_node_entry, node, TestHarness};
+use super::super::support::{
+    assert_health_up, assert_metrics, assert_node_entry, node, TestHarness,
+};
 
 #[tokio::test]
 async fn health_returns_up_status() {

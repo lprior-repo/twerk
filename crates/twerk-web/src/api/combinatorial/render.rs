@@ -44,10 +44,7 @@ async fn {}() {{
                 test_name,
                 test_case.endpoint,
                 test_case.method,
-                test_case
-                    .content_type
-                    .as_deref()
-                    .map_or("none", std::convert::identity),
+                test_case.content_type.as_deref().unwrap_or("none"),
                 test_case.operation_id,
                 test_case.description,
                 variant_name(&test_case.input_variation)

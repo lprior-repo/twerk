@@ -97,40 +97,29 @@ impl JobRecordExt for JobRecord {
             })
             .transpose()?;
 
-        let webhooks: Vec<Webhook> = match self
+        let webhooks: Vec<Webhook> = self
             .webhooks
             .as_ref()
             .map(|bytes| {
-                serde_json::from_slice::<Vec<Webhook>>(bytes)
+                serde_json::from_slice(bytes)
                     .map_err(|e| DatastoreError::Serialization(format!("job.webhooks: {e}")))
             })
-            .transpose()
-        {
-            Ok(opt) => opt.unwrap_or_else(Vec::new),
-            Err(e) => return Err(e),
-        };
+            .transpose()?
+            .unwrap_or_default();
 
-        let mut secrets: std::collections::HashMap<String, String> = match self
+        let mut secrets: std::collections::HashMap<String, String> = self
             .secrets
             .as_ref()
             .map(|bytes| {
-                serde_json::from_slice::<std::collections::HashMap<String, String>>(bytes)
+                serde_json::from_slice(bytes)
                     .map_err(|e| DatastoreError::Serialization(format!("job.secrets: {e}")))
             })
-            .transpose()
-        {
-            Ok(opt) => opt.unwrap_or_else(std::collections::HashMap::new),
-            Err(e) => return Err(e),
-        };
+            .transpose()?
+            .unwrap_or_default();
 
         if !secrets.is_empty() {
             secrets = encrypt::decrypt_secrets(&secrets, encryption_key)?;
         }
-
-        let state = self
-            .state
-            .parse()
-            .map_err(|e| DatastoreError::Serialization(format!("job.state: {e}")))?;
 
         let schedule = match &self.scheduled_job_id {
             Some(id) => Some(JobSchedule {
@@ -151,7 +140,7 @@ impl JobRecordExt for JobRecord {
             name: self.name.clone(),
             description: self.description.clone(),
             tags: self.tags.clone(),
-            state,
+            state: self.state.parse().unwrap_or_default(),
             created_at: Some(self.created_at),
             created_by: Some(created_by),
             started_at: self.started_at,

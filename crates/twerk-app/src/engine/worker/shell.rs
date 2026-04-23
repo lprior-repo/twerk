@@ -206,9 +206,7 @@ impl ShellRuntimeAdapter {
         // Check for empty task ID (precondition)
         if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
-                task.id
-                    .clone()
-                    .map_or_else(String::new, |id| id.to_string()),
+                task.id.clone().unwrap_or_default().to_string(),
             ));
         }
 
@@ -226,9 +224,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
     fn run(&self, task: &Task) -> BoxedFuture<()> {
         let (sc, tid, rs, env, active_processes, temp_dirs, broker, enable_cleanup) = (
             self.config.cmd.clone(),
-            task.id
-                .clone()
-                .map_or_else(String::new, |id| id.to_string()),
+            task.id.clone().unwrap_or_default(),
             task.run.clone().unwrap_or_default(),
             task.env.clone(),
             self.active_processes.clone(),
@@ -313,7 +309,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
                                             prev = Some(p);
                                             if let Some(ref b) = broker_clone {
                                                 let twerk_task = twerk_core::task::Task {
-                                                     id: Some(task_id_clone.clone().into()),
+                                                    id: Some(task_id_clone.clone()),
                                                     progress: p,
                                                     ..Default::default()
                                                 };
@@ -348,7 +344,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             }
 
             let output = wait_result?;
-            publish_log_parts(broker.as_ref(), &tid.into(), &output.stdout, &output.stderr).await;
+            publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
 
             if !output.status.success() {
                 return Err(ShellError::ExitFailed(
@@ -366,9 +362,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let (task_id_str, task_state, config, active_processes, temp_dirs) = (
-            task.id
-                .clone()
-                .map_or_else(String::new, |id| id.to_string()),
+            task.id.clone().unwrap_or_default().to_string(),
             task.state,
             self.config.clone(),
             self.active_processes.clone(),
@@ -420,6 +414,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use tokio::sync::oneshot;
     use tokio::sync::RwLock;
     use twerk_core::task::{Task, TaskState};
     use twerk_infrastructure::broker::inmemory::InMemoryBroker;
@@ -433,7 +428,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ID cannot be empty")]
     fn validate_task_returns_error_when_id_is_empty() {
         let task = create_test_task("", TaskState::Running);
         let result = ShellRuntimeAdapter::validate_task(&task);
@@ -472,7 +466,7 @@ mod tests {
 
         let result = runtime.run(&task).await;
 
-        assert!(result.is_ok());
+        assert_eq!(result.map_err(|error| error.to_string()), Ok(()));
     }
 
     #[tokio::test]
@@ -480,17 +474,31 @@ mod tests {
         let broker: Arc<dyn Broker> = Arc::new(InMemoryBroker::new());
         let log_parts = Arc::new(RwLock::new(Vec::new()));
         let captured_parts = log_parts.clone();
+        let (published_tx, published_rx) = oneshot::channel();
+        let published_tx = Arc::new(std::sync::Mutex::new(Some(published_tx)));
+        let captured_tx = published_tx.clone();
 
         broker
             .subscribe_for_task_log_part(Arc::new(move |part| {
                 let captured_parts = captured_parts.clone();
+                let captured_tx = captured_tx.clone();
                 Box::pin(async move {
                     captured_parts.write().await.push(part);
+                    if let Some(published_tx) = captured_tx
+                        .lock()
+                        .expect("publish notification mutex should not be poisoned")
+                        .take()
+                    {
+                        let _ = published_tx.send(());
+                    }
                     Ok(())
                 })
             }))
             .await
-            .expect("subscribing task log handler should succeed");
+            .map_or_else(
+                |error| panic!("subscribing task log handler should succeed: {error}"),
+                |_| (),
+            );
 
         let runtime = ShellRuntimeAdapter::new(
             vec!["bash".to_string(), "-c".to_string()],
@@ -505,19 +513,11 @@ mod tests {
         };
 
         let result = runtime.run(&task).await;
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                if !log_parts.read().await.is_empty() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .expect("task log part should be published");
+        let publish_wait = tokio::time::timeout(Duration::from_secs(1), published_rx).await;
         let published_parts = log_parts.read().await.clone();
 
-        assert!(result.is_ok());
+        assert_eq!(result.map_err(|error| error.to_string()), Ok(()));
+        assert_eq!(publish_wait.map_err(|error| error.to_string()), Ok(Ok(())));
         assert_eq!(published_parts.len(), 1);
         assert_eq!(
             published_parts[0].task_id.as_deref(),

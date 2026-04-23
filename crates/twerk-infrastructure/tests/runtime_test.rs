@@ -5,7 +5,7 @@
 //! Integration tests for Twerk Runtimes (Docker, Podman).
 //!
 //! Ported from Go/Rust internal tests.
-//! Run with: cargo test -p twerk-infrastructure --test `runtime_test` -- --ignored
+//! Run with: cargo test -p twerk-infrastructure --test runtime_test
 
 use std::sync::{Arc, Mutex};
 use twerk_core::task::{Probe, Task, TaskLimits};
@@ -50,13 +50,9 @@ fn make_progress_task(id: &str) -> Task {
 #!/bin/sh
 mkdir -p /twerk
 echo "0.0" > /twerk/progress
-sleep 0.1
 echo "0.25" > /twerk/progress
-sleep 0.1
 echo "0.5" > /twerk/progress
-sleep 0.1
 echo "0.75" > /twerk/progress
-sleep 0.1
 echo "1.0" > /twerk/progress
 echo "done" > /twerk/stdout
 "#;
@@ -83,35 +79,34 @@ fn make_podman_task(id: &str) -> Task {
 // ----------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "requires Docker daemon"]
 async fn test_docker_lifecycle() {
     let runtime = DockerRuntime::default_runtime()
         .await
         .expect("should create Docker runtime");
-    assert!(
-        runtime.health_check().await.is_ok(),
-        "Docker health check failed"
-    );
+    runtime
+        .health_check()
+        .await
+        .expect("Docker health check should succeed");
 
     let task = make_task("docker-lifecycle");
-    let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(result.is_ok(), "Docker run failed: {:?}", result.err());
+    <DockerRuntime as Runtime>::run(&runtime, &task)
+        .await
+        .expect("Docker run should succeed for a simple echo task");
 }
 
 #[tokio::test]
-#[ignore = "requires Docker daemon"]
 async fn test_docker_progress_reporting() {
     let runtime = DockerRuntime::default_runtime()
         .await
         .expect("should create Docker runtime");
     let task = make_progress_task("docker-progress");
 
-    let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(result.is_ok(), "Docker run failed: {:?}", result.err());
+    <DockerRuntime as Runtime>::run(&runtime, &task)
+        .await
+        .expect("Docker run should succeed for the progress-reporting task");
 }
 
 #[tokio::test]
-#[ignore = "requires Docker daemon"]
 async fn test_docker_resource_limits() {
     let runtime = DockerRuntime::default_runtime()
         .await
@@ -122,26 +117,22 @@ async fn test_docker_resource_limits() {
         memory: Some("64000000".to_string()),
     });
 
-    let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(
-        result.is_ok(),
-        "Docker run with limits failed: {:?}",
-        result.err()
-    );
+    <DockerRuntime as Runtime>::run(&runtime, &task)
+        .await
+        .expect("Docker run should succeed when resource limits are configured");
 }
 
 #[tokio::test]
-#[ignore = "requires Docker daemon"]
 async fn test_docker_probe() {
     let runtime = DockerRuntime::default_runtime()
         .await
         .expect("should create Docker runtime");
     let mut task = make_task("docker-probe");
-    // Run a simple HTTP server that exits after 5 seconds or when probed
+    // Run a one-shot HTTP responder that exits after the readiness request arrives.
     task.cmd = Some(vec![
         "sh".to_string(),
         "-c".to_string(),
-        "mkdir -p /www && echo 'OK' > /www/health && httpd -p 8080 -h /www && sleep 5".to_string(),
+        "echo -e 'HTTP/1.1 200 OK\\r\\n\\r\\nOK' | nc -l -p 8080".to_string(),
     ]);
     task.probe = Some(Probe {
         path: Some("/health".to_string()),
@@ -149,12 +140,9 @@ async fn test_docker_probe() {
         timeout: Some("10s".to_string()),
     });
 
-    let result = <DockerRuntime as Runtime>::run(&runtime, &task).await;
-    assert!(
-        result.is_ok(),
-        "Docker run with probe failed: {:?}",
-        result.err()
-    );
+    <DockerRuntime as Runtime>::run(&runtime, &task)
+        .await
+        .expect("Docker run should succeed when a health probe is configured");
 }
 
 // ----------------------------------------------------------------------------
@@ -162,21 +150,22 @@ async fn test_docker_probe() {
 // ----------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "requires Podman"]
 async fn test_podman_lifecycle() {
     let config = PodmanConfig::default();
     let runtime = PodmanRuntime::new(config);
-    assert!(
-        runtime.health_check().await.is_ok(),
-        "Podman health check failed"
-    );
+    runtime
+        .health_check()
+        .await
+        .expect("Podman health check should succeed");
 
     let task = make_podman_task("podman-lifecycle");
-    let _ = runtime.run(&task).await;
+    runtime
+        .run(&task)
+        .await
+        .expect("Podman runtime trait should report success for a simple task");
 }
 
 #[tokio::test]
-#[ignore = "requires Podman"]
 async fn test_podman_volume_mounts() {
     let broker = FakeBroker {
         logs: Arc::new(Mutex::new(Vec::new())),
@@ -188,11 +177,13 @@ async fn test_podman_volume_mounts() {
     let runtime = PodmanRuntime::new(config);
 
     let task = make_podman_task("podman-volume");
-    let _ = runtime.run(&task).await;
+    runtime
+        .run(&task)
+        .await
+        .expect("Podman runtime trait should report success for the volume-mount task");
 }
 
 #[tokio::test]
-#[ignore = "requires Podman"]
 async fn test_podman_resource_limits() {
     let config = PodmanConfig::default();
     let runtime = PodmanRuntime::new(config);
@@ -204,12 +195,13 @@ async fn test_podman_resource_limits() {
         memory: Some("64m".to_string()),
     });
 
-    let task = make_podman_task("podman-limits");
-    let _ = runtime.run(&task).await;
+    runtime
+        .run(&task)
+        .await
+        .expect("Podman runtime trait should report success when limits are configured");
 }
 
 #[tokio::test]
-#[ignore = "requires Podman"]
 async fn test_podman_probe() {
     let broker = FakeBroker {
         logs: Arc::new(Mutex::new(Vec::new())),
@@ -221,9 +213,9 @@ async fn test_podman_probe() {
     let runtime = PodmanRuntime::new(config);
 
     let mut task = make_podman_task("podman-probe");
-    // Use httpd -f to keep it in foreground, and run it in background of the shell with a sleep.
+    // Run a one-shot HTTP responder that exits after the readiness request arrives.
     task.run = Some(
-        "mkdir -p /www && echo 'OK' > /www/health && httpd -f -p 8080 -h /www & sleep 10"
+        "(echo -e 'HTTP/1.1 200 OK\\r\\n\\r\\nOK' | nc -l -p 8080) & wget -q -O - http://127.0.0.1:8080/ >/dev/null 2>&1 && wait"
             .to_string(),
     );
     task.probe = Some(Probe {
@@ -232,15 +224,34 @@ async fn test_podman_probe() {
         timeout: Some("30s".to_string()),
     });
 
-    let task = make_podman_task("podman-probe");
-    let _ = runtime.run(&task).await;
+    runtime
+        .run(&task)
+        .await
+        .expect("Podman runtime trait should report success when a probe is configured");
 }
 
 #[tokio::test]
-#[ignore = "requires Podman"]
 async fn test_podman_pre_post_tasks() {
     let config = PodmanConfig::default();
     let runtime = PodmanRuntime::new(config);
-    let task = make_podman_task("podman-pre-post");
-    let _ = runtime.run(&task).await;
+    let mut task = make_podman_task("podman-pre-post");
+    task.pre = Some(vec![Task {
+        id: Some("podman-pre-step".into()),
+        name: Some("pre-step".to_string()),
+        image: Some("busybox:stable".to_string()),
+        cmd: Some(vec!["echo".to_string(), "pre".to_string()]),
+        ..Default::default()
+    }]);
+    task.post = Some(vec![Task {
+        id: Some("podman-post-step".into()),
+        name: Some("post-step".to_string()),
+        image: Some("busybox:stable".to_string()),
+        cmd: Some(vec!["echo".to_string(), "post".to_string()]),
+        ..Default::default()
+    }]);
+
+    runtime
+        .run(&task)
+        .await
+        .expect("Podman runtime trait should report success when pre/post tasks are configured");
 }

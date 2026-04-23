@@ -55,9 +55,7 @@ pub async fn trigger_list(endpoint: &str, json_mode: bool) -> Result<String, Cli
         }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status
-                .canonical_reason()
-                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
+            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
         });
     }
 
@@ -126,9 +124,7 @@ pub async fn trigger_get(endpoint: &str, id: &str, json_mode: bool) -> Result<St
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status
-                .canonical_reason()
-                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
+            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
         });
     }
 
@@ -206,9 +202,7 @@ pub async fn trigger_create(
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status
-                .canonical_reason()
-                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
+            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
         });
     }
 
@@ -279,9 +273,7 @@ pub async fn trigger_update(
 
     Err(CliError::HttpStatus {
         status: status.as_u16(),
-        reason: status
-            .canonical_reason()
-            .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
+        reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
     })
 }
 
@@ -329,8 +321,6 @@ pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result
 
     Err(CliError::HttpStatus {
         status: status.as_u16(),
-        reason: status
-            .canonical_reason()
-            .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
+        reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
     })
 }

@@ -1,0 +1,6 @@
+State 8 first failure category: FORMAT
+root:fmt reported rustfmt drift in:
+- crates/twerk-app/tests/benchmark_test.rs
+- crates/twerk-infrastructure/tests/rabbitmq_test.rs
+- crates/twerk-web/tests/api_endpoints_test/system_or_users.rs
+See full machine-gate output: /home/lewis/.local/share/opencode/tool-output/tool_db50a6f03001syN7hRnbuoe6t9

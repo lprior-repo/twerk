@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use twerk_core::job::Job;
 use twerk_web::api::yaml::from_slice;
 
-use crate::support::{assert_job_summary, TestHarness};
+use super::super::support::{assert_job_summary, TestHarness};
 
 const TWERK_NOOP_100_YAML: &str = include_str!("../../../../examples/twerk-noop-100.yaml");
 const TWERK_POKEMON_SHELL_100_YAML: &str =

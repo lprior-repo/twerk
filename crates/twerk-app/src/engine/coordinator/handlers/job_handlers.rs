@@ -21,7 +21,7 @@ use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_P
 ///
 /// # Errors
 /// Returns error if job handling logic fails.
-#[instrument(name = "handle_job_event", skip_all, fields(job_id = %job.id.as_deref().map_or("unknown", |s| s), state = %job.state))]
+#[instrument(name = "handle_job_event", skip_all, fields(job_id = %job.id.as_deref().unwrap_or("unknown"), state = %job.state))]
 pub async fn handle_job_event(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -99,27 +99,10 @@ async fn start_job(
     let job_id = job.id.as_ref().ok_or(HandlerError::MissingJobId)?;
 
     debug!(job_id = %job_id, "start_job: transitioning job to Scheduled");
-    // Transition job to Scheduled BEFORE evaluating task and calling handle_pending_task.
-    // This ensures the job state is updated even if task evaluation or broker dispatch fails.
-    ds.update_job(
-        job_id,
-        Box::new(move |mut u| {
-            u.state = JobState::Scheduled;
-            u.started_at = Some(now);
-            u.position = 1;
-            Ok(u)
-        }),
-    )
-    .await?;
+    transition_job_to_scheduled(&ds, job_id, now).await?;
 
     debug!(job_id = %job_id, "start_job: evaluating task");
-    let mut task =
-        twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow::anyhow!("{e}"))?;
-    task.id = Some(new_short_uuid().into());
-    task.job_id = Some(job_id.clone());
-    task.state = TaskState::Pending;
-    task.position = 1;
-    task.created_at = Some(now);
+    let task = build_pending_job_task(base_task, &job_ctx, job_id, 1, now)?;
 
     debug!(job_id = %job_id, "start_job: creating task in datastore");
     ds.create_task(&task).await?;
@@ -153,13 +136,13 @@ async fn restart_job(
     let task_index = (job.position - 1) as usize;
     let base_task = tasks.get(task_index).ok_or(HandlerError::TaskOutOfBounds)?;
 
-    let mut task = twerk_core::eval::evaluate_task(base_task, &build_job_context(&job))
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
-    task.id = Some(new_short_uuid().into());
-    task.job_id = Some(job_id.clone());
-    task.state = TaskState::Pending;
-    task.position = job.position;
-    task.created_at = Some(now);
+    let task = build_pending_job_task(
+        base_task,
+        &build_job_context(&job),
+        job_id,
+        job.position,
+        now,
+    )?;
 
     ds.create_task(&task).await?;
     broker.publish_task(QUEUE_PENDING.to_string(), &task).await
@@ -187,19 +170,8 @@ async fn complete_job(
     fire_job_webhooks(&updated_job, "job.Completed").await;
 
     match &job.parent_id {
-        Some(parent_id) => {
-            let mut parent = ds.get_task_by_id(parent_id).await?;
-            parent.state = TaskState::Completed;
-            parent.completed_at = Some(now);
-            broker
-                .publish_task(QUEUE_COMPLETED.to_string(), &parent)
-                .await
-        }
-        None => {
-            broker
-                .publish_event(TOPIC_JOB_COMPLETED.to_string(), serde_json::to_value(&job)?)
-                .await
-        }
+        Some(parent_id) => publish_completed_parent_task(&ds, &broker, parent_id, now).await,
+        None => publish_job_completed_event(&broker, &job).await,
     }
 }
 
@@ -251,19 +223,7 @@ async fn fail_job(
     .await
     .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
 
-    if let Some(ref parent_id) = job.parent_id {
-        let mut parent = ds
-            .get_task_by_id(parent_id)
-            .await
-            .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
-        parent.state = TaskState::Failed;
-        parent.failed_at = failed_at;
-        parent.error.clone_from(&job.error);
-        broker
-            .publish_task(QUEUE_FAILED.to_string(), &parent)
-            .await
-            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
-    }
+    publish_failed_parent_task_if_present(&ds, &broker, &job, failed_at).await?;
 
     cancel_active_tasks(&ds, &broker, job_id).await?;
 
@@ -283,4 +243,89 @@ async fn fail_job(
     }
 
     Ok(())
+}
+
+async fn transition_job_to_scheduled(
+    ds: &Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    job_id: &twerk_core::id::JobId,
+    now: time::OffsetDateTime,
+) -> Result<()> {
+    ds.update_job(
+        job_id,
+        Box::new(move |mut job| {
+            job.state = JobState::Scheduled;
+            job.started_at = Some(now);
+            job.position = 1;
+            Ok(job)
+        }),
+    )
+    .await
+    .map_err(anyhow::Error::from)
+}
+
+fn build_pending_job_task(
+    base_task: &twerk_core::task::Task,
+    job_ctx: &std::collections::HashMap<String, serde_json::Value>,
+    job_id: &twerk_core::id::JobId,
+    position: i64,
+    now: time::OffsetDateTime,
+) -> Result<twerk_core::task::Task> {
+    let evaluated = twerk_core::eval::evaluate_task(base_task, job_ctx)
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+
+    Ok(twerk_core::task::Task {
+        id: Some(new_short_uuid().into()),
+        job_id: Some(job_id.clone()),
+        state: TaskState::Pending,
+        position,
+        created_at: Some(now),
+        ..evaluated
+    })
+}
+
+async fn publish_completed_parent_task(
+    ds: &Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: &Arc<dyn twerk_infrastructure::broker::Broker>,
+    parent_id: &twerk_core::id::JobId,
+    now: time::OffsetDateTime,
+) -> Result<()> {
+    let mut parent = ds.get_task_by_id(parent_id).await?;
+    parent.state = TaskState::Completed;
+    parent.completed_at = Some(now);
+    broker
+        .publish_task(QUEUE_COMPLETED.to_string(), &parent)
+        .await
+}
+
+async fn publish_job_completed_event(
+    broker: &Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: &twerk_core::job::Job,
+) -> Result<()> {
+    broker
+        .publish_event(TOPIC_JOB_COMPLETED.to_string(), serde_json::to_value(job)?)
+        .await
+}
+
+async fn publish_failed_parent_task_if_present(
+    ds: &Arc<dyn twerk_infrastructure::datastore::Datastore>,
+    broker: &Arc<dyn twerk_infrastructure::broker::Broker>,
+    job: &twerk_core::job::Job,
+    failed_at: Option<time::OffsetDateTime>,
+) -> Result<(), JobHandlerError> {
+    match &job.parent_id {
+        Some(parent_id) => {
+            let mut parent = ds
+                .get_task_by_id(parent_id)
+                .await
+                .map_err(|error| JobHandlerError::Datastore(error.to_string()))?;
+            parent.state = TaskState::Failed;
+            parent.failed_at = failed_at;
+            parent.error.clone_from(&job.error);
+            broker
+                .publish_task(QUEUE_FAILED.to_string(), &parent)
+                .await
+                .map_err(|error| JobHandlerError::Handler(error.to_string()))
+        }
+        None => Ok(()),
+    }
 }

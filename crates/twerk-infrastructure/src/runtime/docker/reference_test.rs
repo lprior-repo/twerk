@@ -317,3 +317,40 @@ fn test_err_name_too_long() {
         ReferenceError::NameTooLong(255)
     ));
 }
+    let result = parse("localhost/ubuntu").expect("should parse");
+    assert_eq!("localhost", result.domain);
+    assert_eq!("ubuntu", result.path);
+}
+
+// ============================================================================
+// Error constant tests
+// ============================================================================
+
+#[test]
+fn test_err_reference_invalid_format_is_invalid_format() {
+    assert!(matches!(
+        ERR_REFERENCE_INVALID_FORMAT,
+        ReferenceError::InvalidFormat
+    ));
+}
+
+#[test]
+fn test_err_name_contains_uppercase() {
+    assert!(matches!(
+        ERR_NAME_CONTAINS_UPPERCASE,
+        ReferenceError::ContainsUppercase
+    ));
+}
+
+#[test]
+fn test_err_name_empty() {
+    assert!(matches!(ERR_NAME_EMPTY, ReferenceError::NameEmpty));
+}
+
+#[test]
+fn test_err_name_too_long() {
+    assert!(matches!(
+        ERR_NAME_TOO_LONG,
+        ReferenceError::NameTooLong(255)
+    ));
+}

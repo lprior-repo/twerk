@@ -5,13 +5,12 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use tokio::runtime::Runtime;
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
-use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 
 fn create_massive_parallel_job(id: &str, num_tasks: usize) -> Job {
     Job {
-        id: Some(JobId::new(id).unwrap()),
+        id: Some(id.into()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("massive-parallel-task".to_string()),

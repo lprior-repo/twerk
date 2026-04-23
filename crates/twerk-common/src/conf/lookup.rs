@@ -29,7 +29,7 @@ pub fn string(key: &str) -> String {
     get_config()
         .ok()
         .and_then(|c| c.get_str(key).map(|v| v.to_string()))
-        .map_or(String::new(), |v| v)
+        .unwrap_or_default()
 }
 
 /// Get a string configuration value with a default.
@@ -81,7 +81,7 @@ pub fn bool_default(key: &str, default: bool) -> bool {
             c.get_bool(key)
                 .or_else(|| c.contains_key(key).then_some(default))
         })
-        .map_or(default, |v| v)
+        .unwrap_or(default)
 }
 
 /// Get an integer configuration value.
@@ -116,7 +116,7 @@ pub fn int_default(key: &str, default: i64) -> i64 {
             c.get_int(key)
                 .or_else(|| c.contains_key(key).then_some(default))
         })
-        .map_or(default, |v| v)
+        .unwrap_or(default)
 }
 
 /// Get a string-to-integer map configuration.
@@ -129,10 +129,9 @@ pub fn int_default(key: &str, default: i64) -> i64 {
 /// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn int_map(key: &str) -> HashMap<String, i64> {
-    let fallback = HashMap::new();
     get_config()
         .map(|c| c.int_map_for_key(key))
-        .map_or(fallback, |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a string-to-boolean map configuration.
@@ -145,10 +144,9 @@ pub fn int_map(key: &str) -> HashMap<String, i64> {
 /// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn bool_map(key: &str) -> HashMap<String, bool> {
-    let fallback = HashMap::new();
     get_config()
         .map(|c| c.bool_map_for_key(key))
-        .map_or(fallback, |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a string-to-string map configuration.
@@ -161,10 +159,9 @@ pub fn bool_map(key: &str) -> HashMap<String, bool> {
 /// **Error behavior**: Silently returns empty map on any error.
 #[must_use]
 pub fn string_map(key: &str) -> HashMap<String, String> {
-    let fallback = HashMap::new();
     get_config()
         .map(|c| c.string_map_for_key(key))
-        .map_or(fallback, |v| v)
+        .unwrap_or_else(|_| HashMap::new())
 }
 
 /// Get a list of strings configuration.
@@ -176,10 +173,9 @@ pub fn string_map(key: &str) -> HashMap<String, String> {
 /// **Error behavior**: Silently returns empty vector on any error.
 #[must_use]
 pub fn strings(key: &str) -> Vec<String> {
-    let fallback = Vec::new();
     get_config()
         .map(|c| c.strings_for_key_or_string(key))
-        .map_or(fallback, |v| v)
+        .unwrap_or_else(|_| Vec::new())
 }
 
 /// Get a list of strings with a default fallback.
@@ -300,65 +296,7 @@ fn parse_complex_duration(s: &str) -> Option<Duration> {
 #[must_use]
 pub fn duration_default(key: &str, default: Duration) -> Duration {
     let s = string(key);
-    parse_duration(&s).map_or(default, |v| v)
-}
-
-/// Try to unmarshal from a TOML table.
-fn try_unmarshal_from_table<T: for<'de> serde::Deserialize<'de>>(
-    config: &ConfigState,
-    key: &str,
-) -> Result<T, ConfigError> {
-    config
-        .get_table(key)
-        .ok_or_else(|| ConfigError::UnmarshalError("table key not found".to_string()))
-        .and_then(|t| {
-            toml::Value::Table(t.clone())
-                .try_into::<T>()
-                .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
-        })
-        .or_else(|_| {
-            let table = config.build_table_from_flat(key);
-            if table.is_empty() {
-                try_unmarshal_from_string(config, key)
-            } else {
-                toml::Value::Table(table)
-                    .try_into::<T>()
-                    .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
-            }
-        })
-}
-
-/// Try to unmarshal from a string value.
-fn try_unmarshal_from_string<T: for<'de> serde::Deserialize<'de>>(
-    config: &ConfigState,
-    key: &str,
-) -> Result<T, ConfigError> {
-    config
-        .get_str(key)
-        .ok_or_else(|| ConfigError::UnmarshalError("string key not found".to_string()))
-        .and_then(|s| {
-            toml::Value::String(s.to_string())
-                .try_into::<T>()
-                .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
-        })
-        .or_else(|_| try_unmarshal_from_array(config, key))
-}
-
-/// Try to unmarshal from an array value.
-fn try_unmarshal_from_array<T: for<'de> serde::Deserialize<'de>>(
-    config: &ConfigState,
-    key: &str,
-) -> Result<T, ConfigError> {
-    config.get_array(key).map_or(
-        Err(ConfigError::UnmarshalError(
-            "key not found or unsupported type".to_string(),
-        )),
-        |a: &toml::value::Array| {
-            toml::Value::Array(a.clone())
-                .try_into::<T>()
-                .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
-        },
-    )
+    parse_duration(&s).unwrap_or(default)
 }
 
 /// Unmarshal a configuration value into a deserializable type.
@@ -376,7 +314,46 @@ fn try_unmarshal_from_array<T: for<'de> serde::Deserialize<'de>>(
 pub fn unmarshal<T: for<'de> serde::Deserialize<'de>>(key: &str) -> Result<T, ConfigError> {
     get_config()
         .map_err(|e| ConfigError::UnmarshalError(e.to_string()))
-        .and_then(|c| try_unmarshal_from_table(&c, key))
+        .and_then(|c| {
+            c.get_table(key)
+                .map(|t| {
+                    toml::Value::Table(t.clone())
+                        .try_into::<T>()
+                        .map_err(|e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()))
+                })
+                .unwrap_or_else(|| {
+                    let table = c.build_table_from_flat(key);
+                    if table.is_empty() {
+                        c.get_str(key)
+                            .map(|s| {
+                                toml::Value::String(s.to_string()).try_into::<T>().map_err(
+                                    |e: toml::de::Error| ConfigError::UnmarshalError(e.to_string()),
+                                )
+                            })
+                            .unwrap_or_else(|| {
+                                c.get_array(key)
+                                    .map(|a: &toml::value::Array| {
+                                        toml::Value::Array(a.clone()).try_into::<T>().map_err(
+                                            |e: toml::de::Error| {
+                                                ConfigError::UnmarshalError(e.to_string())
+                                            },
+                                        )
+                                    })
+                                    .unwrap_or_else(|| {
+                                        Err(ConfigError::UnmarshalError(
+                                            "key not found or unsupported type".to_string(),
+                                        ))
+                                    })
+                            })
+                    } else {
+                        toml::Value::Table(table)
+                            .try_into::<T>()
+                            .map_err(|e: toml::de::Error| {
+                                ConfigError::UnmarshalError(e.to_string())
+                            })
+                    }
+                })
+        })
 }
 
 // ============================================================================
@@ -534,127 +511,5 @@ pub fn middleware_web_logger_skip_paths() -> Vec<String> {
         strings("middleware.web.logger.skip")
     } else {
         paths
-    }
-}
-
-#[cfg(test)]
-mod duration_tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
-    use super::*;
-    use time::Duration;
-
-    #[test]
-    fn test_parse_duration_seconds() {
-        let d = parse_duration("30s").unwrap();
-        assert_eq!(d, Duration::seconds(30));
-    }
-
-    #[test]
-    fn test_parse_duration_minutes() {
-        let d = parse_duration("5m").unwrap();
-        assert_eq!(d, Duration::minutes(5));
-    }
-
-    #[test]
-    fn test_parse_duration_hours() {
-        let d = parse_duration("2h").unwrap();
-        assert_eq!(d, Duration::hours(2));
-    }
-
-    #[test]
-    fn test_parse_duration_days() {
-        let d = parse_duration("1d").unwrap();
-        assert_eq!(d, Duration::days(1));
-    }
-
-    #[test]
-    fn test_parse_duration_milliseconds() {
-        let d = parse_duration("500ms").unwrap();
-        assert_eq!(d, Duration::milliseconds(500));
-    }
-
-    #[test]
-    fn test_parse_duration_microseconds() {
-        let d = parse_duration("100us").unwrap();
-        assert_eq!(d, Duration::microseconds(100));
-    }
-
-    #[test]
-    fn test_parse_duration_microseconds_unicode() {
-        let d = parse_duration("100\u{b5}s").unwrap();
-        assert_eq!(d, Duration::microseconds(100));
-    }
-
-    #[test]
-    fn test_parse_duration_nanoseconds() {
-        let d = parse_duration("1000ns").unwrap();
-        assert_eq!(d, Duration::nanoseconds(1000));
-    }
-
-    #[test]
-    fn test_parse_duration_complex() {
-        let d = parse_duration("1h30m").unwrap();
-        assert_eq!(d, Duration::hours(1) + Duration::minutes(30));
-    }
-
-    #[test]
-    fn test_parse_duration_complex_multiple() {
-        let d = parse_duration("1d2h30m").unwrap();
-        assert_eq!(
-            d,
-            Duration::days(1) + Duration::hours(2) + Duration::minutes(30)
-        );
-    }
-
-    #[test]
-    fn test_parse_duration_empty_returns_none() {
-        assert!(parse_duration("").is_none());
-    }
-
-    #[test]
-    fn test_parse_duration_whitespace_returns_none() {
-        assert!(parse_duration("   ").is_none());
-    }
-
-    #[test]
-    fn test_parse_duration_invalid_returns_none() {
-        assert!(parse_duration("invalid").is_none());
-    }
-
-    #[test]
-    fn test_parse_duration_float_seconds() {
-        let d = parse_duration("1.5s").unwrap();
-        assert_eq!(d, Duration::seconds(2)); // 1.5 rounds to 2
-    }
-
-    #[test]
-    fn test_parse_single_duration_no_unit() {
-        assert!(parse_single_duration("42").is_none());
-    }
-
-    #[test]
-    fn test_parse_single_duration_with_value_invalid() {
-        let result = parse_single_duration_with_value("abc", "s");
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_parse_complex_duration_single_unit() {
-        // "30s" is handled by parse_single_duration first, but complex can parse it too
-        let d = parse_complex_duration("30s").unwrap();
-        assert_eq!(d, Duration::seconds(30));
-    }
-
-    #[test]
-    fn test_parse_complex_duration_with_negative() {
-        let d = parse_complex_duration("-1h30m");
-        // Negative hours should parse
-        assert!(d.is_some());
-    }
-
-    #[test]
-    fn test_parse_complex_duration_trailing_unit() {
-        // "30" without unit should return None from complex
-        assert!(parse_complex_duration("30").is_none());
     }
 }

@@ -26,7 +26,9 @@ impl TestServer {
     }
 
     pub async fn shutdown(self) {
-        let _ = self.shutdown_tx.send(());
+        match self.shutdown_tx.send(()) {
+            Ok(()) | Err(()) => {}
+        }
     }
 }
 
@@ -41,12 +43,13 @@ pub async fn start_test_server() -> Result<TestServer, std::io::Error> {
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
 
     tokio::spawn(async move {
-        axum::serve(listener, Shared::new(app))
-            .with_graceful_shutdown(async {
-                shutdown_rx.await.ok();
-            })
-            .await
-            .ok();
+        drop(
+            axum::serve(listener, Shared::new(app))
+                .with_graceful_shutdown(async {
+                    drop(shutdown_rx.await);
+                })
+                .await,
+        );
     });
 
     Ok(TestServer {
@@ -63,14 +66,14 @@ mod tests {
     use twerk_infrastructure::broker::Broker;
 
     #[tokio::test]
-    async fn test_server_starts_successfully() {
+    async fn server_starts_successfully() {
         let server = start_test_server().await.unwrap();
         assert!(server.addr.port() > 0);
-        let _ = server.shutdown().await;
+        server.shutdown().await;
     }
 
     #[tokio::test]
-    async fn test_server_accepts_requests() {
+    async fn server_accepts_requests() {
         let server = start_test_server().await.unwrap();
         let client = reqwest::Client::new();
         let response = client
@@ -79,15 +82,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), reqwest::StatusCode::OK);
-        let _ = server.shutdown().await;
+        server.shutdown().await;
     }
 
     #[tokio::test]
-    async fn test_server_broker_and_datastore_are_functional() {
+    async fn server_broker_and_datastore_are_functional() {
         let server = start_test_server().await;
         assert!(server.is_ok());
         let server = server.unwrap();
         assert!(server.broker().health_check().await.is_ok());
-        let _ = server.shutdown().await;
+        server.shutdown().await;
     }
 }

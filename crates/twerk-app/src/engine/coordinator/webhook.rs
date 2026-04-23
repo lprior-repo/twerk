@@ -13,7 +13,6 @@ use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Semaphore;
 use tracing::instrument;
 use twerk_common::constants::DEFAULT_TASK_NAME;
 use twerk_core::job::Job;
@@ -36,7 +35,7 @@ enum WebhookError {
 /// Async webhook caller with retry logic using `tokio::time::sleep`.
 ///
 /// This is the **Action** layer - pure async I/O with proper backoff.
-#[instrument(name = "call_webhook_async", skip_all, fields(url = %wh.url.as_deref().map_or("unknown", |s| s)))]
+#[instrument(name = "call_webhook_async", skip_all, fields(url = %wh.url.as_deref().unwrap_or("unknown")))]
 async fn call_webhook_async(
     wh: &Webhook,
     body: &impl serde::Serialize,
@@ -134,26 +133,14 @@ pub async fn fire_job_webhooks(job: &Job, event: &str) {
             .collect::<Vec<_>>()
     });
 
-    // Action: Spawn async tasks for network calls (bounded concurrency)
-    let semaphore = Arc::new(Semaphore::new(16));
+    // Action: Spawn async tasks for network calls
     for wh in matching_webhooks {
         let job = job.clone();
         let wh = wh.clone();
-        let permit = match semaphore.clone().acquire_owned().await {
-            Ok(p) => p,
-            Err(e) => {
-                tracing::error!(
-                    error = %e,
-                    "[Webhook] failed to acquire semaphore permit"
-                );
-                continue;
-            }
-        };
         tokio::spawn(async move {
-            let _permit = permit;
             if let Err(e) = call_webhook_async(&wh, &job).await {
                 tracing::error!(
-                    url = wh.url.as_deref().map_or(DEFAULT_TASK_NAME, |s| s),
+                    url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
                     "[Webhook] job webhook failed"
                 );
@@ -193,26 +180,14 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
 
     let summary = twerk_core::task::new_task_summary(task);
 
-    // Action: Spawn async tasks (bounded concurrency)
-    let semaphore = Arc::new(Semaphore::new(16));
+    // Action: Spawn async tasks
     for wh in matching_webhooks {
         let summary = summary.clone();
         let wh = wh.clone();
-        let permit = match semaphore.clone().acquire_owned().await {
-            Ok(p) => p,
-            Err(e) => {
-                tracing::error!(
-                    error = %e,
-                    "[Webhook] failed to acquire semaphore permit"
-                );
-                continue;
-            }
-        };
         tokio::spawn(async move {
-            let _permit = permit;
             if let Err(e) = call_webhook_async(&wh, &summary).await {
                 tracing::error!(
-                    url = wh.url.as_deref().map_or(DEFAULT_TASK_NAME, |s| s),
+                    url = wh.url.as_deref().unwrap_or(DEFAULT_TASK_NAME),
                     error = %e,
                     "[Webhook] task webhook failed"
                 );

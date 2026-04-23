@@ -1,0 +1,1858 @@
+[
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace + with - in InMemoryRepository::paginate_vec\n@@ -45,17 +45,17 @@\n     fn paginate_vec<T: Clone>(items: Vec<T>, page: i64, size: i64) -> Page<T> {\n         let total_items = items.len() as i64;\n         let total_pages = if size > 0 {\n             (total_items + size - 1) / size\n         } else {\n             0\n         };\n         let start = ((page - 1) * size) as usize;\n-        let end = (start + size as usize).min(items.len());\n+        let end = (start - /* ~ changed by cargo-mutants ~ */ size as usize).min(items.len());\n         let page_items: Vec<T> = if start < items.len() {\n             items[start..end].to_vec()\n         } else {\n             Vec::new()\n         };\n         Page {\n             items: page_items,\n             number: page,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "InMemoryRepository::paginate_vec",
+      "return_type": "-> Page<T>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 66
+        },
+        "start": {
+          "column": 5,
+          "line": 45
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with - in InMemoryRepository::paginate_vec",
+    "package": "twerk-core",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 53
+      },
+      "start": {
+        "column": 26,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace + with * in InMemoryRepository::paginate_vec\n@@ -45,17 +45,17 @@\n     fn paginate_vec<T: Clone>(items: Vec<T>, page: i64, size: i64) -> Page<T> {\n         let total_items = items.len() as i64;\n         let total_pages = if size > 0 {\n             (total_items + size - 1) / size\n         } else {\n             0\n         };\n         let start = ((page - 1) * size) as usize;\n-        let end = (start + size as usize).min(items.len());\n+        let end = (start * /* ~ changed by cargo-mutants ~ */ size as usize).min(items.len());\n         let page_items: Vec<T> = if start < items.len() {\n             items[start..end].to_vec()\n         } else {\n             Vec::new()\n         };\n         Page {\n             items: page_items,\n             number: page,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "InMemoryRepository::paginate_vec",
+      "return_type": "-> Page<T>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 66
+        },
+        "start": {
+          "column": 5,
+          "line": 45
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:53:26: replace + with * in InMemoryRepository::paginate_vec",
+    "package": "twerk-core",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 53
+      },
+      "start": {
+        "column": 26,
+        "line": 53
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace < with == in InMemoryRepository::paginate_vec\n@@ -46,17 +46,17 @@\n         let total_items = items.len() as i64;\n         let total_pages = if size > 0 {\n             (total_items + size - 1) / size\n         } else {\n             0\n         };\n         let start = ((page - 1) * size) as usize;\n         let end = (start + size as usize).min(items.len());\n-        let page_items: Vec<T> = if start < items.len() {\n+        let page_items: Vec<T> = if start == /* ~ changed by cargo-mutants ~ */ items.len() {\n             items[start..end].to_vec()\n         } else {\n             Vec::new()\n         };\n         Page {\n             items: page_items,\n             number: page,\n             size,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "InMemoryRepository::paginate_vec",
+      "return_type": "-> Page<T>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 66
+        },
+        "start": {
+          "column": 5,
+          "line": 45
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with == in InMemoryRepository::paginate_vec",
+    "package": "twerk-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 54
+      },
+      "start": {
+        "column": 43,
+        "line": 54
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace < with > in InMemoryRepository::paginate_vec\n@@ -46,17 +46,17 @@\n         let total_items = items.len() as i64;\n         let total_pages = if size > 0 {\n             (total_items + size - 1) / size\n         } else {\n             0\n         };\n         let start = ((page - 1) * size) as usize;\n         let end = (start + size as usize).min(items.len());\n-        let page_items: Vec<T> = if start < items.len() {\n+        let page_items: Vec<T> = if start > /* ~ changed by cargo-mutants ~ */ items.len() {\n             items[start..end].to_vec()\n         } else {\n             Vec::new()\n         };\n         Page {\n             items: page_items,\n             number: page,\n             size,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "InMemoryRepository::paginate_vec",
+      "return_type": "-> Page<T>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 66
+        },
+        "start": {
+          "column": 5,
+          "line": 45
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with > in InMemoryRepository::paginate_vec",
+    "package": "twerk-core",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 54
+      },
+      "start": {
+        "column": 43,
+        "line": 54
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace < with <= in InMemoryRepository::paginate_vec\n@@ -46,17 +46,17 @@\n         let total_items = items.len() as i64;\n         let total_pages = if size > 0 {\n             (total_items + size - 1) / size\n         } else {\n             0\n         };\n         let start = ((page - 1) * size) as usize;\n         let end = (start + size as usize).min(items.len());\n-        let page_items: Vec<T> = if start < items.len() {\n+        let page_items: Vec<T> = if start <= /* ~ changed by cargo-mutants ~ */ items.len() {\n             items[start..end].to_vec()\n         } else {\n             Vec::new()\n         };\n         Page {\n             items: page_items,\n             number: page,\n             size,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "InMemoryRepository::paginate_vec",
+      "return_type": "-> Page<T>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 66
+        },
+        "start": {
+          "column": 5,
+          "line": 45
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:54:43: replace < with <= in InMemoryRepository::paginate_vec",
+    "package": "twerk-core",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 54
+      },
+      "start": {
+        "column": 43,
+        "line": 54
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())\n@@ -64,30 +64,17 @@\n             total_items,\n         }\n     }\n }\n \n #[async_trait]\n impl Repository for InMemoryRepository {\n     async fn create_task(&self, task: &Task) -> Result<()> {\n-        let id_str = task\n-            .id\n-            .as_ref()\n-            .map(|id| id.as_str().to_string())\n-            .unwrap_or_default();\n-        if id_str.is_empty() {\n-            return Err(Error::InvalidId(\"task has no id\".to_string()));\n-        }\n-        let mut tasks = self.tasks.write();\n-        if tasks.contains_key(&id_str) {\n-            return Err(Error::Database(format!(\"task {} already exists\", id_str)));\n-        }\n-        tasks.insert(id_str, task.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn update_task(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,\n     ) -> Result<()> {\n         let mut tasks = self.tasks.write();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_task",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 86
+        },
+        "start": {
+          "column": 5,
+          "line": 71
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:72:9: replace <impl Repository for InMemoryRepository>::create_task -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 85
+      },
+      "start": {
+        "column": 9,
+        "line": 72
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::update_task -> Result<()> with Ok(())\n@@ -85,21 +85,17 @@\n         Ok(())\n     }\n \n     async fn update_task(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Task) -> Result<Task> + Send>,\n     ) -> Result<()> {\n-        let mut tasks = self.tasks.write();\n-        let task = tasks.get_mut(id).ok_or(Error::TaskNotFound)?;\n-        let updated = modify(task.clone())?;\n-        *task = updated;\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_task_by_id(&self, id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n         tasks.get(id).cloned().ok_or(Error::TaskNotFound)\n     }\n \n     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::update_task",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 98
+        },
+        "start": {
+          "column": 5,
+          "line": 88
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:93:9: replace <impl Repository for InMemoryRepository>::update_task -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 97
+      },
+      "start": {
+        "column": 9,
+        "line": 93
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_task_by_id -> Result<Task> with Ok(Default::default())\n@@ -93,18 +93,17 @@\n         let mut tasks = self.tasks.write();\n         let task = tasks.get_mut(id).ok_or(Error::TaskNotFound)?;\n         let updated = modify(task.clone())?;\n         *task = updated;\n         Ok(())\n     }\n \n     async fn get_task_by_id(&self, id: &str) -> Result<Task> {\n-        let tasks = self.tasks.read();\n-        tasks.get(id).cloned().ok_or(Error::TaskNotFound)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_task_by_id",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 103
+        },
+        "start": {
+          "column": 5,
+          "line": 100
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:101:9: replace <impl Repository for InMemoryRepository>::get_task_by_id -> Result<Task> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 58,
+        "line": 102
+      },
+      "start": {
+        "column": 9,
+        "line": 101
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![])\n@@ -98,29 +98,17 @@\n     }\n \n     async fn get_task_by_id(&self, id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n         tasks.get(id).cloned().ok_or(Error::TaskNotFound)\n     }\n \n     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {\n-        let tasks = self.tasks.read();\n-        let job_id_str = job_id.to_string();\n-        Ok(tasks\n-            .values()\n-            .filter(|t| {\n-                t.job_id\n-                    .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n-                    .unwrap_or(false)\n-                    && t.state.is_active()\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 119
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 118
+      },
+      "start": {
+        "column": 9,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![Default::default()])\n@@ -98,29 +98,17 @@\n     }\n \n     async fn get_task_by_id(&self, id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n         tasks.get(id).cloned().ok_or(Error::TaskNotFound)\n     }\n \n     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {\n-        let tasks = self.tasks.read();\n-        let job_id_str = job_id.to_string();\n-        Ok(tasks\n-            .values()\n-            .filter(|t| {\n-                t.job_id\n-                    .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n-                    .unwrap_or(false)\n-                    && t.state.is_active()\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 119
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:106:9: replace <impl Repository for InMemoryRepository>::get_active_tasks -> Result<Vec<Task>> with Ok(vec![Default::default()])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 118
+      },
+      "start": {
+        "column": 9,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace && with || in <impl Repository for InMemoryRepository>::get_active_tasks\n@@ -107,17 +107,17 @@\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n-                    && t.state.is_active()\n+                    || /* ~ changed by cargo-mutants ~ */ t.state.is_active()\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 119
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:115:21: replace && with || in <impl Repository for InMemoryRepository>::get_active_tasks",
+    "package": "twerk-core",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 115
+      },
+      "start": {
+        "column": 21,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_active_tasks\n@@ -105,17 +105,17 @@\n     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n+                    .map(|j| j.as_str() != /* ~ changed by cargo-mutants ~ */ job_id_str)\n                     .unwrap_or(false)\n                     && t.state.is_active()\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_tasks",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 119
+        },
+        "start": {
+          "column": 5,
+          "line": 105
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:113:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_tasks",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 113
+      },
+      "start": {
+        "column": 41,
+        "line": 113
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![])\n@@ -114,28 +114,17 @@\n                     .unwrap_or(false)\n                     && t.state.is_active()\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n-        let tasks = self.tasks.read();\n-        let job_id_str = job_id.to_string();\n-        Ok(tasks\n-            .values()\n-            .filter(|t| {\n-                t.job_id\n-                    .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n-                    .unwrap_or(false)\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n         let parent = tasks.get(parent_task_id).ok_or(Error::TaskNotFound)?;\n         let job_id_str = parent\n             .job_id\n             .as_ref()\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 134
+        },
+        "start": {
+          "column": 5,
+          "line": 121
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 133
+      },
+      "start": {
+        "column": 9,
+        "line": 122
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![Default::default()])\n@@ -114,28 +114,17 @@\n                     .unwrap_or(false)\n                     && t.state.is_active()\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n-        let tasks = self.tasks.read();\n-        let job_id_str = job_id.to_string();\n-        Ok(tasks\n-            .values()\n-            .filter(|t| {\n-                t.job_id\n-                    .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n-                    .unwrap_or(false)\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n         let parent = tasks.get(parent_task_id).ok_or(Error::TaskNotFound)?;\n         let job_id_str = parent\n             .job_id\n             .as_ref()\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 134
+        },
+        "start": {
+          "column": 5,
+          "line": 121
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:122:9: replace <impl Repository for InMemoryRepository>::get_all_tasks_for_job -> Result<Vec<Task>> with Ok(vec![Default::default()])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 133
+      },
+      "start": {
+        "column": 9,
+        "line": 122
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_all_tasks_for_job\n@@ -121,17 +121,17 @@\n     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {\n         let tasks = self.tasks.read();\n         let job_id_str = job_id.to_string();\n         Ok(tasks\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n+                    .map(|j| j.as_str() != /* ~ changed by cargo-mutants ~ */ job_id_str)\n                     .unwrap_or(false)\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {\n         let tasks = self.tasks.read();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+      "return_type": "-> Result<Vec<Task>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 134
+        },
+        "start": {
+          "column": 5,
+          "line": 121
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:129:41: replace == with != in <impl Repository for InMemoryRepository>::get_all_tasks_for_job",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 129
+      },
+      "start": {
+        "column": 41,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_next_task -> Result<Task> with Ok(Default::default())\n@@ -129,40 +129,17 @@\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {\n-        let tasks = self.tasks.read();\n-        let parent = tasks.get(parent_task_id).ok_or(Error::TaskNotFound)?;\n-        let job_id_str = parent\n-            .job_id\n-            .as_ref()\n-            .map(|j| j.as_str().to_string())\n-            .unwrap_or_default();\n-        let parent_position = parent.position;\n-        Ok(tasks\n-            .values()\n-            .filter(|t| {\n-                t.job_id\n-                    .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n-                    .unwrap_or(false)\n-                    && t.parent_id\n-                        .as_ref()\n-                        .map(|p| p.as_str() == parent_task_id)\n-                        .unwrap_or(false)\n-                    && t.position > parent_position\n-            })\n-            .min_by_key(|t| t.position)\n-            .cloned()\n-            .ok_or(Error::TaskNotFound)?)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n         let task_id_str = part\n             .task_id\n             .as_ref()\n             .map(|t| t.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:137:9: replace <impl Repository for InMemoryRepository>::get_next_task -> Result<Task> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 42,
+        "line": 160
+      },
+      "start": {
+        "column": 9,
+        "line": 137
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace && with || in <impl Repository for InMemoryRepository>::get_next_task\n@@ -148,17 +148,17 @@\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n-                    && t.position > parent_position\n+                    || /* ~ changed by cargo-mutants ~ */ t.position > parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n         let task_id_str = part\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:156:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 156
+      },
+      "start": {
+        "column": 21,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace && with || in <impl Repository for InMemoryRepository>::get_next_task\n@@ -144,17 +144,17 @@\n         let parent_position = parent.position;\n         Ok(tasks\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n-                    && t.parent_id\n+                    || /* ~ changed by cargo-mutants ~ */ t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n                     && t.position > parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:152:21: replace && with || in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 152
+      },
+      "start": {
+        "column": 21,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_next_task\n@@ -142,17 +142,17 @@\n             .map(|j| j.as_str().to_string())\n             .unwrap_or_default();\n         let parent_position = parent.position;\n         Ok(tasks\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n-                    .map(|j| j.as_str() == job_id_str)\n+                    .map(|j| j.as_str() != /* ~ changed by cargo-mutants ~ */ job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n                     && t.position > parent_position\n             })\n             .min_by_key(|t| t.position)\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:150:41: replace == with != in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 150
+      },
+      "start": {
+        "column": 41,
+        "line": 150
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_next_task\n@@ -146,17 +146,17 @@\n             .values()\n             .filter(|t| {\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n-                        .map(|p| p.as_str() == parent_task_id)\n+                        .map(|p| p.as_str() != /* ~ changed by cargo-mutants ~ */ parent_task_id)\n                         .unwrap_or(false)\n                     && t.position > parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:154:45: replace == with != in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 47,
+        "line": 154
+      },
+      "start": {
+        "column": 45,
+        "line": 154
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace > with == in <impl Repository for InMemoryRepository>::get_next_task\n@@ -148,17 +148,17 @@\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n-                    && t.position > parent_position\n+                    && t.position == /* ~ changed by cargo-mutants ~ */ parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n         let task_id_str = part\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with == in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 156
+      },
+      "start": {
+        "column": 35,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace > with < in <impl Repository for InMemoryRepository>::get_next_task\n@@ -148,17 +148,17 @@\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n-                    && t.position > parent_position\n+                    && t.position < /* ~ changed by cargo-mutants ~ */ parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n         let task_id_str = part\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with < in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 156
+      },
+      "start": {
+        "column": 35,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace > with >= in <impl Repository for InMemoryRepository>::get_next_task\n@@ -148,17 +148,17 @@\n                 t.job_id\n                     .as_ref()\n                     .map(|j| j.as_str() == job_id_str)\n                     .unwrap_or(false)\n                     && t.parent_id\n                         .as_ref()\n                         .map(|p| p.as_str() == parent_task_id)\n                         .unwrap_or(false)\n-                    && t.position > parent_position\n+                    && t.position >= /* ~ changed by cargo-mutants ~ */ parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n         let task_id_str = part\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_next_task",
+      "return_type": "-> Result<Task>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 161
+        },
+        "start": {
+          "column": 5,
+          "line": 136
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:156:35: replace > with >= in <impl Repository for InMemoryRepository>::get_next_task",
+    "package": "twerk-core",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 156
+      },
+      "start": {
+        "column": 35,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_task_log_part -> Result<()> with Ok(())\n@@ -156,27 +156,17 @@\n                     && t.position > parent_position\n             })\n             .min_by_key(|t| t.position)\n             .cloned()\n             .ok_or(Error::TaskNotFound)?)\n     }\n \n     async fn create_task_log_part(&self, part: &TaskLogPart) -> Result<()> {\n-        let task_id_str = part\n-            .task_id\n-            .as_ref()\n-            .map(|t| t.as_str().to_string())\n-            .unwrap_or_default();\n-        if task_id_str.is_empty() {\n-            return Err(Error::InvalidId(\"task log part has no task_id\".to_string()));\n-        }\n-        let mut logs = self.task_logs.write();\n-        logs.entry(task_id_str).or_default().push(part.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_task_log_parts(\n         &self,\n         task_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_task_log_part",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 175
+        },
+        "start": {
+          "column": 5,
+          "line": 163
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:164:9: replace <impl Repository for InMemoryRepository>::create_task_log_part -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 174
+      },
+      "start": {
+        "column": 9,
+        "line": 164
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())\n@@ -176,19 +176,17 @@\n \n     async fn get_task_log_parts(\n         &self,\n         task_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.task_logs.read();\n-        let parts = logs.get(task_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::new()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_node(&self, node: &Node) -> Result<()> {\n         let id_str = node\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 187
+        },
+        "start": {
+          "column": 5,
+          "line": 177
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new())",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 186
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))\n@@ -176,19 +176,17 @@\n \n     async fn get_task_log_parts(\n         &self,\n         task_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.task_logs.read();\n-        let parts = logs.get(task_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::from_iter([Default::default()])) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_node(&self, node: &Node) -> Result<()> {\n         let id_str = node\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 187
+        },
+        "start": {
+          "column": 5,
+          "line": 177
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from_iter([Default::default()]))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 186
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))\n@@ -176,19 +176,17 @@\n \n     async fn get_task_log_parts(\n         &self,\n         task_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.task_logs.read();\n-        let parts = logs.get(task_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_node(&self, node: &Node) -> Result<()> {\n         let id_str = node\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 187
+        },
+        "start": {
+          "column": 5,
+          "line": 177
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new(Default::default()))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 186
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))\n@@ -176,19 +176,17 @@\n \n     async fn get_task_log_parts(\n         &self,\n         task_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.task_logs.read();\n-        let parts = logs.get(task_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::from(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_node(&self, node: &Node) -> Result<()> {\n         let id_str = node\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_task_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 187
+        },
+        "start": {
+          "column": 5,
+          "line": 177
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:184:9: replace <impl Repository for InMemoryRepository>::get_task_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from(Default::default()))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 186
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())\n@@ -182,30 +182,17 @@\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n         let logs = self.task_logs.read();\n         let parts = logs.get(task_id).cloned().unwrap_or_default();\n         Ok(Self::paginate_vec(parts, page, size))\n     }\n \n     async fn create_node(&self, node: &Node) -> Result<()> {\n-        let id_str = node\n-            .id\n-            .as_ref()\n-            .map(|id| id.as_str().to_string())\n-            .unwrap_or_default();\n-        if id_str.is_empty() {\n-            return Err(Error::InvalidId(\"node has no id\".to_string()));\n-        }\n-        let mut nodes = self.nodes.write();\n-        if nodes.contains_key(&id_str) {\n-            return Err(Error::Database(format!(\"node {} already exists\", id_str)));\n-        }\n-        nodes.insert(id_str, node.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn update_node(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>,\n     ) -> Result<()> {\n         let mut nodes = self.nodes.write();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_node",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 204
+        },
+        "start": {
+          "column": 5,
+          "line": 189
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:190:9: replace <impl Repository for InMemoryRepository>::create_node -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 203
+      },
+      "start": {
+        "column": 9,
+        "line": 190
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::update_node -> Result<()> with Ok(())\n@@ -203,21 +203,17 @@\n         Ok(())\n     }\n \n     async fn update_node(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Node) -> Result<Node> + Send>,\n     ) -> Result<()> {\n-        let mut nodes = self.nodes.write();\n-        let node = nodes.get_mut(id).ok_or(Error::NodeNotFound)?;\n-        let updated = modify(node.clone())?;\n-        *node = updated;\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_node_by_id(&self, id: &str) -> Result<Node> {\n         let nodes = self.nodes.read();\n         nodes.get(id).cloned().ok_or(Error::NodeNotFound)\n     }\n \n     async fn get_active_nodes(&self) -> Result<Vec<Node>> {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::update_node",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 216
+        },
+        "start": {
+          "column": 5,
+          "line": 206
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:211:9: replace <impl Repository for InMemoryRepository>::update_node -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 215
+      },
+      "start": {
+        "column": 9,
+        "line": 211
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())\n@@ -211,18 +211,17 @@\n         let mut nodes = self.nodes.write();\n         let node = nodes.get_mut(id).ok_or(Error::NodeNotFound)?;\n         let updated = modify(node.clone())?;\n         *node = updated;\n         Ok(())\n     }\n \n     async fn get_node_by_id(&self, id: &str) -> Result<Node> {\n-        let nodes = self.nodes.read();\n-        nodes.get(id).cloned().ok_or(Error::NodeNotFound)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_active_nodes(&self) -> Result<Vec<Node>> {\n         let nodes = self.nodes.read();\n         Ok(nodes\n             .values()\n             .filter(|n| {\n                 n.status\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_node_by_id",
+      "return_type": "-> Result<Node>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 221
+        },
+        "start": {
+          "column": 5,
+          "line": 218
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:219:9: replace <impl Repository for InMemoryRepository>::get_node_by_id -> Result<Node> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 58,
+        "line": 220
+      },
+      "start": {
+        "column": 9,
+        "line": 219
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![])\n@@ -216,27 +216,17 @@\n     }\n \n     async fn get_node_by_id(&self, id: &str) -> Result<Node> {\n         let nodes = self.nodes.read();\n         nodes.get(id).cloned().ok_or(Error::NodeNotFound)\n     }\n \n     async fn get_active_nodes(&self) -> Result<Vec<Node>> {\n-        let nodes = self.nodes.read();\n-        Ok(nodes\n-            .values()\n-            .filter(|n| {\n-                n.status\n-                    .as_ref()\n-                    .map(|s| s.as_ref() == \"UP\")\n-                    .unwrap_or(false)\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_job(&self, job: &Job) -> Result<()> {\n         let id_str = job\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+      "return_type": "-> Result<Vec<Node>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 235
+        },
+        "start": {
+          "column": 5,
+          "line": 223
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 234
+      },
+      "start": {
+        "column": 9,
+        "line": 224
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![Default::default()])\n@@ -216,27 +216,17 @@\n     }\n \n     async fn get_node_by_id(&self, id: &str) -> Result<Node> {\n         let nodes = self.nodes.read();\n         nodes.get(id).cloned().ok_or(Error::NodeNotFound)\n     }\n \n     async fn get_active_nodes(&self) -> Result<Vec<Node>> {\n-        let nodes = self.nodes.read();\n-        Ok(nodes\n-            .values()\n-            .filter(|n| {\n-                n.status\n-                    .as_ref()\n-                    .map(|s| s.as_ref() == \"UP\")\n-                    .unwrap_or(false)\n-            })\n-            .cloned()\n-            .collect())\n+        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_job(&self, job: &Job) -> Result<()> {\n         let id_str = job\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+      "return_type": "-> Result<Vec<Node>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 235
+        },
+        "start": {
+          "column": 5,
+          "line": 223
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:224:9: replace <impl Repository for InMemoryRepository>::get_active_nodes -> Result<Vec<Node>> with Ok(vec![Default::default()])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 234
+      },
+      "start": {
+        "column": 9,
+        "line": 224
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_active_nodes\n@@ -222,17 +222,17 @@\n \n     async fn get_active_nodes(&self) -> Result<Vec<Node>> {\n         let nodes = self.nodes.read();\n         Ok(nodes\n             .values()\n             .filter(|n| {\n                 n.status\n                     .as_ref()\n-                    .map(|s| s.as_ref() == \"UP\")\n+                    .map(|s| s.as_ref() != /* ~ changed by cargo-mutants ~ */ \"UP\")\n                     .unwrap_or(false)\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn create_job(&self, job: &Job) -> Result<()> {\n         let id_str = job\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_nodes",
+      "return_type": "-> Result<Vec<Node>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 235
+        },
+        "start": {
+          "column": 5,
+          "line": 223
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:230:41: replace == with != in <impl Repository for InMemoryRepository>::get_active_nodes",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 230
+      },
+      "start": {
+        "column": 41,
+        "line": 230
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())\n@@ -230,30 +230,17 @@\n                     .map(|s| s.as_ref() == \"UP\")\n                     .unwrap_or(false)\n             })\n             .cloned()\n             .collect())\n     }\n \n     async fn create_job(&self, job: &Job) -> Result<()> {\n-        let id_str = job\n-            .id\n-            .as_ref()\n-            .map(|id| id.as_str().to_string())\n-            .unwrap_or_default();\n-        if id_str.is_empty() {\n-            return Err(Error::InvalidId(\"job has no id\".to_string()));\n-        }\n-        let mut jobs = self.jobs.write();\n-        if jobs.contains_key(&id_str) {\n-            return Err(Error::Database(format!(\"job {} already exists\", id_str)));\n-        }\n-        jobs.insert(id_str, job.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn update_job(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,\n     ) -> Result<()> {\n         let mut jobs = self.jobs.write();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_job",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 252
+        },
+        "start": {
+          "column": 5,
+          "line": 237
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:238:9: replace <impl Repository for InMemoryRepository>::create_job -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 251
+      },
+      "start": {
+        "column": 9,
+        "line": 238
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())\n@@ -251,21 +251,17 @@\n         Ok(())\n     }\n \n     async fn update_job(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(Job) -> Result<Job> + Send>,\n     ) -> Result<()> {\n-        let mut jobs = self.jobs.write();\n-        let job = jobs.get_mut(id).ok_or(Error::JobNotFound)?;\n-        let updated = modify(job.clone())?;\n-        *job = updated;\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_job_by_id(&self, id: &str) -> Result<Job> {\n         let jobs = self.jobs.read();\n         jobs.get(id).cloned().ok_or(Error::JobNotFound)\n     }\n \n     async fn get_job_log_parts(\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::update_job",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 264
+        },
+        "start": {
+          "column": 5,
+          "line": 254
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:259:9: replace <impl Repository for InMemoryRepository>::update_job -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 263
+      },
+      "start": {
+        "column": 9,
+        "line": 259
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_job_by_id -> Result<Job> with Ok(Default::default())\n@@ -259,18 +259,17 @@\n         let mut jobs = self.jobs.write();\n         let job = jobs.get_mut(id).ok_or(Error::JobNotFound)?;\n         let updated = modify(job.clone())?;\n         *job = updated;\n         Ok(())\n     }\n \n     async fn get_job_by_id(&self, id: &str) -> Result<Job> {\n-        let jobs = self.jobs.read();\n-        jobs.get(id).cloned().ok_or(Error::JobNotFound)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_job_log_parts(\n         &self,\n         job_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_job_by_id",
+      "return_type": "-> Result<Job>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 269
+        },
+        "start": {
+          "column": 5,
+          "line": 266
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:267:9: replace <impl Repository for InMemoryRepository>::get_job_by_id -> Result<Job> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 268
+      },
+      "start": {
+        "column": 9,
+        "line": 267
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())\n@@ -270,19 +270,17 @@\n \n     async fn get_job_log_parts(\n         &self,\n         job_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.job_logs.read();\n-        let parts = logs.get(job_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::new()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 281
+        },
+        "start": {
+          "column": 5,
+          "line": 271
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new())",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new())",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 280
+      },
+      "start": {
+        "column": 9,
+        "line": 278
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))\n@@ -270,19 +270,17 @@\n \n     async fn get_job_log_parts(\n         &self,\n         job_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.job_logs.read();\n-        let parts = logs.get(job_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::from_iter([Default::default()])) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 281
+        },
+        "start": {
+          "column": 5,
+          "line": 271
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from_iter([Default::default()]))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from_iter([Default::default()]))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 280
+      },
+      "start": {
+        "column": 9,
+        "line": 278
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))\n@@ -270,19 +270,17 @@\n \n     async fn get_job_log_parts(\n         &self,\n         job_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.job_logs.read();\n-        let parts = logs.get(job_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 281
+        },
+        "start": {
+          "column": 5,
+          "line": 271
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::new(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new(Default::default()))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 280
+      },
+      "start": {
+        "column": 9,
+        "line": 278
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))\n@@ -270,19 +270,17 @@\n \n     async fn get_job_log_parts(\n         &self,\n         job_id: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<TaskLogPart>> {\n-        let logs = self.job_logs.read();\n-        let parts = logs.get(job_id).cloned().unwrap_or_default();\n-        Ok(Self::paginate_vec(parts, page, size))\n+        Ok(Page::from(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_job_log_parts",
+      "return_type": "-> Result<Page<TaskLogPart>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 281
+        },
+        "start": {
+          "column": 5,
+          "line": 271
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:278:9: replace <impl Repository for InMemoryRepository>::get_job_log_parts -> Result<Page<TaskLogPart>> with Ok(Page::from(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from(Default::default()))",
+    "span": {
+      "end": {
+        "column": 50,
+        "line": 280
+      },
+      "start": {
+        "column": 9,
+        "line": 278
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new())\n@@ -282,19 +282,17 @@\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<JobSummary>> {\n-        let jobs = self.jobs.read();\n-        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::new()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {\n         let id_str = sj\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+      "return_type": "-> Result<Page<JobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 293
+        },
+        "start": {
+          "column": 5,
+          "line": 283
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new())",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new())",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 292
+      },
+      "start": {
+        "column": 9,
+        "line": 290
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from_iter([Default::default()]))\n@@ -282,19 +282,17 @@\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<JobSummary>> {\n-        let jobs = self.jobs.read();\n-        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::from_iter([Default::default()])) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {\n         let id_str = sj\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+      "return_type": "-> Result<Page<JobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 293
+        },
+        "start": {
+          "column": 5,
+          "line": 283
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from_iter([Default::default()]))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from_iter([Default::default()]))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 292
+      },
+      "start": {
+        "column": 9,
+        "line": 290
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new(Default::default()))\n@@ -282,19 +282,17 @@\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<JobSummary>> {\n-        let jobs = self.jobs.read();\n-        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {\n         let id_str = sj\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+      "return_type": "-> Result<Page<JobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 293
+        },
+        "start": {
+          "column": 5,
+          "line": 283
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::new(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new(Default::default()))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 292
+      },
+      "start": {
+        "column": 9,
+        "line": 290
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from(Default::default()))\n@@ -282,19 +282,17 @@\n \n     async fn get_jobs(\n         &self,\n         _current_user: &str,\n         _q: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<JobSummary>> {\n-        let jobs = self.jobs.read();\n-        let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::from(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {\n         let id_str = sj\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_jobs",
+      "return_type": "-> Result<Page<JobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 293
+        },
+        "start": {
+          "column": 5,
+          "line": 283
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:290:9: replace <impl Repository for InMemoryRepository>::get_jobs -> Result<Page<JobSummary>> with Ok(Page::from(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from(Default::default()))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 292
+      },
+      "start": {
+        "column": 9,
+        "line": 290
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())\n@@ -288,33 +288,17 @@\n         size: i64,\n     ) -> Result<Page<JobSummary>> {\n         let jobs = self.jobs.read();\n         let summaries: Vec<JobSummary> = jobs.values().map(crate::job::new_job_summary).collect();\n         Ok(Self::paginate_vec(summaries, page, size))\n     }\n \n     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {\n-        let id_str = sj\n-            .id\n-            .as_ref()\n-            .map(|id| id.as_str().to_string())\n-            .unwrap_or_default();\n-        if id_str.is_empty() {\n-            return Err(Error::InvalidId(\"scheduled job has no id\".to_string()));\n-        }\n-        let mut sjs = self.scheduled_jobs.write();\n-        if sjs.contains_key(&id_str) {\n-            return Err(Error::Database(format!(\n-                \"scheduled job {} already exists\",\n-                id_str\n-            )));\n-        }\n-        sjs.insert(id_str, sj.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {\n         let sjs = self.scheduled_jobs.read();\n         Ok(sjs\n             .values()\n             .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)\n             .cloned()\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_scheduled_job",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 313
+        },
+        "start": {
+          "column": 5,
+          "line": 295
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:296:9: replace <impl Repository for InMemoryRepository>::create_scheduled_job -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 312
+      },
+      "start": {
+        "column": 9,
+        "line": 296
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])\n@@ -308,22 +308,17 @@\n                 id_str\n             )));\n         }\n         sjs.insert(id_str, sj.clone());\n         Ok(())\n     }\n \n     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {\n-        let sjs = self.scheduled_jobs.read();\n-        Ok(sjs\n-            .values()\n-            .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)\n-            .cloned()\n-            .collect())\n+        Ok(vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+      "return_type": "-> Result<Vec<ScheduledJob>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 322
+        },
+        "start": {
+          "column": 5,
+          "line": 315
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 321
+      },
+      "start": {
+        "column": 9,
+        "line": 316
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![Default::default()])\n@@ -308,22 +308,17 @@\n                 id_str\n             )));\n         }\n         sjs.insert(id_str, sj.clone());\n         Ok(())\n     }\n \n     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {\n-        let sjs = self.scheduled_jobs.read();\n-        Ok(sjs\n-            .values()\n-            .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)\n-            .cloned()\n-            .collect())\n+        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+      "return_type": "-> Result<Vec<ScheduledJob>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 322
+        },
+        "start": {
+          "column": 5,
+          "line": 315
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:316:9: replace <impl Repository for InMemoryRepository>::get_active_scheduled_jobs -> Result<Vec<ScheduledJob>> with Ok(vec![Default::default()])",
+    "package": "twerk-core",
+    "replacement": "Ok(vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 321
+      },
+      "start": {
+        "column": 9,
+        "line": 316
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace == with != in <impl Repository for InMemoryRepository>::get_active_scheduled_jobs\n@@ -311,17 +311,17 @@\n         sjs.insert(id_str, sj.clone());\n         Ok(())\n     }\n \n     async fn get_active_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>> {\n         let sjs = self.scheduled_jobs.read();\n         Ok(sjs\n             .values()\n-            .filter(|sj| sj.state == crate::job::ScheduledJobState::Active)\n+            .filter(|sj| sj.state != /* ~ changed by cargo-mutants ~ */ crate::job::ScheduledJobState::Active)\n             .cloned()\n             .collect())\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+      "return_type": "-> Result<Vec<ScheduledJob>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 322
+        },
+        "start": {
+          "column": 5,
+          "line": 315
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:319:35: replace == with != in <impl Repository for InMemoryRepository>::get_active_scheduled_jobs",
+    "package": "twerk-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 319
+      },
+      "start": {
+        "column": 35,
+        "line": 319
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new())\n@@ -322,22 +322,17 @@\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n-        let sjs = self.scheduled_jobs.read();\n-        let summaries: Vec<ScheduledJobSummary> = sjs\n-            .values()\n-            .map(crate::job::new_scheduled_job_summary)\n-            .collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::new()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {\n         let sjs = self.scheduled_jobs.read();\n         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n     }\n \n     async fn update_scheduled_job(\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+      "return_type": "-> Result<Page<ScheduledJobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 336
+        },
+        "start": {
+          "column": 5,
+          "line": 324
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new())",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new())",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 335
+      },
+      "start": {
+        "column": 9,
+        "line": 330
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from_iter([Default::default()]))\n@@ -322,22 +322,17 @@\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n-        let sjs = self.scheduled_jobs.read();\n-        let summaries: Vec<ScheduledJobSummary> = sjs\n-            .values()\n-            .map(crate::job::new_scheduled_job_summary)\n-            .collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::from_iter([Default::default()])) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {\n         let sjs = self.scheduled_jobs.read();\n         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n     }\n \n     async fn update_scheduled_job(\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+      "return_type": "-> Result<Page<ScheduledJobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 336
+        },
+        "start": {
+          "column": 5,
+          "line": 324
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from_iter([Default::default()]))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from_iter([Default::default()]))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 335
+      },
+      "start": {
+        "column": 9,
+        "line": 330
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new(Default::default()))\n@@ -322,22 +322,17 @@\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n-        let sjs = self.scheduled_jobs.read();\n-        let summaries: Vec<ScheduledJobSummary> = sjs\n-            .values()\n-            .map(crate::job::new_scheduled_job_summary)\n-            .collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::new(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {\n         let sjs = self.scheduled_jobs.read();\n         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n     }\n \n     async fn update_scheduled_job(\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+      "return_type": "-> Result<Page<ScheduledJobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 336
+        },
+        "start": {
+          "column": 5,
+          "line": 324
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::new(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::new(Default::default()))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 335
+      },
+      "start": {
+        "column": 9,
+        "line": 330
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from(Default::default()))\n@@ -322,22 +322,17 @@\n     }\n \n     async fn get_scheduled_jobs(\n         &self,\n         _current_user: &str,\n         page: i64,\n         size: i64,\n     ) -> Result<Page<ScheduledJobSummary>> {\n-        let sjs = self.scheduled_jobs.read();\n-        let summaries: Vec<ScheduledJobSummary> = sjs\n-            .values()\n-            .map(crate::job::new_scheduled_job_summary)\n-            .collect();\n-        Ok(Self::paginate_vec(summaries, page, size))\n+        Ok(Page::from(Default::default())) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {\n         let sjs = self.scheduled_jobs.read();\n         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n     }\n \n     async fn update_scheduled_job(\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_jobs",
+      "return_type": "-> Result<Page<ScheduledJobSummary>>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 336
+        },
+        "start": {
+          "column": 5,
+          "line": 324
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:330:9: replace <impl Repository for InMemoryRepository>::get_scheduled_jobs -> Result<Page<ScheduledJobSummary>> with Ok(Page::from(Default::default()))",
+    "package": "twerk-core",
+    "replacement": "Ok(Page::from(Default::default()))",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 335
+      },
+      "start": {
+        "column": 9,
+        "line": 330
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_scheduled_job_by_id -> Result<ScheduledJob> with Ok(Default::default())\n@@ -331,18 +331,17 @@\n         let summaries: Vec<ScheduledJobSummary> = sjs\n             .values()\n             .map(crate::job::new_scheduled_job_summary)\n             .collect();\n         Ok(Self::paginate_vec(summaries, page, size))\n     }\n \n     async fn get_scheduled_job_by_id(&self, id: &str) -> Result<ScheduledJob> {\n-        let sjs = self.scheduled_jobs.read();\n-        sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn update_scheduled_job(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob> + Send>,\n     ) -> Result<()> {\n         let mut sjs = self.scheduled_jobs.write();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_scheduled_job_by_id",
+      "return_type": "-> Result<ScheduledJob>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 341
+        },
+        "start": {
+          "column": 5,
+          "line": 338
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:339:9: replace <impl Repository for InMemoryRepository>::get_scheduled_job_by_id -> Result<ScheduledJob> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 64,
+        "line": 340
+      },
+      "start": {
+        "column": 9,
+        "line": 339
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())\n@@ -340,21 +340,17 @@\n         sjs.get(id).cloned().ok_or(Error::ScheduledJobNotFound)\n     }\n \n     async fn update_scheduled_job(\n         &self,\n         id: &str,\n         modify: Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob> + Send>,\n     ) -> Result<()> {\n-        let mut sjs = self.scheduled_jobs.write();\n-        let sj = sjs.get_mut(id).ok_or(Error::ScheduledJobNotFound)?;\n-        let updated = modify(sj.clone())?;\n-        *sj = updated;\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn delete_scheduled_job(&self, id: &str) -> Result<()> {\n         let mut sjs = self.scheduled_jobs.write();\n         sjs.remove(id).ok_or(Error::ScheduledJobNotFound)?;\n         Ok(())\n     }\n \n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::update_scheduled_job",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 353
+        },
+        "start": {
+          "column": 5,
+          "line": 343
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:348:9: replace <impl Repository for InMemoryRepository>::update_scheduled_job -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 352
+      },
+      "start": {
+        "column": 9,
+        "line": 348
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::delete_scheduled_job -> Result<()> with Ok(())\n@@ -348,19 +348,17 @@\n         let mut sjs = self.scheduled_jobs.write();\n         let sj = sjs.get_mut(id).ok_or(Error::ScheduledJobNotFound)?;\n         let updated = modify(sj.clone())?;\n         *sj = updated;\n         Ok(())\n     }\n \n     async fn delete_scheduled_job(&self, id: &str) -> Result<()> {\n-        let mut sjs = self.scheduled_jobs.write();\n-        sjs.remove(id).ok_or(Error::ScheduledJobNotFound)?;\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_user(&self, user: &User) -> Result<()> {\n         let id_str = user\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::delete_scheduled_job",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 359
+        },
+        "start": {
+          "column": 5,
+          "line": 355
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:356:9: replace <impl Repository for InMemoryRepository>::delete_scheduled_job -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 358
+      },
+      "start": {
+        "column": 9,
+        "line": 356
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::create_user -> Result<()> with Ok(())\n@@ -354,30 +354,17 @@\n \n     async fn delete_scheduled_job(&self, id: &str) -> Result<()> {\n         let mut sjs = self.scheduled_jobs.write();\n         sjs.remove(id).ok_or(Error::ScheduledJobNotFound)?;\n         Ok(())\n     }\n \n     async fn create_user(&self, user: &User) -> Result<()> {\n-        let id_str = user\n-            .id\n-            .as_ref()\n-            .map(|id| id.as_str().to_string())\n-            .unwrap_or_default();\n-        if id_str.is_empty() {\n-            return Err(Error::InvalidId(\"user has no id\".to_string()));\n-        }\n-        let mut users = self.users.write();\n-        if users.contains_key(&id_str) {\n-            return Err(Error::Database(format!(\"user {} already exists\", id_str)));\n-        }\n-        users.insert(id_str, user.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn get_user(&self, username: &str) -> Result<User> {\n         let users = self.users.read();\n         users\n             .values()\n             .find(|u| u.username.as_deref() == Some(username))\n             .cloned()\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::create_user",
+      "return_type": "-> Result<()>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 376
+        },
+        "start": {
+          "column": 5,
+          "line": 361
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:362:9: replace <impl Repository for InMemoryRepository>::create_user -> Result<()> with Ok(())",
+    "package": "twerk-core",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 375
+      },
+      "start": {
+        "column": 9,
+        "line": 362
+      }
+    }
+  },
+  {
+    "diff": "--- crates/twerk-core/src/repository_inmemory.rs\n+++ replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())\n@@ -371,22 +371,17 @@\n         if users.contains_key(&id_str) {\n             return Err(Error::Database(format!(\"user {} already exists\", id_str)));\n         }\n         users.insert(id_str, user.clone());\n         Ok(())\n     }\n \n     async fn get_user(&self, username: &str) -> Result<User> {\n-        let users = self.users.read();\n-        users\n-            .values()\n-            .find(|u| u.username.as_deref() == Some(username))\n-            .cloned()\n-            .ok_or(Error::UserNotFound)\n+        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n     }\n \n     async fn create_role(&self, role: &Role) -> Result<()> {\n         let id_str = role\n             .id\n             .as_ref()\n             .map(|id| id.as_str().to_string())\n             .unwrap_or_default();\n",
+    "file": "crates/twerk-core/src/repository_inmemory.rs",
+    "function": {
+      "function_name": "<impl Repository for InMemoryRepository>::get_user",
+      "return_type": "-> Result<User>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 385
+        },
+        "start": {
+          "column": 5,
+          "line": 378
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "crates/twerk-core/src/repository_inmemory.rs:379:9: replace <impl Repository for InMemoryRepository>::get_user -> Result<User> with Ok(Default::default())",
+    "package": "twerk-core",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 384
+      },
+      "start": {
+        "column": 9,
+        "line": 379
+      }
+    }
+  }
+]

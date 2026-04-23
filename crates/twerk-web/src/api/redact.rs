@@ -5,10 +5,7 @@ use twerk_core::task::{Task, TaskLogPart};
 const REDACTED_STR: &str = "[REDACTED]";
 
 pub fn redact_job(job: &mut Job) {
-    let secrets = job
-        .secrets
-        .as_ref()
-        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
+    let secrets = job.secrets.clone().unwrap_or_default();
 
     // Redact inputs
     if let Some(ref mut inputs) = job.inputs {
@@ -73,10 +70,7 @@ pub fn redact_job_summary(summary: &mut JobSummary) {
 }
 
 pub fn redact_scheduled_job(sj: &mut ScheduledJob) {
-    let secrets = sj
-        .secrets
-        .as_ref()
-        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
+    let secrets = sj.secrets.clone().unwrap_or_default();
 
     // Redact inputs
     if let Some(ref mut inputs) = sj.inputs {

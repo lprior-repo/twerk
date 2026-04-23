@@ -1,6 +1,6 @@
-//! `ChoiceRule` and `ChoiceState` types for ASL branching logic.
+//! ChoiceRule and ChoiceState types for ASL branching logic.
 //!
-//! A `ChoiceState` evaluates rules against input and routes to the first
+//! A ChoiceState evaluates rules against input and routes to the first
 //! matching rule's target. Validation ensures at least one rule exists.
 
 use std::collections::HashMap;

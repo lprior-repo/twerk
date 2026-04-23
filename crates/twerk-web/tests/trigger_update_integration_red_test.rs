@@ -9,7 +9,9 @@ use time::OffsetDateTime;
 use tower::ServiceExt;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
-use twerk_web::api::trigger_api::{InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId};
+use twerk_web::api::trigger_api::{
+    InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId, TriggerView,
+};
 use twerk_web::api::{create_router, AppState, Config};
 
 fn trigger(id: &str) -> Trigger {
@@ -266,13 +268,10 @@ async fn update_trigger_handler_returns_200_and_trigger_view_equal_to_committed_
     let persisted = trigger_ds
         .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
         .expect("persisted");
-    assert_eq!(body["id"], json!(persisted.id.as_str()));
-    assert_eq!(body["name"], json!(persisted.name));
-    assert_eq!(body["enabled"], json!(persisted.enabled));
-    assert_eq!(body["event"], json!(persisted.event));
-    assert_eq!(body["condition"], json!(persisted.condition));
-    assert_eq!(body["action"], json!(persisted.action));
-    assert_eq!(body["metadata"], json!(persisted.metadata));
+    assert_eq!(
+        body,
+        serde_json::to_value(TriggerView::from(persisted)).expect("trigger view serializes")
+    );
 }
 
 #[tokio::test]

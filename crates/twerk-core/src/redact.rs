@@ -345,10 +345,7 @@ fn redact_job_secrets(job: crate::job::Job) -> crate::job::Job {
 /// Takes ownership and returns a new redacted job.
 #[must_use]
 pub fn redact_job(job: crate::job::Job) -> crate::job::Job {
-    let secrets = job
-        .secrets
-        .as_ref()
-        .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
+    let secrets = job.secrets.clone().unwrap_or_default();
     let job = redact_job_inputs_webhooks_context(job, &secrets);
     let job = redact_job_tasks(job, &secrets);
     redact_job_secrets(job)

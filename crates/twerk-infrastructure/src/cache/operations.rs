@@ -116,8 +116,7 @@ where
     /// Items are returned as clones and order is not guaranteed.
     #[must_use]
     #[allow(clippy::type_complexity)]
-    #[allow(dead_code)]
-    pub(crate) fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
+    pub fn list<'a>(&'a self, filters: &'a [ListFilter<'a, V>]) -> Vec<V>
     where
         V: Clone,
     {

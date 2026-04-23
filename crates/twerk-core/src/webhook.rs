@@ -253,9 +253,7 @@ pub fn call(wh: &Webhook, body: &impl serde::Serialize) -> Result<(), WebhookErr
         // No runtime available - spawn one for sync context
         let runtime = tokio::runtime::Runtime::new().map_err(|_| {
             WebhookError::MaxAttemptsExceeded(
-                wh.url
-                    .clone()
-                    .map_or_else(String::new, std::convert::identity),
+                wh.url.clone().unwrap_or_default(),
                 WEBHOOK_DEFAULT_MAX_ATTEMPTS,
             )
         })?;

@@ -1,7 +1,7 @@
-//! `WaitDuration` and `WaitState` types for ASL pause semantics.
+//! WaitDuration and WaitState types for ASL pause semantics.
 //!
-//! A `WaitState` pauses execution for a duration before transitioning.
-//! `WaitDuration` is mutually exclusive: exactly one of four fields.
+//! A WaitState pauses execution for a duration before transitioning.
+//! WaitDuration is mutually exclusive: exactly one of four fields.
 
 use std::fmt;
 

@@ -1,4 +1,4 @@
-//! `QueueName` newtype wrapper.
+//! QueueName newtype wrapper.
 
 use std::fmt;
 use std::ops::Deref;

@@ -260,12 +260,14 @@ mod tests {
         let _git = GIT_COMMIT;
     }
 
-    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[test]
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
 
-        let endpoint = get_endpoint().unwrap();
+        let endpoint = match get_endpoint() {
+            Ok(endpoint) => endpoint,
+            Err(error) => panic!("expected endpoint override to parse: {error}"),
+        };
 
         std::env::remove_var("TWERK_CLIENT_ENDPOINT");
         assert_eq!(endpoint.as_str(), "http://127.0.0.1:9999");

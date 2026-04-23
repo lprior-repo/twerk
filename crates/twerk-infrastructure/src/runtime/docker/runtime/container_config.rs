@@ -216,18 +216,14 @@ impl ContainerCmd {
         let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(Vec::is_empty) {
             DEFAULT_CMD.iter().map(ToString::to_string).collect()
         } else {
-            task.cmd
-                .as_ref()
-                .map_or_else(Vec::new, std::clone::Clone::clone)
+            task.cmd.clone().unwrap_or_default()
         };
 
         let entrypoint: Vec<String> =
             if task.entrypoint.as_ref().is_none_or(Vec::is_empty) && task.run.is_some() {
                 RUN_ENTRYPOINT.iter().map(ToString::to_string).collect()
             } else {
-                task.entrypoint
-                    .as_ref()
-                    .map_or_else(Vec::new, std::clone::Clone::clone)
+                task.entrypoint.clone().unwrap_or_default()
             };
 
         Self {

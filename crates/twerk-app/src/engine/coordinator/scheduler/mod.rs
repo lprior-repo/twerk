@@ -20,6 +20,7 @@ use tracing::instrument;
 mod each;
 mod parallel;
 mod regular;
+mod shared;
 mod subjob;
 
 #[cfg(test)]

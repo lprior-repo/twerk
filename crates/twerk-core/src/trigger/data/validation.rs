@@ -67,7 +67,7 @@ pub(super) fn validate_headers(headers: &HashMap<String, String>) -> Result<(), 
     Ok(())
 }
 
-/// Validates that `WebhookAuth` variant has all required non-empty fields.
+/// Validates that WebhookAuth variant has all required non-empty fields.
 pub(super) fn validate_webhook_auth(auth: &WebhookAuth) -> Result<(), TriggerDataError> {
     match auth {
         WebhookAuth::None => Ok(()),
@@ -117,7 +117,7 @@ pub(super) fn validate_webhook_auth(auth: &WebhookAuth) -> Result<(), TriggerDat
     }
 }
 
-/// Validates a `WebhookTrigger`'s domain invariants.
+/// Validates a WebhookTrigger's domain invariants.
 pub(super) fn validate_webhook(
     url: &str,
     auth: &WebhookAuth,
@@ -135,7 +135,7 @@ pub(super) fn validate_webhook(
 // Polling validation helpers
 // =============================================================================
 
-/// Validates a `JMESPath` expression by attempting to compile it.
+/// Validates a JMESPath expression by attempting to compile it.
 pub(super) fn validate_jmespath(expr: &str) -> Result<(), TriggerDataError> {
     jmespath::compile(expr)
         .map(|_| ())
@@ -166,7 +166,7 @@ pub(super) fn validate_timeout_nonzero(
     Ok(())
 }
 
-/// Validates a `PollingTrigger`'s domain invariants.
+/// Validates a PollingTrigger's domain invariants.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn validate_polling(
     url: &str,

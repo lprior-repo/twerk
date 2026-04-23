@@ -1,5 +1,6 @@
 //! Each-loop task scheduling logic.
 
+use super::shared::{create_and_publish_subtasks, job_context_map, scheduler_ids};
 use super::Scheduler;
 use super::SchedulerError;
 use anyhow::Result;
@@ -8,7 +9,6 @@ use std::collections::HashMap;
 use twerk_core::eval::{evaluate_expr, evaluate_task};
 use twerk_core::task::Task;
 use twerk_core::uuid::new_short_uuid;
-use twerk_infrastructure::broker::queue::QUEUE_PENDING;
 
 struct SubtaskContext<'a> {
     template: &'a Task,
@@ -19,31 +19,23 @@ struct SubtaskContext<'a> {
     now: time::OffsetDateTime,
 }
 
+struct EachSpawnRequest<'a> {
+    list: &'a [serde_json::Value],
+    context: SubtaskContext<'a>,
+}
+
 impl Scheduler {
     /// Schedules tasks from an each-loop task definition.
     /// # Errors
     /// Returns error if list evaluation or task creation fails.
     pub async fn schedule_each_task(&self, task: Task) -> Result<()> {
-        let task_id = task
-            .id
-            .as_deref()
-            .ok_or_else(|| SchedulerError::TaskIdRequired {
-                scheduler: "each".to_string(),
-            })?;
-        let job_id = task
-            .job_id
-            .as_deref()
-            .ok_or_else(|| SchedulerError::JobIdRequired {
-                scheduler: "each".to_string(),
-            })?;
+        let ids = scheduler_ids(&task, "each")?;
         let now = time::OffsetDateTime::now_utc();
 
-        tracing::warn!(task_id = %task_id, "SCHEDULE_EACH_TASK called");
+        tracing::warn!(task_id = %ids.task_id, "SCHEDULE_EACH_TASK called");
 
-        let job = self.ds.get_job_by_id(job_id).await?;
-        let job_ctx_map = job
-            .context
-            .map_or_else(std::collections::HashMap::new, |c| c.as_map());
+        let job = self.ds.get_job_by_id(ids.job_id).await?;
+        let job_ctx_map = job_context_map(&job);
 
         let each = task
             .each
@@ -51,40 +43,32 @@ impl Scheduler {
             .ok_or_else(|| SchedulerError::MissingConfig {
                 scheduler: "each".to_string(),
             })?;
-        let list_expr = each
-            .list
-            .as_deref()
-            .map_or_else(String::new, std::string::ToString::to_string);
+        let list_expr = each.list.as_deref().unwrap_or_default();
 
-        let list_val = Self::eval_each_list(&list_expr, &job_ctx_map)?;
+        let list_val = Self::eval_each_list(list_expr, &job_ctx_map)?;
         let list = list_val
             .as_array()
             .ok_or(SchedulerError::EachListMustBeArray)?;
         let size = list.len() as i64;
 
-        self.ds
-            .update_task(
-                task_id,
-                Box::new(move |u| {
-                    let updated_each = u
-                        .each
-                        .map(|e| Box::new(twerk_core::task::EachTask { size, ..*e }));
-                    Ok(Task {
-                        state: twerk_core::task::TaskState::Running,
-                        started_at: Some(now),
-                        each: updated_each,
-                        ..u
-                    })
-                }),
-            )
-            .await?;
+        self.mark_each_task_running(ids.task_id, size, now).await?;
 
         let template = each
             .task
             .as_ref()
             .ok_or(SchedulerError::MissingEachTemplate)?;
-        self.spawn_each_tasks(template, list, &job_ctx_map, task_id, job_id, now)
-            .await
+        self.spawn_each_tasks(EachSpawnRequest {
+            list,
+            context: SubtaskContext {
+                template,
+                job_ctx: &job_ctx_map,
+                var_name: "item",
+                job_id: ids.job_id,
+                task_id: ids.task_id,
+                now,
+            },
+        })
+        .await
     }
 
     /// Evaluates an each-loop list expression to a JSON array.
@@ -112,32 +96,43 @@ impl Scheduler {
         Ok(list_val)
     }
 
-    async fn spawn_each_tasks(
+    async fn mark_each_task_running(
         &self,
-        template: &Task,
-        list: &[serde_json::Value],
-        job_ctx: &HashMap<String, serde_json::Value>,
         task_id: &str,
-        job_id: &str,
+        size: i64,
         now: time::OffsetDateTime,
     ) -> Result<()> {
-        let var_name = "item";
-        let ctx = SubtaskContext {
-            template,
-            job_ctx,
-            var_name,
-            job_id,
-            task_id,
-            now,
-        };
+        self.ds
+            .update_task(
+                task_id,
+                Box::new(move |task| {
+                    let updated_each = task
+                        .each
+                        .map(|each| Box::new(twerk_core::task::EachTask { size, ..*each }));
+                    Ok(Task {
+                        state: twerk_core::task::TaskState::Running,
+                        started_at: Some(now),
+                        each: updated_each,
+                        ..task
+                    })
+                }),
+            )
+            .await
+            .map_err(anyhow::Error::from)
+    }
 
-        tracing::warn!(list_len = list.len(), "SPAWN_EACH_TASKS building subtasks");
+    async fn spawn_each_tasks(&self, request: EachSpawnRequest<'_>) -> Result<()> {
+        tracing::warn!(
+            list_len = request.list.len(),
+            "SPAWN_EACH_TASKS building subtasks"
+        );
 
-        let subtasks: Vec<_> = list
+        let subtasks: Vec<_> = request
+            .list
             .iter()
             .enumerate()
             .par_bridge()
-            .map(|(ix, item)| Self::build_subtask(ix, item, &ctx))
+            .map(|(ix, item)| Self::build_subtask(ix, item, &request.context))
             .collect::<Result<Vec<_>>>()?;
 
         tracing::warn!(
@@ -145,7 +140,7 @@ impl Scheduler {
             "SPAWN_EACH_TASKS subtasks built, creating in DB"
         );
 
-        self.publish_and_handle_errors(&subtasks).await
+        create_and_publish_subtasks(self, &subtasks).await
     }
 
     fn build_subtask(ix: usize, item: &serde_json::Value, ctx: &SubtaskContext) -> Result<Task> {
@@ -173,63 +168,38 @@ impl Scheduler {
         var_name: &str,
         ix: usize,
     ) -> HashMap<String, serde_json::Value> {
-        let mut m = job_ctx.clone();
-        m.insert(
-            format!("{var_name}_index"),
-            serde_json::Value::String(ix.to_string()),
-        );
-        if let Some(obj) = item.as_object() {
-            for (k, v) in obj {
-                let flat_key = format!("{var_name}_value_{k}");
-                m.insert(flat_key, v.clone());
-            }
-            m.insert(var_name.to_string(), item.clone());
-        } else {
-            m.insert(var_name.to_string(), item.clone());
-            m.insert(format!("{var_name}_value"), item.clone());
-        }
-        m
-    }
-
-    async fn publish_and_handle_errors(&self, subtasks: &[Task]) -> Result<()> {
-        if subtasks.is_empty() {
-            return Ok(());
-        }
-
-        self.ds.create_tasks(subtasks).await?;
-
-        tracing::warn!("SPAWN_EACH_TASKS DB insert OK, publishing to broker");
-        if let Err(e) = self
-            .broker
-            .publish_tasks(QUEUE_PENDING.to_string(), subtasks)
-            .await
-        {
-            self.rollback_failed_tasks(subtasks, &e).await;
-            return Err(e);
-        }
-
-        Ok(())
-    }
-
-    async fn rollback_failed_tasks(&self, subtasks: &[Task], error: &anyhow::Error) {
-        let error_msg = format!("broker publish failed: {error}");
-        let compensating: Vec<_> = subtasks
+        job_ctx
             .iter()
-            .filter_map(|s| s.id.as_deref())
-            .map(|id| {
-                let msg = error_msg.clone();
-                self.ds.update_task(
-                    id,
-                    Box::new(move |t| {
-                        Ok(Task {
-                            state: twerk_core::task::TaskState::Failed,
-                            error: Some(msg),
-                            ..t
-                        })
-                    }),
-                )
-            })
-            .collect();
-        let _ = futures_util::future::join_all(compensating).await;
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .chain(std::iter::once((
+                format!("{var_name}_index"),
+                serde_json::Value::String(ix.to_string()),
+            )))
+            .chain(Self::item_context_entries(item, var_name))
+            .collect()
+    }
+
+    fn item_context_entries(
+        item: &serde_json::Value,
+        var_name: &str,
+    ) -> impl Iterator<Item = (String, serde_json::Value)> {
+        item.as_object().map_or_else(
+            || {
+                std::iter::once((var_name.to_string(), item.clone()))
+                    .chain(std::iter::once((format!("{var_name}_value"), item.clone())))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+            },
+            |object| {
+                std::iter::once((var_name.to_string(), item.clone()))
+                    .chain(
+                        object
+                            .iter()
+                            .map(|(key, value)| (format!("{var_name}_value_{key}"), value.clone())),
+                    )
+                    .collect::<Vec<_>>()
+                    .into_iter()
+            },
+        )
     }
 }

@@ -10,7 +10,9 @@ use time::OffsetDateTime;
 use tower::ServiceExt;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
-use twerk_web::api::trigger_api::{InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId};
+use twerk_web::api::trigger_api::{
+    InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId, TriggerView,
+};
 use twerk_web::api::{create_router, AppState, Config};
 
 fn trigger(id: &str) -> Trigger {
@@ -73,7 +75,7 @@ async fn send_put(
 async fn adversarial_id_with_unicode_characters() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({
         "id": "valid-id",
@@ -106,7 +108,7 @@ async fn adversarial_id_with_unicode_characters() {
 async fn adversarial_sql_injection_in_name() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({
         "id": "valid-id",
@@ -118,7 +120,7 @@ async fn adversarial_sql_injection_in_name() {
         "version": 1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -126,9 +128,15 @@ async fn adversarial_sql_injection_in_name() {
     )
     .await;
 
-    // Should accept or reject consistently - if accepted, should not cause SQL issues
-    // In-memory store should handle this safely
-    assert!(status == StatusCode::OK || status == StatusCode::BAD_REQUEST);
+    let persisted = trigger_ds
+        .get_trigger_by_id(&TriggerId::parse("valid-id").unwrap())
+        .expect("persisted trigger after update");
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body_json,
+        serde_json::to_value(TriggerView::from(persisted)).expect("trigger view serializes")
+    );
 }
 
 // Test 3: Extremely long field values (beyond 64 char limit)
@@ -136,7 +144,7 @@ async fn adversarial_sql_injection_in_name() {
 async fn adversarial_field_exceeds_max_length() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let long_name = "a".repeat(100); // Exceeds 64 char limit
 
@@ -163,10 +171,10 @@ async fn adversarial_field_exceeds_max_length() {
         StatusCode::BAD_REQUEST,
         "Field exceeding max length should be rejected"
     );
-    assert!(body_json["message"]
-        .as_str()
-        .unwrap()
-        .contains("max length"));
+    assert_eq!(
+        body_json,
+        json!({"error": "ValidationFailed", "message": "name exceeds max length"})
+    );
 }
 
 // Test 4: Whitespace-only fields that trim to empty
@@ -174,7 +182,7 @@ async fn adversarial_field_exceeds_max_length() {
 async fn adversarial_whitespace_only_fields() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({
         "id": "valid-id",
@@ -206,7 +214,7 @@ async fn adversarial_whitespace_only_fields() {
 async fn adversarial_null_bytes_in_fields() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({
         "id": "valid-id",
@@ -218,7 +226,7 @@ async fn adversarial_null_bytes_in_fields() {
         "version": 1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -226,8 +234,15 @@ async fn adversarial_null_bytes_in_fields() {
     )
     .await;
 
-    // Should handle null bytes gracefully - reject or accept consistently
-    assert!(status == StatusCode::OK || status == StatusCode::BAD_REQUEST);
+    let persisted = trigger_ds
+        .get_trigger_by_id(&TriggerId::parse("valid-id").unwrap())
+        .expect("persisted trigger after null-byte update");
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body_json,
+        serde_json::to_value(TriggerView::from(persisted)).expect("trigger view serializes")
+    );
 }
 
 // Test 6: Very large body (exceeds MAX_BODY_BYTES)
@@ -235,7 +250,7 @@ async fn adversarial_null_bytes_in_fields() {
 async fn adversarial_body_exceeds_max_size() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let large_body = "x".repeat(20 * 1024); // 20KB, exceeds 16KB limit
 
@@ -262,7 +277,10 @@ async fn adversarial_body_exceeds_max_size() {
         StatusCode::BAD_REQUEST,
         "Oversized body should be rejected"
     );
-    assert!(body_json["message"].as_str().unwrap().contains("max size"));
+    assert_eq!(
+        body_json,
+        json!({"error": "ValidationFailed", "message": "request body exceeds max size"})
+    );
 }
 
 // Test 7: Invalid metadata keys - empty string
@@ -270,7 +288,7 @@ async fn adversarial_body_exceeds_max_size() {
 async fn adversarial_metadata_empty_key() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let body = json!({
         "id": "valid-id",
@@ -295,7 +313,10 @@ async fn adversarial_metadata_empty_key() {
         StatusCode::BAD_REQUEST,
         "Empty metadata key should be rejected"
     );
-    assert!(body_json["message"].as_str().unwrap().contains("metadata"));
+    assert_eq!(
+        body_json,
+        json!({"error": "ValidationFailed", "message": "metadata key must be non-empty ASCII"})
+    );
 }
 
 // Test 8: Non-ASCII metadata keys
@@ -394,14 +415,15 @@ async fn adversarial_id_path_traversal() {
         .expect("response");
 
     let status = response.status();
-    // Path traversal should either be rejected at routing or handler level
-    assert!(
-        status == StatusCode::BAD_REQUEST
-            || status == StatusCode::NOT_FOUND
-            || status == StatusCode::INTERNAL_SERVER_ERROR,
-        "Path traversal should be handled gracefully, got: {}",
-        status
-    );
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
+
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body.as_ref(), b"");
 }
 
 // Test 11: Empty body
@@ -468,9 +490,11 @@ async fn adversarial_id_with_newlines() {
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::empty());
 
-    assert!(
-        result.is_err(),
-        "URI with newline should be rejected by HTTP library"
+    assert_eq!(
+        result
+            .expect_err("URI with newline should be rejected by HTTP library")
+            .to_string(),
+        "invalid uri character"
     );
 }
 
@@ -491,7 +515,7 @@ async fn adversarial_negative_version() {
         "version": -1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -499,11 +523,10 @@ async fn adversarial_negative_version() {
     )
     .await;
 
-    // Should handle negative version gracefully
-    assert!(
-        status == StatusCode::OK
-            || status == StatusCode::BAD_REQUEST
-            || status == StatusCode::CONFLICT
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json,
+        json!({"error": "MalformedJson", "message": "malformed JSON body"})
     );
 }
 
@@ -524,7 +547,7 @@ async fn adversarial_wrong_type_for_name() {
         "version": 1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -532,8 +555,11 @@ async fn adversarial_wrong_type_for_name() {
     )
     .await;
 
-    // Should handle type mismatch gracefully
-    assert!(status == StatusCode::OK || status == StatusCode::BAD_REQUEST);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json,
+        json!({"error": "MalformedJson", "message": "malformed JSON body"})
+    );
 }
 
 // Test 16: Condition field as number instead of string
@@ -554,7 +580,7 @@ async fn adversarial_condition_as_number() {
         "version": 1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -562,8 +588,11 @@ async fn adversarial_condition_as_number() {
     )
     .await;
 
-    // Should handle type mismatch
-    assert!(status == StatusCode::OK || status == StatusCode::BAD_REQUEST);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_json,
+        json!({"error": "MalformedJson", "message": "malformed JSON body"})
+    );
 }
 
 // Test 17: Enabled field as string instead of boolean
@@ -633,7 +662,7 @@ async fn adversarial_id_case_mismatch() {
 async fn adversarial_large_metadata_value() {
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger("valid-id")).unwrap();
-    let app = create_router(build_state(trigger_ds));
+    let app = create_router(build_state(trigger_ds.clone()));
 
     let large_value = "x".repeat(10000);
 
@@ -647,7 +676,7 @@ async fn adversarial_large_metadata_value() {
         "version": 1
     });
 
-    let (status, _) = send_put(
+    let (status, body_json) = send_put(
         app,
         "/api/v1/triggers/valid-id",
         "application/json",
@@ -655,8 +684,15 @@ async fn adversarial_large_metadata_value() {
     )
     .await;
 
-    // Should handle large metadata values (no explicit limit on value size)
-    assert!(status == StatusCode::OK || status == StatusCode::BAD_REQUEST);
+    let persisted = trigger_ds
+        .get_trigger_by_id(&TriggerId::parse("valid-id").unwrap())
+        .expect("persisted trigger after large metadata update");
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body_json,
+        serde_json::to_value(TriggerView::from(persisted)).expect("trigger view serializes")
+    );
 }
 
 // Test 20: Multiple errors returned (name and event both blank)
@@ -689,9 +725,10 @@ async fn adversarial_multiple_field_errors() {
         StatusCode::BAD_REQUEST,
         "Multiple blank fields should be rejected"
     );
-    // Only first error is returned - this is a potential issue for debugging
-    let message = body_json["message"].as_str().unwrap();
-    assert!(message.contains("name") || message.contains("event") || message.contains("action"));
+    assert_eq!(
+        body_json,
+        json!({"error": "ValidationFailed", "message": "name must be non-empty after trim"})
+    );
 }
 
 // Test 21: ID at maximum length boundary (64 chars)

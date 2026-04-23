@@ -5,13 +5,16 @@ use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
+use std::cmp::Ordering;
 use std::sync::Arc;
+use time::Duration;
 use time::OffsetDateTime;
 use tower::ServiceExt;
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
 use twerk_web::api::trigger_api::{
-    InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId, TRIGGER_FIELD_MAX_LEN,
+    apply_trigger_update, InMemoryTriggerDatastore, Trigger, TriggerAppState, TriggerId,
+    TriggerUpdateRequest, TRIGGER_FIELD_MAX_LEN,
 };
 use twerk_web::api::{create_router, AppState, Config};
 
@@ -54,8 +57,9 @@ fn build_state(trigger_ds: Arc<InMemoryTriggerDatastore>) -> AppState {
 }
 
 fn seed_trigger(trigger_ds: &Arc<InMemoryTriggerDatastore>, trigger: Trigger) {
-    assert!(
-        trigger_ds.upsert(trigger).is_ok(),
+    assert_eq!(
+        trigger_ds.upsert(trigger),
+        Ok(()),
         "seed trigger should insert cleanly"
     );
 }
@@ -347,9 +351,8 @@ async fn adversarial_created_at_immutable_on_update() {
 // ========================================
 #[tokio::test]
 async fn adversarial_updated_at_advances_on_update() {
-    let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     let original_time = OffsetDateTime::UNIX_EPOCH;
-    let trigger = Trigger {
+    let original = Trigger {
         id: TriggerId::parse("trg_abc").expect("valid id"),
         name: "before".to_string(),
         enabled: false,
@@ -361,48 +364,46 @@ async fn adversarial_updated_at_advances_on_update() {
         created_at: original_time,
         updated_at: original_time,
     };
-    seed_trigger(&trigger_ds, trigger);
-    let app = create_router(build_state(trigger_ds.clone()));
+    let first_update = TriggerUpdateRequest {
+        id: Some("trg_abc".to_string()),
+        name: "updated".to_string(),
+        enabled: true,
+        event: "order.created".to_string(),
+        condition: Some("amount > 10".to_string()),
+        action: "send_email".to_string(),
+        metadata: Some(std::collections::HashMap::from([(
+            "env".to_string(),
+            "prod".to_string(),
+        )])),
+        version: Some(1),
+    };
+    let first_updated_at = original_time + Duration::seconds(1);
+    let after_first = apply_trigger_update(original, first_update, first_updated_at)
+        .expect("first update should succeed");
 
-    // First update
-    let (status1, body1) = send_put(
-        app.clone(),
-        "/api/v1/triggers/trg_abc",
-        "application/json",
-        Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
-    )
-    .await;
-    assert_eq!(status1, StatusCode::OK);
-    let first_version = body1["version"].as_u64().expect("version as u64");
+    let second_update = TriggerUpdateRequest {
+        id: Some("trg_abc".to_string()),
+        name: "updated_differently".to_string(),
+        enabled: true,
+        event: "order.created".to_string(),
+        condition: Some("amount > 10".to_string()),
+        action: "send_email".to_string(),
+        metadata: Some(std::collections::HashMap::from([(
+            "env".to_string(),
+            "prod".to_string(),
+        )])),
+        version: Some(after_first.version),
+    };
+    let second_updated_at = first_updated_at + Duration::seconds(1);
+    let after_second = apply_trigger_update(after_first, second_update, second_updated_at)
+        .expect("second update should succeed");
 
-    let after_first = trigger_ds
-        .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
-        .expect("should exist after first update");
-    let first_updated_at = after_first.updated_at;
-
-    // Second update with different data to force a new updated_at
-    let mut body2 = body_ok("trg_abc");
-    body2["name"] = json!("updated_differently");
-    body2["version"] = json!(first_version);
-    let (status2, _) = send_put(
-        app,
-        "/api/v1/triggers/trg_abc",
-        "application/json",
-        Body::from(serde_json::to_vec(&body2).expect("serialize")),
-    )
-    .await;
-    assert_eq!(status2, StatusCode::OK);
-
-    let after_second = trigger_ds
-        .get_trigger_by_id(&TriggerId::parse("trg_abc").expect("id"))
-        .expect("should exist after second update");
-    let second_updated_at = after_second.updated_at;
-
-    // The second updated_at should be >= first updated_at
-    assert!(
-        second_updated_at >= first_updated_at,
-        "updated_at should advance or stay same, but should not go backwards"
+    assert_eq!(
+        after_second.updated_at.cmp(&first_updated_at),
+        Ordering::Greater,
+        "updated_at should strictly advance on each successful update"
     );
+    assert_eq!(after_second.updated_at, second_updated_at);
 }
 
 // ========================================

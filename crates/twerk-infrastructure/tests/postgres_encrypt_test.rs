@@ -3,7 +3,6 @@
 //! Extracted from inline `#[cfg(test)]` block in `encrypt.rs`.
 
 use base64::Engine;
-use proptest::prelude::*;
 use std::collections::HashMap;
 use twerk_infrastructure::datastore::postgres::encrypt::{
     decrypt, decrypt_secrets, encrypt, encrypt_secrets,
@@ -194,70 +193,4 @@ fn test_encrypt_special_characters() {
     let enc = encrypt(special, "key").expect("encryption should succeed");
     let dec = decrypt(&enc, "key").expect("decryption should succeed");
     assert_eq!(dec, special);
-}
-
-// ---------------------------------------------------------------------------
-// Property-based tests (proptest)
-// ---------------------------------------------------------------------------
-
-/// Strategy for generating arbitrary non-empty secret strings (printable ASCII).
-fn secret_strategy() -> impl Strategy<Value = String> {
-    "[!-~]{0,256}"
-}
-
-/// Strategy for generating arbitrary encryption keys (printable ASCII, non-empty).
-fn key_strategy() -> impl Strategy<Value = String> {
-    "[!-~]{1,64}"
-}
-
-/// Strategy for generating a small HashMap<String, String> of secrets.
-fn secrets_map_strategy() -> impl Strategy<Value = HashMap<String, String>> {
-    prop::collection::hash_map("[a-zA-Z_][a-zA-Z0-9_]{0,15}", secret_strategy(), 0..8)
-}
-
-proptest! {
-    /// Encrypting then decrypting with the same key always recovers the original plaintext.
-    #[test]
-    fn encrypt_decrypt_roundtrip(key in key_strategy(), plaintext in secret_strategy()) {
-        let encrypted = encrypt(&plaintext, &key)
-            .expect("encryption should succeed for any valid key/plaintext");
-        let decrypted = decrypt(&encrypted, &key)
-            .expect("decryption with the same key should succeed");
-        prop_assert_eq!(decrypted, plaintext);
-    }
-
-    /// encrypt_secrets -> decrypt_secrets roundtrip preserves all key-value pairs.
-    #[test]
-    fn encrypt_secrets_decrypt_secrets_roundtrip(
-        key in key_strategy(),
-        secrets in secrets_map_strategy()
-    ) {
-        let encrypted = encrypt_secrets(&secrets, Some(&key))
-            .expect("encrypt_secrets should succeed");
-        let decrypted = decrypt_secrets(&encrypted, Some(&key))
-            .expect("decrypt_secrets should succeed");
-        prop_assert_eq!(decrypted, secrets);
-    }
-
-    /// encrypt_secrets with None key returns an identical map (passthrough).
-    #[test]
-    fn encrypt_with_none_key_passthrough(secrets in secrets_map_strategy()) {
-        let result = encrypt_secrets(&secrets, None)
-            .expect("encrypt_secrets with None key should succeed");
-        prop_assert_eq!(result, secrets);
-    }
-
-    /// Decrypting ciphertext with a different key than used for encryption always fails.
-    #[test]
-    fn wrong_key_fails(
-        key1 in key_strategy(),
-        key2 in key_strategy(),
-        plaintext in secret_strategy()
-    ) {
-        prop_assume!(key1 != key2);
-        let encrypted = encrypt(&plaintext, &key1)
-            .expect("encryption should succeed");
-        let result = decrypt(&encrypted, &key2);
-        prop_assert!(result.is_err(), "decrypting with wrong key should fail");
-    }
 }

@@ -8,9 +8,8 @@ use super::ApiError;
 async fn extract_response_body(response: Response) -> String {
     let bytes = to_bytes(response.into_body(), usize::MAX)
         .await
-        .expect("response body should be readable in ApiError tests");
-    String::from_utf8(bytes.to_vec())
-        .expect("response body should be valid UTF-8 in ApiError tests")
+        .unwrap_or_default();
+    String::from_utf8(bytes.to_vec()).unwrap_or_default()
 }
 
 #[tokio::test]

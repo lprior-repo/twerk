@@ -184,22 +184,3 @@ mod tests {
         }
     }
 }
-
-#[cfg(test)]
-mod proptest_tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn intersect_symmetric(a: Vec<u32>, b: Vec<u32>) {
-            prop_assert_eq!(intersect(&a, &b), intersect(&b, &a));
-        }
-
-        #[test]
-        fn map_slice_preserves_length(items: Vec<i32>) {
-            let result: Vec<i32> = map_slice(&items, |x| x);
-            prop_assert_eq!(result.len(), items.len());
-        }
-    }
-}

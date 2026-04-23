@@ -86,7 +86,7 @@ pub async fn create_job_handler(
     let job = enrich_job_defaults(&state, parse_job_request(&headers, &body)?).await;
     validate_job(&job)?;
 
-    match query.wait.as_ref().map_or_else(WaitMode::default, |v| *v) {
+    match query.wait.unwrap_or_default() {
         WaitMode::Blocking => wait_for_job_completion(state, job).await,
         WaitMode::Detached => create_job_no_wait(state, job).await,
     }
@@ -130,10 +130,7 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
 
     match completion {
         Ok(Ok(mut finished_job)) => {
-            let secrets = finished_job
-                .secrets
-                .as_ref()
-                .map_or_else(std::collections::HashMap::new, std::clone::Clone::clone);
+            let secrets = finished_job.secrets.clone().unwrap_or_default();
             on_read_job(&mut finished_job, &secrets);
 
             if let Some(job_id) = &finished_job.id {

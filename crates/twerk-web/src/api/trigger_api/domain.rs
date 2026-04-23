@@ -270,9 +270,7 @@ pub fn apply_trigger_update(
         event: normalize_required_field(&req.event),
         condition: req.condition,
         action: normalize_required_field(&req.action),
-        metadata: req
-            .metadata
-            .map_or_else(std::collections::HashMap::new, |v| v.clone()),
+        metadata: req.metadata.unwrap_or_default(),
         version: current.version.saturating_add(1),
         created_at: current.created_at,
         updated_at: now_utc,

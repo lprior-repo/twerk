@@ -66,7 +66,7 @@ impl PostgresDatastore {
             .bind(&sj.cron)
             .bind(&sj.name)
             .bind(&sj.description)
-            .bind(sj.tags.as_ref().map_or_else(Vec::new, Clone::clone))
+            .bind(sj.tags.clone().unwrap_or_default())
             .bind(sj.state.to_string())
             .bind(sj.created_at.unwrap_or_else(time::OffsetDateTime::now_utc))
             .bind(&*created_by)
@@ -417,7 +417,7 @@ impl PostgresDatastore {
                 let cron_expr = &sj.cron;
                 let name = &sj.name;
                 let description = &sj.description;
-                let tags = sj.tags.as_ref().map_or_else(Vec::new, Clone::clone);
+                let tags = sj.tags.clone().unwrap_or_default();
                 let state = sj.state.to_string();
                 let defaults: Option<Vec<u8>> = sj
                     .defaults
@@ -484,7 +484,7 @@ impl PostgresDatastore {
                 let cron_expr = &sj.cron;
                 let name = &sj.name;
                 let description = &sj.description;
-                let tags = sj.tags.as_ref().map_or_else(Vec::new, Clone::clone);
+                let tags = sj.tags.clone().unwrap_or_default();
                 let state = sj.state.to_string();
                 let defaults: Option<Vec<u8>> = sj
                     .defaults

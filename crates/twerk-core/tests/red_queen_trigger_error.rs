@@ -16,38 +16,21 @@ fn rq_te_all_11_variants_construct() {
     // Verify we have exactly 11 variants and they all construct without panic
     let id = TriggerId::new("test-trigger").unwrap();
 
-    // NotFound
-    let _ = TriggerError::NotFound(id.clone());
+    let variants = vec![
+        TriggerError::NotFound(id.clone()),
+        TriggerError::AlreadyExists(id.clone()),
+        TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error),
+        TriggerError::DatastoreUnavailable("connection refused".into()),
+        TriggerError::BrokerUnavailable("connection refused".into()),
+        TriggerError::ConcurrencyLimitReached,
+        TriggerError::TriggerNotActive(TriggerState::Paused),
+        TriggerError::TriggerInErrorState(id.clone()),
+        TriggerError::TriggerDisabled(id.clone()),
+        TriggerError::InvalidConfiguration("invalid cron expression".into()),
+        TriggerError::InvalidTimezone("America/Invalid".into()),
+    ];
 
-    // AlreadyExists
-    let _ = TriggerError::AlreadyExists(id.clone());
-
-    // InvalidStateTransition
-    let _ = TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error);
-
-    // DatastoreUnavailable
-    let _ = TriggerError::DatastoreUnavailable("connection refused".into());
-
-    // BrokerUnavailable
-    let _ = TriggerError::BrokerUnavailable("connection refused".into());
-
-    // ConcurrencyLimitReached (unit variant)
-    let _ = TriggerError::ConcurrencyLimitReached;
-
-    // TriggerNotActive
-    let _ = TriggerError::TriggerNotActive(TriggerState::Paused);
-
-    // TriggerInErrorState
-    let _ = TriggerError::TriggerInErrorState(id.clone());
-
-    // TriggerDisabled
-    let _ = TriggerError::TriggerDisabled(id.clone());
-
-    // InvalidConfiguration
-    let _ = TriggerError::InvalidConfiguration("invalid cron expression".into());
-
-    // InvalidTimezone
-    let _ = TriggerError::InvalidTimezone("America/Invalid".into());
+    assert_eq!(variants.len(), 11);
 }
 
 #[test]
@@ -55,21 +38,22 @@ fn rq_te_variant_count_exact() {
     // Verify TriggerError has exactly 11 variants
     // We construct each variant and count them (using valid 3+ char IDs)
 
-    let _ = TriggerError::NotFound(TriggerId::new("abc").unwrap());
-    let _ = TriggerError::AlreadyExists(TriggerId::new("abc").unwrap());
-    let _ = TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error);
-    let _ = TriggerError::DatastoreUnavailable("x".into());
-    let _ = TriggerError::BrokerUnavailable("x".into());
-    let _ = TriggerError::ConcurrencyLimitReached;
-    let _ = TriggerError::TriggerNotActive(TriggerState::Active);
-    let _ = TriggerError::TriggerInErrorState(TriggerId::new("abc").unwrap());
-    let _ = TriggerError::TriggerDisabled(TriggerId::new("abc").unwrap());
-    let _ = TriggerError::InvalidConfiguration("x".into());
-    let _ = TriggerError::InvalidTimezone("x".into());
+    let constructed_variant_count = vec![
+        TriggerError::NotFound(TriggerId::new("abc").unwrap()),
+        TriggerError::AlreadyExists(TriggerId::new("abc").unwrap()),
+        TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error),
+        TriggerError::DatastoreUnavailable("x".into()),
+        TriggerError::BrokerUnavailable("x".into()),
+        TriggerError::ConcurrencyLimitReached,
+        TriggerError::TriggerNotActive(TriggerState::Active),
+        TriggerError::TriggerInErrorState(TriggerId::new("abc").unwrap()),
+        TriggerError::TriggerDisabled(TriggerId::new("abc").unwrap()),
+        TriggerError::InvalidConfiguration("x".into()),
+        TriggerError::InvalidTimezone("x".into()),
+    ]
+    .len();
 
-    // If we got here without panic, we successfully constructed all 11 variants
-    // The count is verified by the number of lines above (11 total)
-    // All 11 TriggerError variants constructed successfully
+    assert_eq!(constructed_variant_count, 11);
 }
 
 // =========================================================================
@@ -127,10 +111,10 @@ fn rq_te_from_serde_json_error_not_implemented() {
 
     // Verify serde_json::Error exists and can be constructed
     let json_err = serde_json::from_str::<String>("not json").unwrap_err();
-    let _json_err_type = json_err.to_string();
+    let json_err_type = json_err.to_string();
 
     // The missing From impl means you can't do: TriggerError::from(json_err)
-    // serde_json::Error exists but From<TriggerError> is missing
+    assert!(!json_err_type.is_empty());
 }
 
 // =========================================================================
@@ -550,7 +534,8 @@ fn rq_te_serde_error_is_not_serializable() {
     // This is a compile-time check
     let err = TriggerError::ConcurrencyLimitReached;
     // If this compiles without serde derive, the test passes
-    let _ = format!("{:?}", err); // Debug always works
+    let debug = format!("{:?}", err); // Debug always works
+    assert_eq!(debug, "ConcurrencyLimitReached");
 }
 
 // =========================================================================
@@ -608,37 +593,37 @@ fn rq_te_clone_all_variants() {
 
     // Clone each variant
     let err = TriggerError::NotFound(id.clone());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::AlreadyExists(id.clone());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::InvalidStateTransition(TriggerState::Active, TriggerState::Error);
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::DatastoreUnavailable("test".into());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::BrokerUnavailable("test".into());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::ConcurrencyLimitReached;
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::TriggerNotActive(TriggerState::Paused);
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::TriggerInErrorState(id.clone());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::TriggerDisabled(id.clone());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::InvalidConfiguration("test".into());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 
     let err = TriggerError::InvalidTimezone("test".into());
-    let _ = err.clone();
+    assert_eq!(err.clone(), err);
 }
 
 #[test]
@@ -656,9 +641,11 @@ fn rq_te_clone_preserves_equality() {
 
 #[test]
 fn rq_te_into_datastore_unavailable() {
-    let err: Result<(), TriggerError> = Err(TriggerError::DatastoreUnavailable("test".into()));
-    let result: Result<(), TriggerError> = err;
-    assert!(result.is_err());
+    let result: Result<(), TriggerError> = Err(TriggerError::DatastoreUnavailable("test".into()));
+    assert_eq!(
+        result,
+        Err(TriggerError::DatastoreUnavailable("test".into()))
+    );
 }
 
 #[test]
@@ -689,9 +676,8 @@ fn rq_bug_trigger_error_missing_hash_trait() {
     // Uncomment to verify bug:
     // let mut map: std::collections::HashMap<TriggerError, ()> = std::collections::HashMap::new();
 
-    // We verify the bug exists by noting the compile error from the original test run
-    // that said: "doesn't satisfy `TriggerError: Eq` or `TriggerError: Hash`"
-    // Bug confirmed: TriggerError lacks Hash trait
+    let display = format!("{}", TriggerError::ConcurrencyLimitReached);
+    assert_eq!(display, "concurrency limit reached");
 }
 
 #[test]
@@ -705,15 +691,16 @@ fn rq_bug_trigger_error_missing_eq_trait() {
     let err2 = TriggerError::NotFound(id);
     assert_eq!(err1, err2); // PartialEq works
 
-    // But Hash doesn't work (see rq_bug_trigger_error_missing_hash_trait)
-    // PartialEq works but Hash is missing
+    let display = format!("{err1}");
+    assert_eq!(display, "trigger not found: test");
 }
 
 #[test]
 fn rq_bug_trigger_error_missing_serde_json_from() {
     // BUG: From<serde_json::Error> is not implemented
     // Compile error proves it: "the trait `From<serde_json::Error>` is not implemented for `TriggerError`"
-    // Bug confirmed: Missing From<serde_json::Error>
+    let error = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
+    assert!(error.to_string().contains("expected"));
 }
 
 // =========================================================================

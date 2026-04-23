@@ -1,7 +1,6 @@
 //! Tests for the webhook module
 
 #![allow(clippy::unwrap_used)]
-#![allow(unexpected_cfgs)]
 #![allow(clippy::panic)]
 #![allow(clippy::redundant_pattern_matching)]
 
@@ -298,15 +297,4 @@ fn webhook_error_display_format_serialization() {
     let error = WebhookError::SerializationError;
     let display = format!("{error}");
     assert!(display.contains("serializing body"));
-}
-
-#[allow(unexpected_cfgs)]
-#[cfg(not(coverage))]
-mod proptest_tests {
-    // DISABLED: proptest `u16` strategy resolution broken in this crate.
-    // The proptest macro expands `code in <expr>` to require
-    // `(<type of expr>): Strategy`, but `RangeInclusive<u16>` fails
-    // to resolve while `RangeInclusive<usize>` is incorrectly inferred.
-    // Re-enable once proptest dependency is updated or crate-level
-    // type-resolution is fixed.
 }

@@ -173,7 +173,7 @@ fn build_networking_config(task: &Task) -> Option<NetworkingConfig> {
 
     let mut endpoints = HashMap::new();
     if let Some(ref networks) = task.networks {
-        let alias = slugify(task.name.as_deref().map_or(DEFAULT_TASK_NAME, |s| s));
+        let alias = slugify(task.name.as_deref().unwrap_or(DEFAULT_TASK_NAME));
         for nw in networks {
             endpoints.insert(
                 nw.clone(),
@@ -487,7 +487,7 @@ pub async fn create_task_container(
         build_container_config_params(task, env, mounts, nano_cpus, memory, device_requests);
     let container_config = build_container_config(container_params);
 
-    let image = task.image.as_deref().map_or("", |s| s);
+    let image = task.image.as_deref().unwrap_or_default();
     let container_id = create_container(client, container_config, image).await?;
 
     let task_id = task.id.as_ref().ok_or_else(|| {

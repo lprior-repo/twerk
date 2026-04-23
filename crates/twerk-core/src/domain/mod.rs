@@ -5,7 +5,7 @@
 //! - [`Hostname`]: Validated DNS hostname with RFC 1123 compliance
 //! - [`CronExpression`]: Validated cron schedule expression (5-field or 6-field)
 //! - [`Endpoint`]: Validated HTTP/HTTPS endpoint URL
-//! - [`Dsn`]: `PostgreSQL` connection string (DSN)
+//! - [`Dsn`]: PostgreSQL connection string (DSN)
 //! - [`QueueName`]: Validated queue identifier
 //! - [`GoDuration`]: Parsed Go-style duration string
 //! - [`Priority`]: Validated job/task priority value (0-9)

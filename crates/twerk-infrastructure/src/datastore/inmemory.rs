@@ -436,9 +436,8 @@ impl Default for InMemoryDatastore {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::redundant_closure)]
     use super::*;
-    use twerk_core::id::{RoleId, TaskId};
+    use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
     use twerk_core::task::TaskState;
 
     fn make_task(id: &str) -> Task {

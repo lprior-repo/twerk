@@ -79,7 +79,8 @@ pub(super) fn parse_size(raw: Option<&str>, default: i64, max: i64) -> Result<i6
 pub(super) fn extract_current_user(req: &Request) -> String {
     req.extensions()
         .get::<UsernameValue>()
-        .map_or_else(String::new, |v| v.0.clone())
+        .map(|v| v.0.clone())
+        .unwrap_or_default()
 }
 
 pub(super) async fn default_user(state: &AppState) -> Option<twerk_core::user::User> {

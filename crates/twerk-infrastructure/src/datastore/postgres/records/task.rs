@@ -93,10 +93,6 @@ impl TaskRecordExt for TaskRecord {
         let registry =
             parse_bytes::<twerk_core::task::Registry>("registry", self.registry.as_ref())?;
         let mounts = parse_bytes::<Vec<twerk_core::mount::Mount>>("mounts", self.mounts.as_ref())?;
-        let state = self
-            .state
-            .parse()
-            .map_err(|e| DatastoreError::Serialization(format!("task.state: {e}")))?;
 
         let task_id = TaskId::new(self.id.clone())?;
         let job_id = JobId::new(self.job_id.clone())?;
@@ -116,7 +112,7 @@ impl TaskRecordExt for TaskRecord {
             position: self.position,
             name: self.name.clone(),
             description: self.description.clone(),
-            state,
+            state: self.state.parse().unwrap_or_default(),
             created_at: Some(self.created_at),
             scheduled_at: self.scheduled_at,
             started_at: self.started_at,

@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").clone()
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .to_path_buf()
 }
 
 fn main() -> ExitCode {

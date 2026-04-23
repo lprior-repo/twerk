@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use dashmap::DashMap;
 use std::process::{ExitCode, Stdio};
 use std::sync::Arc;
@@ -14,6 +13,20 @@ use twerk_infrastructure::runtime::{
 };
 
 use tracing::instrument;
+
+// ── Typed error for shell runtime ──────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum ShellError {
+    #[error("id and run script required")]
+    IdAndRunScriptRequired,
+    #[error("shell command required")]
+    ShellCommandRequired,
+    #[error("child process spawned but PID unavailable")]
+    PidUnavailable,
+    #[error("process exited with code {0}")]
+    ExitFailed(String),
+}
 
 // Module-level function to avoid lifetime issues with associated functions
 async fn terminate_process(
@@ -222,7 +235,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
         Box::pin(async move {
             if tid.is_empty() || rs.is_empty() {
-                return Err(anyhow!("id and run script required"));
+                return Err(ShellError::IdAndRunScriptRequired.into());
             }
 
             // Create temp directory for script
@@ -250,7 +263,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Spawn process
             let (program, base_args) = sc
                 .split_first()
-                .ok_or_else(|| anyhow!("shell command required"))?;
+                .ok_or_else(|| ShellError::ShellCommandRequired)?;
             let mut cmd = Command::new(program);
             cmd.args(base_args)
                 .arg(sp.to_string_lossy().as_ref())
@@ -273,7 +286,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
             let pid = child
                 .id()
-                .ok_or_else(|| anyhow::anyhow!("child process spawned but PID unavailable"))?;
+                .ok_or_else(|| ShellError::PidUnavailable)?;
             let handle = ProcessHandle { pid };
 
             // Store handle for stop() to use
@@ -338,13 +351,13 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
 
             if !output.status.success() {
-                return Err(anyhow!(
-                    "process exited with code {}",
+                return Err(ShellError::ExitFailed(
                     output
                         .status
                         .code()
-                        .map_or_else(|| "unknown (signal)".to_string(), |c| c.to_string())
-                ));
+                        .map_or_else(|| "unknown (signal)".to_string(), |c| c.to_string()),
+                )
+                .into());
             }
 
             Ok(())

@@ -27,6 +27,26 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+// ── Typed errors for scheduler operations ──────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum SchedulerError {
+    #[error("task ID required for {scheduler} scheduling")]
+    TaskIdRequired { scheduler: String },
+    #[error("job ID required for {scheduler} scheduling")]
+    JobIdRequired { scheduler: String },
+    #[error("missing {scheduler} config")]
+    MissingConfig { scheduler: String },
+    #[error("missing parallel tasks")]
+    MissingParallelTasks,
+    #[error("each list must be an array")]
+    EachListMustBeArray,
+    #[error("missing each task template")]
+    MissingEachTemplate,
+    #[error("failed to evaluate {context}: {error}")]
+    Evaluation { context: String, error: String },
+}
+
 /// Scheduler handles task scheduling based on task type.
 pub struct Scheduler {
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,

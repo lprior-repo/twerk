@@ -1,6 +1,7 @@
 //! Top-level task workflow handlers (job progression logic)
 
-use anyhow::{anyhow, Result};
+use super::HandlerError;
+use anyhow::Result;
 use std::sync::Arc;
 use tracing::instrument;
 use twerk_core::job::JobState;
@@ -28,12 +29,12 @@ pub async fn handle_top_level_task_completed(
     let tasks = job
         .tasks
         .as_ref()
-        .ok_or_else(|| anyhow!("job has no tasks"))?;
+        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
 
     if next_position <= tasks.len() as i64 {
         let base_task = tasks
             .get((next_position - 1) as usize)
-            .ok_or_else(|| anyhow!("task out of bounds"))?;
+            .ok_or_else(|| HandlerError::TaskOutOfBounds)?;
         let mut task = base_task.clone();
         task.id = Some(new_short_uuid().into());
         task.job_id = Some(twerk_core::id::JobId::new(job_id.clone())?);

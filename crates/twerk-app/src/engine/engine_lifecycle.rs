@@ -10,6 +10,16 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::{debug, error, instrument};
 
+// ── Typed engine lifecycle errors ──────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum EngineError {
+    #[error("engine is not idle")]
+    NotIdle,
+    #[error("engine is not running")]
+    NotRunning,
+}
+
 /// Spawns a signal handler task that listens for SIGINT, SIGTERM, or a broadcast
 /// termination signal, then runs the provided cleanup future.
 fn spawn_signal_handler<F>(
@@ -49,7 +59,7 @@ impl super::Engine {
     #[instrument(skip_all)]
     pub async fn start(&mut self) -> Result<()> {
         if self.state != State::Idle {
-            anyhow::bail!("engine is not idle");
+            return Err(EngineError::NotIdle.into());
         }
 
         ensure_config_loaded();
@@ -76,7 +86,7 @@ impl super::Engine {
     #[instrument(skip_all)]
     pub async fn terminate(&mut self) -> Result<()> {
         if self.state != State::Running {
-            anyhow::bail!("engine is not running");
+            return Err(EngineError::NotRunning.into());
         }
 
         self.state = State::Terminating;

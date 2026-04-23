@@ -1,6 +1,7 @@
 //! Each-loop task scheduling logic.
 
 use super::Scheduler;
+use super::SchedulerError;
 use anyhow::Result;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::collections::HashMap;
@@ -26,11 +27,15 @@ impl Scheduler {
         let task_id = task
             .id
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("task ID required for each scheduling"))?;
+            .ok_or_else(|| SchedulerError::TaskIdRequired {
+                scheduler: "each".to_string(),
+            })?;
         let job_id = task
             .job_id
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("job ID required for each scheduling"))?;
+            .ok_or_else(|| SchedulerError::JobIdRequired {
+                scheduler: "each".to_string(),
+            })?;
         let now = time::OffsetDateTime::now_utc();
 
         tracing::warn!(task_id = %task_id, "SCHEDULE_EACH_TASK called");
@@ -45,13 +50,15 @@ impl Scheduler {
         let each = task
             .each
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("missing each config"))?;
+            .ok_or_else(|| SchedulerError::MissingConfig {
+                scheduler: "each".to_string(),
+            })?;
         let list_expr = each.list.as_deref().unwrap_or_default();
 
         let list_val = Self::eval_each_list(list_expr, &job_ctx_map)?;
         let list = list_val
             .as_array()
-            .ok_or_else(|| anyhow::anyhow!("each list must be an array"))?;
+            .ok_or_else(|| SchedulerError::EachListMustBeArray)?;
         let size = list.len() as i64;
 
         self.ds
@@ -74,7 +81,7 @@ impl Scheduler {
         let template = each
             .task
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("missing each task template"))?;
+            .ok_or_else(|| SchedulerError::MissingEachTemplate)?;
         self.spawn_each_tasks(template, list, &job_ctx_map, task_id, job_id, now)
             .await
     }
@@ -91,7 +98,10 @@ impl Scheduler {
             )
         } else {
             evaluate_expr(list_expr, job_ctx)
-                .map_err(|e| anyhow::anyhow!("failed to evaluate each list: {e}"))?
+                .map_err(|e| SchedulerError::Evaluation {
+                    context: "each list".to_string(),
+                    error: e.to_string(),
+                })?
         };
 
         if let Some(s) = list_val.as_str() {
@@ -142,7 +152,10 @@ impl Scheduler {
         let cx = Self::build_context(item, ctx.job_ctx, ctx.var_name, ix);
 
         let evaluated = evaluate_task(ctx.template, &cx)
-            .map_err(|e| anyhow::anyhow!("failed to evaluate each item task: {e}"))?;
+            .map_err(|e| SchedulerError::Evaluation {
+                context: "each item task".to_string(),
+                error: e.to_string(),
+            })?;
 
         Ok(Task {
             id: Some(new_short_uuid().into()),

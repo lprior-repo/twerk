@@ -6,7 +6,8 @@ use crate::engine::coordinator::handlers::util::{build_job_context, is_job_activ
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::types::JobHandlerError;
 use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
-use anyhow::{anyhow, Result};
+use super::HandlerError;
+use anyhow::Result;
 use std::sync::Arc;
 use tracing::{debug, error, instrument};
 use twerk_core::job::JobState;
@@ -33,11 +34,11 @@ pub async fn handle_job_event(
         JobState::Restart => restart_job(ds, broker, job).await,
         JobState::Cancelled => handle_cancel(ds, broker, job)
             .await
-            .map_err(|e| anyhow!("{e}")),
-        JobState::Failed => fail_job(ds, broker, job).await.map_err(|e| anyhow!("{e}")),
+            .map_err(|e| anyhow::anyhow!("{e}")),
+        JobState::Failed => fail_job(ds, broker, job).await.map_err(|e| anyhow::anyhow!("{e}")),
         JobState::Running => mark_job_as_running(ds, broker, job)
             .await
-            .map_err(|e| anyhow!("{e}")),
+            .map_err(|e| anyhow::anyhow!("{e}")),
         JobState::Scheduled => Ok(()),
     };
 
@@ -91,12 +92,12 @@ async fn start_job(
     let tasks = job
         .tasks
         .as_ref()
-        .ok_or_else(|| anyhow!("job has no tasks"))?;
-    let base_task = tasks.first().ok_or_else(|| anyhow!("job has no tasks"))?;
+        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
+    let base_task = tasks.first().ok_or_else(|| HandlerError::JobHasNoTasks)?;
 
     let now = time::OffsetDateTime::now_utc();
     let job_ctx = build_job_context(&job);
-    let job_id = job.id.as_ref().ok_or_else(|| anyhow!("job has no id"))?;
+    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
 
     debug!(job_id = %job_id, "start_job: transitioning job to Scheduled");
     // Transition job to Scheduled BEFORE evaluating task and calling handle_pending_task.
@@ -114,7 +115,7 @@ async fn start_job(
 
     debug!(job_id = %job_id, "start_job: evaluating task");
     let mut task =
-        twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow!("{e}"))?;
+        twerk_core::eval::evaluate_task(base_task, &job_ctx).map_err(|e| anyhow::anyhow!("{e}"))?;
     task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
     task.state = TaskState::Pending;
@@ -136,7 +137,7 @@ async fn restart_job(
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     job: twerk_core::job::Job,
 ) -> Result<()> {
-    let job_id = job.id.as_ref().ok_or_else(|| anyhow!("job has no id"))?;
+    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
     let now = time::OffsetDateTime::now_utc();
 
     ds.update_job(
@@ -152,14 +153,14 @@ async fn restart_job(
     let tasks = job
         .tasks
         .as_ref()
-        .ok_or_else(|| anyhow!("job has no tasks"))?;
+        .ok_or_else(|| HandlerError::JobHasNoTasks)?;
     let task_index = (job.position - 1) as usize;
     let base_task = tasks
         .get(task_index)
-        .ok_or_else(|| anyhow!("job position out of bounds"))?;
+        .ok_or_else(|| HandlerError::TaskOutOfBounds)?;
 
     let mut task = twerk_core::eval::evaluate_task(base_task, &build_job_context(&job))
-        .map_err(|e| anyhow!("{e}"))?;
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     task.id = Some(new_short_uuid().into());
     task.job_id = Some(job_id.clone());
     task.state = TaskState::Pending;
@@ -176,7 +177,7 @@ async fn complete_job(
     job: twerk_core::job::Job,
 ) -> Result<()> {
     let now = time::OffsetDateTime::now_utc();
-    let job_id = job.id.as_ref().ok_or_else(|| anyhow!("job has no id"))?;
+    let job_id = job.id.as_ref().ok_or_else(|| HandlerError::MissingJobId)?;
 
     ds.update_job(
         job_id,

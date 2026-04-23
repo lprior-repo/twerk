@@ -4,13 +4,21 @@
 
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use twerk_infrastructure::broker::{
     inmemory::InMemoryBroker, rabbitmq::RabbitMQBroker, Broker, RabbitMQOptions,
 };
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL, QUEUE_TYPE_CLASSIC};
+
+// ── Typed errors for broker factory ────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum BrokerFactoryError {
+    #[error("unable to connect to RabbitMQ: {0}")]
+    RabbitMqConnection(String),
+}
 
 // ── Broker type enumeration ────────────────────────────────────
 
@@ -102,7 +110,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
                 },
             )
             .await
-            .map_err(|e| anyhow!("unable to connect to RabbitMQ: {e}"))?;
+            .map_err(|e| BrokerFactoryError::RabbitMqConnection(e.to_string()))?;
 
             Ok(Box::new(broker))
         }

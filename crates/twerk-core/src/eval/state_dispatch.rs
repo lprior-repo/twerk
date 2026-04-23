@@ -62,7 +62,6 @@ pub fn evaluate_state_machine(
         .and_then(validate_machine)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn evaluate_state_kind(
     kind: &StateKind,
     context: &HashMap<String, Value>,

@@ -6,12 +6,24 @@ use super::types::{
     TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 use super::TOPIC_JOB;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use tracing::error;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::runtime::{Mounter, Runtime};
+
+// ── Typed engine registration errors ───────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum EngineRegistrationError {
+    #[error("engine is not running")]
+    NotRunning,
+    #[error("engine not in coordinator/standalone mode")]
+    InvalidMode,
+    #[error("coordinator not available")]
+    CoordinatorUnavailable,
+}
 
 impl super::Engine {
     /// Register web middleware
@@ -133,10 +145,10 @@ impl super::Engine {
         listeners: Vec<JobListener>,
     ) -> Result<twerk_core::job::Job> {
         if self.state != State::Running {
-            return Err(anyhow!("engine is not running"));
+            return Err(EngineRegistrationError::NotRunning.into());
         }
         if self.mode != Mode::Standalone && self.mode != Mode::Coordinator {
-            return Err(anyhow!("engine not in coordinator/standalone mode"));
+            return Err(EngineRegistrationError::InvalidMode.into());
         }
 
         // Get the job ID for listener matching
@@ -178,7 +190,7 @@ impl super::Engine {
             let result = coord.submit_job(job).await?;
             Ok(result.deep_clone())
         } else {
-            Err(anyhow!("coordinator not available"))
+            Err(EngineRegistrationError::CoordinatorUnavailable.into())
         }
     }
 

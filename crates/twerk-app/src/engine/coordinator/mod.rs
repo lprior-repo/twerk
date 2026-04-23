@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, instrument};
@@ -22,6 +22,16 @@ use twerk_infrastructure::broker::queue::{
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
+
+// ── Typed errors for coordinator operations ────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum CoordinatorError {
+    #[error("failed to create job: {0}")]
+    JobCreate(String),
+    #[error("failed to publish job: {0}")]
+    JobPublish(String),
+}
 
 pub mod auth;
 pub mod handlers;
@@ -257,11 +267,11 @@ impl Coordinator for DefaultCoordinator {
         self.ds
             .create_job(&job)
             .await
-            .map_err(|e| anyhow!("failed to create job: {e}"))?;
+            .map_err(|e| CoordinatorError::JobCreate(e.to_string()))?;
         self.broker
             .publish_job(&job)
             .await
-            .map_err(|e| anyhow!("failed to publish job: {e}"))?;
+            .map_err(|e| CoordinatorError::JobPublish(e.to_string()))?;
         Ok(job)
     }
 }

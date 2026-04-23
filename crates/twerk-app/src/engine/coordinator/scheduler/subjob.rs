@@ -1,6 +1,7 @@
 //! Subjob task scheduling logic.
 
 use super::Scheduler;
+use super::SchedulerError;
 use anyhow::Result;
 
 impl Scheduler {
@@ -17,7 +18,9 @@ impl Scheduler {
         let subjob_task = task
             .subjob
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("missing subjob config"))?;
+            .ok_or_else(|| SchedulerError::MissingConfig {
+                scheduler: "subjob".to_string(),
+            })?;
 
         // Use uuid::Uuid to generate a proper RFC 4122 UUID
         let subjob_uuid = uuid::Uuid::new_v4().to_string();

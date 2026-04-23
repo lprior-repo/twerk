@@ -4,12 +4,22 @@ use crate::engine::worker::mounter::{
 };
 use crate::engine::worker::podman::PodmanRuntimeAdapter;
 use crate::engine::worker::shell::ShellRuntimeAdapter;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::{MultiMounter, Runtime as RuntimeTrait};
 
 use crate::engine::engine_helpers::ensure_config_loaded;
+
+// ── Typed errors for runtime adapter ───────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum RuntimeAdapterError {
+    #[error("mount registration error: {0}")]
+    MountRegistration(#[source] twerk_infrastructure::runtime::MountError),
+    #[error("unknown runtime type: {0}")]
+    UnknownRuntimeType(String),
+}
 
 pub mod runtime_type {
     pub const DOCKER: &str = "docker";
@@ -53,11 +63,11 @@ pub async fn create_runtime_from_config(
                     policy: bind_policy,
                 })),
             )
-            .map_err(|e| anyhow!("{e}"))?;
+            .map_err(RuntimeAdapterError::MountRegistration)?;
             m.register_mounter("volume", Box::new(VolumeMounter::new()))
-                .map_err(|e| anyhow!("{e}"))?;
+                .map_err(RuntimeAdapterError::MountRegistration)?;
             m.register_mounter("tmpfs", Box::new(TmpfsMounter::new()))
-                .map_err(|e| anyhow!("{e}"))?;
+                .map_err(RuntimeAdapterError::MountRegistration)?;
             Ok(Box::new(DockerRuntimeAdapter::new(
                 config.docker_privileged,
                 config.docker_image_ttl_secs,
@@ -75,7 +85,7 @@ pub async fn create_runtime_from_config(
             config.podman_privileged,
             config.podman_host_network,
         ))),
-        other => Err(anyhow!("unknown runtime type: {}", other)),
+        other => Err(RuntimeAdapterError::UnknownRuntimeType(other.to_string()).into()),
     }
 }
 

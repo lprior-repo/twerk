@@ -21,6 +21,14 @@ use crate::runtime::Runtime as RuntimeTrait;
 
 use super::types::{Limits, RunningTask};
 
+// ── Typed errors for task execution ────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum TaskExecutionError {
+    #[error("task timed out")]
+    Timeout,
+}
+
 /// Execute a task
 #[instrument(skip_all, fields(task_id = ?task.id))]
 pub async fn execute_task(
@@ -110,7 +118,7 @@ async fn run_with_timeout(
         () = sleep(dur) => {
             warn!("Task {} timed out after {}", task_id_str, timeout_str);
             let _ = runtime.stop(t).await;
-            Err(anyhow::anyhow!("task timed out"))
+            Err(TaskExecutionError::Timeout.into())
         }
     }
 }

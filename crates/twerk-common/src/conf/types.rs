@@ -40,14 +40,12 @@ pub enum ConfigError {
 }
 
 /// Helper struct for parsing TOML values with flexible accessors.
-#[allow(dead_code)]
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct TomlValue {
     #[serde(flatten)]
     extra: HashMap<String, toml::Value>,
 }
 
-#[allow(dead_code)]
 impl TomlValue {
     pub fn get_str(&self, key: &str) -> Option<&str> {
         self.extra.get(key).and_then(|v| v.as_str())

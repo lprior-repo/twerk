@@ -12,6 +12,14 @@ use twerk_core::task::{Task, TaskState};
 use twerk_infrastructure::broker::{is_worker_queue, Broker};
 use twerk_infrastructure::runtime::Runtime as RuntimeTrait;
 
+// ── Typed error for worker execution ───────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum WorkerExecError {
+    #[error("task ID required for execution")]
+    TaskIdRequired,
+}
+
 pub use twerk_infrastructure::BoxedFuture;
 
 pub mod docker;
@@ -270,7 +278,7 @@ async fn execute_task(
     let mut t = (*task).clone();
     let tid =
         t.id.clone()
-            .ok_or_else(|| anyhow::anyhow!("task ID required for execution"))?;
+            .ok_or_else(|| WorkerExecError::TaskIdRequired)?;
     active_tasks.insert(tid.clone(), task.clone());
     t.state = TaskState::Running;
     t.started_at = Some(time::OffsetDateTime::now_utc());

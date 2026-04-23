@@ -1,6 +1,7 @@
 //! Regular task scheduling logic.
 
 use super::Scheduler;
+use super::SchedulerError;
 use anyhow::Result;
 
 impl Scheduler {
@@ -13,7 +14,9 @@ impl Scheduler {
         let job_id = task
             .job_id
             .clone()
-            .ok_or_else(|| anyhow::anyhow!("job ID required for regular scheduling"))?;
+            .ok_or_else(|| SchedulerError::JobIdRequired {
+                scheduler: "regular".to_string(),
+            })?;
 
         let job = self.ds.get_job_by_id(job_id.as_str()).await?;
 

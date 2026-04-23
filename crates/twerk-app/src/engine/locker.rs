@@ -29,6 +29,16 @@ pub use twerk_infrastructure::locker::LockError;
 // Re-export locker type constants
 pub use twerk_infrastructure::locker::{LOCKER_INMEMORY, LOCKER_POSTGRES};
 
+// ── Typed errors for locker factory ────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum LockerFactoryError {
+    #[error("unable to connect to postgres locker: {0}")]
+    PostgresConnection(String),
+    #[error("unknown locker type: {0}")]
+    UnknownLockerType(String),
+}
+
 /// Boxed future for locker operations
 pub type BoxedFuture<T> = Pin<
     Box<
@@ -91,11 +101,11 @@ pub async fn create_locker(
             let pg_locker =
                 twerk_infrastructure::locker::postgres::PostgresLocker::with_options(&dsn, opts)
                     .await
-                    .map_err(|e| anyhow::anyhow!("unable to connect to postgres locker: {}", e))?;
+                    .map_err(|e| LockerFactoryError::PostgresConnection(e.to_string()))?;
 
             Ok(Box::new(pg_locker))
         }
-        other => Err(anyhow::anyhow!("unknown locker type: {}", other)),
+        other => Err(LockerFactoryError::UnknownLockerType(other.to_string()).into()),
     }
 }
 

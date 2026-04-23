@@ -22,6 +22,14 @@ use twerk_core::webhook::{
 };
 use twerk_infrastructure::datastore::Datastore;
 
+// ── Typed errors for webhook operations ────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum WebhookError {
+    #[error("task has no job_id")]
+    MissingJobId,
+}
+
 // ── Async HTTP Client ───────────────────────────────────────────
 
 /// Async webhook caller with retry logic using `tokio::time::sleep`.
@@ -153,7 +161,7 @@ pub async fn fire_task_webhooks(ds: Arc<dyn Datastore>, task: &Task, event: &str
         .job_id
         .as_ref()
         .map(std::string::ToString::to_string)
-        .ok_or_else(|| anyhow::anyhow!("task has no job_id"))?;
+        .ok_or_else(|| WebhookError::MissingJobId)?;
 
     let job = ds.get_job_by_id(&job_id).await?;
     let event = event.to_string();

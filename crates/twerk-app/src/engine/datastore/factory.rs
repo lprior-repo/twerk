@@ -2,11 +2,21 @@
 //!
 //! Factory functions and configuration helpers for creating datastore implementations.
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 
 use super::super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::DEFAULT_POSTGRES_DSN;
+
+// ── Typed errors for datastore factory ─────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum DatastoreFactoryError {
+    #[error("unable to connect to postgres: {0}")]
+    PostgresConnection(String),
+    #[error("unknown datastore type: {0}")]
+    UnknownDatastoreType(String),
+}
 
 // ── Factory functions ──────────────────────────────────────────
 
@@ -31,11 +41,11 @@ pub async fn create_datastore() -> Result<Box<dyn Datastore + Send + Sync>> {
             };
             let pg = twerk_infrastructure::datastore::postgres::PostgresDatastore::new(&dsn, opts)
                 .await
-                .map_err(|e| anyhow!("unable to connect to postgres: {}", e))?;
+                .map_err(|e| DatastoreFactoryError::PostgresConnection(e.to_string()))?;
             Ok(Box::new(pg))
         }
         "inmemory" => Ok(Box::new(InMemoryDatastore::new())),
-        other => Err(anyhow!("unknown datastore type: {}", other)),
+        other => Err(DatastoreFactoryError::UnknownDatastoreType(other.to_string()).into()),
     }
 }
 

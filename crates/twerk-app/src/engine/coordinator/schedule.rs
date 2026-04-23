@@ -13,7 +13,7 @@
     clippy::cast_sign_loss
 )]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,6 +24,30 @@ use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::locker::Locker;
 use uuid::Uuid;
+
+// ── Typed errors for schedule operations ───────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum ScheduleError {
+    #[error("error creating scheduler: {0}")]
+    SchedulerCreate(String),
+    #[error("error starting scheduler: {0}")]
+    SchedulerStart(String),
+    #[error("scheduled job {job_id} has no cron expression")]
+    MissingCronExpression { job_id: String },
+    #[error("error creating cron job: {0}")]
+    CronJobCreate(String),
+    #[error("error adding cron job: {0}")]
+    CronJobAdd(String),
+    #[error("unknown scheduled job: {0}")]
+    UnknownScheduledJob(String),
+    #[error("error removing cron job: {0}")]
+    CronJobRemove(String),
+    #[error("error creating scheduled job instance: {0}")]
+    JobInstanceCreate(String),
+    #[error("error publishing scheduled job instance: {0}")]
+    JobInstancePublish(String),
+}
 
 // ── Calculations (Pure) ────────────────────────────────────────
 
@@ -53,7 +77,7 @@ impl JobSchedulerHandler {
     ) -> Result<Self> {
         JobScheduler::new()
             .await
-            .map_err(|e| anyhow!("error creating scheduler: {e}"))
+            .map_err(|e| ScheduleError::SchedulerCreate(e.to_string()))
             .map(|scheduler| Self {
                 ds,
                 broker,
@@ -70,7 +94,7 @@ impl JobSchedulerHandler {
                     .scheduler
                     .start()
                     .await
-                    .map_err(|e| anyhow!("error starting scheduler: {e}"))?;
+                    .map_err(|e| ScheduleError::SchedulerStart(e.to_string()))?;
                 Ok(handler)
             })
             .await
@@ -95,7 +119,9 @@ impl JobSchedulerHandler {
         let cron_expr = sj
             .cron
             .as_deref()
-            .ok_or_else(|| anyhow!("scheduled job {sj_id} has no cron expression"))?;
+            .ok_or_else(|| ScheduleError::MissingCronExpression {
+                job_id: sj_id.clone(),
+            })?;
 
         let ds = self.ds.clone();
         let broker = self.broker.clone();
@@ -115,13 +141,13 @@ impl JobSchedulerHandler {
                 }
             })
         })
-        .map_err(|e| anyhow!("error creating job: {e}"))?;
+        .map_err(|e| ScheduleError::CronJobCreate(e.to_string()))?;
 
         let job_id = self
             .scheduler
             .add(job)
             .await
-            .map_err(|e| anyhow!("error adding job: {e}"))?;
+            .map_err(|e| ScheduleError::CronJobAdd(e.to_string()))?;
 
         let mut jobs = self.jobs.lock().await;
         jobs.insert(sj_id, job_id);
@@ -134,13 +160,13 @@ impl JobSchedulerHandler {
         let mut jobs = self.jobs.lock().await;
 
         jobs.remove(sj_id)
-            .ok_or_else(|| anyhow!("unknown scheduled job: {sj_id}"))
+            .ok_or_else(|| ScheduleError::UnknownScheduledJob(sj_id.to_string()))
             .pipe(|res| async move {
                 let job_id = res?;
                 self.scheduler
                     .remove(&job_id)
                     .await
-                    .map_err(|e| anyhow!("error removing job: {e}"))
+                    .map_err(|e| ScheduleError::CronJobRemove(e.to_string()))
             })
             .await?;
 
@@ -205,12 +231,12 @@ async fn trigger_scheduled_job(
 
     ds.create_job(&job)
         .await
-        .map_err(|e| anyhow!("error creating scheduled job instance: {e}"))?;
+        .map_err(|e| ScheduleError::JobInstanceCreate(e.to_string()))?;
 
     broker
         .publish_job(&job)
         .await
-        .map_err(|e| anyhow!("error publishing scheduled job instance: {e}"))?;
+        .map_err(|e| ScheduleError::JobInstancePublish(e.to_string()))?;
 
     debug!(sj_id = %sj_id, "Successfully triggered scheduled job");
     Ok(())

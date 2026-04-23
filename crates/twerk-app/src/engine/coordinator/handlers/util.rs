@@ -1,6 +1,7 @@
 //! Shared utility functions for handlers (pure calculations)
 
-use anyhow::{anyhow, Result};
+use super::HandlerError;
+use anyhow::Result;
 use std::sync::Arc;
 use twerk_core::job::JobState;
 use twerk_core::task::TaskState;
@@ -69,7 +70,7 @@ pub async fn skip_task(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingTaskId)?;
 
     ds.update_task(
         task_id,

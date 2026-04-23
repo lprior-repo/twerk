@@ -1,7 +1,8 @@
 //! Subtask-related event handlers (parallel/each patterns)
 
 use super::task_handlers::handle_task_failed;
-use anyhow::{anyhow, Result};
+use super::HandlerError;
+use anyhow::Result;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -37,7 +38,7 @@ async fn handle_parallel_subtask_completed(
     let parent_id = parent
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("parent task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingParentTaskId)?;
     let is_last = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let is_last_clone = is_last.clone();
 
@@ -79,7 +80,7 @@ async fn handle_each_subtask_completed(
     let parent_id = parent
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("parent task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingParentTaskId)?;
     let is_last = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let is_last_clone = is_last.clone();
 

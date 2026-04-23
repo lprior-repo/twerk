@@ -53,7 +53,6 @@ impl TaskArmSpec {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn build_task_arm(spec: TaskArmSpec) -> Result<StateKind, StateEvalError> {
     let TaskArmSpec {
         image,
@@ -80,12 +79,10 @@ pub(super) fn build_task_arm(spec: TaskArmSpec) -> Result<StateKind, StateEvalEr
     .map_err(StateEvalError::from)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn dispatch_task_from_state(task: &TaskState) -> Result<StateKind, StateEvalError> {
     build_task_arm(TaskArmSpec::from_state(task))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn build_choice_arm(
     choices: Vec<ChoiceRule>,
     default: Option<StateName>,
@@ -138,7 +135,6 @@ impl ParallelArmSpec {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn build_parallel_arm(spec: ParallelArmSpec) -> Result<StateKind, StateEvalError> {
     ParallelState::new(spec.branches, spec.transition, spec.fail_fast.into_option())
         .map(StateKind::Parallel)
@@ -188,7 +184,6 @@ impl MapArmSpec {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn build_map_arm(spec: MapArmSpec) -> Result<StateKind, StateEvalError> {
     let MapArmSpec {
         items_path,

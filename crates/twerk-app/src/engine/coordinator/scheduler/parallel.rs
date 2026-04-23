@@ -1,6 +1,7 @@
 //! Parallel task scheduling logic.
 
 use super::Scheduler;
+use super::SchedulerError;
 use anyhow::Result;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use twerk_core::eval::evaluate_task;
@@ -16,11 +17,15 @@ impl Scheduler {
         let task_id = task
             .id
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("task ID required for parallel scheduling"))?;
+            .ok_or_else(|| SchedulerError::TaskIdRequired {
+                scheduler: "parallel".to_string(),
+            })?;
         let job_id = task
             .job_id
             .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("job ID required for parallel scheduling"))?;
+            .ok_or_else(|| SchedulerError::JobIdRequired {
+                scheduler: "parallel".to_string(),
+            })?;
         let now = time::OffsetDateTime::now_utc();
 
         let job = self.ds.get_job_by_id(job_id).await?;
@@ -46,18 +51,23 @@ impl Scheduler {
         let parallel = task
             .parallel
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("missing parallel config"))?;
+            .ok_or_else(|| SchedulerError::MissingConfig {
+                scheduler: "parallel".to_string(),
+            })?;
         let tasks = parallel
             .tasks
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("missing parallel tasks"))?;
+            .ok_or_else(|| SchedulerError::MissingParallelTasks)?;
 
         let subtasks: Vec<_> = tasks
             .iter()
             .par_bridge()
             .map(|t| {
                 let evaluated = evaluate_task(t, &job_ctx)
-                    .map_err(|e| anyhow::anyhow!("failed to evaluate parallel task: {e}"))?;
+                    .map_err(|e| SchedulerError::Evaluation {
+                        context: "parallel task".to_string(),
+                        error: e.to_string(),
+                    })?;
                 Ok(Task {
                     id: Some(new_short_uuid().into()),
                     job_id: Some(twerk_core::id::JobId::new(job_id.to_string())?),

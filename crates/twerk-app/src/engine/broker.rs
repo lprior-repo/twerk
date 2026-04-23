@@ -14,7 +14,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use tokio::sync::RwLock;
 use twerk_core::job::JobEvent;
 use twerk_core::node::Node;
@@ -27,6 +27,12 @@ use twerk_infrastructure::broker::{
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL};
+
+// ── Typed error for broker proxy ───────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+#[error("Broker not initialized. You must call engine.Start() first")]
+struct BrokerNotInitialized;
 
 // ── Broker type enumeration ────────────────────────────────────
 
@@ -112,9 +118,7 @@ impl BrokerProxy {
     /// Returns an error if the broker has not been initialized.
     pub async fn check_init(&self) -> Result<()> {
         if self.inner.read().await.is_none() {
-            return Err(anyhow!(
-                "Broker not initialized. You must call engine.Start() first"
-            ));
+            return Err(BrokerNotInitialized.into());
         }
         Ok(())
     }
@@ -136,9 +140,7 @@ macro_rules! delegate {
                 let guard = inner.read().await;
                 match guard.as_ref() {
                     Some(b) => b.$method($($arg),*).await,
-                    None => Err(anyhow!(
-                        "Broker not initialized. You must call engine.Start() first"
-                    )),
+                    None => Err(BrokerNotInitialized.into()),
                 }
             })
         }
@@ -154,9 +156,7 @@ impl Broker for BrokerProxy {
             let guard = inner.read().await;
             match guard.as_ref() {
                 Some(b) => b.publish_task(qname, &task).await,
-                None => Err(anyhow!(
-                    "Broker not initialized. You must call engine.Start() first"
-                )),
+                None => Err(BrokerNotInitialized.into()),
             }
         })
     }
@@ -168,9 +168,7 @@ impl Broker for BrokerProxy {
             let guard = inner.read().await;
             match guard.as_ref() {
                 Some(b) => b.publish_task_progress(&task).await,
-                None => Err(anyhow!(
-                    "Broker not initialized. You must call engine.Start() first"
-                )),
+                None => Err(BrokerNotInitialized.into()),
             }
         })
     }
@@ -182,9 +180,7 @@ impl Broker for BrokerProxy {
             let guard = inner.read().await;
             match guard.as_ref() {
                 Some(b) => b.publish_job(&job).await,
-                None => Err(anyhow!(
-                    "Broker not initialized. You must call engine.Start() first"
-                )),
+                None => Err(BrokerNotInitialized.into()),
             }
         })
     }
@@ -196,9 +192,7 @@ impl Broker for BrokerProxy {
             let guard = inner.read().await;
             match guard.as_ref() {
                 Some(b) => b.publish_task_log_part(&part).await,
-                None => Err(anyhow!(
-                    "Broker not initialized. You must call engine.Start() first"
-                )),
+                None => Err(BrokerNotInitialized.into()),
             }
         })
     }
@@ -217,6 +211,14 @@ impl Broker for BrokerProxy {
     delegate!(delete_queue(qname: String) -> BoxedFuture<()>);
     delegate!(health_check() -> BoxedFuture<()>);
     delegate!(shutdown() -> BoxedFuture<()>);
+}
+
+// ── Typed errors for broker factory ────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum BrokerFactoryError {
+    #[error("unable to connect to RabbitMQ: {0}")]
+    RabbitMqConnection(String),
 }
 
 // ── Config helpers ─────────────────────────────────────────────
@@ -291,7 +293,7 @@ pub async fn create_broker(
                 engine_id,
             )
             .await
-            .map_err(|e| anyhow!("unable to connect to RabbitMQ: {e}"))?;
+            .map_err(|e| BrokerFactoryError::RabbitMqConnection(e.to_string()))?;
 
             Ok(Box::new(broker))
         }

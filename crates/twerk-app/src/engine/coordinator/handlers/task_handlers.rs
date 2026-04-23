@@ -1,6 +1,7 @@
 //! Task-related event handlers
 
 use super::task_workflow::{handle_top_level_task_completed, handle_top_level_task_failed};
+use super::HandlerError;
 use crate::engine::coordinator::handlers::retry::create_retry_task;
 use crate::engine::coordinator::handlers::subtask_handlers::{
     handle_subtask_completed, handle_subtask_failed,
@@ -10,7 +11,7 @@ use crate::engine::coordinator::handlers::util::{
 };
 use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use tracing::{error, instrument, warn};
 use twerk_core::task::{TaskLogPart, TaskState};
@@ -41,7 +42,7 @@ pub async fn handle_task_progress(
             let task_id = task
                 .id
                 .as_deref()
-                .ok_or_else(|| anyhow!("task has no id"))?;
+                .ok_or_else(|| HandlerError::MissingTaskId)?;
             ds.update_task(
                 task_id,
                 Box::new(move |mut u| {
@@ -89,7 +90,7 @@ pub async fn handle_redelivered(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("redelivered task has no id"))?;
+        .ok_or_else(|| HandlerError::RedeliveredMissingTaskId)?;
     let persisted = ds.get_task_by_id(task_id).await?;
     if matches!(
         persisted.state,
@@ -123,7 +124,7 @@ pub async fn handle_started(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingTaskId)?;
     let now = time::OffsetDateTime::now_utc();
 
     ds.update_task(
@@ -169,7 +170,7 @@ pub async fn handle_task_completed(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingTaskId)?;
     let completed_at = task.completed_at;
     let result = task.result.clone();
 
@@ -194,7 +195,7 @@ pub async fn handle_task_completed(
         let job_id = task
             .job_id
             .as_deref()
-            .ok_or_else(|| anyhow!("task has no job_id"))?;
+            .ok_or_else(|| HandlerError::MissingJobId)?;
         handle_top_level_task_completed(ds, broker, job_id.to_string()).await
     }
 }
@@ -211,7 +212,7 @@ pub async fn handle_task_failed(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingTaskId)?;
     let failed_at = task.failed_at;
     let task_error = task.error.clone();
 
@@ -236,7 +237,7 @@ pub async fn handle_task_failed(
         let job_id = task
             .job_id
             .as_deref()
-            .ok_or_else(|| anyhow!("task has no job_id"))?;
+            .ok_or_else(|| HandlerError::MissingJobId)?;
         handle_top_level_task_failed(ds, broker, job_id.to_string(), task.error.clone()).await
     }
 }
@@ -259,11 +260,11 @@ pub async fn handle_error(
     let task_id = task
         .id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no id"))?;
+        .ok_or_else(|| HandlerError::MissingTaskId)?;
     let job_id = task
         .job_id
         .as_deref()
-        .ok_or_else(|| anyhow!("task has no job_id"))?;
+        .ok_or_else(|| HandlerError::MissingJobId)?;
     let now = time::OffsetDateTime::now_utc();
     let task_error = task.error.clone();
     let task_result = task.result.clone();

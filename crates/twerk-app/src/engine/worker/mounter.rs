@@ -2,6 +2,24 @@ use tracing::debug;
 use twerk_core::mount::Mount;
 use twerk_infrastructure::runtime::{BoxedFuture, Mounter};
 
+// ── Typed errors for mounters ──────────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum MounterError {
+    #[error("bind mounts are not allowed")]
+    BindMountsNotAllowed,
+    #[error("src bind mount is not allowed: {path}")]
+    BindSourceNotAllowed { path: String },
+    #[error("error creating mount directory: {dir}: {err}")]
+    MountDirCreation { dir: String, err: String },
+    #[error("missing mount id")]
+    MissingMountId,
+    #[error("tmpfs target is required")]
+    TmpfsTargetRequired,
+    #[error("tmpfs source should be empty")]
+    TmpfsSourceNotEmpty,
+}
+
 // =============================================================================
 // Mount configuration
 // =============================================================================
@@ -70,22 +88,25 @@ impl Mounter for BindMounter {
         Box::pin(async move {
             let sources = match policy {
                 MountPolicy::Denied => {
-                    return Err(anyhow::anyhow!("bind mounts are not allowed"));
+                    return Err(MounterError::BindMountsNotAllowed.into());
                 }
                 MountPolicy::Allowed(s) => s,
             };
 
             // Source validation
             if !sources.is_empty() && !sources.iter().any(|s| s.eq_ignore_ascii_case(&source)) {
-                return Err(anyhow::anyhow!("src bind mount is not allowed: {source}"));
+                return Err(MounterError::BindSourceNotAllowed { path: source }.into());
             }
 
             // Create source directory if it doesn't exist
             let src_path = std::path::Path::new(&source);
             if !src_path.exists() {
-                tokio::fs::create_dir_all(src_path).await.map_err(|e| {
-                    anyhow::anyhow!("error creating mount directory: {source}: {e}")
-                })?;
+                tokio::fs::create_dir_all(src_path)
+                    .await
+                    .map_err(|e| MounterError::MountDirCreation {
+                        dir: source.clone(),
+                        err: e.to_string(),
+                    })?;
                 debug!("Created bind mount: {source}");
             }
 
@@ -115,7 +136,7 @@ impl Mounter for VolumeMounter {
         let id = mnt.id.clone().unwrap_or_default();
         Box::pin(async move {
             if id.is_empty() {
-                return Err(anyhow::anyhow!("missing mount id"));
+                return Err(MounterError::MissingMountId.into());
             }
             debug!("Volume mount prepared for id={id}");
             Ok(())
@@ -144,10 +165,10 @@ impl Mounter for TmpfsMounter {
         let source = mnt.source.clone().unwrap_or_default();
         Box::pin(async move {
             if target.is_empty() {
-                return Err(anyhow::anyhow!("tmpfs target is required"));
+                return Err(MounterError::TmpfsTargetRequired.into());
             }
             if !source.is_empty() {
-                return Err(anyhow::anyhow!("tmpfs source should be empty"));
+                return Err(MounterError::TmpfsSourceNotEmpty.into());
             }
             Ok(())
         })

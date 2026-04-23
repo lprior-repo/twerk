@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use dashmap::DashMap;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -12,6 +11,16 @@ use twerk_infrastructure::runtime::{
     DEFAULT_GRACEFUL_TIMEOUT, ENV_TASK_STOP_ENABLE_CLEANUP, ENV_TASK_STOP_FORCE_TIMEOUT,
     ENV_TASK_STOP_GRACEFUL_TIMEOUT,
 };
+
+// ── Typed errors for Podman runtime ────────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum PodmanWorkerError {
+    #[error("id and image required")]
+    IdAndImageRequired,
+    #[error("podman failed: {0}")]
+    ExecutionFailed(String),
+}
 
 // Container handle to track running containers
 #[derive(Debug, Clone)]
@@ -107,7 +116,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
 
         Box::pin(async move {
             if tid.is_empty() || img.is_empty() {
-                return Err(anyhow!("id and image required"));
+                return Err(PodmanWorkerError::IdAndImageRequired.into());
             }
 
             let mut c = Command::new("podman");
@@ -135,10 +144,10 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
 
             let out = c.output().await?;
             if !out.status.success() {
-                return Err(anyhow!(
-                    "podman failed: {}",
-                    String::from_utf8_lossy(&out.stderr)
-                ));
+                return Err(PodmanWorkerError::ExecutionFailed(
+                    String::from_utf8_lossy(&out.stderr).to_string(),
+                )
+                .into());
             }
 
             Ok(())

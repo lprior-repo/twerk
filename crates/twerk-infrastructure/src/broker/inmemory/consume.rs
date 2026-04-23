@@ -2,7 +2,14 @@
 
 use super::super::{BoxedFuture, QueueInfo};
 use super::InMemoryBroker;
-use anyhow::anyhow;
+
+// ── Typed errors for in-memory broker ──────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+#[error("queue {queue} not found")]
+struct QueueNotFound {
+    queue: String,
+}
 
 /// Get all queues.
 pub(crate) fn queues(broker: &InMemoryBroker) -> BoxedFuture<Vec<QueueInfo>> {
@@ -33,7 +40,7 @@ pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<
     let handler_entry = broker.handlers.get(&qname);
 
     if task_entry.is_none() && handler_entry.is_none() {
-        return Box::pin(async move { Err(anyhow!("queue {qname} not found")) });
+        return Box::pin(async move { Err(QueueNotFound { queue: qname }.into()) });
     }
 
     let size = task_entry.map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
@@ -55,7 +62,7 @@ pub(crate) fn delete_queue(broker: &InMemoryBroker, qname: String) -> BoxedFutur
     let handler_entry = broker.handlers.get(&qname);
 
     if task_entry.is_none() && handler_entry.is_none() {
-        return Box::pin(async move { Err(anyhow!("queue {qname} not found")) });
+        return Box::pin(async move { Err(QueueNotFound { queue: qname }.into()) });
     }
 
     drop(task_entry);

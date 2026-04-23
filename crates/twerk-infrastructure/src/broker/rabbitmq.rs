@@ -2,7 +2,7 @@
 
 mod helpers;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use lapin::{
     options::{
         BasicAckOptions, BasicConsumeOptions, BasicNackOptions, BasicPublishOptions,
@@ -30,6 +30,20 @@ use twerk_core::node::Node;
 use twerk_core::task::{Task, TaskLogPart};
 
 use helpers::{extract_i32, make_json_handler, make_json_handler_arc, rabbitmq_conn_err};
+
+// ── Typed errors for RabbitMQ broker ───────────────────────────────
+
+#[derive(Debug, thiserror::Error)]
+enum BrokerError {
+    #[error("Connection pool index out of bounds")]
+    ConnectionPoolIndex,
+    #[error("All RabbitMQ connections are down")]
+    AllConnectionsDown,
+    #[error("RabbitMQ publish was negatively acknowledged")]
+    PublishNack,
+    #[error("serialization failed: {0}")]
+    Serialization(String),
+}
 
 /// AMQP message type constants
 const MSG_TYPE_TASK: &str = "*twerk.Task";
@@ -125,7 +139,7 @@ impl RabbitMQBroker {
         let conn = self
             .conn_pool
             .get(idx)
-            .ok_or_else(|| anyhow!("Connection pool index out of bounds"))?;
+            .ok_or_else(|| BrokerError::ConnectionPoolIndex)?;
 
         if conn.status().connected() {
             return Ok(Arc::clone(conn));
@@ -138,7 +152,8 @@ impl RabbitMQBroker {
             .iter()
             .find(|c| c.status().connected())
             .map(Arc::clone)
-            .ok_or_else(|| anyhow!("All RabbitMQ connections are down"))
+            .ok_or_else(|| BrokerError::AllConnectionsDown)
+            .map_err(Into::into)
     }
 
     fn queue_args(&self, qname: &str) -> FieldTable {
@@ -217,8 +232,8 @@ impl RabbitMQBroker {
             .await?
             .await?;
         match confirmation {
-            Confirmation::Ack(_) | Confirmation::NotRequested => Ok(()),
-            Confirmation::Nack(_) => Err(anyhow!("RabbitMQ publish was negatively acknowledged")),
+            Confirmation::Ack(_) | Confirmation::NotRequested => Ok::<(), anyhow::Error>(()),
+            Confirmation::Nack(_) => Err(BrokerError::PublishNack.into()),
         }?;
         Ok(())
     }
@@ -379,7 +394,7 @@ impl Broker for RabbitMQBroker {
                     Ok((data, priority))
                 })
                 .collect::<Result<Vec<_>, serde_json::Error>>()
-                .map_err(|e| anyhow::anyhow!("serialization failed: {e}"))?;
+                .map_err(|e| BrokerError::Serialization(e.to_string()))?;
 
             for (data, priority) in serialized {
                 b.publish_raw("", &queue, data, MSG_TYPE_TASK, priority)

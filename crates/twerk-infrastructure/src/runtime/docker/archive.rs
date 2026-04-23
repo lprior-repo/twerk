@@ -39,7 +39,6 @@ pub struct Archive {
     /// Buffered reader for reading back the archive.
     reader: Option<BufReader<File>>,
     /// Tar builder for building the archive.
-    #[allow(dead_code)]
     writer: Option<TarBuilder<File>>,
 }
 

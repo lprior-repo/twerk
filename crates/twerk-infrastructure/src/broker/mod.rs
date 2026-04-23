@@ -3,180 +3,24 @@
 //! This module provides broker implementations for delivering tasks
 //! and coordinating between workers and the coordinator.
 
-use anyhow::Result;
-use serde_json::Value;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use utoipa::ToSchema;
-
-use twerk_core::job::{Job, JobEvent};
-use twerk_core::node::Node;
-use twerk_core::task::{Task, TaskLogPart};
-
-pub type BoxedFuture<T> = Pin<Box<dyn Future<Output = Result<T>> + Send>>;
-pub(crate) type BoxedHandlerFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
-
-pub type TaskHandler = Arc<dyn Fn(Arc<Task>) -> BoxedHandlerFuture + Send + Sync>;
-pub type TaskProgressHandler = Arc<dyn Fn(Task) -> BoxedHandlerFuture + Send + Sync>;
-pub type HeartbeatHandler = Arc<dyn Fn(Node) -> BoxedHandlerFuture + Send + Sync>;
-pub type JobHandler = Arc<dyn Fn(Job) -> BoxedHandlerFuture + Send + Sync>;
-pub type EventHandler = Arc<dyn Fn(Value) -> BoxedHandlerFuture + Send + Sync>;
-pub type TaskLogPartHandler = Arc<dyn Fn(TaskLogPart) -> BoxedHandlerFuture + Send + Sync>;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ToSchema)]
-pub struct QueueInfo {
-    pub name: String,
-    pub size: i32,
-    pub subscribers: i32,
-    pub unacked: i32,
-}
-
-pub mod queue {
-    pub const QUEUE_PENDING: &str = "x-pending";
-    pub const QUEUE_COMPLETED: &str = "x-completed";
-    pub const QUEUE_FAILED: &str = "x-failed";
-    pub const QUEUE_STARTED: &str = "x-started";
-    pub const QUEUE_HEARTBEAT: &str = "x-heartbeat";
-    pub const QUEUE_JOBS: &str = "x-jobs";
-    pub const QUEUE_PROGRESS: &str = "x-progress";
-    pub const QUEUE_TASK_LOG_PART: &str = "x-task_log_part";
-    pub const QUEUE_LOGS: &str = "x-task_log_part";
-    pub const QUEUE_EXCLUSIVE_PREFIX: &str = "x-exclusive.";
-    pub const QUEUE_REDELIVERIES: &str = "x-redeliveries";
-}
-
-/// Prefixes a queue name with `engine_id` if non-empty.
-/// Returns queue unchanged when `engine_id` is empty (backward compatible).
-#[must_use]
-pub fn prefixed_queue(queue: &str, engine_id: &str) -> String {
-    let trimmed = engine_id.trim();
-    if trimmed.is_empty() || queue.ends_with(&format!(".{trimmed}")) {
-        queue.to_string()
-    } else {
-        format!("{queue}.{trimmed}")
-    }
-}
-
-fn coordinator_queue_names() -> [&'static str; 8] {
-    [
-        queue::QUEUE_COMPLETED,
-        queue::QUEUE_FAILED,
-        queue::QUEUE_STARTED,
-        queue::QUEUE_HEARTBEAT,
-        queue::QUEUE_JOBS,
-        queue::QUEUE_PROGRESS,
-        queue::QUEUE_TASK_LOG_PART,
-        queue::QUEUE_REDELIVERIES,
-    ]
-}
-
-fn base_queue_name(qname: &str) -> &str {
-    coordinator_queue_names()
-        .into_iter()
-        .find(|queue_name| {
-            let dotted = format!("{queue_name}.");
-            qname.starts_with(&dotted)
-        })
-        .unwrap_or(qname)
-}
-
-/// Extracts `engine_id` from a prefixed queue name.
-/// Returns None if the queue is not prefixed (no dot separator at the end).
-#[must_use]
-pub fn extract_engine_id(queue_name: &str) -> Option<String> {
-    coordinator_queue_names()
-        .into_iter()
-        .find_map(|coordinator_queue| {
-            let prefix = format!("{coordinator_queue}.");
-            queue_name.strip_prefix(&prefix).and_then(|suffix| {
-                let trimmed = suffix.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed.to_string())
-                }
-            })
-        })
-}
-
-#[must_use]
-pub fn is_coordinator_queue(qname: &str) -> bool {
-    matches!(
-        base_queue_name(qname),
-        queue::QUEUE_COMPLETED
-            | queue::QUEUE_FAILED
-            | queue::QUEUE_STARTED
-            | queue::QUEUE_HEARTBEAT
-            | queue::QUEUE_JOBS
-            | queue::QUEUE_PROGRESS
-            | queue::QUEUE_TASK_LOG_PART
-            | queue::QUEUE_REDELIVERIES
-    )
-}
-
-#[must_use]
-pub fn is_worker_queue(qname: &str) -> bool {
-    !is_coordinator_queue(qname) && !qname.starts_with(queue::QUEUE_EXCLUSIVE_PREFIX)
-}
-
-#[must_use]
-pub fn is_task_queue(qname: &str) -> bool {
-    is_worker_queue(qname)
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct RabbitMQOptions {
-    pub management_url: Option<String>,
-    pub durable_queues: bool,
-    pub queue_type: String,
-    pub consumer_timeout: Option<std::time::Duration>,
-}
-
-pub trait Broker: Send + Sync {
-    fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()>;
-    fn publish_tasks(&self, qname: String, tasks: &[Task]) -> BoxedFuture<()> {
-        let qname = Arc::new(qname);
-        let futures: Vec<_> = tasks
-            .iter()
-            .map(|t| {
-                let q = Arc::clone(&qname);
-                self.publish_task((*q).clone(), t)
-            })
-            .collect();
-        Box::pin(async move {
-            futures_util::future::try_join_all(futures).await?;
-            Ok(())
-        })
-    }
-    fn subscribe_for_tasks(&self, qname: String, handler: TaskHandler) -> BoxedFuture<()>;
-    fn publish_task_progress(&self, task: &Task) -> BoxedFuture<()>;
-    fn subscribe_for_task_progress(&self, handler: TaskProgressHandler) -> BoxedFuture<()>;
-    fn publish_heartbeat(&self, node: Node) -> BoxedFuture<()>;
-    fn subscribe_for_heartbeats(&self, handler: HeartbeatHandler) -> BoxedFuture<()>;
-    fn publish_job(&self, job: &Job) -> BoxedFuture<()>;
-    fn subscribe_for_jobs(&self, handler: JobHandler) -> BoxedFuture<()>;
-    fn publish_event(&self, topic: String, event: Value) -> BoxedFuture<()>;
-    fn subscribe_for_events(&self, pattern: String, handler: EventHandler) -> BoxedFuture<()>;
-    /// Subscribe to typed job events matching a topic pattern.
-    ///
-    /// Returns a `broadcast::Receiver` that yields `JobEvent` values.
-    /// This is the typed replacement for the `subscribe_for_events` callback
-    /// pattern, allowing consumers to filter events with match expressions
-    /// instead of deserializing raw JSON values.
-    fn subscribe(&self, pattern: String)
-        -> BoxedFuture<tokio::sync::broadcast::Receiver<JobEvent>>;
-    fn publish_task_log_part(&self, part: &TaskLogPart) -> BoxedFuture<()>;
-    fn subscribe_for_task_log_part(&self, handler: TaskLogPartHandler) -> BoxedFuture<()>;
-    fn queues(&self) -> BoxedFuture<Vec<QueueInfo>>;
-    fn queue_info(&self, qname: String) -> BoxedFuture<QueueInfo>;
-    fn delete_queue(&self, qname: String) -> BoxedFuture<()>;
-    fn health_check(&self) -> BoxedFuture<()>;
-    fn shutdown(&self) -> BoxedFuture<()>;
-}
-
+pub mod broker;
+pub mod config;
 pub mod inmemory;
+pub mod queue;
 pub mod rabbitmq;
+pub mod types;
+pub mod utils;
+
+// Re-exports to preserve public API paths
+pub use broker::Broker;
+pub use config::RabbitMQOptions;
+pub use queue::QueueInfo;
+pub use types::{
+    BoxedFuture, EventHandler, HeartbeatHandler, JobHandler, TaskHandler, TaskLogPartHandler,
+    TaskProgressHandler,
+};
+pub(crate) use types::BoxedHandlerFuture;
+pub use utils::{extract_engine_id, is_coordinator_queue, is_task_queue, is_worker_queue, prefixed_queue};
 
 #[cfg(test)]
 mod tests {

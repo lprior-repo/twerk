@@ -36,7 +36,6 @@ use twerk_core::uuid::new_uuid;
 /// image pull, env, mounts, limits, GPU, probe ports, networking aliases,
 /// workdir, and file initialization.
 #[allow(clippy::too_many_lines, clippy::expect_used)]
-#[allow(dead_code)]
 pub(super) async fn create_container(
     client: &Docker,
     config: &DockerConfig,

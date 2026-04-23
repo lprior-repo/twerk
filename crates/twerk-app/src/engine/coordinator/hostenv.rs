@@ -128,6 +128,7 @@ pub fn create_hostenv_middleware_from_config() -> Option<TaskMiddlewareFunc> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]

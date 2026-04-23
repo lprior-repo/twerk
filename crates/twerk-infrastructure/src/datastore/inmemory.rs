@@ -436,6 +436,7 @@ impl Default for InMemoryDatastore {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_closure)]
     use super::*;
     use twerk_core::id::{RoleId, TaskId};
     use twerk_core::task::TaskState;
@@ -497,7 +498,7 @@ mod tests {
     async fn test_update_task_not_found() {
         let ds = InMemoryDatastore::new();
         let err = ds
-            .update_task("nonexistent", Ok)
+            .update_task("nonexistent", Box::new(|t| Ok(t)))
             .await
             .unwrap_err();
         assert!(matches!(err, DatastoreError::TaskNotFound));

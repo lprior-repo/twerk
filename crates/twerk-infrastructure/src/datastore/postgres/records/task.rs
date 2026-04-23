@@ -112,7 +112,10 @@ impl TaskRecordExt for TaskRecord {
             position: self.position,
             name: self.name.clone(),
             description: self.description.clone(),
-            state: self.state.parse().unwrap_or_default(),
+            state: self
+                .state
+                .parse()
+                .map_or(twerk_core::task::TaskState::Created, |s| s),
             created_at: Some(self.created_at),
             scheduled_at: self.scheduled_at,
             started_at: self.started_at,
@@ -152,5 +155,3 @@ impl TaskRecordExt for TaskRecord {
         })
     }
 }
-
-

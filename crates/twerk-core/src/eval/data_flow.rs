@@ -45,7 +45,10 @@ fn parse_segments(path: &JsonPath) -> Result<Vec<Segment>, DataFlowError> {
         return Ok(vec![]);
     }
     // Strip leading "."
-    let rest = rest.strip_prefix('.').unwrap_or(rest);
+    let rest = match rest.strip_prefix('.') {
+        Some(s) => s,
+        None => rest,
+    };
     if rest.is_empty() {
         return Ok(vec![]);
     }

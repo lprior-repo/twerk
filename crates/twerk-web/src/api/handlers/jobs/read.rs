@@ -46,7 +46,10 @@ pub async fn get_job_handler(
         }
     }
 
-    let secrets = job.secrets.clone().unwrap_or_default();
+    let secrets = job
+        .secrets
+        .as_ref()
+        .map_or_else(std::collections::HashMap::new, |v| v.clone());
     on_read_job(&mut job, &secrets);
 
     Ok(axum::Json(job).into_response())
@@ -76,7 +79,7 @@ pub async fn list_jobs_handler(
     let query = PaginationQuery::from_raw(raw);
     let page = query.page()?;
     let size = query.size(10, 20)?;
-    let search = query.q.unwrap_or_default();
+    let search = query.q.as_ref().map_or_else(String::new, |v| v.clone());
     let current_user = extract_current_user(&req);
 
     let mut result = state
@@ -124,7 +127,10 @@ pub async fn get_job_log_handler(
         .await
         .map_err(ApiError::from)?;
 
-    let secrets = job.secrets.unwrap_or_default();
+    let secrets = job
+        .secrets
+        .as_ref()
+        .map_or_else(std::collections::HashMap::new, |v| v.clone());
     redact_task_log_parts(&mut parts.items, &secrets);
 
     Ok(axum::Json(parts).into_response())

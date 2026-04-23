@@ -33,7 +33,7 @@ impl Scheduler {
             .context
             .as_ref()
             .map(twerk_core::job::JobContext::as_map)
-            .unwrap_or_default();
+            .map_or_else(std::collections::HashMap::new, |c| c);
 
         self.ds
             .update_task(
@@ -63,8 +63,8 @@ impl Scheduler {
             .iter()
             .par_bridge()
             .map(|t| {
-                let evaluated = evaluate_task(t, &job_ctx)
-                    .map_err(|e| SchedulerError::Evaluation {
+                let evaluated =
+                    evaluate_task(t, &job_ctx).map_err(|e| SchedulerError::Evaluation {
                         context: "parallel task".to_string(),
                         error: e.to_string(),
                     })?;

@@ -19,7 +19,10 @@ use crate::commands::Commands;
 use crate::error::CliError;
 use crate::migrate::DEFAULT_POSTGRES_DSN;
 
-use dispatch::{execute_command, handle_json_help_subcommand, handle_parse_error, handle_runtime_error, parse_cli_args};
+use dispatch::{
+    execute_command, handle_json_help_subcommand, handle_parse_error, handle_runtime_error,
+    parse_cli_args,
+};
 use help::{json_success_payload, print_json, render_top_level_help, write_help_to_stdout};
 
 /// Default endpoint for health checks
@@ -59,8 +62,7 @@ pub fn get_git_commit() -> String {
 ///
 /// Returns [`CliError::Logging`] if the log level is invalid.
 pub fn setup_logging() -> Result<(), CliError> {
-    let log_level_str =
-        get_config_string("logging.level").unwrap_or_else(|| String::from("info"));
+    let log_level_str = get_config_string("logging.level").unwrap_or_else(|| String::from("info"));
 
     let level: Level = log_level_str
         .parse()

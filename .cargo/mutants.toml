@@ -1,8 +1,8 @@
-# cargo-mutants configuration for twerk-core
+# cargo-mutants configuration
 # See https://mutants.rs/ for documentation
 
-# Run tests from this package
-test_package = ["twerk-core"]
+# Run tests from these packages
+test_package = ["twerk-common", "twerk-core", "twerk-infrastructure", "twerk-web", "twerk-app", "twerk-cli"]
 
 # Exclude problematic files from mutation testing
 exclude_globs = [
@@ -13,6 +13,15 @@ exclude_globs = [
     "vendor/**",
     "**/*.pb.rs",
     "**/domain_types.rs",
+    "crates/twerk-app/src/engine/engine.rs",
+    "crates/twerk-app/src/engine/lifecycle.rs",
+    "crates/twerk-infrastructure/src/runtime/docker/*.rs",
+    "crates/twerk-infrastructure/src/runtime/podman/*.rs",
+    "crates/twerk-infrastructure/src/datastore/postgres/impl_*.rs",
+    "crates/twerk-infrastructure/src/broker/rabbitmq/*.rs",
+    "crates/twerk-infrastructure/src/worker/worker_impl.rs",
+    "crates/twerk-cli/src/main.rs",
+    "crates/twerk-openapi-gen/**",
 ]
 
 # Output directory

@@ -45,3 +45,40 @@ impl fmt::Display for Priority {
         self.0.fmt(f)
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn priority_new_accepts_0_to_9(v in 0i64..=9) {
+            prop_assert!(Priority::new(v).is_ok());
+        }
+
+        #[test]
+        fn priority_new_rejects_negative(v in -100i64..=-1) {
+            prop_assert!(Priority::new(v).is_err());
+        }
+
+        #[test]
+        fn priority_new_rejects_over_9(v in 10i64..=100) {
+            prop_assert!(Priority::new(v).is_err());
+        }
+
+        #[test]
+        fn priority_value_roundtrip(v in 0i64..=9) {
+            let p = Priority::new(v).unwrap();
+            prop_assert_eq!(p.value(), v);
+        }
+
+        #[test]
+        fn priority_serde_roundtrip(v in 0i64..=9) {
+            let p = Priority::new(v).unwrap();
+            let json = serde_json::to_string(&p).unwrap();
+            let back: Priority = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(p, back);
+        }
+    }
+}

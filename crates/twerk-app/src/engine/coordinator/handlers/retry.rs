@@ -33,8 +33,8 @@ pub(crate) async fn create_retry_task(
     });
 
     let job_ctx = build_job_context(job);
-    let final_task =
-        twerk_core::eval::evaluate_task(&retry_task, &job_ctx).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let final_task = twerk_core::eval::evaluate_task(&retry_task, &job_ctx)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     ds.create_task(&final_task).await?;
     broker

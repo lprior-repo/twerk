@@ -14,7 +14,7 @@ use crate::datastore::Datastore;
 use crate::runtime::Runtime as RuntimeTrait;
 
 use super::types::{
-    WorkerApiError, HealthResponse, HealthStatus, MAX_PORT, MIN_PORT, POLLING_DELAY_MS,
+    HealthResponse, HealthStatus, WorkerApiError, MAX_PORT, MIN_PORT, POLLING_DELAY_MS,
     POLLING_MAX_ATTEMPTS,
 };
 

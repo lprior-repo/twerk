@@ -166,7 +166,10 @@ pub fn create_read_job_middleware() -> JobMiddlewareFunc {
         Arc::new(
             move |ctx: Arc<JobContext>, et: JobEventType, job: &mut Job| {
                 if et == JobEventType::Read {
-                    let secrets = job.secrets.clone().unwrap_or_default();
+                    let secrets = job
+                        .secrets
+                        .as_ref()
+                        .map_or_else(std::collections::HashMap::new, |v| v.clone());
                     on_read_job(job, &secrets);
                 }
                 next(ctx, et, job)

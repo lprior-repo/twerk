@@ -42,10 +42,14 @@ impl CombinatorialGenerator {
                 })
             })
             .flat_map(|(path, method, operation)| {
-                let operation_id = operation.operation_id.clone().unwrap_or_else(|| {
-                    format!("{}_{}", path.replace('/', "_"), method.to_lowercase())
-                });
-                let description = operation.summary.clone().unwrap_or_default();
+                let operation_id = operation.operation_id.as_ref().map_or_else(
+                    || format!("{}_{}", path.replace('/', "_"), method.to_lowercase()),
+                    |v| v.clone(),
+                );
+                let description = operation
+                    .summary
+                    .as_ref()
+                    .map_or_else(String::new, |v| v.clone());
                 Self::extract_content_types(operation)
                     .into_iter()
                     .cartesian_product(Self::generate_input_variations(operation))

@@ -101,7 +101,10 @@ impl DockerRuntimeAdapter {
         let mounter = self.mounter.clone();
         let broker = self.broker.clone();
         Box::pin(async move {
-            let task_id = task.id.clone().ok_or_else(|| DockerWorkerError::TaskIdRequired)?;
+            let task_id = task
+                .id
+                .clone()
+                .ok_or_else(|| DockerWorkerError::TaskIdRequired)?;
             if task_id.is_empty() {
                 return Err(DockerWorkerError::TaskIdRequired.into());
             }
@@ -118,7 +121,9 @@ impl DockerRuntimeAdapter {
 
             let tc = match create_task_container(&client, mounter, broker, &task, logger).await {
                 Ok(tc) => tc,
-                Err(e) => return Err(DockerWorkerError::ContainerCreateFailed(e.to_string()).into()),
+                Err(e) => {
+                    return Err(DockerWorkerError::ContainerCreateFailed(e.to_string()).into())
+                }
             };
 
             let tc_id = tc.id.clone();

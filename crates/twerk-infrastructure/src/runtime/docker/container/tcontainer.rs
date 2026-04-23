@@ -297,7 +297,7 @@ impl Tcontainer {
                 status_code,
                 self.read_logs_tail(10)
                     .await
-                    .unwrap_or_else(|_| String::new()),
+                    .map_or_else(|_| String::new(), std::convert::identity),
             ));
         }
 

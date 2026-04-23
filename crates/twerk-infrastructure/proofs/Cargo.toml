@@ -1,0 +1,12 @@
+[package]
+name = "twerk-infrastructure-proofs"
+version = "0.0.1"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+twerk-infrastructure = { path = "..", features = [] }
+
+[profile.release]
+debug = true

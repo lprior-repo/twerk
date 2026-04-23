@@ -1,12 +1,12 @@
 //! Job-related event handlers
 
+use super::HandlerError;
 use crate::engine::coordinator::handlers::cancellation::{cancel_active_tasks, cancel_parent_job};
 use crate::engine::coordinator::handlers::task_handlers::handle_pending_task;
 use crate::engine::coordinator::handlers::util::{build_job_context, is_job_active, job_id_str};
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::types::JobHandlerError;
 use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
-use super::HandlerError;
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::{debug, error, instrument};
@@ -21,7 +21,7 @@ use twerk_infrastructure::broker::queue::{QUEUE_COMPLETED, QUEUE_FAILED, QUEUE_P
 ///
 /// # Errors
 /// Returns error if job handling logic fails.
-#[instrument(name = "handle_job_event", skip_all, fields(job_id = %job.id.as_deref().unwrap_or("unknown"), state = %job.state))]
+#[instrument(name = "handle_job_event", skip_all, fields(job_id = %job.id.as_deref().map_or("unknown", |s| s), state = %job.state))]
 pub async fn handle_job_event(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -35,7 +35,9 @@ pub async fn handle_job_event(
         JobState::Cancelled => handle_cancel(ds, broker, job)
             .await
             .map_err(|e| anyhow::anyhow!("{e}")),
-        JobState::Failed => fail_job(ds, broker, job).await.map_err(|e| anyhow::anyhow!("{e}")),
+        JobState::Failed => fail_job(ds, broker, job)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}")),
         JobState::Running => mark_job_as_running(ds, broker, job)
             .await
             .map_err(|e| anyhow::anyhow!("{e}")),

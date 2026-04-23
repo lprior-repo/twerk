@@ -23,7 +23,7 @@ use twerk_infrastructure::broker::queue::QUEUE_FAILED;
 ///
 /// # Errors
 /// Returns error if task update fails.
-#[instrument(name = "handle_task_progress", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown"), state = %task.state))]
+#[instrument(name = "handle_task_progress", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s), state = %task.state))]
 pub async fn handle_task_progress(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -108,7 +108,7 @@ pub async fn handle_redelivered(
     )
     .await?;
 
-    let queue = persisted.queue.unwrap_or_else(|| "default".to_string());
+    let queue = persisted.queue.map_or_else(|| "default".to_string(), |v| v);
     broker.publish_task(queue, &task).await
 }
 
@@ -161,7 +161,7 @@ pub async fn handle_log_part(
 ///
 /// # Errors
 /// Returns error if task update or next step scheduling fails.
-#[instrument(name = "handle_task_completed", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
+#[instrument(name = "handle_task_completed", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s)))]
 pub async fn handle_task_completed(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -246,7 +246,7 @@ pub async fn handle_task_failed(
 ///
 /// # Errors
 /// Returns error if task update or retry logic fails.
-#[instrument(name = "handle_error", skip_all, fields(task_id = %task.id.as_deref().unwrap_or("unknown")))]
+#[instrument(name = "handle_error", skip_all, fields(task_id = %task.id.as_deref().map_or("unknown", |s| s)))]
 pub async fn handle_error(
     ds: Arc<dyn twerk_infrastructure::datastore::Datastore>,
     broker: Arc<dyn twerk_infrastructure::broker::Broker>,
@@ -254,7 +254,7 @@ pub async fn handle_error(
 ) -> Result<()> {
     error!(
         task_id = task_id_str(&task),
-        error = task.error.as_deref().unwrap_or("unknown error"),
+        error = task.error.as_deref().map_or("unknown error", |s| s),
         "Task failed"
     );
     let task_id = task

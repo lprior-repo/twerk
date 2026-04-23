@@ -3,6 +3,7 @@
 //! This module provides broker implementations for delivering tasks
 //! and coordinating between workers and the coordinator.
 
+#[allow(clippy::module_inception)]
 pub mod broker;
 pub mod config;
 pub mod inmemory;
@@ -15,12 +16,14 @@ pub mod utils;
 pub use broker::Broker;
 pub use config::RabbitMQOptions;
 pub use queue::QueueInfo;
+pub(crate) use types::BoxedHandlerFuture;
 pub use types::{
     BoxedFuture, EventHandler, HeartbeatHandler, JobHandler, TaskHandler, TaskLogPartHandler,
     TaskProgressHandler,
 };
-pub(crate) use types::BoxedHandlerFuture;
-pub use utils::{extract_engine_id, is_coordinator_queue, is_task_queue, is_worker_queue, prefixed_queue};
+pub use utils::{
+    extract_engine_id, is_coordinator_queue, is_task_queue, is_worker_queue, prefixed_queue,
+};
 
 #[cfg(test)]
 mod tests {

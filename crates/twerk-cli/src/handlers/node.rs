@@ -31,7 +31,9 @@ pub async fn node_list(endpoint: &str, json_mode: bool) -> Result<String, CliErr
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
+            reason: status
+                .canonical_reason()
+                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
         });
     }
 
@@ -60,7 +62,7 @@ pub async fn node_list(endpoint: &str, json_mode: bool) -> Result<String, CliErr
                     n.id,
                     n.name,
                     n.status,
-                    n.role.as_deref().unwrap_or("-")
+                    n.role.as_deref().map_or("-", |s| s)
                 );
             }
         }
@@ -83,7 +85,9 @@ pub async fn node_get(endpoint: &str, id: &str, json_mode: bool) -> Result<Strin
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
+            reason: status
+                .canonical_reason()
+                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
         });
     }
 

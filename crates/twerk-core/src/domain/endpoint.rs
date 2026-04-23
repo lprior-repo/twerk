@@ -77,9 +77,14 @@ impl Endpoint {
     }
 
     /// Parse and return the URL components.
-    #[must_use]
-    pub fn as_url(&self) -> url::Url {
-        url::Url::parse(&self.0).expect("validated URL should always parse")
+    ///
+    /// # Errors
+    /// This will never return an error because the underlying string was
+    /// validated at [`Endpoint::new`]. The [`Result`] return type exists
+    /// solely to uphold the zero-panic invariant.
+    #[must_use = "returns Result that must be handled for zero-panic invariant"]
+    pub fn as_url(&self) -> Result<url::Url, EndpointError> {
+        url::Url::parse(&self.0).map_err(|e| EndpointError::UrlParseError(e.to_string()))
     }
 }
 

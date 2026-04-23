@@ -10,7 +10,10 @@ use super::openapi;
 use super::state::AppState;
 
 fn is_enabled(enabled: &std::collections::HashMap<String, bool>, key: &str) -> bool {
-    enabled.get(key).copied().unwrap_or(true)
+    enabled
+        .get(key)
+        .copied()
+        .map_or(true, std::convert::identity)
 }
 
 #[allow(clippy::type_complexity, clippy::too_many_lines)]

@@ -56,7 +56,7 @@ fn extract_ssl_mode(dsn: &str) -> SslMode {
             "verify-full" => SslMode::VerifyFull,
             _ => SslMode::Disable,
         })
-        .unwrap_or(SslMode::Disable)
+        .map_or(SslMode::Disable, |mode| mode)
 }
 
 /// PostgreSQL-backed distributed locker.
@@ -121,17 +121,17 @@ struct IdleConnection {
 
 impl SyncPostgresPool {
     fn new(dsn: &str, opts: &PostgresLockerOptions) -> Self {
-        let ssl_mode = opts.ssl_mode.unwrap_or_else(|| extract_ssl_mode(dsn));
+        let ssl_mode = opts.ssl_mode.map_or_else(|| extract_ssl_mode(dsn), |m| m);
         Self {
             dsn: dsn.to_string(),
             ssl_mode,
-            max_open: opts.max_open_conns.unwrap_or(100),
+            max_open: opts.max_open_conns.map_or(100, |v| v),
             max_idle: opts.max_idle_conns,
             conn_max_lifetime: opts.conn_max_lifetime,
             conn_max_idle_time: opts.conn_max_idle_time,
             connect_timeout: opts
                 .connect_timeout
-                .unwrap_or(std::time::Duration::from_secs(30)),
+                .map_or_else(|| std::time::Duration::from_secs(30), |d| d),
             idle: Mutex::new(Vec::new()),
             open_count: Mutex::new(0),
         }
@@ -206,33 +206,29 @@ impl SyncPostgresPool {
     fn connect_with_timeout(&self) -> Result<PgClient, LockError> {
         let dsn = self.dsn.clone();
         let timeout = self.connect_timeout;
-
         let tls_connector = self.make_tls_connector();
 
-        let handle = std::thread::spawn(move || match tls_connector {
-            Some(connector) => PgClient::connect(&dsn, connector),
-            None => PgClient::connect(&dsn, postgres::NoTls),
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let result = match tls_connector {
+                Some(connector) => PgClient::connect(&dsn, connector),
+                None => PgClient::connect(&dsn, postgres::NoTls),
+            };
+            let _ = tx.send(result);
         });
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| LockError::Connection(format!("failed to create runtime: {e}")))?;
-
-        let result = rt.block_on(async {
-            tokio::time::timeout(timeout, tokio::task::spawn_blocking(move || handle.join())).await
-        });
+        let result = rx.recv_timeout(timeout);
 
         match result {
-            Ok(Ok(Ok(Ok(client)))) => Ok(client),
-            Ok(Ok(Ok(Err(e)))) => Err(LockError::Connection(e.to_string())),
-            Ok(Ok(Err(_panic))) => {
-                Err(LockError::Connection("connect thread panicked".to_string()))
-            }
-            Ok(Err(_join_err)) => Err(LockError::Connection("spawn failed".to_string())),
-            Err(_) => Err(LockError::Connection(format!(
+            Ok(Ok(client)) => Ok(client),
+            Ok(Err(e)) => Err(LockError::Connection(e.to_string())),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(LockError::Connection(format!(
                 "connection timed out after {timeout:?}"
             ))),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(LockError::Connection(
+                "connect thread panicked".to_string(),
+            )),
         }
     }
 
@@ -402,7 +398,7 @@ impl PostgresLocker {
 
         let timeout = opts
             .connect_timeout
-            .unwrap_or(std::time::Duration::from_secs(30));
+            .map_or_else(|| std::time::Duration::from_secs(30), |d| d);
         let dsn_owned = dsn.to_string();
 
         let tls_connector = pool.make_tls_connector();

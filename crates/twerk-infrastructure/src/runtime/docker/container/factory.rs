@@ -173,7 +173,7 @@ fn build_networking_config(task: &Task) -> Option<NetworkingConfig> {
 
     let mut endpoints = HashMap::new();
     if let Some(ref networks) = task.networks {
-        let alias = slugify(task.name.as_deref().unwrap_or(DEFAULT_TASK_NAME));
+        let alias = slugify(task.name.as_deref().map_or(DEFAULT_TASK_NAME, |s| s));
         for nw in networks {
             endpoints.insert(
                 nw.clone(),
@@ -248,14 +248,14 @@ fn build_command_and_entrypoint(task: &Task) -> (Vec<String>, Vec<String>) {
     let cmd: Vec<String> = if task.cmd.as_ref().is_none_or(Vec::is_empty) {
         vec!["/twerk/entrypoint".to_string()]
     } else {
-        task.cmd.clone().unwrap_or_default()
+        task.cmd.clone().map_or_else(Vec::new, |v| v)
     };
 
     let entrypoint: Vec<String> =
         if task.entrypoint.as_ref().is_none_or(Vec::is_empty) && task.run.is_some() {
             vec!["sh".to_string(), "-c".to_string()]
         } else {
-            task.entrypoint.clone().unwrap_or_default()
+            task.entrypoint.clone().map_or_else(Vec::new, |v| v)
         };
 
     (cmd, entrypoint)
@@ -487,7 +487,7 @@ pub async fn create_task_container(
         build_container_config_params(task, env, mounts, nano_cpus, memory, device_requests);
     let container_config = build_container_config(container_params);
 
-    let image = task.image.as_deref().unwrap_or_default();
+    let image = task.image.as_deref().map_or("", |s| s);
     let container_id = create_container(client, container_config, image).await?;
 
     let task_id = task.id.as_ref().ok_or_else(|| {

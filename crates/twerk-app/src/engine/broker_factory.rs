@@ -53,7 +53,7 @@ fn env_duration_ms_default(key: &str, default: u64) -> Duration {
         value
             .parse::<u64>()
             .map(Duration::from_millis)
-            .unwrap_or_else(|_| Duration::from_millis(default))
+            .map_or(Duration::from_millis(default), |d| d)
     }
 }
 

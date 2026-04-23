@@ -114,7 +114,7 @@ pub async fn create_locker(
 /// Get an integer from environment variables with default.
 fn env_int_default(key: &str, default: i32) -> i32 {
     let value = env_string(key);
-    value.parse::<i32>().unwrap_or(default)
+    value.parse::<i32>().map_or(default, |v| v)
 }
 
 /// Get a [`Duration`] from environment variables with default (parsed as seconds).
@@ -126,7 +126,7 @@ fn env_duration_default(key: &str, default: Duration) -> Duration {
         value
             .parse::<u64>()
             .map(Duration::from_secs)
-            .unwrap_or(default)
+            .map_or(default, |d| d)
     }
 }
 

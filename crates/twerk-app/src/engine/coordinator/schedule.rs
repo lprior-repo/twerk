@@ -182,7 +182,7 @@ impl Clone for JobSchedulerHandler {
             broker: self.broker.clone(),
             locker: self.locker.clone(),
             scheduler: self.scheduler.clone(),
-            jobs: Mutex::new(HashMap::new()),
+            jobs: Mutex::new(self.jobs.blocking_lock().clone()),
         }
     }
 }

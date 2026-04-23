@@ -40,7 +40,9 @@ pub async fn metrics_get(endpoint: &str, json_mode: bool) -> Result<String, CliE
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
+            reason: status
+                .canonical_reason()
+                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
         });
     }
 

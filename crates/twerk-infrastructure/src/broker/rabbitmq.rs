@@ -73,7 +73,10 @@ impl RabbitMQBroker {
     ///
     /// Returns an error if the connection to `RabbitMQ` fails.
     pub async fn new(url: &str, opts: RabbitMQOptions, engine_id: Option<&str>) -> Result<Self> {
-        let engine_id = engine_id.unwrap_or("");
+        let engine_id = match engine_id {
+            Some(id) => id,
+            None => "",
+        };
         let conn1 = Connection::connect(url, ConnectionProperties::default())
             .await
             .map_err(|e| rabbitmq_conn_err(1, &e))?;

@@ -153,7 +153,9 @@ pub(super) fn validate_interval_nonzero(interval: &GoDuration) -> Result<(), Tri
 }
 
 /// Validates a polling timeout is non-zero if present.
-pub(super) fn validate_timeout_nonzero(timeout: &Option<GoDuration>) -> Result<(), TriggerDataError> {
+pub(super) fn validate_timeout_nonzero(
+    timeout: &Option<GoDuration>,
+) -> Result<(), TriggerDataError> {
     if let Some(t) = timeout {
         if t.to_duration() == std::time::Duration::ZERO {
             return Err(TriggerDataError::InvalidInterval(

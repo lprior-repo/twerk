@@ -257,3 +257,25 @@ pub struct WorkerLimits {
     pub memory: String,
     pub timeout: String,
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn config_state_str_roundtrip(key in "[a-zA-Z][a-zA-Z0-9_]*", val in ".*") {
+            let mut state = ConfigState::new();
+            state.insert(key.clone(), toml::Value::String(val.clone()));
+            prop_assert_eq!(state.get_str(&key), Some(val.as_str()));
+        }
+
+        #[test]
+        fn config_state_int_from_string_coercion(key in "[a-zA-Z][a-zA-Z0-9_]*", val: i64) {
+            let mut state = ConfigState::new();
+            state.insert(key.clone(), toml::Value::String(val.to_string()));
+            prop_assert_eq!(state.get_int(&key), Some(val));
+        }
+    }
+}

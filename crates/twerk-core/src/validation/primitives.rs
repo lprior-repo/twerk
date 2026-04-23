@@ -37,9 +37,9 @@ pub fn parse_duration(duration: &str) -> Result<GoDuration, DomainParseError> {
 pub fn parse_queue_name(name: &str) -> Result<QueueName, DomainParseError> {
     // Check for reserved names
     if name == "x-jobs" || name.starts_with("x-exclusive.") {
-        return Err(DomainParseError::QueueName(
-            QueueNameError::Reserved(name.to_string()),
-        ));
+        return Err(DomainParseError::QueueName(QueueNameError::Reserved(
+            name.to_string(),
+        )));
     }
     QueueName::new(name).map_err(DomainParseError::QueueName)
 }
@@ -57,9 +57,8 @@ pub fn parse_retry(limit: i64) -> Result<RetryLimit, DomainParseError> {
         )));
     }
     match u32::try_from(limit) {
-        Ok(v) => RetryLimit::new(v).map_err(|_| {
-            DomainParseError::RetryLimit(ParseRetryError::OutOfRange(limit))
-        }),
+        Ok(v) => RetryLimit::new(v)
+            .map_err(|_| DomainParseError::RetryLimit(ParseRetryError::OutOfRange(limit))),
         Err(_) => Err(DomainParseError::RetryLimit(ParseRetryError::OutOfRange(
             limit,
         ))),

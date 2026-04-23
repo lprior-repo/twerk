@@ -62,4 +62,5 @@ utoipa.workspace = true
 testcontainers.workspace = true
 testcontainers-modules = { workspace = true, features = ["postgres", "rabbitmq"] }
 rstest.workspace = true
+proptest.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }

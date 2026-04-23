@@ -44,7 +44,7 @@ impl PodmanRuntime {
 
         // Networks
         if let Some(ref networks) = task.networks {
-            let task_name = task.name.as_deref().unwrap_or(DEFAULT_TASK_NAME);
+            let task_name = task.name.as_deref().map_or(DEFAULT_TASK_NAME, |s| s);
             for network in networks {
                 if network == HOST_NETWORK_NAME {
                     create_cmd.arg("--network").arg(network);
@@ -59,14 +59,14 @@ impl PodmanRuntime {
         // Mounts
         if let Some(ref mounts) = task.mounts {
             for mnt in mounts {
-                let mount_type_str = mnt.mount_type.as_deref().unwrap_or(DEFAULT_MOUNT_TYPE);
+                let mount_type_str = mnt.mount_type.as_deref().map_or(DEFAULT_MOUNT_TYPE, |s| s);
                 if mount_type_str == "tmpfs" {
-                    let target = mnt.target.as_deref().unwrap_or("");
+                    let target = mnt.target.as_deref().map_or("", |s| s);
                     create_cmd.arg("--tmpfs").arg(target);
                 } else {
                     // bind, volume, and any other mount type
-                    let source = mnt.source.as_deref().unwrap_or("");
-                    let target = mnt.target.as_deref().unwrap_or("");
+                    let source = mnt.source.as_deref().map_or("", |s| s);
+                    let target = mnt.target.as_deref().map_or("", |s| s);
                     create_cmd.arg("-v").arg(format!("{source}:{target}"));
                 }
             }
@@ -81,7 +81,7 @@ impl PodmanRuntime {
             }
             if let Some(ref memory) = limits.memory {
                 if !memory.is_empty() {
-                    let bytes = Self::parse_memory(memory).unwrap_or(0);
+                    let bytes = Self::parse_memory(memory).map_or(0, |v| v);
                     create_cmd.arg("--memory").arg(bytes.to_string());
                 }
             }

@@ -9,9 +9,14 @@ mod common;
 
 use common::fixed_now;
 use std::collections::HashMap;
+use twerk_core::id::UserId;
 use twerk_core::job::{JobDefaults as CoreJobDefaults, JobState, ScheduledJobState};
+use twerk_core::node::NodeStatus;
 use twerk_core::node::NODE_STATUS_UP;
+use twerk_core::task::Permission;
 use twerk_core::task::{AutoDelete, ParallelTask, Registry, TaskLimits, TaskRetry};
+use twerk_core::user::User;
+use twerk_core::webhook::Webhook;
 use twerk_infrastructure::datastore::postgres::records::auth::{
     RoleRecord, RoleRecordExt, UserRecord, UserRecordExt,
 };
@@ -25,11 +30,6 @@ use twerk_infrastructure::datastore::postgres::records::scheduled_job::{
     ScheduledJobRecord, ScheduledJobRecordExt,
 };
 use twerk_infrastructure::datastore::postgres::records::task::{TaskRecord, TaskRecordExt};
-use twerk_core::id::UserId;
-use twerk_core::node::NodeStatus;
-use twerk_core::task::Permission;
-use twerk_core::user::User;
-use twerk_core::webhook::Webhook;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // helpers.rs tests
@@ -744,9 +744,7 @@ fn base_job_record() -> JobRecord {
 #[allow(clippy::unwrap_used)]
 fn base_job_user() -> User {
     User {
-        id: Some(
-            twerk_core::id::UserId::new("00000000-0000-0000-0000-000000000002").unwrap(),
-        ),
+        id: Some(twerk_core::id::UserId::new("00000000-0000-0000-0000-000000000002").unwrap()),
         name: Some("Test User".to_string()),
         username: Some("testuser".to_string()),
         password_hash: Some("hashed".to_string()),

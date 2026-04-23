@@ -2,10 +2,10 @@
 //!
 //! Validates job name, tasks, and defaults (timeout, queue, priority).
 
+use super::primitives::{parse_duration, parse_priority, parse_queue_name};
 use super::{fault_messages, push_fault, ValidationFault, ValidationKind};
 use crate::job::JobDefaults;
 use crate::task::Task;
-use super::primitives::{parse_duration, parse_queue_name, parse_priority};
 
 /// Check that a job name is present, non-empty, and not too long.
 pub(super) fn check_job_name(name: Option<&String>) -> Vec<ValidationFault> {
@@ -54,7 +54,7 @@ pub(super) fn check_job_tasks(tasks: Option<&Vec<Task>>) -> Vec<ValidationFault>
                 })
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_default();
+        .map_or_else(Vec::new, std::convert::identity);
     empty_fault.into_iter().chain(task_name_faults).collect()
 }
 
@@ -113,6 +113,6 @@ fn collect_job_faults(
     check_job_name(name)
         .into_iter()
         .chain(check_job_tasks(tasks))
-        .chain(defaults.map(check_job_defaults).unwrap_or_default())
+        .chain(defaults.map_or_else(Vec::new, check_job_defaults))
         .collect()
 }

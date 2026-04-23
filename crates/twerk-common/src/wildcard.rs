@@ -101,3 +101,33 @@ mod tests {
         assert!(wildcard_match("a*b*c", "axbxc"));
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn star_matches_anything(s in ".*") {
+            prop_assert!(wildcard_match("*", &s));
+        }
+
+        #[test]
+        fn empty_pattern_only_matches_empty(s in ".*") {
+            prop_assert_eq!(wildcard_match("", &s), s.is_empty());
+        }
+
+        #[test]
+        fn reflexive_for_literal(s in "[^*]*") {
+            prop_assert!(wildcard_match(&s, &s));
+        }
+
+        #[test]
+        fn star_suffix_matches_prefix(prefix in "[a-zA-Z0-9]+", suffix in ".*") {
+            let pattern = format!("{}*", prefix);
+            let text = format!("{}{}", prefix, suffix);
+            prop_assert!(wildcard_match(&pattern, &text));
+        }
+    }
+}

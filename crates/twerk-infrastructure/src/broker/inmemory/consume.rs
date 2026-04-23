@@ -22,10 +22,10 @@ pub(crate) fn queues(broker: &InMemoryBroker) -> BoxedFuture<Vec<QueueInfo>> {
             let subscribers = broker
                 .handlers
                 .get(&qname)
-                .map_or(0, |h| i32::try_from(h.len()).unwrap_or(0));
+                .map_or(0, |h| i32::try_from(h.len()).map_or_else(|_| 0, |n| n));
             QueueInfo {
                 name: qname,
-                size: i32::try_from(task_list.len()).unwrap_or(0),
+                size: i32::try_from(task_list.len()).map_or_else(|_| 0, |n| n),
                 subscribers,
                 unacked: 0,
             }
@@ -43,8 +43,12 @@ pub(crate) fn queue_info(broker: &InMemoryBroker, qname: String) -> BoxedFuture<
         return Box::pin(async move { Err(QueueNotFound { queue: qname }.into()) });
     }
 
-    let size = task_entry.map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
-    let subscribers = handler_entry.map_or(0, |entry| i32::try_from(entry.len()).unwrap_or(0));
+    let size = task_entry.map_or(0, |entry| {
+        i32::try_from(entry.len()).map_or_else(|_| 0, |n| n)
+    });
+    let subscribers = handler_entry.map_or(0, |entry| {
+        i32::try_from(entry.len()).map_or_else(|_| 0, |n| n)
+    });
     Box::pin(async move {
         Ok(QueueInfo {
             name: qname,

@@ -59,13 +59,19 @@ macro_rules! define_id {
 
         impl From<String> for $name {
             fn from(value: String) -> Self {
-                Self(value)
+                match Self::new(value) {
+                    Ok(id) => id,
+                    Err(e) => panic!("From<String> for {}: {e}", stringify!($name)),
+                }
             }
         }
 
         impl From<&str> for $name {
             fn from(value: &str) -> Self {
-                Self(value.to_string())
+                match Self::new(value) {
+                    Ok(id) => id,
+                    Err(e) => panic!("From<&str> for {}: {e}", stringify!($name)),
+                }
             }
         }
 

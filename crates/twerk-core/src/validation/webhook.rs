@@ -29,7 +29,7 @@ pub(super) fn check_subjob_webhooks(task: &Task) -> Vec<ValidationFault> {
         .as_ref()
         .and_then(|sj| sj.webhooks.as_ref())
         .map(|whs| check_webhook_urls(whs))
-        .unwrap_or_default()
+        .map_or_else(Vec::new, std::convert::identity)
 }
 
 /// Validates webhook configurations.
@@ -53,15 +53,9 @@ fn collect_webhook_faults(
     webhooks: Option<&Vec<Webhook>>,
     tasks: Option<&Vec<Task>>,
 ) -> Vec<ValidationFault> {
-    let top: Vec<ValidationFault> = webhooks
-        .map(|ws| check_webhook_urls(ws))
-        .unwrap_or_default();
-    let sub: Vec<ValidationFault> = tasks
-        .map(|ts| {
-            ts.iter()
-                .flat_map(check_subjob_webhooks)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let top: Vec<ValidationFault> = webhooks.map_or_else(Vec::new, |w| check_webhook_urls(w));
+    let sub: Vec<ValidationFault> = tasks.map_or_else(Vec::new, |ts| {
+        ts.iter().flat_map(check_subjob_webhooks).collect()
+    });
     top.into_iter().chain(sub).collect()
 }

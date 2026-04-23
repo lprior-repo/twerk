@@ -38,7 +38,9 @@ impl RetryLimit {
     /// # Errors
     /// Returns [`OptionalRetryLimitError::NoneNotAllowed`] if value is None.
     pub fn from_option(value: Option<u32>) -> Result<Self, OptionalRetryLimitError> {
-        value.ok_or(OptionalRetryLimitError::NoneNotAllowed).map(Self)
+        value
+            .ok_or(OptionalRetryLimitError::NoneNotAllowed)
+            .map(Self)
     }
 
     /// Returns the raw retry limit value.

@@ -114,7 +114,7 @@ impl Worker for DefaultWorker {
     fn stop(&self) -> BoxedFuture<()> {
         let (terminate_tx, active_tasks) = (self.terminate_tx.clone(), self.active_tasks.clone());
         Box::pin(async move {
-            let _ = terminate_tx.send(());
+            let _ = terminate_tx.send(()); // best-effort: worker stopping anyway
             let start = std::time::Instant::now();
             while !active_tasks.is_empty() && start.elapsed() < std::time::Duration::from_secs(10) {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -252,7 +252,10 @@ async fn send_heartbeat(
         }
     };
     let node = Node {
-        id: Some(NodeId::from(id)),
+        id: NodeId::new(id).map(Some).unwrap_or_else(|e| {
+            tracing::error!(error = %e, "invalid worker node id, using fallback");
+            None
+        }),
         name: Some(name.to_string()),
         hostname: Some(
             hostname::get()
@@ -276,9 +279,7 @@ async fn execute_task(
     active_tasks: Arc<DashMap<TaskId, Arc<Task>>>,
 ) -> Result<()> {
     let mut t = (*task).clone();
-    let tid =
-        t.id.clone()
-            .ok_or_else(|| WorkerExecError::TaskIdRequired)?;
+    let tid = t.id.clone().ok_or(WorkerExecError::TaskIdRequired)?;
     active_tasks.insert(tid.clone(), task.clone());
     t.state = TaskState::Running;
     t.started_at = Some(time::OffsetDateTime::now_utc());

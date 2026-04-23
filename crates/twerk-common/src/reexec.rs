@@ -94,9 +94,10 @@ pub fn init() -> bool {
 /// 3. Return the original name as last resort
 #[must_use]
 pub fn naive_self() -> PathBuf {
-    let name = env::args()
-        .next()
-        .unwrap_or_else(|| "/proc/self/exe".to_string());
+    let name = match env::args().next() {
+        Some(name) => name,
+        None => "/proc/self/exe".to_string(),
+    };
     resolve_naive_self(&name)
 }
 

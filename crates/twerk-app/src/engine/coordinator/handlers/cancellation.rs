@@ -61,7 +61,7 @@ pub(crate) async fn cancel_task_affinity(
                     .get_node_by_id(node_id)
                     .await
                     .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
-                let queue = node.queue.unwrap_or_else(|| QUEUE_PENDING.to_string());
+                let queue = node.queue.map_or_else(|| QUEUE_PENDING.to_string(), |q| q);
                 broker
                     .publish_task(queue, task)
                     .await

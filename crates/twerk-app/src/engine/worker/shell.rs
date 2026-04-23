@@ -206,7 +206,9 @@ impl ShellRuntimeAdapter {
         // Check for empty task ID (precondition)
         if task.id.as_ref().is_none_or(|id| id.is_empty()) {
             return Err(ShutdownError::InvalidTaskId(
-                task.id.clone().unwrap_or_default().to_string(),
+                task.id
+                    .clone()
+                    .map_or_else(String::new, |id| id.to_string()),
             ));
         }
 
@@ -224,8 +226,10 @@ impl RuntimeTrait for ShellRuntimeAdapter {
     fn run(&self, task: &Task) -> BoxedFuture<()> {
         let (sc, tid, rs, env, active_processes, temp_dirs, broker, enable_cleanup) = (
             self.config.cmd.clone(),
-            task.id.clone().unwrap_or_default(),
-            task.run.clone().unwrap_or_default(),
+            task.id
+                .clone()
+                .map_or_else(String::new, |id| id.to_string()),
+            task.run.clone().map_or_else(String::new, |r| r),
             task.env.clone(),
             self.active_processes.clone(),
             self.temp_dirs.clone(),
@@ -284,9 +288,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Track the child handle for potential future use
             let child = cmd.spawn()?;
 
-            let pid = child
-                .id()
-                .ok_or_else(|| ShellError::PidUnavailable)?;
+            let pid = child.id().ok_or_else(|| ShellError::PidUnavailable)?;
             let handle = ProcessHandle { pid };
 
             // Store handle for stop() to use
@@ -313,7 +315,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
                                             prev = Some(p);
                                             if let Some(ref b) = broker_clone {
                                                 let twerk_task = twerk_core::task::Task {
-                                                    id: Some(task_id_clone.clone()),
+                                                     id: Some(task_id_clone.clone().into()),
                                                     progress: p,
                                                     ..Default::default()
                                                 };
@@ -348,7 +350,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             }
 
             let output = wait_result?;
-            publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
+            publish_log_parts(broker.as_ref(), &tid.into(), &output.stdout, &output.stderr).await;
 
             if !output.status.success() {
                 return Err(ShellError::ExitFailed(
@@ -366,7 +368,9 @@ impl RuntimeTrait for ShellRuntimeAdapter {
 
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>> {
         let (task_id_str, task_state, config, active_processes, temp_dirs) = (
-            task.id.clone().unwrap_or_default().to_string(),
+            task.id
+                .clone()
+                .map_or_else(String::new, |id| id.to_string()),
             task.state,
             self.config.clone(),
             self.active_processes.clone(),

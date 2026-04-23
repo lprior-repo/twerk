@@ -190,3 +190,50 @@ mod tests {
         assert_eq!(secrets["my_token"], "[REDACTED]");
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use crate::redact::{is_secret_key, redact_vars};
+    use proptest::prelude::*;
+    use std::collections::HashMap;
+
+    proptest! {
+        #[test]
+        fn redact_vars_preserves_keys(
+            keys in proptest::collection::vec("[a-zA-Z_]{1,20}", 0..10),
+            vals in proptest::collection::vec(".{0,20}", 0..10)
+        ) {
+            let m: HashMap<String, String> = keys
+                .iter()
+                .zip(vals.iter())
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            let secrets = HashMap::new();
+            let result = redact_vars(&m, &secrets);
+            prop_assert_eq!(result.len(), m.len());
+            for k in m.keys() {
+                prop_assert!(result.contains_key(k));
+            }
+        }
+
+        #[test]
+        fn is_secret_key_case_insensitive(key in "[a-zA-Z_]{1,20}") {
+            let upper = key.to_uppercase();
+            let contains_secret = upper.contains("SECRET")
+                || upper.contains("PASSWORD")
+                || upper.contains("ACCESS_KEY");
+            prop_assert_eq!(is_secret_key(&key), contains_secret);
+        }
+
+        #[test]
+        fn redact_vars_secret_keys_always_redacted(
+            value in ".{0,50}"
+        ) {
+            let mut m = HashMap::new();
+            m.insert("DB_PASSWORD".to_string(), value.clone());
+            let secrets = HashMap::new();
+            let result = redact_vars(&m, &secrets);
+            prop_assert_eq!(&result["DB_PASSWORD"], "[REDACTED]");
+        }
+    }
+}

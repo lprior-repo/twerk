@@ -1,0 +1,12 @@
+[package]
+name = "twerk-common-proofs"
+version = "0.0.1"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+twerk-common = { path = "..", features = [] }
+
+[profile.release]
+debug = true

@@ -102,5 +102,3 @@ pub fn decrypt_secrets(
     }
     Ok(result)
 }
-
-

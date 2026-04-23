@@ -170,10 +170,11 @@ pub fn setup_logging() -> Result<(), LoggingError> {
 
     // The hardcoded "twerk_runtime=debug" directive is always valid.
     // If parsing somehow fails, fall back to the user's configured level.
-    let twerk_runtime_directive: tracing_subscriber::filter::Directive = "twerk_runtime=debug"
-        .parse()
-        .ok()
-        .unwrap_or_else(|| level.into());
+    let twerk_runtime_directive: tracing_subscriber::filter::Directive =
+        match "twerk_runtime=debug".parse::<tracing_subscriber::filter::Directive>() {
+            Ok(d) => d,
+            Err(_) => level.into(),
+        };
 
     let env_filter = EnvFilter::from_default_env()
         .add_directive(level.into())

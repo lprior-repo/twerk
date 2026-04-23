@@ -39,3 +39,53 @@ fn to_unsigned_duration(total_secs: i64) -> Result<StdDuration, String> {
         .map(|s| StdDuration::from_secs(s as u64))
         .map_err(|_| "duration overflow".into())
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn parse_go_duration_rejects_empty(s in "") {
+            prop_assert!(parse_go_duration(&s).is_err());
+        }
+
+        #[test]
+        fn parse_go_duration_seconds(val in 1u64..=10000) {
+            let input = format!("{}s", val);
+            prop_assert_eq!(parse_go_duration(&input).unwrap(), StdDuration::from_secs(val));
+        }
+
+        #[test]
+        fn parse_go_duration_minutes(val in 1u64..=1000) {
+            let input = format!("{}m", val);
+            prop_assert_eq!(parse_go_duration(&input).unwrap(), StdDuration::from_secs(val * 60));
+        }
+
+        #[test]
+        fn parse_go_duration_hours(val in 1u64..=100) {
+            let input = format!("{}h", val);
+            prop_assert_eq!(parse_go_duration(&input).unwrap(), StdDuration::from_secs(val * 3600));
+        }
+
+        #[test]
+        fn parse_go_duration_rejects_invalid_chars(s in "[a-z]{1,10}") {
+            // Only s/m/h/d are valid unit chars; letters like a,b,c etc are invalid
+            // unless they form valid unit strings
+            let has_invalid = s.chars().any(|c| !c.is_ascii_digit() && !matches!(c, 's' | 'm' | 'h' | 'd'));
+            if has_invalid {
+                prop_assert!(parse_go_duration(&s).is_err());
+            }
+        }
+
+        #[test]
+        fn parse_go_duration_complex(h in 1u64..=24, m in 1u64..=59) {
+            let input = format!("{}h{}m", h, m);
+            prop_assert_eq!(
+                parse_go_duration(&input).unwrap(),
+                StdDuration::from_secs(h * 3600 + m * 60)
+            );
+        }
+    }
+}

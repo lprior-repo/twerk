@@ -539,8 +539,10 @@ async fn adversarial_all_whitespace_fields_should_fail() {
         StatusCode::BAD_REQUEST,
         "all whitespace fields should return 400"
     );
-    // Should fail on name first (validate_required_field is called in order)
-    assert_eq!(body_err["error"], "ValidationFailed");
+    assert_eq!(
+        body_err,
+        json!({"error": "ValidationFailed", "message": "name must be non-empty after trim"})
+    );
 }
 
 // ========================================

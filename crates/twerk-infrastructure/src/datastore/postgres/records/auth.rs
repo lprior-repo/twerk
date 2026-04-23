@@ -91,5 +91,3 @@ impl RoleRecordExt for RoleRecord {
         })
     }
 }
-
-

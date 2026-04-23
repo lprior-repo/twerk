@@ -31,3 +31,34 @@ pub fn sanitize_expr(expr: &str) -> String {
 pub fn transform_operators(expr: &str) -> String {
     expr.replace(" and ", " && ").replace(" or ", " || ")
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn sanitize_expr_idempotent(s in ".{0,50}") {
+            let first = sanitize_expr(&s);
+            let second = sanitize_expr(&first);
+            prop_assert_eq!(first, second);
+        }
+
+        #[test]
+        fn transform_operators_idempotent(s in ".{0,50}") {
+            let first = transform_operators(&s);
+            let second = transform_operators(&first);
+            prop_assert_eq!(first, second);
+        }
+
+        #[test]
+        fn transform_and_preserves_non_operators(s in "[a-z]{1,10}") {
+            let input = format!("{} and {}", s, s);
+            let result = transform_operators(&input);
+            prop_assert!(result.contains("&&"));
+            prop_assert!(!result.contains(" and "));
+            prop_assert!(result.contains(&s));
+        }
+    }
+}

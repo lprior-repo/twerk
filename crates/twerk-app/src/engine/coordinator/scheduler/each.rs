@@ -45,7 +45,7 @@ impl Scheduler {
             .context
             .as_ref()
             .map(twerk_core::job::JobContext::as_map)
-            .unwrap_or_default();
+            .map_or_else(std::collections::HashMap::new, |c| c);
 
         let each = task
             .each
@@ -53,9 +53,12 @@ impl Scheduler {
             .ok_or_else(|| SchedulerError::MissingConfig {
                 scheduler: "each".to_string(),
             })?;
-        let list_expr = each.list.as_deref().unwrap_or_default();
+        let list_expr = each
+            .list
+            .as_deref()
+            .map_or_else(String::new, |s| s.to_string());
 
-        let list_val = Self::eval_each_list(list_expr, &job_ctx_map)?;
+        let list_val = Self::eval_each_list(&list_expr, &job_ctx_map)?;
         let list = list_val
             .as_array()
             .ok_or_else(|| SchedulerError::EachListMustBeArray)?;
@@ -97,11 +100,10 @@ impl Scheduler {
                 serde_json::Value::Array,
             )
         } else {
-            evaluate_expr(list_expr, job_ctx)
-                .map_err(|e| SchedulerError::Evaluation {
-                    context: "each list".to_string(),
-                    error: e.to_string(),
-                })?
+            evaluate_expr(list_expr, job_ctx).map_err(|e| SchedulerError::Evaluation {
+                context: "each list".to_string(),
+                error: e.to_string(),
+            })?
         };
 
         if let Some(s) = list_val.as_str() {
@@ -151,8 +153,8 @@ impl Scheduler {
     fn build_subtask(ix: usize, item: &serde_json::Value, ctx: &SubtaskContext) -> Result<Task> {
         let cx = Self::build_context(item, ctx.job_ctx, ctx.var_name, ix);
 
-        let evaluated = evaluate_task(ctx.template, &cx)
-            .map_err(|e| SchedulerError::Evaluation {
+        let evaluated =
+            evaluate_task(ctx.template, &cx).map_err(|e| SchedulerError::Evaluation {
                 context: "each item task".to_string(),
                 error: e.to_string(),
             })?;

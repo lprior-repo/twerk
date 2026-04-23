@@ -9,8 +9,14 @@ impl Scheduler {
     /// # Errors
     /// Returns error if job creation or publish fails.
     pub async fn schedule_subjob_task(&self, task: twerk_core::task::Task) -> Result<()> {
-        let task_id = task.id.clone().unwrap_or_default();
-        let job_id = task.job_id.clone().unwrap_or_default();
+        let task_id = task
+            .id
+            .clone()
+            .map_or_else(String::new, |id| id.to_string());
+        let job_id = task
+            .job_id
+            .clone()
+            .map_or_else(twerk_core::id::JobId::default, |id| id);
         let now = time::OffsetDateTime::now_utc();
 
         let job = self.ds.get_job_by_id(&job_id).await?;
@@ -42,7 +48,10 @@ impl Scheduler {
             ..Default::default()
         };
 
-        let subjob_id = subjob.id.clone().unwrap_or_default();
+        let subjob_id = subjob
+            .id
+            .clone()
+            .map_or_else(twerk_core::id::JobId::default, |id| id);
 
         self.ds
             .update_task(

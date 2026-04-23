@@ -22,9 +22,9 @@ pub mod validation;
 pub mod webhook;
 
 pub use domain::{
-    CronExpression, CronExpressionError, DomainParseError, GoDuration, GoDurationError,
-    Hostname, HostnameError, ParseRetryError, Priority, PriorityError, QueueName, QueueNameError,
-    WebhookUrl, WebhookUrlError,
+    CronExpression, CronExpressionError, DomainParseError, GoDuration, GoDurationError, Hostname,
+    HostnameError, ParseRetryError, Priority, PriorityError, QueueName, QueueNameError, WebhookUrl,
+    WebhookUrlError,
 };
 pub use id::TriggerId;
 pub use repository::{Repository, Result as RepoResult};

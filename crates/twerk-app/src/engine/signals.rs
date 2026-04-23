@@ -23,11 +23,14 @@ impl SignalHandler {
         Ok(Self {
             sigint: Some(tokio::signal::unix::signal(SignalKind::interrupt())?),
             sigterm: Some(tokio::signal::unix::signal(SignalKind::terminate())?),
-            terminate_rx: terminate_rx.unwrap_or_else(|| {
-                let (tx, rx) = broadcast::channel(1);
-                drop(tx);
-                rx
-            }),
+            terminate_rx: terminate_rx.map_or_else(
+                || {
+                    let (tx, rx) = broadcast::channel(1);
+                    drop(tx);
+                    rx
+                },
+                |rx| rx,
+            ),
         })
     }
 

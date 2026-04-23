@@ -128,3 +128,29 @@ mod tests {
         assert_eq!(format!("{}", dsn), "host=localhost");
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn dsn_new_rejects_without_equals(s in "[^=]{1,50}") {
+            prop_assert!(Dsn::new(&s).is_err());
+        }
+
+        #[test]
+        fn dsn_new_accepts_with_equals(key in "[a-z]{1,10}", value in "[a-z0-9]{1,20}") {
+            let input = format!("{}={}", key, value);
+            prop_assert!(Dsn::new(&input).is_ok());
+        }
+
+        #[test]
+        fn dsn_new_roundtrip(key in "[a-z]{1,10}", value in "[a-z0-9]{1,20}") {
+            let input = format!("{}={}", key, value);
+            let dsn = Dsn::new(&input).unwrap();
+            prop_assert_eq!(dsn.as_str(), input);
+        }
+    }
+}

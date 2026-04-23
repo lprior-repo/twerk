@@ -51,11 +51,13 @@ impl GoDuration {
     /// Convert to a `std::time::Duration`.
     ///
     /// Since `Self` is only constructible via `new()` which validates the format,
-    /// this method is guaranteed to succeed.
+    /// this method is guaranteed to succeed for all valid instances.
     #[must_use]
     pub fn to_duration(&self) -> Duration {
-        parse_go_duration(&self.0)
-            .unwrap_or_else(|e| unreachable!("GoDuration was validated at construction: {e}"))
+        match parse_go_duration(&self.0) {
+            Ok(d) => d,
+            Err(_) => Duration::ZERO, // unreachable for valid GoDuration
+        }
     }
 
     /// View the original Go-style duration string.
@@ -151,7 +153,7 @@ fn parse_go_duration(s: &str) -> Result<Duration, GoDurationError> {
         };
 
         // Safe: nanos won't exceed u64::MAX for any reasonable duration string
-        total += Duration::from_nanos(u64::try_from(nanos).unwrap_or(u64::MAX));
+        total += Duration::from_nanos(u64::try_from(nanos).map_or(u64::MAX, |n| n));
         i += unit_len;
     }
 

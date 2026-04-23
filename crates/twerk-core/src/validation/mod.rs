@@ -89,8 +89,8 @@ pub use self::go_duration::parse_go_duration;
 pub use self::job::validate_job;
 pub use self::mount::validate_mounts;
 pub use self::primitives::{
-    parse_cron, parse_duration, parse_queue_name, parse_priority, parse_retry, validate_cron,
-    validate_duration, validate_queue_name, validate_priority, validate_retry,
+    parse_cron, parse_duration, parse_priority, parse_queue_name, parse_retry, validate_cron,
+    validate_duration, validate_priority, validate_queue_name, validate_retry,
 };
 pub use self::task::validate_task;
 pub use self::webhook::validate_webhooks;

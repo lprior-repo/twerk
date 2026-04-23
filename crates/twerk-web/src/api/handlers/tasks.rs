@@ -77,7 +77,10 @@ pub async fn get_task_handler(
 
     if let Some(ref job_id) = task.job_id {
         if let Ok(job) = state.ds.get_job_by_id(job_id).await {
-            let secrets = job.secrets.unwrap_or_default();
+            let secrets = job
+                .secrets
+                .as_ref()
+                .map_or_else(std::collections::HashMap::new, |v| v.clone());
             on_read_task(&mut task, &secrets);
         }
     }
@@ -110,7 +113,7 @@ pub async fn get_task_log_handler(
     let qp = PaginationQuery::from_raw(raw);
     let page = qp.page()?;
     let size = qp.size(25, 100)?;
-    let q = qp.q.unwrap_or_default();
+    let q = qp.q.as_ref().map_or_else(String::new, |v| v.clone());
 
     let task = state.ds.get_task_by_id(&id).await.map_err(ApiError::from)?;
 
@@ -122,7 +125,10 @@ pub async fn get_task_log_handler(
 
     if let Some(ref job_id) = task.job_id {
         if let Ok(job) = state.ds.get_job_by_id(job_id).await {
-            let secrets = job.secrets.unwrap_or_default();
+            let secrets = job
+                .secrets
+                .as_ref()
+                .map_or_else(std::collections::HashMap::new, |v| v.clone());
             redact_task_log_parts(&mut parts.items, &secrets);
         }
     }

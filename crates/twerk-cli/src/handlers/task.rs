@@ -69,7 +69,9 @@ pub async fn task_get(endpoint: &str, task_id: &str, json_mode: bool) -> Result<
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
+            reason: status
+                .canonical_reason()
+                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
         });
     }
 
@@ -84,7 +86,7 @@ pub async fn task_get(endpoint: &str, task_id: &str, json_mode: bool) -> Result<
     if json_mode {
         println!("{}", body);
     } else {
-        println!("Task: {}", task.id.as_deref().unwrap_or("unknown"));
+        println!("Task: {}", task.id.as_deref().map_or("unknown", |s| s));
         if let Some(name) = &task.name {
             println!("Name: {}", name);
         }
@@ -145,7 +147,9 @@ pub async fn task_log(
     if !status.is_success() {
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
-            reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
+            reason: status
+                .canonical_reason()
+                .map_or_else(|| "Unknown".to_string(), |s| s.to_string()),
         });
     }
 

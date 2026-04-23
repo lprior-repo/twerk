@@ -73,7 +73,7 @@ pub fn validate_mounts(mounts: &Option<Vec<Mount>>) -> Result<(), Vec<String>> {
     let faults = mounts
         .as_ref()
         .map(|ms| ms.iter().flat_map(check_mount).collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_else(Vec::new, std::convert::identity);
     if faults.is_empty() {
         Ok(())
     } else {

@@ -35,7 +35,7 @@ pub async fn rate_limit_middleware(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let rps = NonZeroU32::new(config.rps.max(1)).unwrap_or(NonZeroU32::MIN);
+    let rps = NonZeroU32::new(config.rps.max(1)).map_or(NonZeroU32::MIN, |n| n);
     let limiter = RateLimiter::direct(Quota::per_second(rps));
 
     match limiter.check() {

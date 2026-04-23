@@ -70,34 +70,39 @@ impl ScheduledJobRecordExt for ScheduledJobRecord {
             .auto_delete
             .as_ref()
             .map(|bytes| {
-                serde_json::from_slice(bytes).map_err(|e| {
-                    DatastoreError::Serialization(format!("scheduled_job.auto_delete: {e}"))
+                serde_json::from_slice::<twerk_core::task::AutoDelete>(bytes).map_err(|e| {
+                    DatastoreError::Serialization(format!("scheduled_job.auto_delete: {e}",))
                 })
             })
-            .transpose()?
-            .unwrap_or_default();
+            .transpose()?;
 
-        let webhooks: Vec<Webhook> = self
+        let webhooks: Vec<Webhook> = match self
             .webhooks
             .as_ref()
             .map(|bytes| {
-                serde_json::from_slice(bytes).map_err(|e| {
-                    DatastoreError::Serialization(format!("scheduled_job.webhooks: {e}"))
+                serde_json::from_slice::<Vec<Webhook>>(bytes).map_err(|e| {
+                    DatastoreError::Serialization(format!("scheduled_job.webhooks: {e}",))
                 })
             })
-            .transpose()?
-            .unwrap_or_default();
+            .transpose()
+        {
+            Ok(opt) => opt.unwrap_or_else(Vec::new),
+            Err(e) => return Err(e),
+        };
 
-        let mut secrets: std::collections::HashMap<String, String> = self
+        let mut secrets: std::collections::HashMap<String, String> = match self
             .secrets
             .as_ref()
             .map(|bytes| {
-                serde_json::from_slice(bytes).map_err(|e| {
-                    DatastoreError::Serialization(format!("scheduled_job.secrets: {e}"))
-                })
+                serde_json::from_slice::<std::collections::HashMap<String, String>>(bytes).map_err(
+                    |e| DatastoreError::Serialization(format!("scheduled_job.secrets: {e}",)),
+                )
             })
-            .transpose()?
-            .unwrap_or_default();
+            .transpose()
+        {
+            Ok(opt) => opt.unwrap_or_else(std::collections::HashMap::new),
+            Err(e) => return Err(e),
+        };
 
         if !secrets.is_empty() {
             secrets = encrypt::decrypt_secrets(&secrets, encryption_key)?;
@@ -108,7 +113,10 @@ impl ScheduledJobRecordExt for ScheduledJobRecord {
             name: self.name.clone(),
             description: self.description.clone(),
             cron: self.cron_expr.clone(),
-            state: self.state.parse().unwrap_or_default(),
+            state: self
+                .state
+                .parse()
+                .map_or(twerk_core::job::ScheduledJobState::Active, |s| s),
             inputs,
             tasks: Some(tasks),
             created_by: Some(created_by),
@@ -131,5 +139,3 @@ impl ScheduledJobRecordExt for ScheduledJobRecord {
         })
     }
 }
-
-

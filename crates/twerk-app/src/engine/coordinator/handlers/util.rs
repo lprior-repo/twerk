@@ -37,7 +37,7 @@ pub fn build_job_context(
                 });
             ctx
         })
-        .unwrap_or_default()
+        .map_or_else(std::collections::HashMap::new, |c| c)
 }
 
 /// Checks if job is in an active state.

@@ -130,17 +130,15 @@ pub fn create_hostenv_middleware_from_config() -> Option<TaskMiddlewareFunc> {
 mod tests {
     use super::*;
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn parse_var_spec_single_host_var() {
-        let result = parse_var_spec("HOME").expect("parse should succeed");
+        let result = parse_var_spec("HOME").unwrap();
         assert_eq!(result, ("HOME".to_string(), "HOME".to_string()));
     }
 
-    #[allow(clippy::expect_used)]
     #[test]
     fn parse_var_spec_with_task_mapping() {
-        let result = parse_var_spec("HOST_PATH:PATH").expect("parse should succeed");
+        let result = parse_var_spec("HOST_PATH:PATH").unwrap();
         assert_eq!(result, ("HOST_PATH".to_string(), "PATH".to_string()));
     }
 

@@ -17,10 +17,10 @@ pub use crate::domain::{CronExpression, CronExpressionError, GoDuration, GoDurat
 pub use crate::id::{IdError, TriggerId};
 
 // Re-export all public items at module root for backward compatibility.
+pub use cron_trigger::CronTrigger;
 pub use error::TriggerDataError;
 pub use http_method::HttpMethod;
-pub use webhook_auth::WebhookAuth;
-pub use cron_trigger::CronTrigger;
-pub use webhook_trigger::WebhookTrigger;
 pub use polling_trigger::PollingTrigger;
 pub use trigger_enum::Trigger;
+pub use webhook_auth::WebhookAuth;
+pub use webhook_trigger::WebhookTrigger;

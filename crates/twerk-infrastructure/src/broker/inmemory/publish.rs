@@ -44,8 +44,7 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
     let handlers: Vec<super::TaskHandler> = broker
         .handlers
         .get(qname)
-        .map(|entry| entry.value().clone())
-        .unwrap_or_default();
+        .map_or_else(Vec::new, |entry| entry.value().clone());
 
     // Invoke all registered handlers for this queue
     for handler in handlers {
@@ -77,8 +76,7 @@ pub(crate) fn tasks(
     let handlers: Vec<super::TaskHandler> = broker
         .handlers
         .get(qname)
-        .map(|entry| entry.value().clone())
-        .unwrap_or_default();
+        .map_or_else(Vec::new, |entry| entry.value().clone());
 
     Box::pin(async move {
         // Invoke all registered handlers for each task
@@ -90,7 +88,7 @@ pub(crate) fn tasks(
                 }
             }
             futures_util::stream::iter(jobs)
-                .for_each_concurrent(None, |(handler, task)| async move {
+                .for_each_concurrent(16, |(handler, task)| async move {
                     if let Err(e) = handler(task).await {
                         warn!(error = %e, "batch task handler failed");
                     }
@@ -143,7 +141,7 @@ pub(crate) fn job(broker: &InMemoryBroker, job: &Job) -> BoxedFuture<()> {
     let handlers = broker.job_handlers.clone();
     Box::pin(async move {
         let handlers = handlers.read().await;
-        let job_id = job.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
+        let job_id = job.id.as_deref().map_or(DEFAULT_TASK_NAME, |s| s);
         debug!("Publishing job {} to {} handlers", job_id, handlers.len());
         for handler in handlers.iter() {
             let job_clone = job.clone();

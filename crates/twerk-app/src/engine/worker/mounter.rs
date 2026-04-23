@@ -83,7 +83,7 @@ impl BindMounter {
 impl Mounter for BindMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
         let policy = self.cfg.policy.clone();
-        let source = mnt.source.clone().unwrap_or_default();
+        let source = mnt.source.clone().map_or_else(String::new, |s| s);
 
         Box::pin(async move {
             let sources = match policy {
@@ -101,12 +101,12 @@ impl Mounter for BindMounter {
             // Create source directory if it doesn't exist
             let src_path = std::path::Path::new(&source);
             if !src_path.exists() {
-                tokio::fs::create_dir_all(src_path)
-                    .await
-                    .map_err(|e| MounterError::MountDirCreation {
+                tokio::fs::create_dir_all(src_path).await.map_err(|e| {
+                    MounterError::MountDirCreation {
                         dir: source.clone(),
                         err: e.to_string(),
-                    })?;
+                    }
+                })?;
                 debug!("Created bind mount: {source}");
             }
 
@@ -133,7 +133,7 @@ impl VolumeMounter {
 
 impl Mounter for VolumeMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
-        let id = mnt.id.clone().unwrap_or_default();
+        let id = mnt.id.clone().map_or_else(String::new, |id| id);
         Box::pin(async move {
             if id.is_empty() {
                 return Err(MounterError::MissingMountId.into());
@@ -161,8 +161,8 @@ impl TmpfsMounter {
 
 impl Mounter for TmpfsMounter {
     fn mount(&self, mnt: &Mount) -> BoxedFuture<()> {
-        let target = mnt.target.clone().unwrap_or_default();
-        let source = mnt.source.clone().unwrap_or_default();
+        let target = mnt.target.clone().map_or_else(String::new, |t| t);
+        let source = mnt.source.clone().map_or_else(String::new, |s| s);
         Box::pin(async move {
             if target.is_empty() {
                 return Err(MounterError::TmpfsTargetRequired.into());

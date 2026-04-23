@@ -92,10 +92,10 @@ pub struct Mount {
 impl From<&CoreMount> for Mount {
     fn from(m: &CoreMount) -> Self {
         Mount {
-            id: m.id.clone().unwrap_or_default(),
+            id: m.id.clone().map_or_else(String::new, |v| v),
             mount_type: MountType::from(m.mount_type.as_deref()),
-            source: m.source.clone().unwrap_or_default(),
-            target: m.target.clone().unwrap_or_default(),
+            source: m.source.clone().map_or_else(String::new, |v| v),
+            target: m.target.clone().map_or_else(String::new, |v| v),
             opts: m.opts.clone(),
         }
     }

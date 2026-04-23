@@ -3,9 +3,9 @@
 //! Validates task fields (timeout, queue, retry, priority), structure
 //! (parallel/each/subjob constraints), and expressions (var names, each lists).
 
-use super::{fault_messages, push_fault, ValidationFault, ValidationKind};
 use super::primitives::{parse_duration, parse_priority, parse_queue_name, parse_retry};
 use super::webhook::check_subjob_webhooks;
+use super::{fault_messages, push_fault, ValidationFault, ValidationKind};
 use crate::task::Task;
 
 /// Validate a task's timeout, queue, retry, and priority fields.

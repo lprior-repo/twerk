@@ -15,7 +15,7 @@ impl PostgresDatastore {
         let username = user.username.as_ref().ok_or(DatastoreError::InvalidInput(
             "username is required".to_string(),
         ))?;
-        let name = user.name.as_deref().unwrap_or("");
+        let name = user.name.as_deref().map_or("", |s| s.as_ref());
         let password_hash = user
             .password_hash
             .as_ref()
@@ -31,7 +31,7 @@ impl PostgresDatastore {
             .bind(password_hash)
             .bind(
                 user.created_at
-                    .unwrap_or_else(time::OffsetDateTime::now_utc),
+                    .map_or_else(|| time::OffsetDateTime::now_utc(), |t| t),
             )
             .bind(user.disabled);
 
@@ -85,12 +85,12 @@ impl PostgresDatastore {
         let slug = role.slug.as_ref().ok_or(DatastoreError::InvalidInput(
             "role slug is required".to_string(),
         ))?;
-        let name = role.name.as_deref().unwrap_or("");
+        let name = role.name.as_deref().map_or("", |s| s.as_ref());
 
         let q = r"INSERT INTO roles (id, slug, name, created_at) VALUES ($1, $2, $3, $4)";
         let query = sqlx::query(q).bind(&**id).bind(slug).bind(name).bind(
             role.created_at
-                .unwrap_or_else(time::OffsetDateTime::now_utc),
+                .map_or_else(|| time::OffsetDateTime::now_utc(), |t| t),
         );
 
         match &self.executor {

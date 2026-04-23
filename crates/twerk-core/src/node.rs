@@ -16,12 +16,8 @@ pub enum NodeStatus {
 }
 
 impl From<&str> for NodeStatus {
-    fn from(s: &str) -> Self {
-        match s.to_uppercase().as_str() {
-            "UP" => NodeStatus::UP,
-            "DOWN" => NodeStatus::DOWN,
-            _ => NodeStatus::OFFLINE,
-        }
+    fn from(_s: &str) -> Self {
+        Default::default() /* ~ changed by cargo-mutants ~ */
     }
 }
 

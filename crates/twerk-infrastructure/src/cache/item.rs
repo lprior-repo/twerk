@@ -110,8 +110,6 @@ impl<V: Clone> Clone for Item<V> {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]

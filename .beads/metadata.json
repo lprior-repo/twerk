@@ -1,1 +1,9 @@
-{"backend":"dolt","database":"dolt","dolt_database":"twerk","dolt_mode":"server","dolt_server_host":"127.0.0.1","dolt_server_port":3307}
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_server_host": "127.0.0.1",
+  "dolt_server_port": 3307,
+  "dolt_database": "twerk",
+  "project_id": "c00129dd-638c-4c65-935f-0a2c1b4b7309"
+}

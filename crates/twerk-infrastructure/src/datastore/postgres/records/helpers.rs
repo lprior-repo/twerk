@@ -10,10 +10,9 @@ pub fn try_str_to_task_state(s: &str) -> Result<TaskState, DatastoreError> {
 }
 
 /// Helper to convert a string slice to `TaskState`.
+///
+/// Returns `TaskState::Created` as a safe default for unknown values.
 #[must_use]
 pub fn str_to_task_state(s: &str) -> TaskState {
-    match try_str_to_task_state(s) {
-        Ok(state) => state,
-        Err(err) => panic!("{err}"),
-    }
+    try_str_to_task_state(s).unwrap_or(TaskState::Created)
 }

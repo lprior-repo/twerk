@@ -9,7 +9,7 @@ use axum::middleware::Next;
 use axum::response::Response;
 use std::sync::Arc;
 use std::time::Instant;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{debug, error, info, Instrument};
 use twerk_infrastructure::config;
 
@@ -23,12 +23,17 @@ pub fn cors_layer() -> CorsLayer {
     let allow_credentials = config::bool_default("middleware.web.cors.credentials", false);
     debug!("CORS middleware enabled");
 
-    CorsLayer::new()
-        .allow_origin(Any)
+    let cors = CorsLayer::new()
         .allow_methods(Any)
         .allow_headers(Any)
         .expose_headers(Any)
-        .allow_credentials(allow_credentials)
+        .allow_credentials(allow_credentials);
+
+    if allow_credentials {
+        cors.allow_origin(AllowOrigin::mirror_request())
+    } else {
+        cors.allow_origin(Any)
+    }
 }
 
 // ── HTTP Logging Middleware ────────────────────────────────────

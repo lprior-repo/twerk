@@ -88,8 +88,8 @@ fn test_decrypt_invalid_base64_fails() {
 #[allow(clippy::redundant_pattern_matching)]
 #[test]
 fn test_decrypt_short_ciphertext_fails() {
-    // base64 of less than 12 bytes
-    let short = base64::engine::general_purpose::STANDARD.encode([0u8; 8]);
+    // base64 of less than SALT_LEN (16) + nonce (12) = 28 bytes
+    let short = base64::engine::general_purpose::STANDARD.encode([0u8; 20]);
     let result = decrypt(&short, "key");
     assert!(matches!(result, Err(_)));
 }

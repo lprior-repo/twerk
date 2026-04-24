@@ -67,6 +67,8 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
         (status = 404, description = "Node not found", body = MessageResponse, content_type = "application/json")
     )
 )]
+/// # Errors
+/// Returns `ApiError` if the node is not found or if there is an error retrieving it.
 #[instrument(name = "get_node_handler", skip_all)]
 pub async fn get_node_handler(
     State(state): State<AppState>,

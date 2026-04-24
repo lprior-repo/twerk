@@ -11,7 +11,7 @@ use twerk_core::stats::Metrics;
 use super::super::domain::{Password, PasswordError, Username, UsernameError};
 use super::super::error::ApiError;
 use super::super::openapi_types::{HealthResponse, MessageResponse};
-use super::{AppState, VERSION};
+use super::{extract_current_user, AppState, VERSION};
 use tracing::instrument;
 use utoipa::ToSchema;
 
@@ -117,6 +117,8 @@ fn password_error_to_string(err: &PasswordError) -> String {
     }
 }
 
+const ROLE_ADMIN: &str = "admin";
+
 /// POST /users
 ///
 /// # Errors
@@ -126,14 +128,41 @@ fn password_error_to_string(err: &PasswordError) -> String {
     request_body = CreateUserBody,
     responses(
         (status = 200, description = "User created"),
-        (status = 400, description = "Missing username or password", body = MessageResponse, content_type = "application/json")
+        (status = 400, description = "Missing username or password", body = MessageResponse, content_type = "application/json"),
+        (status = 401, description = "Authentication required", body = MessageResponse, content_type = "application/json"),
+        (status = 403, description = "Admin role required", body = MessageResponse, content_type = "application/json")
     )
 )]
 #[instrument(name = "create_user_handler", skip_all)]
 pub async fn create_user_handler(
     State(state): State<AppState>,
     axum::Json(body): axum::Json<CreateUserBody>,
+    req: axum::extract::Request,
 ) -> Result<Response, ApiError> {
+    let current_user = extract_current_user(&req);
+    if current_user.is_empty() {
+        return Err(ApiError::unauthorized("authentication required"));
+    }
+    let current_user_obj = state
+        .ds
+        .get_user(&current_user)
+        .await
+        .map_err(ApiError::from)?;
+    let user_id = current_user_obj
+        .id
+        .as_ref()
+        .ok_or_else(|| ApiError::internal("user id not found"))?
+        .as_str();
+    let roles = state
+        .ds
+        .get_user_roles(user_id)
+        .await
+        .map_err(ApiError::from)?;
+    let is_admin = roles.iter().any(|r| r.slug.as_deref() == Some(ROLE_ADMIN));
+    if !is_admin {
+        return Err(ApiError::forbidden("admin role required"));
+    }
+
     let username = body
         .username
         .ok_or_else(|| ApiError::bad_request("username is required"))?;

@@ -14,6 +14,10 @@ pub enum ApiError {
     #[error("{0}")]
     NotFound(String),
     #[error("{0}")]
+    Forbidden(String),
+    #[error("{0}")]
+    Unauthorized(String),
+    #[error("{0}")]
     Internal(String),
 }
 
@@ -26,6 +30,14 @@ impl ApiError {
         Self::NotFound(msg.into())
     }
 
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Self::Forbidden(msg.into())
+    }
+
+    pub fn unauthorized(msg: impl Into<String>) -> Self {
+        Self::Unauthorized(msg.into())
+    }
+
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
     }
@@ -36,6 +48,8 @@ impl IntoResponse for ApiError {
         let (status, msg) = match self {
             Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            Self::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
+            Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             Self::Internal(msg) => {
                 error!(error = %msg, "internal server error");
                 (

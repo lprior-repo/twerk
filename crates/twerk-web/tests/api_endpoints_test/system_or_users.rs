@@ -144,13 +144,13 @@ async fn get_metrics_returns_metrics() {
 }
 
 #[tokio::test]
-async fn create_user_returns_ok_with_valid_credentials() {
+async fn create_user_returns_401_without_authentication() {
     let response = post_json(
         "/users",
         &json!({"username": "testuser", "password": "testpassword"}),
     )
     .await;
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

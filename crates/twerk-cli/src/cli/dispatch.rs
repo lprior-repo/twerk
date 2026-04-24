@@ -207,8 +207,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             let ep = get_endpoint()?;
             let ep_str = ep.as_str();
             match command {
-                UserCommand::Create { username } => {
-                    handlers::user::user_create(ep_str, &username, json_mode).await?;
+                UserCommand::Create { username, password } => {
+                    handlers::user::user_create(ep_str, &username, &password, json_mode).await?;
                 }
             }
             Ok(())

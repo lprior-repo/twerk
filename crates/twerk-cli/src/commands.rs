@@ -138,6 +138,9 @@ pub enum UserCommand {
         /// The username for the new user
         #[arg(required = true)]
         username: String,
+        /// The password for the new user
+        #[arg(required = true)]
+        password: String,
     },
 }
 

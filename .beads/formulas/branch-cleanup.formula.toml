@@ -1,0 +1,42 @@
+name = "branch-cleanup"
+version = "1.0.0"
+description = "Bulk-delete stale remote branches (polecat/*, tw-polecat/*, fix/*, temp-*, test-*, final-*, merge-*)"
+tier = "project"
+
+[[steps]]
+id = "dry-run"
+title = "Dry-run branch cleanup"
+description = "Run cleanup-branches.sh in dry-run mode to preview deletions"
+
+[[steps.checklist]]
+item = "Run: ./scripts/cleanup-branches.sh"
+exit = "Shows list of branches to delete and skips"
+
+[[steps]]
+id = "review"
+title = "Review unmerged branches"
+description = "Check if any unmerged branches should be force-deleted"
+optional = true
+
+[[steps.checklist]]
+item = "Review skipped (unmerged) branches in dry-run output"
+item = "If safe to delete all, proceed with --force; otherwise just delete merged"
+
+[[steps]]
+id = "execute"
+title = "Execute cleanup"
+description = "Delete merged branches (safe mode)"
+
+[[steps.checklist]]
+item = "Run: ./scripts/cleanup-branches.sh --run"
+exit = "Branches deleted and remote pruned"
+
+[[steps]]
+id = "force-execute"
+title = "Force cleanup (optional)"
+description = "Delete ALL matching branches including unmerged"
+optional = true
+
+[[steps.checklist]]
+item = "Run: ./scripts/cleanup-branches.sh --run --force"
+exit = "All matching branches deleted"

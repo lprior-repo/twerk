@@ -8,8 +8,7 @@
 //! | 2 | cli | `DEFAULT_DATASTORE_TYPE = "postgres"` | cli.rs:24 |
 //! | 3 | cli | `setup_logging()` parses valid log levels without error | cli.rs:53 |
 //! | 4 | cli | `setup_logging()` returns `CliError::Logging` for invalid level | cli.rs:58 |
-//! | 5 | commands | `Commands::Run { mode }` accepts standalone/coordinator/worker | commands.rs:27-35 |
-//! | 6 | commands | `Commands::Migration { yes: bool }` skips confirmation | commands.rs:47-50 |
+//! | 5 | commands | `Commands::ServerStart { mode }` accepts standalone/coordinator/worker | commands.rs:27-35 |
 //! | 7 | commands | `Commands::Health { endpoint }` accepts optional endpoint | commands.rs:53-57 |
 //! | 8 | commands | `Cli --json` global flag enables JSON output mode | commands.rs:17-19 |
 //! | 9 | commands | `--version` short-circuits with DisplayVersion error | commands.rs |
@@ -109,34 +108,24 @@ fn claim_7_version_flag_returns_display_version_error() {
 }
 
 #[test]
-fn claim_8_run_command_accepts_standalone_mode() {
-    let args = vec!["twerk", "run", "standalone"];
+fn claim_8_server_start_command_accepts_standalone_mode() {
+    let args = vec!["twerk", "server-start", "standalone"];
     let cli = Cli::try_parse_from(args).expect("standalone mode should be accepted");
-    assert!(matches!(cli.command, Some(Commands::Run { .. })));
+    assert!(matches!(cli.command, Some(Commands::ServerStart { .. })));
 }
 
 #[test]
-fn claim_9_run_command_accepts_coordinator_mode() {
-    let args = vec!["twerk", "run", "coordinator"];
+fn claim_9_server_start_command_accepts_coordinator_mode() {
+    let args = vec!["twerk", "server-start", "coordinator"];
     let cli = Cli::try_parse_from(args).expect("coordinator mode should be accepted");
-    assert!(matches!(cli.command, Some(Commands::Run { .. })));
+    assert!(matches!(cli.command, Some(Commands::ServerStart { .. })));
 }
 
 #[test]
-fn claim_10_run_command_accepts_worker_mode() {
-    let args = vec!["twerk", "run", "worker"];
+fn claim_10_server_start_command_accepts_worker_mode() {
+    let args = vec!["twerk", "server-start", "worker"];
     let cli = Cli::try_parse_from(args).expect("worker mode should be accepted");
-    assert!(matches!(cli.command, Some(Commands::Run { .. })));
-}
-
-#[test]
-fn claim_11_migration_command_accepts_yes_flag() {
-    let args = vec!["twerk", "migration", "--yes"];
-    let cli = Cli::try_parse_from(args).unwrap();
-    match cli.command {
-        Some(Commands::Migration { yes }) => assert!(yes, "migration --yes should set yes=true"),
-        other => panic!("expected Migration, got {:?}", other),
-    }
+    assert!(matches!(cli.command, Some(Commands::ServerStart { .. })));
 }
 
 #[test]

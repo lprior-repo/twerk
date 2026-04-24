@@ -6,29 +6,28 @@ use std::ffi::OsString;
 use twerk_core::domain::Endpoint;
 
 use crate::commands::{
-    Cli, Commands, MetricsCommand, NodeCommand, QueueCommand, TaskCommand, TriggerCommand,
-    UserCommand,
+    Cli, Commands, JobCommand, MetricsCommand, NodeCommand, QueueCommand,
+    ScheduledJobCommand, TaskCommand, TriggerCommand, UserCommand,
 };
 use crate::error::CliError;
 use crate::handlers;
 use crate::health::health_check;
-use crate::migrate::run_migration;
 use crate::run::run_engine;
 
 use super::help::{
     clap_error_kind_name, detect_help_variant, json_error_payload, json_help_payload,
     json_version_payload, print_json, render_help_for_path, HelpVariant,
 };
-use super::{get_datastore_type, get_endpoint, get_postgres_dsn, json_requested, os_string_eq};
+use super::{get_endpoint, json_requested, os_string_eq};
 
-/// Convert a Commands enum variant to its string name
 #[allow(dead_code)]
 const fn command_name(cmd: &Commands) -> &'static str {
     match cmd {
-        Commands::Run { .. } => "run",
-        Commands::Migration { .. } => "migration",
+        Commands::ServerStart { .. } => "server start",
         Commands::Health { .. } => "health",
         Commands::Version => "version",
+        Commands::Job { .. } => "job",
+        Commands::ScheduledJob { .. } => "scheduled-job",
         Commands::Task { .. } => "task",
         Commands::Queue { .. } => "queue",
         Commands::Trigger { .. } => "trigger",
@@ -100,12 +99,7 @@ pub(super) fn handle_json_help_subcommand(args: &[OsString]) -> Option<i32> {
 
 pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Result<(), CliError> {
     match command {
-        Commands::Run { mode, hostname } => run_engine(mode, hostname).await,
-        Commands::Migration { yes: _ } => {
-            let dstype = get_datastore_type();
-            let dsn = get_postgres_dsn()?;
-            run_migration(&dstype, dsn.as_str()).await
-        }
+        Commands::ServerStart { mode, hostname } => run_engine(mode, hostname).await,
         Commands::Health { endpoint } => {
             let ep = if let Some(ep_str) = endpoint {
                 Endpoint::new(ep_str)
@@ -121,6 +115,56 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
                 print_json(&json_version_payload(content));
             } else {
                 println!("twerk {}", super::VERSION);
+            }
+            Ok(())
+        }
+        Commands::Job { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                JobCommand::List => {
+                    handlers::job::job_list(ep_str, json_mode).await?;
+                }
+                JobCommand::Create { body } => {
+                    handlers::job::job_create(ep_str, &body, json_mode).await?;
+                }
+                JobCommand::Get { id } => {
+                    handlers::job::job_get(ep_str, &id, json_mode).await?;
+                }
+                JobCommand::Log { id } => {
+                    handlers::job::job_log(ep_str, &id, json_mode).await?;
+                }
+                JobCommand::Cancel { id } => {
+                    handlers::job::job_cancel(ep_str, &id, json_mode).await?;
+                }
+                JobCommand::Restart { id } => {
+                    handlers::job::job_restart(ep_str, &id, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::ScheduledJob { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                ScheduledJobCommand::List => {
+                    handlers::scheduled_job::scheduled_job_list(ep_str, json_mode).await?;
+                }
+                ScheduledJobCommand::Create { body } => {
+                    handlers::scheduled_job::scheduled_job_create(ep_str, &body, json_mode).await?;
+                }
+                ScheduledJobCommand::Get { id } => {
+                    handlers::scheduled_job::scheduled_job_get(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Delete { id } => {
+                    handlers::scheduled_job::scheduled_job_delete(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Pause { id } => {
+                    handlers::scheduled_job::scheduled_job_pause(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Resume { id } => {
+                    handlers::scheduled_job::scheduled_job_resume(ep_str, &id, json_mode).await?;
+                }
             }
             Ok(())
         }
@@ -181,9 +225,6 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             match command {
                 NodeCommand::List => {
                     handlers::node::node_list(ep_str, json_mode).await?;
-                }
-                NodeCommand::Get { id } => {
-                    handlers::node::node_get(ep_str, &id, json_mode).await?;
                 }
             }
             Ok(())
@@ -255,17 +296,17 @@ mod tests {
     }
 
     #[test]
-    fn parse_cli_args_returns_run_command_for_coordinator_mode() {
+    fn parse_cli_args_returns_server_start_command_for_coordinator_mode() {
         let args = vec![
             OsString::from("twerk"),
-            OsString::from("run"),
+            OsString::from("server-start"),
             OsString::from("coordinator"),
         ];
 
         assert!(matches!(
             parse_cli_args(&args),
             Ok(CliAction::Execute(
-                Some(Commands::Run {
+                Some(Commands::ServerStart {
                     mode: crate::commands::RunMode::Coordinator,
                     hostname: None
                 }),

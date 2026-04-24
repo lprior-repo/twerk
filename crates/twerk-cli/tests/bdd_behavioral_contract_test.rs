@@ -196,22 +196,22 @@ mod bdd_commands_enum {
         use super::*;
 
         #[test]
-        fn then_commands_default_is_run_standalone() {
+        fn then_commands_default_is_server_start_standalone() {
             let default: Commands = Commands::default();
-            assert!(matches!(default, Commands::Run { .. }));
+            assert!(matches!(default, Commands::ServerStart { .. }));
         }
     }
 
-    mod given_commands_run_variant {
+    mod given_commands_server_start_variant {
         use super::*;
 
         #[test]
-        fn then_run_variant_contains_mode() {
-            let cmd = Commands::Run {
+        fn then_server_start_variant_contains_mode() {
+            let cmd = Commands::ServerStart {
                 mode: twerk_cli::commands::RunMode::Standalone,
                 hostname: None,
             };
-            assert!(matches!(cmd, Commands::Run { .. }));
+            assert!(matches!(cmd, Commands::ServerStart { .. }));
         }
     }
 
@@ -230,22 +230,6 @@ mod bdd_commands_enum {
         fn then_health_variant_endpoint_is_optional() {
             let cmd = Commands::Health { endpoint: None };
             assert!(matches!(cmd, Commands::Health { .. }));
-        }
-    }
-
-    mod given_commands_migration_variant {
-        use super::*;
-
-        #[test]
-        fn then_migration_variant_accepts_yes_flag() {
-            let cmd = Commands::Migration { yes: true };
-            assert!(matches!(cmd, Commands::Migration { .. }));
-        }
-
-        #[test]
-        fn then_migration_variant_yes_defaults_to_false() {
-            let cmd = Commands::Migration { yes: false };
-            assert!(matches!(cmd, Commands::Migration { .. }));
         }
     }
 }
@@ -294,29 +278,27 @@ mod bdd_completeness_check {
         use twerk_cli::commands::RunMode;
         let variants = [
             Commands::default(),
-            Commands::Run {
+            Commands::ServerStart {
                 mode: RunMode::Standalone,
                 hostname: None,
             },
-            Commands::Run {
+            Commands::ServerStart {
                 mode: RunMode::Coordinator,
                 hostname: None,
             },
-            Commands::Run {
+            Commands::ServerStart {
                 mode: RunMode::Worker,
                 hostname: None,
             },
             Commands::Health { endpoint: None },
-            Commands::Migration { yes: false },
         ];
 
-        assert_eq!(variants.len(), 6);
-        assert!(matches!(variants[0], Commands::Run { .. }));
-        assert!(matches!(variants[1], Commands::Run { .. }));
-        assert!(matches!(variants[2], Commands::Run { .. }));
-        assert!(matches!(variants[3], Commands::Run { .. }));
+        assert_eq!(variants.len(), 5);
+        assert!(matches!(variants[0], Commands::ServerStart { .. }));
+        assert!(matches!(variants[1], Commands::ServerStart { .. }));
+        assert!(matches!(variants[2], Commands::ServerStart { .. }));
+        assert!(matches!(variants[3], Commands::ServerStart { .. }));
         assert!(matches!(variants[4], Commands::Health { .. }));
-        assert!(matches!(variants[5], Commands::Migration { .. }));
     }
 }
 

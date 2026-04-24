@@ -262,6 +262,7 @@ mod tests {
         let _git = GIT_COMMIT;
     }
 
+    #[allow(clippy::panic)]
     #[test]
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");

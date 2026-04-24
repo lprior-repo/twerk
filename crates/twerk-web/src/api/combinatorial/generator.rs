@@ -8,7 +8,7 @@ pub struct CombinatorialGenerator {
 
 impl CombinatorialGenerator {
     #[must_use]
-    pub fn from_spec(spec: OpenApiSpec) -> Self {
+    pub const fn from_spec(spec: OpenApiSpec) -> Self {
         Self { spec }
     }
 

@@ -21,11 +21,11 @@ impl<'de> Deserialize<'de> for WaitMode {
         }
 
         match WaitModeHelper::deserialize(deserializer)? {
-            WaitModeHelper::Bool(true) => Ok(WaitMode::Blocking),
-            WaitModeHelper::Bool(false) => Ok(WaitMode::Detached),
+            WaitModeHelper::Bool(true) => Ok(Self::Blocking),
+            WaitModeHelper::Bool(false) => Ok(Self::Detached),
             WaitModeHelper::String(value) => match value.to_lowercase().as_str() {
-                "blocking" | "true" | "1" | "yes" => Ok(WaitMode::Blocking),
-                _ => Ok(WaitMode::Detached),
+                "blocking" | "true" | "1" | "yes" => Ok(Self::Blocking),
+                _ => Ok(Self::Detached),
             },
         }
     }

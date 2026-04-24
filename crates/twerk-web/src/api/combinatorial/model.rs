@@ -85,9 +85,9 @@ pub struct Schema {
     #[serde(default)]
     pub format: Option<String>,
     #[serde(default)]
-    pub properties: HashMap<String, Schema>,
+    pub properties: HashMap<String, Self>,
     #[serde(default)]
-    pub items: Option<Box<Schema>>,
+    pub items: Option<Box<Self>>,
     #[serde(default)]
     pub required: Vec<String>,
     #[serde(default)]

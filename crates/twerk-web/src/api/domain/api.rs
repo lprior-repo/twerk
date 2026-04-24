@@ -28,7 +28,7 @@ use thiserror::Error;
 #[serde(transparent)]
 pub struct ServerAddress(String);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ServerAddressError {
     #[error("address must contain a host:port separator")]
     MissingSeparator,
@@ -129,7 +129,7 @@ impl ContentType {
 
     /// Returns true if this content type is supported for request bodies.
     #[must_use]
-    pub fn is_supported(&self) -> bool {
+    pub const fn is_supported(&self) -> bool {
         matches!(self, Self::Json | Self::Yaml)
     }
 }
@@ -178,7 +178,7 @@ impl ApiFeature {
 
     /// Returns the default enabled state for this feature.
     #[must_use]
-    pub fn default_enabled(&self) -> bool {
+    pub const fn default_enabled(&self) -> bool {
         matches!(self, Self::Health)
     }
 }

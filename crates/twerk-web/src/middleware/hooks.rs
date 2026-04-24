@@ -84,18 +84,18 @@ pub enum JobContext {
 
 impl JobContext {
     #[must_use]
-    pub fn is_cancelled(&self) -> bool {
-        matches!(self, JobContext::Cancelled)
+    pub const fn is_cancelled(&self) -> bool {
+        matches!(self, Self::Cancelled)
     }
     #[must_use]
-    pub fn is_deadline_exceeded(&self) -> bool {
-        matches!(self, JobContext::DeadlineExceeded)
+    pub const fn is_deadline_exceeded(&self) -> bool {
+        matches!(self, Self::DeadlineExceeded)
     }
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&str> {
         match self {
-            JobContext::Values(vals) => vals.get(key).map(String::as_str),
-            JobContext::Cancelled | JobContext::DeadlineExceeded => None,
+            Self::Values(vals) => vals.get(key).map(String::as_str),
+            Self::Cancelled | Self::DeadlineExceeded => None,
         }
     }
 }
@@ -109,18 +109,18 @@ pub enum TaskContext {
 
 impl TaskContext {
     #[must_use]
-    pub fn is_cancelled(&self) -> bool {
-        matches!(self, TaskContext::Cancelled)
+    pub const fn is_cancelled(&self) -> bool {
+        matches!(self, Self::Cancelled)
     }
     #[must_use]
-    pub fn is_deadline_exceeded(&self) -> bool {
-        matches!(self, TaskContext::DeadlineExceeded)
+    pub const fn is_deadline_exceeded(&self) -> bool {
+        matches!(self, Self::DeadlineExceeded)
     }
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&str> {
         match self {
-            TaskContext::Values(vals) => vals.get(key).map(String::as_str),
-            TaskContext::Cancelled | TaskContext::DeadlineExceeded => None,
+            Self::Values(vals) => vals.get(key).map(String::as_str),
+            Self::Cancelled | Self::DeadlineExceeded => None,
         }
     }
 }

@@ -20,7 +20,7 @@
 use std::error::Error;
 use twerk_cli::{
     cli::{DEFAULT_DATASTORE_TYPE, DEFAULT_ENDPOINT, VERSION},
-    commands::Commands,
+    commands::{Commands, ServerCommand},
     error::CliError,
 };
 
@@ -198,20 +198,32 @@ mod bdd_commands_enum {
         #[test]
         fn then_commands_default_is_server_start_standalone() {
             let default: Commands = Commands::default();
-            assert!(matches!(default, Commands::ServerStart { .. }));
+            assert!(matches!(
+                default,
+                Commands::Server {
+                    command: ServerCommand::Start { .. },
+                }
+            ));
         }
     }
 
-    mod given_commands_server_start_variant {
+    mod given_commands_server_variant {
         use super::*;
 
         #[test]
         fn then_server_start_variant_contains_mode() {
-            let cmd = Commands::ServerStart {
-                mode: twerk_cli::commands::RunMode::Standalone,
-                hostname: None,
+            let cmd = Commands::Server {
+                command: ServerCommand::Start {
+                    mode: twerk_cli::commands::RunMode::Standalone,
+                    hostname: None,
+                },
             };
-            assert!(matches!(cmd, Commands::ServerStart { .. }));
+            assert!(matches!(
+                cmd,
+                Commands::Server {
+                    command: ServerCommand::Start { .. },
+                }
+            ));
         }
     }
 
@@ -230,6 +242,22 @@ mod bdd_commands_enum {
         fn then_health_variant_endpoint_is_optional() {
             let cmd = Commands::Health { endpoint: None };
             assert!(matches!(cmd, Commands::Health { .. }));
+        }
+    }
+
+    mod given_commands_migration_variant {
+        use super::*;
+
+        #[test]
+        fn then_migration_variant_accepts_yes_flag() {
+            let cmd = Commands::Migration { yes: true };
+            assert!(matches!(cmd, Commands::Migration { .. }));
+        }
+
+        #[test]
+        fn then_migration_variant_yes_defaults_to_false() {
+            let cmd = Commands::Migration { yes: false };
+            assert!(matches!(cmd, Commands::Migration { .. }));
         }
     }
 }
@@ -275,30 +303,58 @@ mod bdd_completeness_check {
 
     #[test]
     fn then_commands_enum_variants_are_constructible() {
-        use twerk_cli::commands::RunMode;
+        use twerk_cli::commands::{RunMode, ServerCommand};
         let variants = [
             Commands::default(),
-            Commands::ServerStart {
-                mode: RunMode::Standalone,
-                hostname: None,
+            Commands::Server {
+                command: ServerCommand::Start {
+                    mode: RunMode::Standalone,
+                    hostname: None,
+                },
             },
-            Commands::ServerStart {
-                mode: RunMode::Coordinator,
-                hostname: None,
+            Commands::Server {
+                command: ServerCommand::Start {
+                    mode: RunMode::Coordinator,
+                    hostname: None,
+                },
             },
-            Commands::ServerStart {
-                mode: RunMode::Worker,
-                hostname: None,
+            Commands::Server {
+                command: ServerCommand::Start {
+                    mode: RunMode::Worker,
+                    hostname: None,
+                },
             },
             Commands::Health { endpoint: None },
+            Commands::Migration { yes: false },
         ];
 
-        assert_eq!(variants.len(), 5);
-        assert!(matches!(variants[0], Commands::ServerStart { .. }));
-        assert!(matches!(variants[1], Commands::ServerStart { .. }));
-        assert!(matches!(variants[2], Commands::ServerStart { .. }));
-        assert!(matches!(variants[3], Commands::ServerStart { .. }));
+        assert_eq!(variants.len(), 6);
+        assert!(matches!(
+            variants[0],
+            Commands::Server {
+                command: ServerCommand::Start { .. },
+            }
+        ));
+        assert!(matches!(
+            variants[1],
+            Commands::Server {
+                command: ServerCommand::Start { .. },
+            }
+        ));
+        assert!(matches!(
+            variants[2],
+            Commands::Server {
+                command: ServerCommand::Start { .. },
+            }
+        ));
+        assert!(matches!(
+            variants[3],
+            Commands::Server {
+                command: ServerCommand::Start { .. },
+            }
+        ));
         assert!(matches!(variants[4], Commands::Health { .. }));
+        assert!(matches!(variants[5], Commands::Migration { .. }));
     }
 }
 

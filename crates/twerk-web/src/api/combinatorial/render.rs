@@ -53,7 +53,7 @@ async fn {}() {{
         })
 }
 
-fn variant_name(variation: &InputVariation) -> &'static str {
+const fn variant_name(variation: &InputVariation) -> &'static str {
     match variation {
         InputVariation::ValidMinimal => "ValidMinimal",
         InputVariation::ValidFull => "ValidFull",

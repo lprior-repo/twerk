@@ -19,7 +19,7 @@ use thiserror::Error;
 #[serde(transparent)]
 pub struct Username(String);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum UsernameError {
     #[error("username cannot be empty")]
     Empty,
@@ -101,11 +101,11 @@ impl Deref for Username {
 }
 
 /// A validated password (minimum requirements enforced).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Password(String);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PasswordError {
     #[error("password cannot be empty")]
     Empty,

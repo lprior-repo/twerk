@@ -134,8 +134,8 @@ fn help_subcommand_in_json_mode_returns_rendered_help_content() {
 }
 
 #[test]
-fn run_help_in_json_mode_returns_rendered_help_content() {
-    let output = run_cli(&["server-start", "--json", "--help"]);
+fn server_start_help_in_json_mode_returns_rendered_help_content() {
+    let output = run_cli(&["server", "start", "--json", "--help"]);
     let parsed = parse_json_output(&output);
 
     assert_eq!(output.status.code(), Some(0));
@@ -168,13 +168,13 @@ fn version_subcommand_supports_json_mode() {
 
 #[test]
 fn propagated_subcommand_version_forms_remain_clean() {
-    [
-        (["server-start", "--version"], "twerk-server-start"),
-        (["health", "--version"], "twerk-health"),
-    ]
-    .into_iter()
-    .for_each(|(args, command_name)| {
-        let output = run_cli(&args);
+    let cases: Vec<(&[&str], &str)> = vec![
+        (&["server", "start", "--version"], "twerk-server-start"),
+        (&["migration", "--version"], "twerk-migration"),
+        (&["health", "--version"], "twerk-health"),
+    ];
+    cases.into_iter().for_each(|(args, command_name)| {
+        let output = run_cli(args);
 
         assert_eq!(output.status.code(), Some(0));
         assert_eq!(stdout_string(&output), expected_version_line(command_name));
@@ -183,8 +183,8 @@ fn propagated_subcommand_version_forms_remain_clean() {
 }
 
 #[test]
-fn json_invalid_run_mode_preserves_clap_exit_code() {
-    let output = run_cli(&["--json", "server-start", "invalid-mode"]);
+fn json_invalid_server_start_mode_preserves_clap_exit_code() {
+    let output = run_cli(&["--json", "server", "start", "invalid-mode"]);
     let parsed = parse_json_output(&output);
 
     assert_eq!(output.status.code(), Some(2));
@@ -195,8 +195,8 @@ fn json_invalid_run_mode_preserves_clap_exit_code() {
 }
 
 #[test]
-fn json_missing_run_mode_preserves_clap_exit_code() {
-    let output = run_cli(&["--json", "server-start"]);
+fn json_missing_server_start_mode_preserves_clap_exit_code() {
+    let output = run_cli(&["--json", "server", "start"]);
     let parsed = parse_json_output(&output);
 
     assert_eq!(output.status.code(), Some(2));
@@ -211,7 +211,7 @@ fn json_invalid_health_endpoint_writes_structured_validation_error() {
     let output = run_cli(&["--json", "health", "--endpoint", "not-a-url"]);
     let parsed = parse_json_output(&output);
 
-    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.status.code(), Some(1));
     assert_eq!(stderr_string(&output), "");
     assert_eq!(parsed.output_type, "error");
     assert_eq!(parsed.kind.as_deref(), Some("validation"));

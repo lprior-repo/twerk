@@ -15,7 +15,7 @@ use thiserror::Error;
 #[serde(transparent)]
 pub struct Page(u64);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PageError {
     #[error("page number must be at least 1")]
     TooSmall,
@@ -27,7 +27,7 @@ impl Page {
     /// # Errors
     ///
     /// Returns [`PageError`] if the page number is less than 1.
-    pub fn new(page: u64) -> Result<Self, PageError> {
+    pub const fn new(page: u64) -> Result<Self, PageError> {
         if page < 1 {
             return Err(PageError::TooSmall);
         }
@@ -36,13 +36,13 @@ impl Page {
 
     /// Returns the page number as a u64.
     #[must_use]
-    pub fn get(self) -> u64 {
+    pub const fn get(self) -> u64 {
         self.0
     }
 
     /// Returns the page number as an i64 (for API compatibility).
     #[must_use]
-    pub fn as_i64(self) -> i64 {
+    pub const fn as_i64(self) -> i64 {
         self.0.cast_signed()
     }
 }
@@ -75,7 +75,7 @@ impl TryFrom<i64> for Page {
 #[serde(transparent)]
 pub struct PageSize(u64);
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PageSizeError {
     #[error("page size must be at least 1")]
     TooSmall,
@@ -95,7 +95,7 @@ impl PageSize {
     /// # Errors
     ///
     /// Returns [`PageSizeError`] if the size is invalid.
-    pub fn new(size: u64) -> Result<Self, PageSizeError> {
+    pub const fn new(size: u64) -> Result<Self, PageSizeError> {
         if size < 1 {
             return Err(PageSizeError::TooSmall);
         }
@@ -116,13 +116,13 @@ impl PageSize {
 
     /// Returns the page size as a u64.
     #[must_use]
-    pub fn get(self) -> u64 {
+    pub const fn get(self) -> u64 {
         self.0
     }
 
     /// Returns the page size as an i64 (for API compatibility).
     #[must_use]
-    pub fn as_i64(self) -> i64 {
+    pub const fn as_i64(self) -> i64 {
         self.0.cast_signed()
     }
 }

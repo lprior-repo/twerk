@@ -1,6 +1,6 @@
 //! System handlers - API endpoints for system operations.
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -53,6 +53,27 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Response, ApiError> {
     let nodes = state.ds.get_active_nodes().await.map_err(ApiError::from)?;
     Ok(axum::Json(nodes).into_response())
+}
+
+/// GET /nodes/{id}
+#[utoipa::path(
+    get,
+    path = "/nodes/{id}",
+    params(
+        ("id" = String, description = "The node ID")
+    ),
+    responses(
+        (status = 200, description = "Node found", body = Node, content_type = "application/json"),
+        (status = 404, description = "Node not found", body = MessageResponse, content_type = "application/json")
+    )
+)]
+#[instrument(name = "get_node_handler", skip_all)]
+pub async fn get_node_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let node = state.ds.get_node_by_id(&id).await.map_err(ApiError::from)?;
+    Ok(axum::Json(node).into_response())
 }
 
 /// GET /metrics

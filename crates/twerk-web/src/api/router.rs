@@ -77,7 +77,9 @@ fn mount_system_routes(
         router
     };
     let router = if is_enabled(enabled, "nodes") {
-        router.route("/nodes", get(handlers::list_nodes_handler))
+        router
+            .route("/nodes", get(handlers::list_nodes_handler))
+            .route("/nodes/{id}", get(handlers::get_node_handler))
     } else {
         router
     };

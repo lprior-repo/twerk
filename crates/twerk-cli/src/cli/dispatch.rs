@@ -6,8 +6,8 @@ use std::ffi::OsString;
 use twerk_core::domain::Endpoint;
 
 use crate::commands::{
-    Cli, Commands, MetricsCommand, NodeCommand, QueueCommand, ServerCommand, TaskCommand,
-    TriggerCommand, UserCommand,
+    Cli, Commands, JobCommand, MetricsCommand, NodeCommand, QueueCommand, ScheduledJobCommand,
+    ServerCommand, TaskCommand, TriggerCommand, UserCommand,
 };
 use crate::error::CliError;
 use crate::handlers;
@@ -35,6 +35,8 @@ const fn command_name(cmd: &Commands) -> &'static str {
         Commands::Node { .. } => "node",
         Commands::Metrics { .. } => "metrics",
         Commands::User { .. } => "user",
+        Commands::Job { .. } => "job",
+        Commands::ScheduledJob { .. } => "scheduled-job",
     }
 }
 
@@ -211,6 +213,56 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             match command {
                 UserCommand::Create { username, password } => {
                     handlers::user::user_create(ep_str, &username, &password, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Job { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                JobCommand::List { page, size } => {
+                    handlers::job::job_list(ep_str, page, size, json_mode).await?;
+                }
+                JobCommand::Create { body } => {
+                    handlers::job::job_create(ep_str, &body, json_mode).await?;
+                }
+                JobCommand::Get { id } => {
+                    handlers::job::job_get(ep_str, &id, json_mode).await?;
+                }
+                JobCommand::Log { id, page, size } => {
+                    handlers::job::job_log(ep_str, &id, page, size, json_mode).await?;
+                }
+                JobCommand::Cancel { id } => {
+                    handlers::job::job_cancel(ep_str, &id, json_mode).await?;
+                }
+                JobCommand::Restart { id } => {
+                    handlers::job::job_restart(ep_str, &id, json_mode).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::ScheduledJob { command } => {
+            let ep = get_endpoint()?;
+            let ep_str = ep.as_str();
+            match command {
+                ScheduledJobCommand::List { page, size } => {
+                    handlers::scheduled_job::scheduled_job_list(ep_str, page, size, json_mode).await?;
+                }
+                ScheduledJobCommand::Create { body } => {
+                    handlers::scheduled_job::scheduled_job_create(ep_str, &body, json_mode).await?;
+                }
+                ScheduledJobCommand::Get { id } => {
+                    handlers::scheduled_job::scheduled_job_get(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Delete { id } => {
+                    handlers::scheduled_job::scheduled_job_delete(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Pause { id } => {
+                    handlers::scheduled_job::scheduled_job_pause(ep_str, &id, json_mode).await?;
+                }
+                ScheduledJobCommand::Resume { id } => {
+                    handlers::scheduled_job::scheduled_job_resume(ep_str, &id, json_mode).await?;
                 }
             }
             Ok(())

@@ -144,6 +144,100 @@ pub enum UserCommand {
     },
 }
 
+/// Job subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum JobCommand {
+    /// List all jobs
+    List {
+        /// Page number
+        #[arg(long)]
+        page: Option<i64>,
+        /// Page size
+        #[arg(long)]
+        size: Option<i64>,
+    },
+    /// Create a job
+    Create {
+        /// JSON body for the job
+        #[arg(required = true)]
+        body: String,
+    },
+    /// Get a job by ID
+    Get {
+        /// The job ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Get job log entries
+    Log {
+        /// The job ID
+        #[arg(required = true)]
+        id: String,
+        /// Page number
+        #[arg(long)]
+        page: Option<i64>,
+        /// Page size
+        #[arg(long)]
+        size: Option<i64>,
+    },
+    /// Cancel a job
+    Cancel {
+        /// The job ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Restart a job
+    Restart {
+        /// The job ID
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
+/// Scheduled job subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum ScheduledJobCommand {
+    /// List all scheduled jobs
+    List {
+        /// Page number
+        #[arg(long)]
+        page: Option<i64>,
+        /// Page size
+        #[arg(long)]
+        size: Option<i64>,
+    },
+    /// Create a scheduled job
+    Create {
+        /// JSON body for the scheduled job
+        #[arg(required = true)]
+        body: String,
+    },
+    /// Get a scheduled job by ID
+    Get {
+        /// The scheduled job ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Delete a scheduled job
+    Delete {
+        /// The scheduled job ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Pause a scheduled job
+    Pause {
+        /// The scheduled job ID
+        #[arg(required = true)]
+        id: String,
+    },
+    /// Resume a scheduled job
+    Resume {
+        /// The scheduled job ID
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
 /// Server subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum ServerCommand {
@@ -210,6 +304,16 @@ pub enum Commands {
     User {
         #[command(subcommand)]
         command: UserCommand,
+    },
+    /// Job operations
+    Job {
+        #[command(subcommand)]
+        command: JobCommand,
+    },
+    /// Scheduled job operations
+    ScheduledJob {
+        #[command(subcommand)]
+        command: ScheduledJobCommand,
     },
 }
 

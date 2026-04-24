@@ -212,7 +212,7 @@ fn json_invalid_health_endpoint_writes_structured_validation_error() {
     let output = run_cli(&["--json", "health", "--endpoint", "not-a-url"]);
     let parsed = parse_json_output(&output);
 
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     assert_eq!(stderr_string(&output), "");
     assert_eq!(parsed.output_type, "error");
     assert_eq!(parsed.kind.as_deref(), Some("validation"));

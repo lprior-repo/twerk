@@ -204,6 +204,46 @@ mod tests {
     }
 
     #[test]
+    fn test_error_kind_exit_codes() {
+        assert_eq!(ErrorKind::Validation.exit_code(), 2);
+        assert_eq!(ErrorKind::Runtime.exit_code(), 1);
+    }
+
+    #[test]
+    fn test_error_kind_display() {
+        assert_eq!(format!("{}", ErrorKind::Validation), "validation");
+        assert_eq!(format!("{}", ErrorKind::Runtime), "runtime");
+    }
+
+    #[test]
+    fn test_validation_errors_return_exit_code_2() {
+        assert_eq!(CliError::Config("x".into()).exit_code(), 2);
+        assert_eq!(CliError::InvalidEndpoint("x".into()).exit_code(), 2);
+        assert_eq!(CliError::MissingArgument("x".into()).exit_code(), 2);
+        assert_eq!(CliError::InvalidHostname("x".into()).exit_code(), 2);
+        assert_eq!(CliError::UnknownDatastore("x".into()).exit_code(), 2);
+    }
+
+    #[test]
+    fn test_runtime_errors_return_exit_code_1() {
+        use std::io;
+        assert_eq!(CliError::Logging("x".into()).exit_code(), 1);
+        assert_eq!(CliError::Engine("x".into()).exit_code(), 1);
+        assert_eq!(CliError::Migration("x".into()).exit_code(), 1);
+        assert_eq!(CliError::NotFound("x".into()).exit_code(), 1);
+        assert_eq!(CliError::ApiError { code: 500, message: "x".into() }.exit_code(), 1);
+        assert_eq!(CliError::Io(io::Error::new(io::ErrorKind::NotFound, "x")).exit_code(), 1);
+    }
+
+    #[test]
+    fn test_exit_codes_are_never_negative() {
+        assert!(ErrorKind::Validation.exit_code() >= 0);
+        assert!(ErrorKind::Runtime.exit_code() >= 0);
+        assert!(CliError::Config("x".into()).exit_code() >= 0);
+        assert!(CliError::Engine("x".into()).exit_code() >= 0);
+    }
+
+    #[test]
     fn test_cli_error_debug() {
         let err = CliError::Config("test".to_string());
         let debug_str = format!("{:?}", err);

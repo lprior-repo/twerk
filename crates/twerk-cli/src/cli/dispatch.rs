@@ -61,17 +61,12 @@ pub(super) fn handle_parse_error(error: clap::Error, emit_json: bool) -> i32 {
 
 pub(super) fn handle_runtime_error(error: CliError, emit_json: bool) -> i32 {
     if emit_json {
-        let kind = match error {
-            CliError::InvalidEndpoint(_)
-            | CliError::MissingArgument(_)
-            | CliError::InvalidHostname(_) => "validation",
-            _ => "runtime",
-        };
-        print_json(&json_error_payload(kind, error.to_string(), None));
+        let kind = error.kind().to_string();
+        print_json(&json_error_payload(&kind, error.to_string(), None));
     } else {
         eprintln!("Error: {error}");
     }
-    super::ExitStatus::Failure as i32
+    error.exit_code()
 }
 
 pub(super) fn handle_json_help_subcommand(args: &[OsString]) -> Option<i32> {

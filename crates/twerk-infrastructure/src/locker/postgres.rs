@@ -141,7 +141,7 @@ impl SyncPostgresPool {
         if !self.ssl_mode.requires_tls() {
             return None;
         }
-        let accept_invalid = self.ssl_mode == SslMode::Require;
+        let accept_invalid = false;
         let connector = TlsConnector::builder()
             .danger_accept_invalid_certs(accept_invalid)
             .build()

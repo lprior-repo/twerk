@@ -699,6 +699,48 @@
         }
       }
     },
+    "/nodes/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "GET /nodes/{id}\n# Errors\nReturns `ApiError` if the node is not found or if there is an error retrieving it.",
+        "operationId": "get_node_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The node ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Node"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queues": {
       "get": {
         "tags": [
@@ -1201,6 +1243,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1228,6 +1290,28 @@
             ],
             "properties": {
               "NotFound": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Forbidden"
+            ],
+            "properties": {
+              "Forbidden": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Unauthorized"
+            ],
+            "properties": {
+              "Unauthorized": {
                 "type": "string"
               }
             }

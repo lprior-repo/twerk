@@ -481,6 +481,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Node'
+  /nodes/{id}:
+    get:
+      tags:
+      - super::handlers::system
+      summary: |-
+        GET /nodes/{id}
+        # Errors
+        Returns `ApiError` if the node is not found or if there is an error retrieving it.
+      operationId: get_node_handler
+      parameters:
+      - name: id
+        in: path
+        description: The node ID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Node found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+        '404':
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
   /queues:
     get:
       tags:
@@ -807,6 +836,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '403':
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
 components:
   schemas:
     ApiError:
@@ -822,6 +863,18 @@ components:
         - NotFound
         properties:
           NotFound:
+            type: string
+      - type: object
+        required:
+        - Forbidden
+        properties:
+          Forbidden:
+            type: string
+      - type: object
+        required:
+        - Unauthorized
+        properties:
+          Unauthorized:
             type: string
       - type: object
         required:

@@ -117,6 +117,7 @@ fn password_error_to_string(err: &PasswordError) -> String {
     }
 }
 
+#[expect(dead_code, reason = "used when auth middleware is wired up")]
 const ROLE_ADMIN: &str = "admin";
 
 /// POST /users

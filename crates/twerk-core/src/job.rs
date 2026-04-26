@@ -109,8 +109,13 @@ impl JobState {
 }
 
 // Backwards-compatible string constants (will be removed in migration bead).
+pub const JOB_STATE_PENDING: &str = "PENDING";
+pub const JOB_STATE_SCHEDULED: &str = "SCHEDULED";
+pub const JOB_STATE_RUNNING: &str = "RUNNING";
+pub const JOB_STATE_CANCELLED: &str = "CANCELLED";
 pub const JOB_STATE_COMPLETED: &str = "COMPLETED";
 pub const JOB_STATE_FAILED: &str = "FAILED";
+pub const JOB_STATE_RESTART: &str = "RESTART";
 
 /// Typed events emitted by the broker when a job changes state.
 ///
@@ -213,6 +218,10 @@ impl FromStr for ScheduledJobState {
         }
     }
 }
+
+// Backwards-compatible string constants (will be removed in migration bead).
+pub const SCHEDULED_JOB_STATE_ACTIVE: &str = "ACTIVE";
+pub const SCHEDULED_JOB_STATE_PAUSED: &str = "PAUSED";
 
 /// Job represents a job in the system.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]

@@ -146,10 +146,17 @@ pub const TASK_STATE_PENDING: &str = "PENDING";
 pub const TASK_STATE_SCHEDULED: &str = "SCHEDULED";
 pub const TASK_STATE_RUNNING: &str = "RUNNING";
 pub const TASK_STATE_CANCELLED: &str = "CANCELLED";
+pub const TASK_STATE_STOPPED: &str = "STOPPED";
 pub const TASK_STATE_COMPLETED: &str = "COMPLETED";
 pub const TASK_STATE_FAILED: &str = "FAILED";
 pub const TASK_STATE_SKIPPED: &str = "SKIPPED";
-pub const TASK_STATE_STOPPED: &str = "STOPPED";
+
+pub const TASK_STATE_ACTIVE: &[&str] = &[
+    TASK_STATE_CREATED,
+    TASK_STATE_PENDING,
+    TASK_STATE_SCHEDULED,
+    TASK_STATE_RUNNING,
+];
 
 /// Task is the basic unit of work that a Worker can handle.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ToSchema)]
@@ -546,4 +553,7 @@ pub struct Permission {
     pub user: Option<User>,
 }
 
-
+#[must_use]
+pub fn clone_tasks(tasks: &[Task]) -> Vec<Task> {
+    tasks.to_vec()
+}

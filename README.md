@@ -9,7 +9,9 @@
 
 A Rust task runner and distributed execution system. Ported from [Tork](https://github.com/runabol/tork), written by AI.
 
-**Not production infrastructure.** For serious orchestration, use [Restate](https://restate.dev/), [Temporal](https://temporal.io/), or [Inngest](https://www.inngest.com/). Great for smaller automations and local pipelines.
+The code was written entirely by AI. Architecture, integration strategy, and quality enforcement were human-directed — hundreds of hours of adversarial testing across dozens of sessions went into shaking out real bugs from superficially correct code.
+
+**Not production infrastructure.** For serious orchestration, use [Restate](https://restate.dev/), [Temporal](https://temporal.io/), or [Inngest](https://www.inngest.com/). Twerk is best suited for smaller automations, local task pipelines, and as a reference for what an AI-augmented Rust development workflow looks like.
 
 ## Quick Start
 
@@ -45,7 +47,7 @@ Ported from [Tork](https://github.com/runabol/tork) (Go) to Rust with:
 - Newtyped domain primitives with construction-time validation
 - Argon2id-based encryption at rest for sensitive values
 
-Written by AI. Architecture, testing, and quality enforcement were human-directed.
+Built with functional Rust discipline (exhaustive matching, fail-closed parsing, no unwrap in app code), BDD-style contract tests, and battle-tested libraries (Tokio, Axum, governor, Argon2id). Written by AI. Architecture, testing, and quality enforcement were human-directed.
 
 ## Project Structure
 

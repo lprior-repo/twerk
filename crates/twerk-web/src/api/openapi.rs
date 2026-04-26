@@ -33,6 +33,7 @@ use utoipa::OpenApi;
     paths(
         super::handlers::system::health_handler,
         super::handlers::system::list_nodes_handler,
+        super::handlers::system::get_node_handler,
         super::handlers::system::get_metrics_handler,
         super::handlers::system::create_user_handler,
         super::handlers::jobs::create::create_job_handler,
@@ -178,6 +179,10 @@ pub const ROUTE_SPECS: &[RouteSpec] = &[
     },
     RouteSpec {
         path: "/nodes",
+        methods: &["GET"],
+    },
+    RouteSpec {
+        path: "/nodes/{id}",
         methods: &["GET"],
     },
     RouteSpec {

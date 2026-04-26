@@ -43,5 +43,7 @@ pub const TOPIC_JOB: &str = "job.*";
 pub const TOPIC_JOB_COMPLETED: &str = "job.completed";
 /// Topic for failed job events
 pub const TOPIC_JOB_FAILED: &str = "job.failed";
+/// Topic for cancelled job events
+pub const TOPIC_JOB_CANCELLED: &str = "job.cancelled";
 /// Topic for job progress events
 pub const TOPIC_JOB_PROGRESS: &str = "job.progress";

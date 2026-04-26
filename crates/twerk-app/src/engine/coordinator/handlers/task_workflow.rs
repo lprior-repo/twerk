@@ -1,6 +1,8 @@
 //! Top-level task workflow handlers (job progression logic)
 
 use super::HandlerError;
+use crate::engine::coordinator::webhook::fire_job_webhooks;
+use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::instrument;
@@ -52,9 +54,28 @@ pub async fn handle_top_level_task_completed(
 
         broker.publish_task(QUEUE_PENDING.to_string(), &task).await
     } else {
-        let mut completed_job = job;
-        completed_job.state = JobState::Completed;
-        broker.publish_job(&completed_job).await
+        let job_id_str = job.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        ds.update_job(
+            &job_id_str,
+            Box::new(move |mut u| {
+                u.state = JobState::Completed;
+                u.completed_at = Some(now);
+                Ok(u)
+            }),
+        )
+        .await?;
+
+        let updated_job = ds.get_job_by_id(&job_id_str).await?;
+
+        fire_job_webhooks(&updated_job, "job.Completed").await;
+
+        broker
+            .publish_event(
+                TOPIC_JOB_COMPLETED.to_string(),
+                serde_json::to_value(&updated_job)
+                    .map_err(|e| anyhow::anyhow!("failed to serialize completed job: {e}"))?,
+            )
+            .await
     }
 }
 
@@ -69,10 +90,28 @@ pub async fn handle_top_level_task_failed(
     job_id: String,
     task_error: Option<String>,
 ) -> Result<()> {
-    let mut job = ds.get_job_by_id(&job_id).await?;
-    job.state = JobState::Failed;
-    job.failed_at = Some(time::OffsetDateTime::now_utc());
-    job.error = task_error;
+    let now = time::OffsetDateTime::now_utc();
 
-    broker.publish_job(&job).await
+    ds.update_job(
+        &job_id,
+        Box::new(move |mut u| {
+            u.state = JobState::Failed;
+            u.failed_at = Some(now);
+            u.error.clone_from(&task_error);
+            Ok(u)
+        }),
+    )
+    .await?;
+
+    let updated_job = ds.get_job_by_id(&job_id).await?;
+
+    fire_job_webhooks(&updated_job, "job.Failed").await;
+
+    broker
+        .publish_event(
+            TOPIC_JOB_FAILED.to_string(),
+            serde_json::to_value(&updated_job)
+                .map_err(|e| anyhow::anyhow!("failed to serialize failed job: {e}"))?,
+        )
+        .await
 }

@@ -6,7 +6,7 @@ use crate::engine::coordinator::handlers::task_handlers::handle_pending_task;
 use crate::engine::coordinator::handlers::util::{build_job_context, is_job_active, job_id_str};
 use crate::engine::coordinator::webhook::fire_job_webhooks;
 use crate::engine::types::JobHandlerError;
-use crate::engine::{TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
+use crate::engine::{TOPIC_JOB_CANCELLED, TOPIC_JOB_COMPLETED, TOPIC_JOB_FAILED};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::{debug, error, instrument};
@@ -80,7 +80,24 @@ pub async fn handle_cancel(
         cancel_parent_job(&ds, &broker, parent_id).await?;
     }
 
-    cancel_active_tasks(&ds, &broker, job_id).await
+    cancel_active_tasks(&ds, &broker, job_id).await?;
+
+    let cancelled_job = ds
+        .get_job_by_id(job_id)
+        .await
+        .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    if cancelled_job.state == JobState::Cancelled {
+        broker
+            .publish_event(
+                TOPIC_JOB_CANCELLED.to_string(),
+                serde_json::to_value(&cancelled_job)
+                    .map_err(|e| JobHandlerError::Handler(e.to_string()))?,
+            )
+            .await
+            .map_err(|e| JobHandlerError::Handler(e.to_string()))?;
+    }
+
+    Ok(())
 }
 
 // ── Private Job Handlers ────────────────────────────────────────
@@ -171,7 +188,7 @@ async fn complete_job(
 
     match &job.parent_id {
         Some(parent_id) => publish_completed_parent_task(&ds, &broker, parent_id, now).await,
-        None => publish_job_completed_event(&broker, &job).await,
+        None => publish_job_completed_event(&broker, &updated_job).await,
     }
 }
 

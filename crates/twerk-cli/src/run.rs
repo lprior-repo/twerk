@@ -118,7 +118,7 @@ fn read_api_config() -> ApiConfig {
     };
 
     ApiConfig {
-        address: app_config::string_default("coordinator.address", "127.0.0.1:8000"),
+        address: app_config::string_default("coordinator.address", "0.0.0.0:8000"),
         enabled,
         ..ApiConfig::default()
     }

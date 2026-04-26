@@ -13,7 +13,7 @@ TWERK_RUNTIME_TYPE=shell \
 ./twerk run standalone
 ```
 
-If you built from source inside this repository, the checked-in `config.toml` already uses the same settings, so `./target/release/twerk run standalone` works from the repo root.
+If you built from source inside this repository, the checked-in `config.toml` already uses the same settings, so `./target/release/twerk server start standalone` works from the repo root.
 
 Twerk starts on `http://localhost:8000`.
 
@@ -64,13 +64,13 @@ TWERK_DATASTORE_TYPE=postgres \
 TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
 TWERK_BROKER_TYPE=rabbitmq \
 TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
-./twerk run coordinator
+./twerk server start coordinator
 
 # Terminal 2: Worker
 TWERK_BROKER_TYPE=rabbitmq \
 TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
 TWERK_RUNTIME_TYPE=docker \
-./twerk run worker
+./twerk server start worker
 ```
 
 Container images require `docker` or `podman`. The zero-dependency quick start above uses the shell runtime instead.

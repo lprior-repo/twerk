@@ -22,7 +22,7 @@ Twerk checks these locations in order:
 Or specify a file directly:
 
 ```bash
-TWERK_CONFIG=/path/to/config.toml twerk run standalone
+TWERK_CONFIG=/path/to/config.toml twerk server start standalone
 ```
 
 ## Environment Variables

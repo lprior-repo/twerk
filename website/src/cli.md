@@ -2,12 +2,12 @@
 
 ## Commands
 
-### `twerk run`
+### `twerk server start`
 
 Start Twerk in a specific mode.
 
 ```bash
-twerk run <MODE> [OPTIONS]
+twerk server start <MODE> [OPTIONS]
 ```
 
 | Mode | Description |

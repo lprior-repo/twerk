@@ -65,6 +65,7 @@ tasks:
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/nodes` | List nodes |
+| `GET` | `/nodes/{id}` | Get node details |
 | `GET` | `/metrics` | Fetch metrics |
 | `POST` | `/users` | Create a user |
 

@@ -28,7 +28,7 @@ cargo build --release -p twerk-cli
 For a local first run from the repo root, the checked-in `config.toml` already points Twerk at the in-memory broker/datastore and shell runtime:
 
 ```bash
-./target/release/twerk run standalone
+./target/release/twerk server start standalone
 ```
 
 ## Set up PostgreSQL

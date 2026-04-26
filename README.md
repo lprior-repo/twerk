@@ -25,7 +25,7 @@ Twerk runs jobs across shell, Docker, and Podman runtimes. It can run as a singl
 git clone https://github.com/runabol/twerk.git
 cd twerk
 cargo build --release -p twerk-cli
-./target/release/twerk run standalone
+./target/release/twerk server start standalone
 ```
 
 The repo-root `config.toml` is set up for the primary local journey:
@@ -50,11 +50,12 @@ curl -X POST 'http://localhost:8000/jobs?wait=true' \
 
 ## Docs
 
-- `website/src/quick-start.md` — Primary standalone journey
-- `website/src/configuration.md` — Config file and environment variable reference
-- `website/src/rest-api.md` — Current HTTP endpoints
+- [Quick Start](website/src/quick-start.md) — Primary standalone journey
+- [CLI Reference](website/src/cli.md) — All available commands
+- [REST API](website/src/rest-api.md) — Current HTTP endpoints
+- [Configuration](website/src/configuration.md) — Config file and environment variable reference
+- [Jobs](website/src/jobs.md) — Job definitions and YAML reference
 - `examples/hello-shell.yaml` — Zero-dependency sample job
-- `configs/sample.config.toml` — Broader TOML configuration example
 
 ## Project Structure
 
@@ -74,10 +75,9 @@ twerk/
 ## Contributing
 
 1. Build with `cargo build -p twerk-cli`
-2. Run checks with `moon run :ci-source` when available
+2. Run checks with `cargo test` and `cargo clippy`
 3. Verify the standalone docs flow before landing user-facing changes
 4. For non-trivial work, follow the staged workflow in `AGENTS.md` and `.claude/CRISPY.md`
-5. See `improvements.md` for the detailed repo-wide remediation plan; use only the relevant section for the task at hand
 
 ## License
 

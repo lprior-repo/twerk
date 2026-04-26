@@ -117,13 +117,11 @@ pub(super) fn get_endpoint() -> Result<Endpoint, twerk_core::domain::EndpointErr
         .unwrap_or_else(|| Endpoint::new(DEFAULT_ENDPOINT))
 }
 
-#[allow(dead_code)]
 /// Get datastore type from configuration or default
 pub(super) fn get_datastore_type() -> String {
     get_config_string("datastore.type").unwrap_or_else(|| DEFAULT_DATASTORE_TYPE.to_string())
 }
 
-#[allow(dead_code)]
 /// Get `PostgreSQL` DSN from configuration or default
 pub(super) fn get_postgres_dsn() -> Result<Dsn, twerk_core::domain::DsnError> {
     get_config_string("datastore.postgres.dsn")
@@ -262,7 +260,6 @@ mod tests {
         let _git = GIT_COMMIT;
     }
 
-    #[allow(clippy::panic)]
     #[test]
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");

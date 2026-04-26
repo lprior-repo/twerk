@@ -130,7 +130,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     #[test]
@@ -319,7 +318,6 @@ mod tests {
         assert_eq!(count, found_count);
     }
 
-    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_concurrent_delete_during_iterate() {
         use std::sync::Arc;
@@ -359,7 +357,6 @@ mod tests {
         assert_eq!(None, m.get(&"key_500".to_string()));
     }
 
-    #[allow(clippy::unwrap_used)]
     #[test]
     fn test_concurrent_iterate_and_set() {
         use std::sync::Arc;

@@ -10,7 +10,7 @@ Use the local-friendly in-memory and shell settings:
 TWERK_BROKER_TYPE=inmemory \
 TWERK_DATASTORE_TYPE=inmemory \
 TWERK_RUNTIME_TYPE=shell \
-./twerk run standalone
+./twerk server start standalone
 ```
 
 If you built from source inside this repository, the checked-in `config.toml` already uses the same settings, so `./target/release/twerk server start standalone` works from the repo root.

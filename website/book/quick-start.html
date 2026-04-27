@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91f13594.js";
+            window.path_to_searchindex_js = "searchindex-4b5cccdd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-1d7cec25.js"></script>
+        <script src="toc-48552db7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -175,77 +175,55 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
-<p>Get Twerk running with your first job in under 5 minutes.</p>
+<p>Get Twerk running locally with no Postgres, RabbitMQ, Docker, or Podman.</p>
 <h2 id="start-twerk"><a class="header" href="#start-twerk">Start Twerk</a></h2>
-<p>In standalone mode (all-in-one):</p>
-<pre><code class="language-bash">./twerk run standalone
+<p>Use the local-friendly in-memory and shell settings:</p>
+<pre><code class="language-bash">TWERK_BROKER_TYPE=inmemory \
+TWERK_DATASTORE_TYPE=inmemory \
+TWERK_RUNTIME_TYPE=shell \
+./twerk server start standalone
 </code></pre>
-<p>Twerk will start on <code>http://localhost:8000</code>.</p>
+<p>If you built from source inside this repository, the checked-in <code>config.toml</code> already uses the same settings, so <code>./target/release/twerk server start standalone</code> works from the repo root.</p>
+<p>Twerk starts on <code>http://localhost:8000</code>.</p>
 <h2 id="create-a-job"><a class="header" href="#create-a-job">Create a Job</a></h2>
-<p>Create <code>hello.yaml</code>:</p>
-<pre><code class="language-yaml">name: hello job
+<p>Create <code>hello-shell.yaml</code>:</p>
+<pre><code class="language-yaml">name: hello shell
 tasks:
   - name: say hello
-    image: ubuntu:mantic
     run: |
-      echo -n hello world
-  - name: say goodbye
-    image: alpine:latest
-    run: |
-      echo -n bye world
+      echo "hello from twerk"
 </code></pre>
-<h2 id="submit-the-job"><a class="header" href="#submit-the-job">Submit the Job</a></h2>
-<pre><code class="language-bash">curl -X POST http://localhost:8000/jobs \
-  -H "Content-type: text/yaml" \
-  --data-binary @hello.yaml
+<h2 id="submit-and-wait-for-completion"><a class="header" href="#submit-and-wait-for-completion">Submit and Wait for Completion</a></h2>
+<pre><code class="language-bash">curl -X POST 'http://localhost:8000/jobs?wait=true' \
+  -H "Content-Type: text/yaml" \
+  --data-binary @hello-shell.yaml
 </code></pre>
-<pre><code class="language-json">{
-  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
-  "state": "SCHEDULED",
-  ...
-}
+<p><code>wait=true</code> blocks until the job finishes, which makes the first-run flow much easier to verify.</p>
+<h2 id="inspect-the-run"><a class="header" href="#inspect-the-run">Inspect the Run</a></h2>
+<pre><code class="language-bash">curl http://localhost:8000/jobs
+curl http://localhost:8000/jobs/&lt;job-id&gt;/log
 </code></pre>
-<h2 id="check-status"><a class="header" href="#check-status">Check Status</a></h2>
-<pre><code class="language-bash">curl http://localhost:8000/jobs/ed0dba93d262492b8cf26e6c1c4f1c98
-</code></pre>
-<pre><code class="language-json">{
-  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
-  "state": "COMPLETED",
-  "tasks": [
-    {"name": "say hello", "state": "COMPLETED"},
-    {"name": "say goodbye", "state": "COMPLETED"}
-  ],
-  ...
-}
-</code></pre>
-<h2 id="what-happened"><a class="header" href="#what-happened">What Happened?</a></h2>
-<ol>
-<li>Twerk received your job and scheduled both tasks</li>
-<li>Task 1 ran in an Ubuntu container</li>
-<li>Task 2 ran in an Alpine container</li>
-<li>Twerk marked the job as <code>COMPLETED</code></li>
-</ol>
-<h2 id="distributed-mode"><a class="header" href="#distributed-mode">Distributed Mode</a></h2>
-<p>Run coordinator and workers separately:</p>
-<pre><code class="language-bash"># Terminal 1: Coordinator
-TWERK_DATASTORE_TYPE=postgres \
-TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
-./twerk run coordinator
-
-# Terminal 2: Worker
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
-TWERK_RUNTIME_TYPE=docker \
-./twerk run worker
-</code></pre>
-<p>Submit jobs to the coordinator at <code>http://localhost:8000</code>.</p>
 <h2 id="health-check"><a class="header" href="#health-check">Health Check</a></h2>
 <pre><code class="language-bash">./twerk health
 # or
 curl http://localhost:8000/health
 </code></pre>
+<h2 id="distributed-mode"><a class="header" href="#distributed-mode">Distributed Mode</a></h2>
+<p>Run coordinator and workers separately when you want Postgres, RabbitMQ, and container-backed tasks:</p>
+<pre><code class="language-bash"># Terminal 1: Coordinator
+TWERK_DATASTORE_TYPE=postgres \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+./twerk server start coordinator
+
+# Terminal 2: Worker
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+TWERK_RUNTIME_TYPE=docker \
+./twerk server start worker
+</code></pre>
+<p>Container images require <code>docker</code> or <code>podman</code>. The zero-dependency quick start above uses the shell runtime instead.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
 <li><a href="jobs.html">Jobs</a> — Learn about job definitions</li>

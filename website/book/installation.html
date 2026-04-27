@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91f13594.js";
+            window.path_to_searchindex_js = "searchindex-4b5cccdd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-1d7cec25.js"></script>
+        <script src="toc-48552db7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,20 +178,24 @@
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ol>
 <li><strong>Rust 1.75+</strong> — For building from source</li>
-<li><strong>Docker</strong> — For container-based task execution</li>
-<li><strong>PostgreSQL</strong> — For persistence (or use In-Memory for testing)</li>
-<li><strong>RabbitMQ</strong> — For distributed mode (or use In-Memory for testing)</li>
+<li><strong>Bash-compatible shell</strong> — For the zero-dependency shell runtime quick start</li>
+<li><strong>Docker or Podman</strong> — Optional, for image-based task execution</li>
+<li><strong>PostgreSQL</strong> — Optional, for persistence</li>
+<li><strong>RabbitMQ</strong> — Optional, for distributed mode</li>
 </ol>
 <h2 id="download-binary"><a class="header" href="#download-binary">Download Binary</a></h2>
 <pre><code class="language-bash"># Check releases for your platform
-curl -L https://github.com/lprior-repo/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
+curl -L https://github.com/runabol/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
 ./twerk --help
 </code></pre>
 <h2 id="build-from-source"><a class="header" href="#build-from-source">Build from Source</a></h2>
-<pre><code class="language-bash">git clone https://github.com/lprior-repo/twerk.git
+<pre><code class="language-bash">git clone https://github.com/runabol/twerk.git
 cd twerk
-cargo build --release
+cargo build --release -p twerk-cli
 ./target/release/twerk --help
+</code></pre>
+<p>For a local first run from the repo root, the checked-in <code>config.toml</code> already points Twerk at the in-memory broker/datastore and shell runtime:</p>
+<pre><code class="language-bash">./target/release/twerk server start standalone
 </code></pre>
 <h2 id="set-up-postgresql"><a class="header" href="#set-up-postgresql">Set up PostgreSQL</a></h2>
 <pre><code class="language-shell">docker run -d \
@@ -204,7 +208,7 @@ cargo build --release
 </code></pre>
 <p>Run migration:</p>
 <pre><code class="language-bash">TWERK_DATASTORE_TYPE=postgres \
-TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
 ./twerk migration
 </code></pre>
 <h2 id="set-up-rabbitmq-distributed-mode"><a class="header" href="#set-up-rabbitmq-distributed-mode">Set up RabbitMQ (Distributed Mode)</a></h2>
@@ -216,7 +220,7 @@ TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=tw
 </code></pre>
 <p>Access management UI at <code>http://localhost:15672</code> (guest/guest).</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>Twerk is configured via <code>config.toml</code> or environment variables:</p>
+<p>Twerk is configured via TOML files or environment variables:</p>
 <pre><code class="language-bash"># Environment variable format
 TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
 

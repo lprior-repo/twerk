@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91f13594.js";
+            window.path_to_searchindex_js = "searchindex-4b5cccdd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-1d7cec25.js"></script>
+        <script src="toc-48552db7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -175,148 +175,74 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Twerk is configured via <code>config.toml</code> or environment variables.</p>
+<p>Twerk reads TOML configuration from files and environment variables.</p>
 <h2 id="config-file-locations"><a class="header" href="#config-file-locations">Config File Locations</a></h2>
+<p>Twerk checks these locations in order:</p>
 <ol>
-<li><code>./config.toml</code> (current directory)</li>
+<li><code>./config.local.toml</code></li>
+<li><code>./config.toml</code></li>
+<li><code>./config.local.yaml</code></li>
+<li><code>./config.yaml</code></li>
+<li><code>./config.local.yml</code></li>
+<li><code>./config.yml</code></li>
 <li><code>~/twerk/config.toml</code></li>
+<li><code>~/twerk/config.yaml</code></li>
 <li><code>/etc/twerk/config.toml</code></li>
+<li><code>/etc/twerk/config.yaml</code></li>
 </ol>
-<p>Or specify with:</p>
-<pre><code class="language-bash">TWERK_CONFIG=/path/to/config.toml ./twerk run standalone
+<p><code>.yaml</code> and <code>.yml</code> filenames are legacy compatibility names only. Their contents must still be valid TOML.</p>
+<p>Or specify a file directly:</p>
+<pre><code class="language-bash">TWERK_CONFIG=/path/to/config.toml twerk server start standalone
 </code></pre>
 <h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
-<p>Override any setting:</p>
+<p>Override any setting with:</p>
 <pre><code class="language-bash">TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
 </code></pre>
 <p>Example: <code>TWERK_LOGGING_LEVEL=debug</code></p>
-<h2 id="full-configuration"><a class="header" href="#full-configuration">Full Configuration</a></h2>
-<pre><code class="language-toml">[cli]
-banner.mode = "console"  # off | console | log
-
-[client]
-endpoint = "http://localhost:8000"
-
-[logging]
-level = "debug"          # debug | info | warn | error
-format = "pretty"        # pretty | json
+<h2 id="local-standalone-example"><a class="header" href="#local-standalone-example">Local Standalone Example</a></h2>
+<pre><code class="language-toml">[logging]
+level = "info"
+format = "pretty"
 
 [broker]
-type = "inmemory"       # inmemory | rabbitmq
-
-[broker.rabbitmq]
-url = "amqp://guest:guest@localhost:5672/"
-consumer.timeout = "30m"
-management.url = ""
-durable.queues = false
-queue.type = "classic"   # classic | quorum
+type = "inmemory"
 
 [datastore]
-type = "postgres"         # postgres | inmemory
-
-[datastore.retention]
-logs.duration = "168h"   # 7 days
-jobs.duration = "8760h"  # 1 year
-
-[datastore.encryption]
-key = ""                 # Encryption key for secrets at rest
-
-[datastore.postgres]
-dsn = "host=localhost user=twerk password=twerk dbname=twerk"
-max_open_conns = 10
-max_idle_conns = 5
-conn_max_lifetime = "1h"
-conn_max_idle_time = "30m"
+type = "inmemory"
 
 [coordinator]
 address = "localhost:8000"
-name = "Coordinator"
-
-[coordinator.api]
-endpoints.health = true
-endpoints.jobs = true
-endpoints.tasks = true
-endpoints.nodes = true
-endpoints.queues = true
-endpoints.metrics = true
-endpoints.users = true
-
-[coordinator.queues]
-completed = 1
-error = 1
-pending = 1
-started = 1
-heartbeat = 1
-jobs = 1
-
-[middleware.web.cors]
-enabled = false
-origins = "*"
-methods = "*"
-credentials = false
-headers = "*"
-
-[middleware.web.basicauth]
-enabled = false
-
-[middleware.web.keyauth]
-enabled = false
-key = ""
-
-[middleware.web]
-bodylimit = "500K"
-
-[middleware.web.ratelimit]
-enabled = false
-rps = 20
-
-[middleware.web.logger]
-enabled = true
-level = "DEBUG"
-skip = ["GET /health"]
-
-[middleware.job.redact]
-enabled = false
-
-[middleware.task.hostenv]
-vars = []
 
 [worker]
 address = "localhost:8001"
-name = "Worker"
-
-[worker.queues]
-default = 1
-
-[worker.limits]
-cpus = ""
-memory = ""
-timeout = ""
-
-[mounts.bind]
-allowed = false
-sources = []
-
-[mounts.temp]
-dir = "/tmp"
 
 [runtime]
-type = "docker"         # docker | podman | shell
+type = "shell"
 
 [runtime.shell]
 cmd = ["bash", "-c"]
 uid = ""
 gid = ""
-
-[runtime.docker]
-config = ""
-privileged = false
-image.ttl = "24h"
-
-[runtime.podman]
-privileged = false
-host.network = false
 </code></pre>
+<p>This is the same shape as the repo-root <code>config.toml</code> used for the primary local docs journey.</p>
+<h2 id="distributed-example"><a class="header" href="#distributed-example">Distributed Example</a></h2>
+<pre><code class="language-toml">[broker]
+type = "rabbitmq"
+
+[broker.rabbitmq]
+url = "amqp://guest:guest@localhost:5672/"
+
+[datastore]
+type = "postgres"
+
+[datastore.postgres]
+dsn = "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable"
+
+[runtime]
+type = "docker"
+</code></pre>
+<p>Use <code>docker</code> or <code>podman</code> when your task definitions include container images.</p>
+<p>For a fuller reference, see <code>configs/sample.config.toml</code> in the repository.</p>
 <h2 id="environment-variable-reference"><a class="header" href="#environment-variable-reference">Environment Variable Reference</a></h2>
 <div class="table-wrapper">
 <table>

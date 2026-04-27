@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>CLI Reference - Twerk</title>
+        <title>YAML Language Spec - Twerk</title>
 
 
         <!-- Custom HTML head -->
@@ -174,119 +174,210 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
-<h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
-<h3 id="twerk-server-start"><a class="header" href="#twerk-server-start"><code>twerk server start</code></a></h3>
-<p>Start Twerk in a specific mode.</p>
-<pre><code class="language-bash">twerk server start &lt;MODE&gt; [OPTIONS]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Mode</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>standalone</code></td><td>All-in-one: Coordinator + Worker</td></tr>
-<tr><td><code>coordinator</code></td><td>API server, requires separate workers</td></tr>
-<tr><td><code>worker</code></td><td>Task executor, requires coordinator</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th><th>Default</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--hostname &lt;HOSTNAME&gt;</code></td><td>Coordinator hostname for workers</td><td>none</td></tr>
-</tbody>
-</table>
-</div>
-<p>Config is loaded from <code>TWERK_CONFIG</code> or the default config search paths. There is no <code>--config</code> CLI flag.</p>
-<h3 id="twerk-migration"><a class="header" href="#twerk-migration"><code>twerk migration</code></a></h3>
-<p>Run database migrations.</p>
-<pre><code class="language-bash">twerk migration [OPTIONS]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-y, --yes</code></td><td>Skip confirmation prompt</td></tr>
-</tbody>
-</table>
-</div>
-<p><code>twerk migration</code> reads the datastore type and Postgres DSN from config or <code>TWERK_*</code> environment variables.</p>
-<h3 id="twerk-health"><a class="header" href="#twerk-health"><code>twerk health</code></a></h3>
-<p>Check coordinator health.</p>
-<pre><code class="language-bash">twerk health [OPTIONS]
-</code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th><th>Default</th></tr>
-</thead>
-<tbody>
-<tr><td><code>-e, --endpoint &lt;URL&gt;</code></td><td>Coordinator endpoint</td><td><code>http://localhost:8000</code></td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="twerk-version"><a class="header" href="#twerk-version"><code>twerk version</code></a></h3>
-<p>Show the current CLI version.</p>
-<pre><code class="language-bash">twerk version [--json]
-</code></pre>
-<p>Text-mode version discovery commands are clean endpoints: they print only the version line to stdout, keep stderr empty, and exit <code>0</code>.</p>
-<p>Supported forms:</p>
+                        <h1 id="yaml-language-spec"><a class="header" href="#yaml-language-spec">YAML Language Spec</a></h1>
+<p>This document defines the YAML shapes that Twerk currently accepts at the parser boundary, using shipped examples and core Rust schema types as evidence.</p>
+<h2 id="scope"><a class="header" href="#scope">Scope</a></h2>
+<p>Twerk accepts two distinct YAML document families:</p>
+<ol>
+<li><strong>Native job documents</strong> — parsed as <code>twerk_core::job::Job</code></li>
+<li><strong>ASL-style state machines</strong> — parsed as <code>twerk_core::asl::machine::StateMachine</code></li>
+</ol>
+<p>Do not treat them as the same grammar. They live side-by-side in <code>examples/</code>, but they are different schemas.</p>
+<h2 id="parser-contract"><a class="header" href="#parser-contract">Parser Contract</a></h2>
+<p>At the HTTP/parser boundary (<code>crates/twerk-web/src/api/yaml.rs</code>):</p>
 <ul>
-<li><code>twerk --version</code> → <code>twerk &lt;VERSION&gt;</code></li>
-<li><code>twerk version</code> → <code>twerk &lt;VERSION&gt;</code></li>
-<li><code>twerk run --version</code> → <code>twerk-run &lt;VERSION&gt;</code></li>
-<li><code>twerk migration --version</code> → <code>twerk-migration &lt;VERSION&gt;</code></li>
-<li><code>twerk health --version</code> → <code>twerk-health &lt;VERSION&gt;</code></li>
+<li>Empty bodies are rejected.</li>
+<li>Bodies larger than <code>512 KiB</code> are rejected.</li>
+<li>NUL bytes are rejected.</li>
+<li>Duplicate YAML keys are rejected.</li>
+<li>Parser budgets are enforced with <code>max_depth = 64</code> and <code>max_nodes = 10_000</code>.</li>
+<li>YAML must be valid UTF-8.</li>
 </ul>
-<h2 id="top-level-flags"><a class="header" href="#top-level-flags">Top-Level Flags</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Option</th><th>Description</th></tr>
-</thead>
-<tbody>
-<tr><td><code>--json</code></td><td>Emit machine-readable JSON for help, version, parse errors, and command failures on stdout</td></tr>
-<tr><td><code>--help</code></td><td>Show CLI help</td></tr>
-<tr><td><code>--version</code></td><td>Show the current version</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="json-behavior"><a class="header" href="#json-behavior">JSON Behavior</a></h2>
+<h2 id="native-job-document"><a class="header" href="#native-job-document">Native Job Document</a></h2>
+<p>Backed by <code>crates/twerk-core/src/job.rs</code> and <code>crates/twerk-core/src/task.rs</code>.</p>
+<h3 id="minimal-shape"><a class="header" href="#minimal-shape">Minimal shape</a></h3>
+<p>Example-backed top-level fields include:</p>
 <ul>
-<li>Help discovery commands such as <code>twerk --json</code>, <code>twerk --json --help</code>, <code>twerk help --json</code>, and <code>twerk run --json --help</code> return JSON with a rendered <code>content</code> field.</li>
-<li>Version discovery commands such as <code>twerk --json --version</code> and <code>twerk version --json</code> return JSON on stdout, keep stderr empty, and exit <code>0</code>.</li>
-<li>JSON parse failures keep Clap exit code <code>2</code> and write structured error JSON to stdout.</li>
-<li>JSON command validation and runtime failures exit <code>1</code>, write structured error JSON to stdout, and keep stderr empty.</li>
+<li><code>name</code></li>
+<li><code>description</code></li>
+<li><code>inputs</code></li>
+<li><code>output</code></li>
+<li><code>tasks</code></li>
 </ul>
-<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
-<p>All configuration can be set via environment variables:</p>
-<pre><code>TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
-</code></pre>
 <p>Examples:</p>
 <ul>
-<li><code>TWERK_LOGGING_LEVEL=debug</code></li>
-<li><code>TWERK_BROKER_TYPE=rabbitmq</code></li>
-<li><code>TWERK_DATASTORE_TYPE=postgres</code></li>
-<li><code>TWERK_RUNTIME_TYPE=docker</code></li>
+<li><code>examples/hello.yaml</code></li>
+<li><code>examples/hello-shell.yaml</code></li>
+<li><code>examples/bash-pipeline.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
 </ul>
-<p>See <a href="configuration.html">Configuration</a> for full reference.</p>
+<h3 id="tasks"><a class="header" href="#tasks">Tasks</a></h3>
+<p>Common task fields evidenced in shipped examples:</p>
+<ul>
+<li><code>name</code></li>
+<li><code>var</code></li>
+<li><code>image</code></li>
+<li><code>run</code></li>
+<li><code>entrypoint</code></li>
+<li><code>env</code></li>
+<li><code>files</code></li>
+<li><code>retry</code></li>
+<li><code>timeout</code></li>
+<li><code>pre</code></li>
+<li><code>post</code></li>
+<li><code>mounts</code></li>
+<li><code>parallel</code></li>
+<li><code>each</code></li>
+<li><code>subjob</code></li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>simple task: <code>examples/hello.yaml</code></li>
+<li>retry: <code>examples/retry.yaml</code>, <code>examples/bash-retry.yaml</code></li>
+<li>timeout: <code>examples/timeout.yaml</code></li>
+<li>map-heavy task: <code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h2 id="maps"><a class="header" href="#maps">Maps</a></h2>
+<h3 id="inputs"><a class="header" href="#inputs"><code>inputs</code></a></h3>
+<p>Top-level string map consumed by expressions like <code>{{ inputs.key }}</code>.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="env"><a class="header" href="#env"><code>env</code></a></h3>
+<p>Task-level string map. Appears on normal tasks and nested tasks.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/each.yaml</code></li>
+<li><code>examples/bash-each.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="files"><a class="header" href="#files"><code>files</code></a></h3>
+<p>Task-level string map from filename to inline file body.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="not-example-backed-yet"><a class="header" href="#not-example-backed-yet">Not example-backed yet</a></h3>
+<p>The core schema supports additional top-level maps/collections, but shipped <code>examples/*.yaml</code> do <strong>not</strong> currently prove the user-authored syntax of all of them:</p>
+<ul>
+<li><code>secrets</code></li>
+<li><code>tags</code></li>
+<li><code>webhooks</code></li>
+<li><code>schedule</code></li>
+<li><code>defaults</code></li>
+</ul>
+<p>They may exist in code and broader docs, but they are not all evidenced by shipped example YAML.</p>
+<h2 id="control-structures"><a class="header" href="#control-structures">Control Structures</a></h2>
+<h3 id="each"><a class="header" href="#each"><code>each</code></a></h3>
+<p><code>each</code> contains:</p>
+<ul>
+<li><code>list</code></li>
+<li>optional <code>var</code></li>
+<li>nested <code>task</code></li>
+</ul>
+<p>Example-backed iteration placeholder forms currently seen in examples include legacy underscore aliases:</p>
+<ul>
+<li><code>item_index</code></li>
+<li><code>item_value</code></li>
+<li><code>myitem_index</code></li>
+<li><code>myitem_value</code></li>
+<li><code>num_index</code></li>
+<li><code>num_value</code></li>
+<li><code>item_value_start</code></li>
+<li><code>item_value_length</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/each.yaml</code></li>
+<li><code>examples/bash-each.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="parallel"><a class="header" href="#parallel"><code>parallel</code></a></h3>
+<p><code>parallel</code> contains a nested <code>tasks</code> list.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/parallel.yaml</code></li>
+<li><code>examples/pokemon-benchmark.yaml</code></li>
+<li><code>examples/twerk-massive-parallel.yaml</code></li>
+<li><code>examples/subjob.yaml</code></li>
+<li><code>examples/bash-subjob.yaml</code></li>
+</ul>
+<h3 id="subjob"><a class="header" href="#subjob"><code>subjob</code></a></h3>
+<p><code>subjob</code> embeds another native-job-like task list and may include <code>name</code> and <code>output</code>.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/subjob.yaml</code></li>
+<li><code>examples/bash-subjob.yaml</code></li>
+</ul>
+<h2 id="retry-and-timeout"><a class="header" href="#retry-and-timeout">Retry and Timeout</a></h2>
+<p>Native task retry shape evidenced in examples:</p>
+<pre><code class="language-yaml">retry:
+  limit: &lt;integer&gt;
+</code></pre>
+<p>Timeouts are evidenced as duration strings:</p>
+<ul>
+<li><code>5s</code></li>
+<li><code>120s</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/retry.yaml</code></li>
+<li><code>examples/bash-retry.yaml</code></li>
+<li><code>examples/timeout.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h2 id="asl-style-state-machines"><a class="header" href="#asl-style-state-machines">ASL-Style State Machines</a></h2>
+<p>Backed by <code>crates/twerk-core/src/asl/</code>.</p>
+<p>Top-level ASL fields evidenced in shipped examples:</p>
+<ul>
+<li><code>comment</code></li>
+<li><code>startAt</code></li>
+<li><code>states</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/asl-hello.yaml</code></li>
+<li><code>examples/asl-task-retry.yaml</code></li>
+</ul>
+<h3 id="asl-state-forms-currently-evidenced-by-examples"><a class="header" href="#asl-state-forms-currently-evidenced-by-examples">ASL state forms currently evidenced by examples</a></h3>
+<ul>
+<li><code>type: pass</code></li>
+<li><code>type: task</code></li>
+<li><code>next</code></li>
+<li><code>end: true</code></li>
+<li>task-state <code>retry</code> list with:
+<ul>
+<li><code>errorEquals</code></li>
+<li><code>intervalSeconds</code></li>
+<li><code>maxAttempts</code></li>
+<li><code>backoffRate</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="important-gaps-and-ambiguities"><a class="header" href="#important-gaps-and-ambiguities">Important Gaps and Ambiguities</a></h2>
+<h3 id="run-interpolation-docs-are-inconsistent"><a class="header" href="#run-interpolation-docs-are-inconsistent"><code>run</code> interpolation docs are inconsistent</a></h3>
+<p><code>website/src/examples.md</code> says <code>run</code> is passed raw and is <strong>not</strong> evaluated. But shipped examples include <code>run</code> values containing <code>{{ ... }}</code> expressions. This spec does not claim runtime interpolation semantics beyond what the parser accepts: <code>run</code> is parsed as a string, and examples prove that strings containing template markers are accepted.</p>
+<h3 id="mixed-example-families"><a class="header" href="#mixed-example-families">Mixed example families</a></h3>
+<p><code>examples/</code> contains both native job YAML and ASL YAML. Tooling and tests must parse them into the correct target type. Parsing every example as <code>Job</code> is not a valid contract.</p>
+<h3 id="example-backed-vs-code-backed"><a class="header" href="#example-backed-vs-code-backed">Example-backed vs code-backed</a></h3>
+<p>This spec is intentionally conservative. If a shape is supported in code but not evidenced by shipped examples, call that out explicitly instead of bluffing.</p>
+<h2 id="recommended-reading-order"><a class="header" href="#recommended-reading-order">Recommended Reading Order</a></h2>
+<ol>
+<li><code>website/src/QUICKSTART_YAML.md</code> for a quick tour</li>
+<li>this document for parser-backed shape constraints</li>
+<li><code>website/src/examples.md</code> for usage-oriented examples</li>
+</ol>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="architecture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="cli.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="yaml-language-spec.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="jobs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -296,11 +387,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="architecture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="cli.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="yaml-language-spec.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="jobs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91f13594.js";
+            window.path_to_searchindex_js = "searchindex-4b5cccdd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-1d7cec25.js"></script>
+        <script src="toc-48552db7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,142 +177,116 @@
                         <h1 id="rest-api"><a class="header" href="#rest-api">REST API</a></h1>
 <p>Base URL: <code>http://localhost:8000</code></p>
 <h2 id="health"><a class="header" href="#health">Health</a></h2>
-<h3 id="health-check"><a class="header" href="#health-check">Health Check</a></h3>
 <pre><code class="language-bash">GET /health
 </code></pre>
-<pre><code class="language-json">{ "status": "UP" }
+<pre><code class="language-json">{ "status": "UP", "version": "0.1.0" }
 </code></pre>
 <h2 id="jobs"><a class="header" href="#jobs">Jobs</a></h2>
-<h3 id="submit-job"><a class="header" href="#submit-job">Submit Job</a></h3>
-<pre><code class="language-bash">POST /jobs
-Content-Type: text/yaml
-</code></pre>
-<pre><code class="language-yaml">name: my job
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>POST</code></td><td><code>/jobs</code></td><td>Submit a job</td></tr>
+<tr><td><code>POST</code></td><td><code>/jobs?wait=true</code></td><td>Submit and block until completion</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs</code></td><td>List jobs</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs/{id}</code></td><td>Get job details</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs/{id}/log</code></td><td>Fetch job logs</td></tr>
+<tr><td><code>POST</code></td><td><code>/jobs/{id}/cancel</code></td><td>Cancel a job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/jobs/{id}/cancel</code></td><td>Cancel a job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/jobs/{id}/restart</code></td><td>Restart a job</td></tr>
+</tbody>
+</table>
+</div>
+<p>Example request body:</p>
+<pre><code class="language-yaml">name: hello shell
 tasks:
   - name: hello
-    image: alpine:latest
-    run: echo hello
-</code></pre>
-<h3 id="list-jobs"><a class="header" href="#list-jobs">List Jobs</a></h3>
-<pre><code class="language-bash">GET /jobs?page=1&amp;size=10&amp;q=searchterm
-</code></pre>
-<pre><code class="language-json">{
-  "items": [
-    {
-      "id": "abc123",
-      "name": "my job",
-      "state": "COMPLETED",
-      "createdAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "totalPages": 5
-}
-</code></pre>
-<h3 id="get-job"><a class="header" href="#get-job">Get Job</a></h3>
-<pre><code class="language-bash">GET /jobs/{id}
-</code></pre>
-<h3 id="get-job-log"><a class="header" href="#get-job-log">Get Job Log</a></h3>
-<pre><code class="language-bash">GET /jobs/{id}/log
-</code></pre>
-<h3 id="cancel-job"><a class="header" href="#cancel-job">Cancel Job</a></h3>
-<pre><code class="language-bash">PUT /jobs/{id}/cancel
-</code></pre>
-<h3 id="restart-job"><a class="header" href="#restart-job">Restart Job</a></h3>
-<pre><code class="language-bash">PUT /jobs/{id}/restart
+    run: echo "hello from twerk"
 </code></pre>
 <h2 id="tasks"><a class="header" href="#tasks">Tasks</a></h2>
-<h3 id="get-task"><a class="header" href="#get-task">Get Task</a></h3>
-<pre><code class="language-bash">GET /tasks/{id}
-</code></pre>
-<h3 id="get-task-log"><a class="header" href="#get-task-log">Get Task Log</a></h3>
-<pre><code class="language-bash">GET /tasks/{id}/log
-</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/tasks/{id}</code></td><td>Get task details</td></tr>
+<tr><td><code>GET</code></td><td><code>/tasks/{id}/log</code></td><td>Fetch task logs</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="scheduled-jobs"><a class="header" href="#scheduled-jobs">Scheduled Jobs</a></h2>
-<h3 id="submit-scheduled-job"><a class="header" href="#submit-scheduled-job">Submit Scheduled Job</a></h3>
-<pre><code class="language-bash">POST /scheduled-jobs
-Content-Type: text/yaml
-</code></pre>
-<pre><code class="language-yaml">name: daily job
-schedule:
-  cron: "0 2 * * *"
-tasks:
-  - name: backup
-    image: alpine:latest
-    run: echo backing up
-</code></pre>
-<h3 id="list-scheduled-jobs"><a class="header" href="#list-scheduled-jobs">List Scheduled Jobs</a></h3>
-<pre><code class="language-bash">GET /scheduled-jobs
-</code></pre>
-<h3 id="get-scheduled-job"><a class="header" href="#get-scheduled-job">Get Scheduled Job</a></h3>
-<pre><code class="language-bash">GET /scheduled-jobs/{id}
-</code></pre>
-<h3 id="pause-scheduled-job"><a class="header" href="#pause-scheduled-job">Pause Scheduled Job</a></h3>
-<pre><code class="language-bash">PUT /scheduled-jobs/{id}/pause
-</code></pre>
-<h3 id="resume-scheduled-job"><a class="header" href="#resume-scheduled-job">Resume Scheduled Job</a></h3>
-<pre><code class="language-bash">PUT /scheduled-jobs/{id}/resume
-</code></pre>
-<h3 id="delete-scheduled-job"><a class="header" href="#delete-scheduled-job">Delete Scheduled Job</a></h3>
-<pre><code class="language-bash">DELETE /scheduled-jobs/{id}
-</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>POST</code></td><td><code>/scheduled-jobs</code></td><td>Create a scheduled job</td></tr>
+<tr><td><code>GET</code></td><td><code>/scheduled-jobs</code></td><td>List scheduled jobs</td></tr>
+<tr><td><code>GET</code></td><td><code>/scheduled-jobs/{id}</code></td><td>Get a scheduled job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/scheduled-jobs/{id}/pause</code></td><td>Pause a scheduled job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/scheduled-jobs/{id}/resume</code></td><td>Resume a scheduled job</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/scheduled-jobs/{id}</code></td><td>Delete a scheduled job</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="queues"><a class="header" href="#queues">Queues</a></h2>
-<h3 id="list-queues"><a class="header" href="#list-queues">List Queues</a></h3>
-<pre><code class="language-bash">GET /queues
-</code></pre>
-<pre><code class="language-json">[
-  {
-    "name": "default",
-    "size": 5,
-    "subscribers": 2,
-    "unacked": 1
-  }
-]
-</code></pre>
-<h3 id="get-queue"><a class="header" href="#get-queue">Get Queue</a></h3>
-<pre><code class="language-bash">GET /queues/{name}
-</code></pre>
-<h3 id="delete-queue"><a class="header" href="#delete-queue">Delete Queue</a></h3>
-<pre><code class="language-bash">DELETE /queues/{name}
-</code></pre>
-<h2 id="nodes"><a class="header" href="#nodes">Nodes</a></h2>
-<h3 id="list-nodes"><a class="header" href="#list-nodes">List Nodes</a></h3>
-<pre><code class="language-bash">GET /nodes
-</code></pre>
-<pre><code class="language-json">[
-  {
-    "id": "node-123",
-    "name": "Coordinator",
-    "status": "UP",
-    "startedAt": "2024-01-01T00:00:00Z",
-    "lastHeartbeatAt": "2024-01-01T12:00:00Z"
-  }
-]
-</code></pre>
-<h2 id="metrics"><a class="header" href="#metrics">Metrics</a></h2>
-<h3 id="get-metrics"><a class="header" href="#get-metrics">Get Metrics</a></h3>
-<pre><code class="language-bash">GET /metrics
-</code></pre>
-<h2 id="users"><a class="header" href="#users">Users</a></h2>
-<h3 id="create-user"><a class="header" href="#create-user">Create User</a></h3>
-<pre><code class="language-bash">POST /users
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "secret"
-}
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/queues</code></td><td>List queues</td></tr>
+<tr><td><code>GET</code></td><td><code>/queues/{name}</code></td><td>Get queue details</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/queues/{name}</code></td><td>Delete a queue</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="system"><a class="header" href="#system">System</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/nodes</code></td><td>List nodes</td></tr>
+<tr><td><code>GET</code></td><td><code>/nodes/{id}</code></td><td>Get node details</td></tr>
+<tr><td><code>GET</code></td><td><code>/metrics</code></td><td>Fetch metrics</td></tr>
+<tr><td><code>POST</code></td><td><code>/users</code></td><td>Create a user</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="triggers"><a class="header" href="#triggers">Triggers</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/api/v1/triggers</code></td><td>List triggers</td></tr>
+<tr><td><code>POST</code></td><td><code>/api/v1/triggers</code></td><td>Create a trigger</td></tr>
+<tr><td><code>GET</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Get a trigger</td></tr>
+<tr><td><code>PUT</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Update a trigger</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Delete a trigger</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="openapi"><a class="header" href="#openapi">OpenAPI</a></h2>
+<pre><code class="language-bash">GET /openapi.json
 </code></pre>
 <h2 id="cli-integration"><a class="header" href="#cli-integration">CLI Integration</a></h2>
-<pre><code class="language-bash"># Submit job
-curl -X POST http://localhost:8000/jobs \
+<pre><code class="language-bash"># Submit and wait for completion
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
   -H "Content-Type: text/yaml" \
-  --data-binary @job.yaml
+  --data-binary @examples/hello-shell.yaml
 
-# Check status
-curl http://localhost:8000/jobs/$JOB_ID | jq .
-
-# Cancel
-curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+# Inspect the resulting job and logs
+curl http://localhost:8000/jobs/$JOB_ID
+curl http://localhost:8000/jobs/$JOB_ID/log
 </code></pre>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>

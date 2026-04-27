@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91f13594.js";
+            window.path_to_searchindex_js = "searchindex-4b5cccdd.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-1d7cec25.js"></script>
+        <script src="toc-48552db7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -223,20 +223,24 @@
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ol>
 <li><strong>Rust 1.75+</strong> — For building from source</li>
-<li><strong>Docker</strong> — For container-based task execution</li>
-<li><strong>PostgreSQL</strong> — For persistence (or use In-Memory for testing)</li>
-<li><strong>RabbitMQ</strong> — For distributed mode (or use In-Memory for testing)</li>
+<li><strong>Bash-compatible shell</strong> — For the zero-dependency shell runtime quick start</li>
+<li><strong>Docker or Podman</strong> — Optional, for image-based task execution</li>
+<li><strong>PostgreSQL</strong> — Optional, for persistence</li>
+<li><strong>RabbitMQ</strong> — Optional, for distributed mode</li>
 </ol>
 <h2 id="download-binary"><a class="header" href="#download-binary">Download Binary</a></h2>
 <pre><code class="language-bash"># Check releases for your platform
-curl -L https://github.com/lprior-repo/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
+curl -L https://github.com/runabol/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
 ./twerk --help
 </code></pre>
 <h2 id="build-from-source"><a class="header" href="#build-from-source">Build from Source</a></h2>
-<pre><code class="language-bash">git clone https://github.com/lprior-repo/twerk.git
+<pre><code class="language-bash">git clone https://github.com/runabol/twerk.git
 cd twerk
-cargo build --release
+cargo build --release -p twerk-cli
 ./target/release/twerk --help
+</code></pre>
+<p>For a local first run from the repo root, the checked-in <code>config.toml</code> already points Twerk at the in-memory broker/datastore and shell runtime:</p>
+<pre><code class="language-bash">./target/release/twerk server start standalone
 </code></pre>
 <h2 id="set-up-postgresql"><a class="header" href="#set-up-postgresql">Set up PostgreSQL</a></h2>
 <pre><code class="language-shell">docker run -d \
@@ -249,7 +253,7 @@ cargo build --release
 </code></pre>
 <p>Run migration:</p>
 <pre><code class="language-bash">TWERK_DATASTORE_TYPE=postgres \
-TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
 ./twerk migration
 </code></pre>
 <h2 id="set-up-rabbitmq-distributed-mode"><a class="header" href="#set-up-rabbitmq-distributed-mode">Set up RabbitMQ (Distributed Mode)</a></h2>
@@ -261,7 +265,7 @@ TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=tw
 </code></pre>
 <p>Access management UI at <code>http://localhost:15672</code> (guest/guest).</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>Twerk is configured via <code>config.toml</code> or environment variables:</p>
+<p>Twerk is configured via TOML files or environment variables:</p>
 <pre><code class="language-bash"># Environment variable format
 TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
 
@@ -279,81 +283,59 @@ TWERK_RUNTIME_TYPE=docker
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
-<p>Get Twerk running with your first job in under 5 minutes.</p>
+<p>Get Twerk running locally with no Postgres, RabbitMQ, Docker, or Podman.</p>
 <h2 id="start-twerk"><a class="header" href="#start-twerk">Start Twerk</a></h2>
-<p>In standalone mode (all-in-one):</p>
-<pre><code class="language-bash">./twerk run standalone
+<p>Use the local-friendly in-memory and shell settings:</p>
+<pre><code class="language-bash">TWERK_BROKER_TYPE=inmemory \
+TWERK_DATASTORE_TYPE=inmemory \
+TWERK_RUNTIME_TYPE=shell \
+./twerk server start standalone
 </code></pre>
-<p>Twerk will start on <code>http://localhost:8000</code>.</p>
+<p>If you built from source inside this repository, the checked-in <code>config.toml</code> already uses the same settings, so <code>./target/release/twerk server start standalone</code> works from the repo root.</p>
+<p>Twerk starts on <code>http://localhost:8000</code>.</p>
 <h2 id="create-a-job"><a class="header" href="#create-a-job">Create a Job</a></h2>
-<p>Create <code>hello.yaml</code>:</p>
-<pre><code class="language-yaml">name: hello job
+<p>Create <code>hello-shell.yaml</code>:</p>
+<pre><code class="language-yaml">name: hello shell
 tasks:
   - name: say hello
-    image: ubuntu:mantic
     run: |
-      echo -n hello world
-  - name: say goodbye
-    image: alpine:latest
-    run: |
-      echo -n bye world
+      echo "hello from twerk"
 </code></pre>
-<h2 id="submit-the-job"><a class="header" href="#submit-the-job">Submit the Job</a></h2>
-<pre><code class="language-bash">curl -X POST http://localhost:8000/jobs \
-  -H "Content-type: text/yaml" \
-  --data-binary @hello.yaml
+<h2 id="submit-and-wait-for-completion"><a class="header" href="#submit-and-wait-for-completion">Submit and Wait for Completion</a></h2>
+<pre><code class="language-bash">curl -X POST 'http://localhost:8000/jobs?wait=true' \
+  -H "Content-Type: text/yaml" \
+  --data-binary @hello-shell.yaml
 </code></pre>
-<pre><code class="language-json">{
-  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
-  "state": "SCHEDULED",
-  ...
-}
+<p><code>wait=true</code> blocks until the job finishes, which makes the first-run flow much easier to verify.</p>
+<h2 id="inspect-the-run"><a class="header" href="#inspect-the-run">Inspect the Run</a></h2>
+<pre><code class="language-bash">curl http://localhost:8000/jobs
+curl http://localhost:8000/jobs/&lt;job-id&gt;/log
 </code></pre>
-<h2 id="check-status"><a class="header" href="#check-status">Check Status</a></h2>
-<pre><code class="language-bash">curl http://localhost:8000/jobs/ed0dba93d262492b8cf26e6c1c4f1c98
-</code></pre>
-<pre><code class="language-json">{
-  "id": "ed0dba93d262492b8cf26e6c1c4f1c98",
-  "state": "COMPLETED",
-  "tasks": [
-    {"name": "say hello", "state": "COMPLETED"},
-    {"name": "say goodbye", "state": "COMPLETED"}
-  ],
-  ...
-}
-</code></pre>
-<h2 id="what-happened"><a class="header" href="#what-happened">What Happened?</a></h2>
-<ol>
-<li>Twerk received your job and scheduled both tasks</li>
-<li>Task 1 ran in an Ubuntu container</li>
-<li>Task 2 ran in an Alpine container</li>
-<li>Twerk marked the job as <code>COMPLETED</code></li>
-</ol>
-<h2 id="distributed-mode"><a class="header" href="#distributed-mode">Distributed Mode</a></h2>
-<p>Run coordinator and workers separately:</p>
-<pre><code class="language-bash"># Terminal 1: Coordinator
-TWERK_DATASTORE_TYPE=postgres \
-TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk" \
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
-./twerk run coordinator
-
-# Terminal 2: Worker
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
-TWERK_RUNTIME_TYPE=docker \
-./twerk run worker
-</code></pre>
-<p>Submit jobs to the coordinator at <code>http://localhost:8000</code>.</p>
 <h2 id="health-check"><a class="header" href="#health-check">Health Check</a></h2>
 <pre><code class="language-bash">./twerk health
 # or
 curl http://localhost:8000/health
 </code></pre>
+<h2 id="distributed-mode"><a class="header" href="#distributed-mode">Distributed Mode</a></h2>
+<p>Run coordinator and workers separately when you want Postgres, RabbitMQ, and container-backed tasks:</p>
+<pre><code class="language-bash"># Terminal 1: Coordinator
+TWERK_DATASTORE_TYPE=postgres \
+TWERK_DATASTORE_POSTGRES_DSN="host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable" \
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+./twerk server start coordinator
+
+# Terminal 2: Worker
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_BROKER_RABBITMQ_URL="amqp://guest:guest@localhost:5672/" \
+TWERK_RUNTIME_TYPE=docker \
+./twerk server start worker
+</code></pre>
+<p>Container images require <code>docker</code> or <code>podman</code>. The zero-dependency quick start above uses the shell runtime instead.</p>
 <h2 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h2>
 <ul>
 <li><a href="#jobs">Jobs</a> — Learn about job definitions</li>
-<li><a href="#tasks">Tasks</a> — Configure task behavior</li>
+<li><a href="#tasks-1">Tasks</a> — Configure task behavior</li>
 <li><a href="#cli-reference">CLI Reference</a> — All available commands</li>
 <li><a href="#rest-api">REST API</a> — API reference</li>
 </ul>
@@ -413,9 +395,9 @@ curl http://localhost:8000/health
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
 <h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
-<h3 id="twerk-run"><a class="header" href="#twerk-run"><code>twerk run</code></a></h3>
+<h3 id="twerk-server-start"><a class="header" href="#twerk-server-start"><code>twerk server start</code></a></h3>
 <p>Start Twerk in a specific mode.</p>
-<pre><code class="language-bash">twerk run &lt;MODE&gt; [OPTIONS]
+<pre><code class="language-bash">twerk server start &lt;MODE&gt; [OPTIONS]
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -429,17 +411,17 @@ curl http://localhost:8000/health
 </tbody>
 </table>
 </div>
-<p><strong>Options:</strong></p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Option</th><th>Description</th><th>Default</th></tr>
 </thead>
 <tbody>
-<tr><td><code>--config &lt;PATH&gt;</code></td><td>Path to config.toml</td><td>See configuration docs</td></tr>
+<tr><td><code>--hostname &lt;HOSTNAME&gt;</code></td><td>Coordinator hostname for workers</td><td>none</td></tr>
 </tbody>
 </table>
 </div>
+<p>Config is loaded from <code>TWERK_CONFIG</code> or the default config search paths. There is no <code>--config</code> CLI flag.</p>
 <h3 id="twerk-migration"><a class="header" href="#twerk-migration"><code>twerk migration</code></a></h3>
 <p>Run database migrations.</p>
 <pre><code class="language-bash">twerk migration [OPTIONS]
@@ -454,6 +436,7 @@ curl http://localhost:8000/health
 </tbody>
 </table>
 </div>
+<p><code>twerk migration</code> reads the datastore type and Postgres DSN from config or <code>TWERK_*</code> environment variables.</p>
 <h3 id="twerk-health"><a class="header" href="#twerk-health"><code>twerk health</code></a></h3>
 <p>Check coordinator health.</p>
 <pre><code class="language-bash">twerk health [OPTIONS]
@@ -468,6 +451,39 @@ curl http://localhost:8000/health
 </tbody>
 </table>
 </div>
+<h3 id="twerk-version"><a class="header" href="#twerk-version"><code>twerk version</code></a></h3>
+<p>Show the current CLI version.</p>
+<pre><code class="language-bash">twerk version [--json]
+</code></pre>
+<p>Text-mode version discovery commands are clean endpoints: they print only the version line to stdout, keep stderr empty, and exit <code>0</code>.</p>
+<p>Supported forms:</p>
+<ul>
+<li><code>twerk --version</code> → <code>twerk &lt;VERSION&gt;</code></li>
+<li><code>twerk version</code> → <code>twerk &lt;VERSION&gt;</code></li>
+<li><code>twerk run --version</code> → <code>twerk-run &lt;VERSION&gt;</code></li>
+<li><code>twerk migration --version</code> → <code>twerk-migration &lt;VERSION&gt;</code></li>
+<li><code>twerk health --version</code> → <code>twerk-health &lt;VERSION&gt;</code></li>
+</ul>
+<h2 id="top-level-flags"><a class="header" href="#top-level-flags">Top-Level Flags</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--json</code></td><td>Emit machine-readable JSON for help, version, parse errors, and command failures on stdout</td></tr>
+<tr><td><code>--help</code></td><td>Show CLI help</td></tr>
+<tr><td><code>--version</code></td><td>Show the current version</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="json-behavior"><a class="header" href="#json-behavior">JSON Behavior</a></h2>
+<ul>
+<li>Help discovery commands such as <code>twerk --json</code>, <code>twerk --json --help</code>, <code>twerk help --json</code>, and <code>twerk run --json --help</code> return JSON with a rendered <code>content</code> field.</li>
+<li>Version discovery commands such as <code>twerk --json --version</code> and <code>twerk version --json</code> return JSON on stdout, keep stderr empty, and exit <code>0</code>.</li>
+<li>JSON parse failures keep Clap exit code <code>2</code> and write structured error JSON to stdout.</li>
+<li>JSON command validation and runtime failures exit <code>1</code>, write structured error JSON to stdout, and keep stderr empty.</li>
+</ul>
 <h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
 <p>All configuration can be set via environment variables:</p>
 <pre><code>TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
@@ -480,6 +496,201 @@ curl http://localhost:8000/health
 <li><code>TWERK_RUNTIME_TYPE=docker</code></li>
 </ul>
 <p>See <a href="#configuration-1">Configuration</a> for full reference.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="yaml-language-spec"><a class="header" href="#yaml-language-spec">YAML Language Spec</a></h1>
+<p>This document defines the YAML shapes that Twerk currently accepts at the parser boundary, using shipped examples and core Rust schema types as evidence.</p>
+<h2 id="scope"><a class="header" href="#scope">Scope</a></h2>
+<p>Twerk accepts two distinct YAML document families:</p>
+<ol>
+<li><strong>Native job documents</strong> — parsed as <code>twerk_core::job::Job</code></li>
+<li><strong>ASL-style state machines</strong> — parsed as <code>twerk_core::asl::machine::StateMachine</code></li>
+</ol>
+<p>Do not treat them as the same grammar. They live side-by-side in <code>examples/</code>, but they are different schemas.</p>
+<h2 id="parser-contract"><a class="header" href="#parser-contract">Parser Contract</a></h2>
+<p>At the HTTP/parser boundary (<code>crates/twerk-web/src/api/yaml.rs</code>):</p>
+<ul>
+<li>Empty bodies are rejected.</li>
+<li>Bodies larger than <code>512 KiB</code> are rejected.</li>
+<li>NUL bytes are rejected.</li>
+<li>Duplicate YAML keys are rejected.</li>
+<li>Parser budgets are enforced with <code>max_depth = 64</code> and <code>max_nodes = 10_000</code>.</li>
+<li>YAML must be valid UTF-8.</li>
+</ul>
+<h2 id="native-job-document"><a class="header" href="#native-job-document">Native Job Document</a></h2>
+<p>Backed by <code>crates/twerk-core/src/job.rs</code> and <code>crates/twerk-core/src/task.rs</code>.</p>
+<h3 id="minimal-shape"><a class="header" href="#minimal-shape">Minimal shape</a></h3>
+<p>Example-backed top-level fields include:</p>
+<ul>
+<li><code>name</code></li>
+<li><code>description</code></li>
+<li><code>inputs</code></li>
+<li><code>output</code></li>
+<li><code>tasks</code></li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>examples/hello.yaml</code></li>
+<li><code>examples/hello-shell.yaml</code></li>
+<li><code>examples/bash-pipeline.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="tasks"><a class="header" href="#tasks">Tasks</a></h3>
+<p>Common task fields evidenced in shipped examples:</p>
+<ul>
+<li><code>name</code></li>
+<li><code>var</code></li>
+<li><code>image</code></li>
+<li><code>run</code></li>
+<li><code>entrypoint</code></li>
+<li><code>env</code></li>
+<li><code>files</code></li>
+<li><code>retry</code></li>
+<li><code>timeout</code></li>
+<li><code>pre</code></li>
+<li><code>post</code></li>
+<li><code>mounts</code></li>
+<li><code>parallel</code></li>
+<li><code>each</code></li>
+<li><code>subjob</code></li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>simple task: <code>examples/hello.yaml</code></li>
+<li>retry: <code>examples/retry.yaml</code>, <code>examples/bash-retry.yaml</code></li>
+<li>timeout: <code>examples/timeout.yaml</code></li>
+<li>map-heavy task: <code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h2 id="maps"><a class="header" href="#maps">Maps</a></h2>
+<h3 id="inputs"><a class="header" href="#inputs"><code>inputs</code></a></h3>
+<p>Top-level string map consumed by expressions like <code>{{ inputs.key }}</code>.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="env"><a class="header" href="#env"><code>env</code></a></h3>
+<p>Task-level string map. Appears on normal tasks and nested tasks.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/each.yaml</code></li>
+<li><code>examples/bash-each.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="files"><a class="header" href="#files"><code>files</code></a></h3>
+<p>Task-level string map from filename to inline file body.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="not-example-backed-yet"><a class="header" href="#not-example-backed-yet">Not example-backed yet</a></h3>
+<p>The core schema supports additional top-level maps/collections, but shipped <code>examples/*.yaml</code> do <strong>not</strong> currently prove the user-authored syntax of all of them:</p>
+<ul>
+<li><code>secrets</code></li>
+<li><code>tags</code></li>
+<li><code>webhooks</code></li>
+<li><code>schedule</code></li>
+<li><code>defaults</code></li>
+</ul>
+<p>They may exist in code and broader docs, but they are not all evidenced by shipped example YAML.</p>
+<h2 id="control-structures"><a class="header" href="#control-structures">Control Structures</a></h2>
+<h3 id="each"><a class="header" href="#each"><code>each</code></a></h3>
+<p><code>each</code> contains:</p>
+<ul>
+<li><code>list</code></li>
+<li>optional <code>var</code></li>
+<li>nested <code>task</code></li>
+</ul>
+<p>Example-backed iteration placeholder forms currently seen in examples include legacy underscore aliases:</p>
+<ul>
+<li><code>item_index</code></li>
+<li><code>item_value</code></li>
+<li><code>myitem_index</code></li>
+<li><code>myitem_value</code></li>
+<li><code>num_index</code></li>
+<li><code>num_value</code></li>
+<li><code>item_value_start</code></li>
+<li><code>item_value_length</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/each.yaml</code></li>
+<li><code>examples/bash-each.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h3 id="parallel"><a class="header" href="#parallel"><code>parallel</code></a></h3>
+<p><code>parallel</code> contains a nested <code>tasks</code> list.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/parallel.yaml</code></li>
+<li><code>examples/pokemon-benchmark.yaml</code></li>
+<li><code>examples/twerk-massive-parallel.yaml</code></li>
+<li><code>examples/subjob.yaml</code></li>
+<li><code>examples/bash-subjob.yaml</code></li>
+</ul>
+<h3 id="subjob"><a class="header" href="#subjob"><code>subjob</code></a></h3>
+<p><code>subjob</code> embeds another native-job-like task list and may include <code>name</code> and <code>output</code>.</p>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/subjob.yaml</code></li>
+<li><code>examples/bash-subjob.yaml</code></li>
+</ul>
+<h2 id="retry-and-timeout"><a class="header" href="#retry-and-timeout">Retry and Timeout</a></h2>
+<p>Native task retry shape evidenced in examples:</p>
+<pre><code class="language-yaml">retry:
+  limit: &lt;integer&gt;
+</code></pre>
+<p>Timeouts are evidenced as duration strings:</p>
+<ul>
+<li><code>5s</code></li>
+<li><code>120s</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/retry.yaml</code></li>
+<li><code>examples/bash-retry.yaml</code></li>
+<li><code>examples/timeout.yaml</code></li>
+<li><code>examples/split_and_stitch.yaml</code></li>
+</ul>
+<h2 id="asl-style-state-machines"><a class="header" href="#asl-style-state-machines">ASL-Style State Machines</a></h2>
+<p>Backed by <code>crates/twerk-core/src/asl/</code>.</p>
+<p>Top-level ASL fields evidenced in shipped examples:</p>
+<ul>
+<li><code>comment</code></li>
+<li><code>startAt</code></li>
+<li><code>states</code></li>
+</ul>
+<p>Evidence:</p>
+<ul>
+<li><code>examples/asl-hello.yaml</code></li>
+<li><code>examples/asl-task-retry.yaml</code></li>
+</ul>
+<h3 id="asl-state-forms-currently-evidenced-by-examples"><a class="header" href="#asl-state-forms-currently-evidenced-by-examples">ASL state forms currently evidenced by examples</a></h3>
+<ul>
+<li><code>type: pass</code></li>
+<li><code>type: task</code></li>
+<li><code>next</code></li>
+<li><code>end: true</code></li>
+<li>task-state <code>retry</code> list with:
+<ul>
+<li><code>errorEquals</code></li>
+<li><code>intervalSeconds</code></li>
+<li><code>maxAttempts</code></li>
+<li><code>backoffRate</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="important-gaps-and-ambiguities"><a class="header" href="#important-gaps-and-ambiguities">Important Gaps and Ambiguities</a></h2>
+<h3 id="run-interpolation-docs-are-inconsistent"><a class="header" href="#run-interpolation-docs-are-inconsistent"><code>run</code> interpolation docs are inconsistent</a></h3>
+<p><code>website/src/examples.md</code> says <code>run</code> is passed raw and is <strong>not</strong> evaluated. But shipped examples include <code>run</code> values containing <code>{{ ... }}</code> expressions. This spec does not claim runtime interpolation semantics beyond what the parser accepts: <code>run</code> is parsed as a string, and examples prove that strings containing template markers are accepted.</p>
+<h3 id="mixed-example-families"><a class="header" href="#mixed-example-families">Mixed example families</a></h3>
+<p><code>examples/</code> contains both native job YAML and ASL YAML. Tooling and tests must parse them into the correct target type. Parsing every example as <code>Job</code> is not a valid contract.</p>
+<h3 id="example-backed-vs-code-backed"><a class="header" href="#example-backed-vs-code-backed">Example-backed vs code-backed</a></h3>
+<p>This spec is intentionally conservative. If a shape is supported in code but not evidenced by shipped examples, call that out explicitly instead of bluffing.</p>
+<h2 id="recommended-reading-order"><a class="header" href="#recommended-reading-order">Recommended Reading Order</a></h2>
+<ol>
+<li><code>website/src/QUICKSTART_YAML.md</code> for a quick tour</li>
+<li>this document for parser-backed shape constraints</li>
+<li><code>website/src/examples.md</code> for usage-oriented examples</li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="jobs"><a class="header" href="#jobs">Jobs</a></h1>
 <p>A <strong>job</strong> is a collection of tasks executed in order.</p>
@@ -511,7 +722,7 @@ defaults:                             # Applied to all tasks
     memory: "512m"                  # Memory limit
   timeout: 10m                      # Task timeout
   queue: default                      # Queue name
-  priority: 5                        # 0-9, higher = more priority
+  priority: 5                        # 0-9, lower values run first
 
 # ─── Tasks ───────────────────────────────────────────────────────────────────
 tasks:
@@ -572,11 +783,11 @@ autoDelete:
 </ul>
 <h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
 <ul>
-<li><a href="#tasks">Tasks</a> — Task configuration</li>
+<li><a href="#tasks-1">Tasks</a> — Task configuration</li>
 <li><a href="#rest-api">REST API</a> — Submit via API</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="tasks"><a class="header" href="#tasks">Tasks</a></h1>
+<h1 id="tasks-1"><a class="header" href="#tasks-1">Tasks</a></h1>
 <p>Tasks are the unit of execution in Twerk.</p>
 <h2 id="minimal-task"><a class="header" href="#minimal-task">Minimal Task</a></h2>
 <pre><code class="language-yaml">- name: my task
@@ -787,148 +998,74 @@ gid = "1000"            # Run with specific group
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
-<p>Twerk is configured via <code>config.toml</code> or environment variables.</p>
+<p>Twerk reads TOML configuration from files and environment variables.</p>
 <h2 id="config-file-locations"><a class="header" href="#config-file-locations">Config File Locations</a></h2>
+<p>Twerk checks these locations in order:</p>
 <ol>
-<li><code>./config.toml</code> (current directory)</li>
+<li><code>./config.local.toml</code></li>
+<li><code>./config.toml</code></li>
+<li><code>./config.local.yaml</code></li>
+<li><code>./config.yaml</code></li>
+<li><code>./config.local.yml</code></li>
+<li><code>./config.yml</code></li>
 <li><code>~/twerk/config.toml</code></li>
+<li><code>~/twerk/config.yaml</code></li>
 <li><code>/etc/twerk/config.toml</code></li>
+<li><code>/etc/twerk/config.yaml</code></li>
 </ol>
-<p>Or specify with:</p>
-<pre><code class="language-bash">TWERK_CONFIG=/path/to/config.toml ./twerk run standalone
+<p><code>.yaml</code> and <code>.yml</code> filenames are legacy compatibility names only. Their contents must still be valid TOML.</p>
+<p>Or specify a file directly:</p>
+<pre><code class="language-bash">TWERK_CONFIG=/path/to/config.toml twerk server start standalone
 </code></pre>
 <h2 id="environment-variables-1"><a class="header" href="#environment-variables-1">Environment Variables</a></h2>
-<p>Override any setting:</p>
+<p>Override any setting with:</p>
 <pre><code class="language-bash">TWERK_&lt;SECTION&gt;_&lt;KEY&gt;=value
 </code></pre>
 <p>Example: <code>TWERK_LOGGING_LEVEL=debug</code></p>
-<h2 id="full-configuration"><a class="header" href="#full-configuration">Full Configuration</a></h2>
-<pre><code class="language-toml">[cli]
-banner.mode = "console"  # off | console | log
-
-[client]
-endpoint = "http://localhost:8000"
-
-[logging]
-level = "debug"          # debug | info | warn | error
-format = "pretty"        # pretty | json
+<h2 id="local-standalone-example"><a class="header" href="#local-standalone-example">Local Standalone Example</a></h2>
+<pre><code class="language-toml">[logging]
+level = "info"
+format = "pretty"
 
 [broker]
-type = "inmemory"       # inmemory | rabbitmq
-
-[broker.rabbitmq]
-url = "amqp://guest:guest@localhost:5672/"
-consumer.timeout = "30m"
-management.url = ""
-durable.queues = false
-queue.type = "classic"   # classic | quorum
+type = "inmemory"
 
 [datastore]
-type = "postgres"         # postgres | inmemory
-
-[datastore.retention]
-logs.duration = "168h"   # 7 days
-jobs.duration = "8760h"  # 1 year
-
-[datastore.encryption]
-key = ""                 # Encryption key for secrets at rest
-
-[datastore.postgres]
-dsn = "host=localhost user=twerk password=twerk dbname=twerk"
-max_open_conns = 10
-max_idle_conns = 5
-conn_max_lifetime = "1h"
-conn_max_idle_time = "30m"
+type = "inmemory"
 
 [coordinator]
 address = "localhost:8000"
-name = "Coordinator"
-
-[coordinator.api]
-endpoints.health = true
-endpoints.jobs = true
-endpoints.tasks = true
-endpoints.nodes = true
-endpoints.queues = true
-endpoints.metrics = true
-endpoints.users = true
-
-[coordinator.queues]
-completed = 1
-error = 1
-pending = 1
-started = 1
-heartbeat = 1
-jobs = 1
-
-[middleware.web.cors]
-enabled = false
-origins = "*"
-methods = "*"
-credentials = false
-headers = "*"
-
-[middleware.web.basicauth]
-enabled = false
-
-[middleware.web.keyauth]
-enabled = false
-key = ""
-
-[middleware.web]
-bodylimit = "500K"
-
-[middleware.web.ratelimit]
-enabled = false
-rps = 20
-
-[middleware.web.logger]
-enabled = true
-level = "DEBUG"
-skip = ["GET /health"]
-
-[middleware.job.redact]
-enabled = false
-
-[middleware.task.hostenv]
-vars = []
 
 [worker]
 address = "localhost:8001"
-name = "Worker"
-
-[worker.queues]
-default = 1
-
-[worker.limits]
-cpus = ""
-memory = ""
-timeout = ""
-
-[mounts.bind]
-allowed = false
-sources = []
-
-[mounts.temp]
-dir = "/tmp"
 
 [runtime]
-type = "docker"         # docker | podman | shell
+type = "shell"
 
 [runtime.shell]
 cmd = ["bash", "-c"]
 uid = ""
 gid = ""
-
-[runtime.docker]
-config = ""
-privileged = false
-image.ttl = "24h"
-
-[runtime.podman]
-privileged = false
-host.network = false
 </code></pre>
+<p>This is the same shape as the repo-root <code>config.toml</code> used for the primary local docs journey.</p>
+<h2 id="distributed-example"><a class="header" href="#distributed-example">Distributed Example</a></h2>
+<pre><code class="language-toml">[broker]
+type = "rabbitmq"
+
+[broker.rabbitmq]
+url = "amqp://guest:guest@localhost:5672/"
+
+[datastore]
+type = "postgres"
+
+[datastore.postgres]
+dsn = "host=localhost user=twerk password=twerk dbname=twerk port=5432 sslmode=disable"
+
+[runtime]
+type = "docker"
+</code></pre>
+<p>Use <code>docker</code> or <code>podman</code> when your task definitions include container images.</p>
+<p>For a fuller reference, see <code>configs/sample.config.toml</code> in the repository.</p>
 <h2 id="environment-variable-reference"><a class="header" href="#environment-variable-reference">Environment Variable Reference</a></h2>
 <div class="table-wrapper">
 <table>
@@ -957,142 +1094,116 @@ host.network = false
 <h1 id="rest-api"><a class="header" href="#rest-api">REST API</a></h1>
 <p>Base URL: <code>http://localhost:8000</code></p>
 <h2 id="health"><a class="header" href="#health">Health</a></h2>
-<h3 id="health-check-1"><a class="header" href="#health-check-1">Health Check</a></h3>
 <pre><code class="language-bash">GET /health
 </code></pre>
-<pre><code class="language-json">{ "status": "UP" }
+<pre><code class="language-json">{ "status": "UP", "version": "0.1.0" }
 </code></pre>
 <h2 id="jobs-1"><a class="header" href="#jobs-1">Jobs</a></h2>
-<h3 id="submit-job"><a class="header" href="#submit-job">Submit Job</a></h3>
-<pre><code class="language-bash">POST /jobs
-Content-Type: text/yaml
-</code></pre>
-<pre><code class="language-yaml">name: my job
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>POST</code></td><td><code>/jobs</code></td><td>Submit a job</td></tr>
+<tr><td><code>POST</code></td><td><code>/jobs?wait=true</code></td><td>Submit and block until completion</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs</code></td><td>List jobs</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs/{id}</code></td><td>Get job details</td></tr>
+<tr><td><code>GET</code></td><td><code>/jobs/{id}/log</code></td><td>Fetch job logs</td></tr>
+<tr><td><code>POST</code></td><td><code>/jobs/{id}/cancel</code></td><td>Cancel a job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/jobs/{id}/cancel</code></td><td>Cancel a job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/jobs/{id}/restart</code></td><td>Restart a job</td></tr>
+</tbody>
+</table>
+</div>
+<p>Example request body:</p>
+<pre><code class="language-yaml">name: hello shell
 tasks:
   - name: hello
-    image: alpine:latest
-    run: echo hello
+    run: echo "hello from twerk"
 </code></pre>
-<h3 id="list-jobs"><a class="header" href="#list-jobs">List Jobs</a></h3>
-<pre><code class="language-bash">GET /jobs?page=1&amp;size=10&amp;q=searchterm
-</code></pre>
-<pre><code class="language-json">{
-  "items": [
-    {
-      "id": "abc123",
-      "name": "my job",
-      "state": "COMPLETED",
-      "createdAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "totalPages": 5
-}
-</code></pre>
-<h3 id="get-job"><a class="header" href="#get-job">Get Job</a></h3>
-<pre><code class="language-bash">GET /jobs/{id}
-</code></pre>
-<h3 id="get-job-log"><a class="header" href="#get-job-log">Get Job Log</a></h3>
-<pre><code class="language-bash">GET /jobs/{id}/log
-</code></pre>
-<h3 id="cancel-job"><a class="header" href="#cancel-job">Cancel Job</a></h3>
-<pre><code class="language-bash">PUT /jobs/{id}/cancel
-</code></pre>
-<h3 id="restart-job"><a class="header" href="#restart-job">Restart Job</a></h3>
-<pre><code class="language-bash">PUT /jobs/{id}/restart
-</code></pre>
-<h2 id="tasks-1"><a class="header" href="#tasks-1">Tasks</a></h2>
-<h3 id="get-task"><a class="header" href="#get-task">Get Task</a></h3>
-<pre><code class="language-bash">GET /tasks/{id}
-</code></pre>
-<h3 id="get-task-log"><a class="header" href="#get-task-log">Get Task Log</a></h3>
-<pre><code class="language-bash">GET /tasks/{id}/log
-</code></pre>
+<h2 id="tasks-2"><a class="header" href="#tasks-2">Tasks</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/tasks/{id}</code></td><td>Get task details</td></tr>
+<tr><td><code>GET</code></td><td><code>/tasks/{id}/log</code></td><td>Fetch task logs</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="scheduled-jobs"><a class="header" href="#scheduled-jobs">Scheduled Jobs</a></h2>
-<h3 id="submit-scheduled-job"><a class="header" href="#submit-scheduled-job">Submit Scheduled Job</a></h3>
-<pre><code class="language-bash">POST /scheduled-jobs
-Content-Type: text/yaml
-</code></pre>
-<pre><code class="language-yaml">name: daily job
-schedule:
-  cron: "0 2 * * *"
-tasks:
-  - name: backup
-    image: alpine:latest
-    run: echo backing up
-</code></pre>
-<h3 id="list-scheduled-jobs"><a class="header" href="#list-scheduled-jobs">List Scheduled Jobs</a></h3>
-<pre><code class="language-bash">GET /scheduled-jobs
-</code></pre>
-<h3 id="get-scheduled-job"><a class="header" href="#get-scheduled-job">Get Scheduled Job</a></h3>
-<pre><code class="language-bash">GET /scheduled-jobs/{id}
-</code></pre>
-<h3 id="pause-scheduled-job"><a class="header" href="#pause-scheduled-job">Pause Scheduled Job</a></h3>
-<pre><code class="language-bash">PUT /scheduled-jobs/{id}/pause
-</code></pre>
-<h3 id="resume-scheduled-job"><a class="header" href="#resume-scheduled-job">Resume Scheduled Job</a></h3>
-<pre><code class="language-bash">PUT /scheduled-jobs/{id}/resume
-</code></pre>
-<h3 id="delete-scheduled-job"><a class="header" href="#delete-scheduled-job">Delete Scheduled Job</a></h3>
-<pre><code class="language-bash">DELETE /scheduled-jobs/{id}
-</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>POST</code></td><td><code>/scheduled-jobs</code></td><td>Create a scheduled job</td></tr>
+<tr><td><code>GET</code></td><td><code>/scheduled-jobs</code></td><td>List scheduled jobs</td></tr>
+<tr><td><code>GET</code></td><td><code>/scheduled-jobs/{id}</code></td><td>Get a scheduled job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/scheduled-jobs/{id}/pause</code></td><td>Pause a scheduled job</td></tr>
+<tr><td><code>PUT</code></td><td><code>/scheduled-jobs/{id}/resume</code></td><td>Resume a scheduled job</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/scheduled-jobs/{id}</code></td><td>Delete a scheduled job</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="queues"><a class="header" href="#queues">Queues</a></h2>
-<h3 id="list-queues"><a class="header" href="#list-queues">List Queues</a></h3>
-<pre><code class="language-bash">GET /queues
-</code></pre>
-<pre><code class="language-json">[
-  {
-    "name": "default",
-    "size": 5,
-    "subscribers": 2,
-    "unacked": 1
-  }
-]
-</code></pre>
-<h3 id="get-queue"><a class="header" href="#get-queue">Get Queue</a></h3>
-<pre><code class="language-bash">GET /queues/{name}
-</code></pre>
-<h3 id="delete-queue"><a class="header" href="#delete-queue">Delete Queue</a></h3>
-<pre><code class="language-bash">DELETE /queues/{name}
-</code></pre>
-<h2 id="nodes"><a class="header" href="#nodes">Nodes</a></h2>
-<h3 id="list-nodes"><a class="header" href="#list-nodes">List Nodes</a></h3>
-<pre><code class="language-bash">GET /nodes
-</code></pre>
-<pre><code class="language-json">[
-  {
-    "id": "node-123",
-    "name": "Coordinator",
-    "status": "UP",
-    "startedAt": "2024-01-01T00:00:00Z",
-    "lastHeartbeatAt": "2024-01-01T12:00:00Z"
-  }
-]
-</code></pre>
-<h2 id="metrics"><a class="header" href="#metrics">Metrics</a></h2>
-<h3 id="get-metrics"><a class="header" href="#get-metrics">Get Metrics</a></h3>
-<pre><code class="language-bash">GET /metrics
-</code></pre>
-<h2 id="users"><a class="header" href="#users">Users</a></h2>
-<h3 id="create-user"><a class="header" href="#create-user">Create User</a></h3>
-<pre><code class="language-bash">POST /users
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "secret"
-}
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/queues</code></td><td>List queues</td></tr>
+<tr><td><code>GET</code></td><td><code>/queues/{name}</code></td><td>Get queue details</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/queues/{name}</code></td><td>Delete a queue</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="system"><a class="header" href="#system">System</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/nodes</code></td><td>List nodes</td></tr>
+<tr><td><code>GET</code></td><td><code>/nodes/{id}</code></td><td>Get node details</td></tr>
+<tr><td><code>GET</code></td><td><code>/metrics</code></td><td>Fetch metrics</td></tr>
+<tr><td><code>POST</code></td><td><code>/users</code></td><td>Create a user</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="triggers"><a class="header" href="#triggers">Triggers</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/api/v1/triggers</code></td><td>List triggers</td></tr>
+<tr><td><code>POST</code></td><td><code>/api/v1/triggers</code></td><td>Create a trigger</td></tr>
+<tr><td><code>GET</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Get a trigger</td></tr>
+<tr><td><code>PUT</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Update a trigger</td></tr>
+<tr><td><code>DELETE</code></td><td><code>/api/v1/triggers/{id}</code></td><td>Delete a trigger</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="openapi"><a class="header" href="#openapi">OpenAPI</a></h2>
+<pre><code class="language-bash">GET /openapi.json
 </code></pre>
 <h2 id="cli-integration"><a class="header" href="#cli-integration">CLI Integration</a></h2>
-<pre><code class="language-bash"># Submit job
-curl -X POST http://localhost:8000/jobs \
+<pre><code class="language-bash"># Submit and wait for completion
+curl -X POST 'http://localhost:8000/jobs?wait=true' \
   -H "Content-Type: text/yaml" \
-  --data-binary @job.yaml
+  --data-binary @examples/hello-shell.yaml
 
-# Check status
-curl http://localhost:8000/jobs/$JOB_ID | jq .
-
-# Cancel
-curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
+# Inspect the resulting job and logs
+curl http://localhost:8000/jobs/$JOB_ID
+curl http://localhost:8000/jobs/$JOB_ID/log
 </code></pre>
 <h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
 <ul>
@@ -1114,7 +1225,7 @@ curl -X PUT http://localhost:8000/jobs/$JOB_ID/cancel
 <ul>
 <li><a href="#rest-api">REST API</a> — API reference</li>
 <li><a href="#jobs">Jobs</a> — YAML job definitions</li>
-<li><a href="#tasks">Tasks</a> — Task configuration</li>
+<li><a href="#tasks-1">Tasks</a> — Task configuration</li>
 <li><a href="#examples">Examples</a> — Complete workflows</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -1272,7 +1383,7 @@ tasks:
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <ul>
 <li><a href="#jobs">Jobs</a> — Job reference</li>
-<li><a href="#tasks">Tasks</a> — Task reference</li>
+<li><a href="#tasks-1">Tasks</a> — Task reference</li>
 <li><a href="#rest-api">REST API</a> — API reference</li>
 </ul>
 

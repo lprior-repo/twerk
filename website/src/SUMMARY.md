@@ -11,5 +11,4 @@
 - [Runtimes](runtimes.md)
 - [Configuration](configuration.md)
 - [REST API](rest-api.md)
-- [Web UI](web-ui.md)
 - [Examples](examples.md)

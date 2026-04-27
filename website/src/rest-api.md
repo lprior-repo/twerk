@@ -100,5 +100,4 @@ curl http://localhost:8000/jobs/$JOB_ID/log
 
 ## Next Steps
 
-- [Web UI](web-ui.md) — Visual interface
 - [Examples](examples.md) — Complete workflows

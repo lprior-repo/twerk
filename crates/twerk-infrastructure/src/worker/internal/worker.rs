@@ -235,6 +235,8 @@ impl Worker {
 }
 #[cfg(test)]
 mod tests {
+    #![deny(clippy::unwrap_used)]
+    #![deny(clippy::expect_used)]
     use super::*;
 
     #[tokio::test]
@@ -243,8 +245,11 @@ mod tests {
         let tasks_notify = Arc::new(tokio::sync::Notify::new());
 
         let (cancel_tx, _) = broadcast::channel(1);
+        let task_id = TaskId::new("task-1").unwrap_or_else(|_| {
+            panic!("TaskId::new(\"task-1\") should always succeed in tests")
+        });
         active_tasks.insert(
-            TaskId::new("task-1").expect("valid task id"),
+            task_id,
             RunningTask { cancel_tx },
         );
 
@@ -254,7 +259,10 @@ mod tests {
         // Spawn a background task to simulate a task finishing after 50ms
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
-            active_tasks_clone.remove(&TaskId::new("task-1").expect("valid task id"));
+            let task_id = TaskId::new("task-1").unwrap_or_else(|_| {
+                panic!("TaskId::new(\"task-1\") should always succeed in tests")
+            });
+            active_tasks_clone.remove(&task_id);
             tasks_notify_clone.notify_waiters();
         });
 

@@ -5837,6 +5837,11 @@ dependencies = [
  "hostname",
  "itertools 0.14.0",
  "libc",
+<<<<<<< HEAD
+=======
+ "once_cell",
+ "proptest",
+>>>>>>> origin/tw-polecat/zeta
  "rand 0.9.4",
  "regex",
  "serde",

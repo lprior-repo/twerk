@@ -253,7 +253,7 @@
     "/health": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "Health check handler",
         "operationId": "health_handler",
@@ -657,7 +657,7 @@
     "/metrics": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "GET /metrics\n# Errors",
         "operationId": "get_metrics_handler",
@@ -678,7 +678,7 @@
     "/nodes": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "GET /nodes\n# Errors",
         "operationId": "list_nodes_handler",
@@ -744,7 +744,7 @@
     "/queues": {
       "get": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "GET /queues",
         "description": "# Errors",
@@ -769,7 +769,7 @@
     "/queues/{name}": {
       "get": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "GET /queues/{name}",
         "description": "# Errors",
@@ -810,7 +810,7 @@
       },
       "delete": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "DELETE /queues/{name}",
         "description": "# Errors",
@@ -1215,7 +1215,7 @@
     "/users": {
       "post": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "POST /users",
         "description": "# Errors",

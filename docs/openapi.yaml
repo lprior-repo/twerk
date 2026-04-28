@@ -174,7 +174,7 @@ paths:
   /health:
     get:
       tags:
-      - super::handlers::system
+      - System
       summary: Health check handler
       operationId: health_handler
       responses:
@@ -452,7 +452,7 @@ paths:
   /metrics:
     get:
       tags:
-      - super::handlers::system
+      - System
       summary: |-
         GET /metrics
         # Errors
@@ -467,7 +467,7 @@ paths:
   /nodes:
     get:
       tags:
-      - super::handlers::system
+      - System
       summary: |-
         GET /nodes
         # Errors
@@ -513,7 +513,7 @@ paths:
   /queues:
     get:
       tags:
-      - super::handlers::queues
+      - Queues
       summary: GET /queues
       description: '# Errors'
       operationId: list_queues_handler
@@ -529,7 +529,7 @@ paths:
   /queues/{name}:
     get:
       tags:
-      - super::handlers::queues
+      - Queues
       summary: GET /queues/{name}
       description: '# Errors'
       operationId: get_queue_handler
@@ -555,7 +555,7 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
     delete:
       tags:
-      - super::handlers::queues
+      - Queues
       summary: DELETE /queues/{name}
       description: '# Errors'
       operationId: delete_queue_handler
@@ -817,7 +817,7 @@ paths:
   /users:
     post:
       tags:
-      - super::handlers::system
+      - System
       summary: POST /users
       description: '# Errors'
       operationId: create_user_handler

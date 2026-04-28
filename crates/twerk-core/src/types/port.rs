@@ -12,7 +12,7 @@ use thiserror::Error;
 /// A validated network port number (1-65535).
 ///
 /// TCP and UDP ports are in the range 1-65535. Port 0 is reserved and invalid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "Port should be used; it validates at construction"]
 pub struct Port(u16);

@@ -12,7 +12,7 @@ use thiserror::Error;
 ///
 /// TaskPosition supports negative values for relative offsets from the end
 /// (e.g., -1 for the last task, -2 for second to last).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "TaskPosition should be used; it validates at construction"]
 pub struct TaskPosition(i64);

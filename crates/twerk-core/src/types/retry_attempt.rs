@@ -11,7 +11,7 @@ use thiserror::Error;
 /// A validated task retry attempt counter (non-negative u32).
 ///
 /// This represents the current attempt number in a retry sequence.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "RetryAttempt should be used; it validates at construction"]
 pub struct RetryAttempt(u32);

@@ -11,7 +11,7 @@ use thiserror::Error;
 /// A validated task count (non-negative u32).
 ///
 /// This represents the total number of tasks in a batch or queue.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(transparent)]
 #[must_use = "TaskCount should be used; it validates at construction"]
 pub struct TaskCount(u32);

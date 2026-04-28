@@ -15,7 +15,7 @@ use thiserror::Error;
 /// - Host component must be non-empty
 /// - Port is optional
 /// - Path must be non-empty or defaults to `/`
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, utoipa::ToSchema)]
 #[must_use = "WebhookUrl should be used; it validates at construction"]
 pub struct WebhookUrl(String);
 

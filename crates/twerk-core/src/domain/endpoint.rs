@@ -13,7 +13,7 @@ use thiserror::Error;
 /// - Must be a valid URI per RFC 3986
 /// - Scheme must be `http` or `https` (case-insensitive)
 /// - Host component must be non-empty
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, utoipa::ToSchema)]
 #[must_use = "Endpoint should be used; it validates at construction"]
 pub struct Endpoint(String);
 

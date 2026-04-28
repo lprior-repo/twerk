@@ -10,7 +10,7 @@ use thiserror::Error;
 ///
 /// The DSN format is validated for basic structure but actual
 /// connection validation is performed by the PostgreSQL driver.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, utoipa::ToSchema)]
 #[must_use = "Dsn should be used; it validates at construction"]
 pub struct Dsn(String);
 

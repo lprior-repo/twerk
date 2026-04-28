@@ -121,7 +121,7 @@ pub const JOB_STATE_RESTART: &str = "RESTART";
 ///
 /// This replaces the raw `serde_json::Value` + callback pattern with a
 /// typed stream that consumers can filter on directly.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum JobEvent {
     /// A job transitioned to a new state.

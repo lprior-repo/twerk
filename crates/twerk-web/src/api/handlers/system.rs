@@ -19,6 +19,7 @@ use utoipa::ToSchema;
 #[utoipa::path(
     get,
     path = "/health",
+    tag = "System",
     responses(
         (status = 200, description = "Service is healthy", body = HealthResponse, content_type = "application/json"),
         (status = 503, description = "Service is unhealthy", body = HealthResponse, content_type = "application/json")
@@ -44,6 +45,7 @@ pub async fn health_handler(State(state): State<AppState>) -> Response {
 #[utoipa::path(
     get,
     path = "/nodes",
+    tag = "System",
     responses(
         (status = 200, description = "List of active nodes", body = Vec<Node>, content_type = "application/json")
     )
@@ -82,6 +84,7 @@ pub async fn get_node_handler(
 #[utoipa::path(
     get,
     path = "/metrics",
+    tag = "System",
     responses(
         (status = 200, description = "System metrics", body = Metrics, content_type = "application/json")
     )
@@ -127,6 +130,7 @@ const ROLE_ADMIN: &str = "admin";
     post,
     path = "/users",
     request_body = CreateUserBody,
+    tag = "System",
     responses(
         (status = 200, description = "User created"),
         (status = 400, description = "Missing username or password", body = MessageResponse, content_type = "application/json"),

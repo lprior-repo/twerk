@@ -13,6 +13,7 @@ use twerk_infrastructure::broker::QueueInfo;
 #[utoipa::path(
     get,
     path = "/queues",
+    tag = "Queues",
     responses(
         (status = 200, description = "List of queues", body = Vec<QueueInfo>, content_type = "application/json")
     )
@@ -33,6 +34,7 @@ pub async fn list_queues_handler(State(state): State<AppState>) -> Result<Respon
 #[utoipa::path(
     get,
     path = "/queues/{name}",
+    tag = "Queues",
     params(
         ("name" = String, Path, description = "Queue name")
     ),
@@ -61,6 +63,7 @@ pub async fn get_queue_handler(
 #[utoipa::path(
     delete,
     path = "/queues/{name}",
+    tag = "Queues",
     params(
         ("name" = String, Path, description = "Queue name")
     ),

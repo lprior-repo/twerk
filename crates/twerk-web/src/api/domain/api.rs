@@ -13,6 +13,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use utoipa::ToSchema;
 
 // ---------------------------------------------------------------------------
 // ServerAddress
@@ -24,7 +25,7 @@ use thiserror::Error;
 /// - Must contain a colon (`:`) separating host and port
 /// - Port must be a valid u16 number
 /// - Host can be an IP address or hostname
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(transparent)]
 pub struct ServerAddress(String);
 
@@ -109,7 +110,7 @@ impl Deref for ServerAddress {
 // ---------------------------------------------------------------------------
 
 /// A validated content type header value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum ContentType {
     Json,
     Yaml,
@@ -149,7 +150,7 @@ impl fmt::Display for ContentType {
 // ---------------------------------------------------------------------------
 
 /// Well-known API feature flags.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum ApiFeature {
     Health,
     Tasks,
@@ -184,7 +185,7 @@ impl ApiFeature {
 }
 
 /// A set of feature flags with their enabled/disabled state.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct FeatureFlags(Vec<(ApiFeature, bool)>);
 
 impl FeatureFlags {

@@ -40,6 +40,10 @@ impl Scheduler {
     }
 }
 
+/// Threshold below which sequential iteration beats par_bridge overhead.
+/// Rayon spawns require ~10-50µs setup time; sequential is faster for small batches.
+const PARALLEL_THRESHOLD: usize = 8;
+
 fn build_parallel_subtasks(
     tasks: &[Task],
     job_ctx: &std::collections::HashMap<String, serde_json::Value>,
@@ -47,11 +51,20 @@ fn build_parallel_subtasks(
     parent_task_id: &str,
     now: time::OffsetDateTime,
 ) -> Result<Vec<Task>> {
-    tasks
-        .iter()
-        .par_bridge()
-        .map(|task| build_parallel_subtask(task, job_ctx, job_id, parent_task_id, now))
-        .collect::<Result<Vec<_>>>()
+    if tasks.len() < PARALLEL_THRESHOLD {
+        // Sequential path: faster for small batches due to rayon overhead
+        tasks
+            .iter()
+            .map(|task| build_parallel_subtask(task, job_ctx, job_id, parent_task_id, now))
+            .collect()
+    } else {
+        // Parallel path: benefits kick in at ~8+ tasks
+        tasks
+            .iter()
+            .par_bridge()
+            .map(|task| build_parallel_subtask(task, job_ctx, job_id, parent_task_id, now))
+            .collect::<Result<Vec<_>>>()
+    }
 }
 
 fn build_parallel_subtask(

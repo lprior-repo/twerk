@@ -79,23 +79,20 @@ pub(super) async fn create_and_publish_subtasks(
 
 async fn rollback_failed_publish(scheduler: &Scheduler, subtasks: &[Task], error: &anyhow::Error) {
     let error_msg = format!("broker publish failed: {error}");
-    let compensating: Vec<_> = subtasks
-        .iter()
-        .filter_map(|task| task.id.as_deref())
-        .map(|task_id| {
-            let message = error_msg.clone();
-            scheduler.ds.update_task(
-                task_id,
-                Box::new(move |task| {
-                    Ok(Task {
-                        state: TaskState::Failed,
-                        error: Some(message),
-                        ..task
-                    })
-                }),
-            )
-        })
-        .collect();
+    let futures = subtasks.iter().filter_map(|task| {
+        let task_id = task.id.as_deref()?;
+        let message = error_msg.clone();
+        Some(scheduler.ds.update_task(
+            task_id,
+            Box::new(move |task| {
+                Ok(Task {
+                    state: TaskState::Failed,
+                    error: Some(message),
+                    ..task
+                })
+            }),
+        ))
+    });
 
-    let _ = futures_util::future::join_all(compensating).await;
+    let _ = futures_util::future::join_all(futures).await;
 }

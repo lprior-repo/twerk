@@ -121,19 +121,33 @@ impl Scheduler {
             .map_err(anyhow::Error::from)
     }
 
+    /// Threshold below which sequential iteration beats par_bridge overhead.
+    const PARALLEL_THRESHOLD: usize = 8;
+
     async fn spawn_each_tasks(&self, request: EachSpawnRequest<'_>) -> Result<()> {
         tracing::warn!(
             list_len = request.list.len(),
             "SPAWN_EACH_TASKS building subtasks"
         );
 
-        let subtasks: Vec<_> = request
-            .list
-            .iter()
-            .enumerate()
-            .par_bridge()
-            .map(|(ix, item)| Self::build_subtask(ix, item, &request.context))
-            .collect::<Result<Vec<_>>>()?;
+        let subtasks: Vec<_> = if request.list.len() < Self::PARALLEL_THRESHOLD {
+            // Sequential path: faster for small batches due to rayon overhead
+            request
+                .list
+                .iter()
+                .enumerate()
+                .map(|(ix, item)| Self::build_subtask(ix, item, &request.context))
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            // Parallel path: benefits kick in at ~8+ tasks
+            request
+                .list
+                .iter()
+                .enumerate()
+                .par_bridge()
+                .map(|(ix, item)| Self::build_subtask(ix, item, &request.context))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         tracing::warn!(
             count = subtasks.len(),

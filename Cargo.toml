@@ -78,6 +78,8 @@ url = "2.5"
 dirs = "6.0"
 serde-saphyr = { version = "0.0.23", features = ["serialize", "deserialize", "properties", "include", "include_fs", "miette"] }
 tempfile = "3.14"
+fjall = "3"
+postcard = { version = "1", features = ["alloc"] }
 
 # Security & Crypto
 bcrypt = "0.17"

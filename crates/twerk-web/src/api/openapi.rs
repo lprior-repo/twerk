@@ -198,24 +198,60 @@ pub const ROUTE_SPECS: &[RouteSpec] = &[
     },
 ];
 
-#[must_use]
-pub fn generate_spec() -> utoipa::openapi::OpenApi {
-    let base = ApiDoc::openapi();
-    match serde_json::to_value(&base) {
-        Ok(mut value) => {
-            let _ = value
-                .pointer_mut("/paths/~1jobs~1{id}~1cancel/post")
-                .and_then(serde_json::Value::as_object_mut)
-                .map(|operation| {
-                    operation.insert("deprecated".to_string(), serde_json::Value::Bool(true))
-                });
-            match serde_json::from_value(value) {
-                Ok(spec) => spec,
-                Err(_) => base,
+/// Tag name mapping from raw module paths to clean display names.
+///
+/// utoipa derives tags from the handler module path by default.
+/// This table maps raw paths like `super::handlers::jobs::read`
+/// to clean tag names like `"Jobs"`.
+const TAG_MAPPINGS: &[(&str, &str)] = &[
+    ("super::handlers::system", "System"),
+    ("super::handlers::jobs::read", "Jobs"),
+    ("super::handlers::jobs::create", "Jobs"),
+    ("super::handlers::jobs::mutation", "Jobs"),
+    ("super::handlers::tasks", "Tasks"),
+    ("super::handlers::scheduled::read", "Scheduled Jobs"),
+    ("super::handlers::scheduled::create", "Scheduled Jobs"),
+    ("super::handlers::scheduled::lifecycle", "Scheduled Jobs"),
+    ("super::handlers::queues", "Queues"),
+    ("super::trigger_api::handlers::query", "Triggers"),
+    ("super::trigger_api::handlers::command", "Triggers"),
+];
+
+/// Transform raw utoipa module-path tags into clean display names.
+///
+/// utoipa generates tags like `super::handlers::jobs::read` from the handler's
+/// module path. This function replaces all known raw paths with clean names.
+fn clean_tags_json(value: &mut serde_json::Value) {
+    if let Some(paths) = value.pointer_mut("/paths") {
+        if let Some(paths_obj) = paths.as_object_mut() {
+            // paths_obj maps path -> { method -> operation }
+            for path_item in paths_obj.values_mut() {
+                if let Some(methods) = path_item.as_object_mut() {
+                    for operation in methods.values_mut() {
+                        if let Some(tags) = operation.get_mut("tags") {
+                            if let Some(tag_array) = tags.as_array_mut() {
+                                for tag in tag_array.iter_mut() {
+                                    if let Some(tag_str) = tag.as_str() {
+                                        for (raw, clean) in TAG_MAPPINGS {
+                                            if tag_str == *raw {
+                                                *tag = serde_json::Value::String((*clean).to_string());
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        Err(_) => base,
     }
+}
+
+#[must_use]
+pub fn generate_spec() -> utoipa::openapi::OpenApi {
+    ApiDoc::openapi()
 }
 
 /// Serialize the generated `OpenAPI` document to pretty JSON.
@@ -223,7 +259,21 @@ pub fn generate_spec() -> utoipa::openapi::OpenApi {
 /// # Errors
 /// Returns an error when the generated `OpenAPI` document cannot be serialized.
 pub fn generate_json() -> anyhow::Result<String> {
-    serde_json::to_string_pretty(&generate_spec()).context("failed to serialize OpenAPI JSON")
+    let spec = generate_spec();
+    let mut value = serde_json::to_value(&spec).context("failed to serialize OpenAPI to JSON")?;
+
+    // Mark deprecated endpoint
+    let _ = value
+        .pointer_mut("/paths/~1jobs~1{id}~1cancel/post")
+        .and_then(serde_json::Value::as_object_mut)
+        .map(|operation| {
+            operation.insert("deprecated".to_string(), serde_json::Value::Bool(true))
+        });
+
+    // Clean up utoipa-generated module-path tags in the JSON output
+    clean_tags_json(&mut value);
+
+    serde_json::to_string_pretty(&value).context("failed to serialize OpenAPI JSON")
 }
 
 /// Serialize the generated `OpenAPI` document to YAML.
@@ -231,7 +281,21 @@ pub fn generate_json() -> anyhow::Result<String> {
 /// # Errors
 /// Returns an error when the generated `OpenAPI` document cannot be serialized.
 pub fn generate_yaml() -> anyhow::Result<String> {
-    serde_yaml::to_string(&generate_spec()).context("failed to serialize OpenAPI YAML")
+    let spec = generate_spec();
+    let mut value = serde_json::to_value(&spec).context("failed to serialize OpenAPI to JSON")?;
+
+    // Mark deprecated endpoint
+    let _ = value
+        .pointer_mut("/paths/~1jobs~1{id}~1cancel/post")
+        .and_then(serde_json::Value::as_object_mut)
+        .map(|operation| {
+            operation.insert("deprecated".to_string(), serde_json::Value::Bool(true))
+        });
+
+    // Clean up utoipa-generated module-path tags in the JSON output
+    clean_tags_json(&mut value);
+
+    serde_yaml::to_string(&value).context("failed to serialize OpenAPI YAML")
 }
 
 #[must_use]

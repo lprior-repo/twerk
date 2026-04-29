@@ -1,1336 +1,44 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Twerk API",
-    "description": "Task scheduling and job queue management API",
-    "contact": {
-      "name": "Twerk Contributors"
-    },
-    "license": {
-      "name": "Apache-2.0",
-      "identifier": "Apache-2.0"
-    },
-    "version": "0.1.0"
-  },
-  "paths": {
-    "/api/v1/triggers": {
-      "get": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "summary": "GET /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; persistence and serialization\nfailures are converted into HTTP responses.",
-        "operationId": "list_triggers_handler",
-        "responses": {
-          "200": {
-            "description": "List of triggers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TriggerView"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Persistence error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "super::trigger_api::handlers::command"
-        ],
-        "summary": "POST /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\ncreation, and serialization failures are converted into HTTP responses.",
-        "operationId": "create_trigger_handler",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Trigger created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/triggers/{id}": {
-      "get": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "summary": "GET /api/v1/triggers/{id}\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing\ntriggers, and serialization failures are converted into HTTP responses.",
-        "operationId": "get_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Trigger found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ID format",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "super::trigger_api::handlers::command"
-        ],
-        "summary": "Handler for `PUT /api/v1/triggers/{id}`.\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\nupdate, and serialization failures are converted into HTTP responses.",
-        "operationId": "update_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Trigger updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error or invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Version conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "operationId": "delete_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Trigger deleted"
-          },
-          "400": {
-            "description": "Invalid ID format",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "Health check handler",
-        "operationId": "health_handler",
-        "responses": {
-          "200": {
-            "description": "Service is healthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service is unhealthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs": {
-      "get": {
-        "tags": [
-          "super::handlers::jobs::read"
-        ],
-        "summary": "GET /jobs\n# Errors\nReturns an error when the requested page of jobs cannot be loaded from the datastore.",
-        "operationId": "list_jobs_handler",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Page number",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "description": "Page size",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "description": "Search query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated jobs",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_JobSummary"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "super::handlers::jobs::create"
-        ],
-        "summary": "POST /jobs\n# Errors\nReturns an error when the request body cannot be parsed, the job fails validation, the\ndatastore or broker operation fails, or the blocking wait path times out.",
-        "operationId": "create_job_handler",
-        "parameters": [
-          {
-            "name": "wait",
-            "in": "query",
-            "description": "Whether to block until the job completes (true/false/blocking)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Job definition as JSON or YAML",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Job"
-              }
-            },
-            "application/x-yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/Job"
-              }
-            },
-            "application/yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/Job"
-              }
-            },
-            "text/yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/Job"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Job created or completed when wait=blocking",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateJobResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid job definition or unsupported content type",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{id}": {
-      "get": {
-        "tags": [
-          "super::handlers::jobs::read"
-        ],
-        "summary": "GET /jobs/{id}\n# Errors\nReturns an error when the job cannot be loaded or its tasks cannot be fetched from the\ndatastore.",
-        "operationId": "get_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID as either an RFC 4122 UUID or a 22-character base57 short ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Job"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{id}/cancel": {
-      "put": {
-        "tags": [
-          "super::handlers::jobs::mutation"
-        ],
-        "summary": "PUT /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
-        "operationId": "cancel_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job cancelled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Job cannot be cancelled in its current state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "super::handlers::jobs::mutation"
-        ],
-        "summary": "POST /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
-        "operationId": "cancel_job_handler_post",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job cancelled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Job cannot be cancelled in its current state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/jobs/{id}/log": {
-      "get": {
-        "tags": [
-          "super::handlers::jobs::read"
-        ],
-        "summary": "GET /jobs/{id}/log\n# Errors\nReturns an error when the job cannot be loaded or the requested log page cannot be fetched.",
-        "operationId": "get_job_log_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Page number",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "description": "Page size",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated job log parts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_TaskLogPart"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/jobs/{id}/restart": {
-      "put": {
-        "tags": [
-          "super::handlers::jobs::mutation"
-        ],
-        "summary": "PUT /jobs/{id}/restart\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be restarted from its current state.",
-        "operationId": "restart_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job restarted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Job cannot be restarted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "GET /metrics\n# Errors",
-        "operationId": "get_metrics_handler",
-        "responses": {
-          "200": {
-            "description": "System metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Metrics"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/nodes": {
-      "get": {
-        "tags": [
-          "System"
-        ],
-        "summary": "GET /nodes\n# Errors",
-        "operationId": "list_nodes_handler",
-        "responses": {
-          "200": {
-            "description": "List of active nodes",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Node"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/nodes/{id}": {
-      "get": {
-        "tags": [
-          "super::handlers::system"
-        ],
-        "summary": "GET /nodes/{id}\n# Errors\nReturns `ApiError` if the node is not found or if there is an error retrieving it.",
-        "operationId": "get_node_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The node ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Node found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Node"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Node not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/queues": {
-      "get": {
-        "tags": [
-          "Queues"
-        ],
-        "summary": "GET /queues",
-        "description": "# Errors",
-        "operationId": "list_queues_handler",
-        "responses": {
-          "200": {
-            "description": "List of queues",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/QueueInfo"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/queues/{name}": {
-      "get": {
-        "tags": [
-          "Queues"
-        ],
-        "summary": "GET /queues/{name}",
-        "description": "# Errors",
-        "operationId": "get_queue_handler",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "description": "Queue name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Queue info",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueueInfo"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Queue not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Queues"
-        ],
-        "summary": "DELETE /queues/{name}",
-        "description": "# Errors",
-        "operationId": "delete_queue_handler",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "description": "Queue name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Queue deleted"
-          },
-          "404": {
-            "description": "Queue not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scheduled-jobs": {
-      "get": {
-        "tags": [
-          "super::handlers::scheduled::read"
-        ],
-        "summary": "GET /scheduled-jobs\n# Errors\nReturns an error when the requested page of scheduled jobs cannot be loaded.",
-        "operationId": "list_scheduled_jobs_handler",
-        "responses": {
-          "200": {
-            "description": "List of scheduled jobs",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_ScheduledJobSummary"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "super::handlers::scheduled::create"
-        ],
-        "summary": "POST /scheduled-jobs\n# Errors\nReturns an error when the request body cannot be parsed, the scheduled job fails validation,\npersistence fails, or the creation event cannot be serialized or published.",
-        "operationId": "create_scheduled_job_handler",
-        "requestBody": {
-          "description": "Scheduled job definition as JSON or YAML",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateScheduledJobBody"
-              }
-            },
-            "application/x-yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateScheduledJobBody"
-              }
-            },
-            "application/yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateScheduledJobBody"
-              }
-            },
-            "text/yaml": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateScheduledJobBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Scheduled job created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJobSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid scheduled job payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}": {
-      "get": {
-        "tags": [
-          "super::handlers::scheduled::read"
-        ],
-        "operationId": "get_scheduled_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Scheduled job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Scheduled job found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJob"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "super::handlers::scheduled::lifecycle"
-        ],
-        "operationId": "delete_scheduled_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Scheduled job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Scheduled job deleted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/pause": {
-      "put": {
-        "tags": [
-          "super::handlers::scheduled::lifecycle"
-        ],
-        "operationId": "pause_scheduled_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Scheduled job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Scheduled job paused",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Scheduled job cannot be paused",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scheduled-jobs/{id}/resume": {
-      "put": {
-        "tags": [
-          "super::handlers::scheduled::lifecycle"
-        ],
-        "operationId": "resume_scheduled_job_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Scheduled job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Scheduled job resumed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Scheduled job cannot be resumed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tasks/{id}": {
-      "get": {
-        "tags": [
-          "super::handlers::tasks"
-        ],
-        "summary": "GET /tasks/{id}\n# Errors",
-        "operationId": "get_task_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Task ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Task details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Task"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Task not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tasks/{id}/log": {
-      "get": {
-        "tags": [
-          "super::handlers::tasks"
-        ],
-        "summary": "GET /tasks/{id}/log\n# Errors",
-        "operationId": "get_task_log_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Task ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Page number",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "description": "Page size (max 100)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "description": "Search query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated task log entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_TaskLogPart"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Task not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users": {
-      "post": {
-        "tags": [
-          "System"
-        ],
-        "summary": "POST /users",
-        "description": "# Errors",
-        "operationId": "create_user_handler",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "User created"
-          },
-          "400": {
-            "description": "Missing username or password",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Admin role required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
   "components": {
     "schemas": {
       "ApiError": {
         "oneOf": [
           {
-            "type": "object",
-            "required": [
-              "BadRequest"
-            ],
             "properties": {
               "BadRequest": {
                 "type": "string"
               }
-            }
+            },
+            "required": [
+              "BadRequest"
+            ],
+            "type": "object"
           },
           {
-            "type": "object",
-            "required": [
-              "NotFound"
-            ],
             "properties": {
               "NotFound": {
                 "type": "string"
               }
-            }
+            },
+            "required": [
+              "NotFound"
+            ],
+            "type": "object"
           },
           {
-            "type": "object",
-            "required": [
-              "Forbidden"
-            ],
-            "properties": {
-              "Forbidden": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "Unauthorized"
-            ],
-            "properties": {
-              "Unauthorized": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "Internal"
-            ],
             "properties": {
               "Internal": {
                 "type": "string"
               }
-            }
+            },
+            "required": [
+              "Internal"
+            ],
+            "type": "object"
           }
         ]
       },
       "AutoDelete": {
-        "type": "object",
         "description": "`AutoDelete` defines automatic cleanup configuration.",
         "properties": {
           "after": {
@@ -1339,10 +47,10 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "CreateJobQuery": {
-        "type": "object",
         "properties": {
           "wait": {
             "oneOf": [
@@ -1354,7 +62,8 @@
               }
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "CreateJobResponse": {
         "oneOf": [
@@ -1367,7 +76,6 @@
         ]
       },
       "CreateScheduledJobBody": {
-        "type": "object",
         "properties": {
           "auto_delete": {
             "oneOf": [
@@ -1402,16 +110,16 @@
             ]
           },
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -1426,57 +134,57 @@
             ]
           },
           "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Permission"
-            }
+            ]
           },
           "secrets": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "tags": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "type": "string"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "tasks": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "$ref": "#/components/schemas/Task"
-            }
-          },
-          "webhooks": {
+            },
             "type": [
               "array",
               "null"
-            ],
+            ]
+          },
+          "webhooks": {
             "items": {
               "$ref": "#/components/schemas/Webhook"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
-        }
+        },
+        "type": "object"
       },
       "CreateUserBody": {
-        "type": "object",
         "description": "User creation body",
         "properties": {
           "password": {
@@ -1491,14 +199,10 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "HealthResponse": {
-        "type": "object",
-        "required": [
-          "status",
-          "version"
-        ],
         "properties": {
           "status": {
             "type": "string"
@@ -1506,10 +210,14 @@
           "version": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "type": "object"
       },
       "Job": {
-        "type": "object",
         "description": "Job represents a job in the system.",
         "properties": {
           "autoDelete": {
@@ -1523,11 +231,11 @@
             ]
           },
           "completedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "context": {
             "oneOf": [
@@ -1540,11 +248,11 @@
             ]
           },
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdBy": {
             "oneOf": [
@@ -1567,11 +275,11 @@
             ]
           },
           "deleteAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "description": {
             "type": [
@@ -1586,20 +294,20 @@
             ]
           },
           "execution": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Task"
-            }
+            ]
           },
           "failedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "id": {
             "oneOf": [
@@ -1612,16 +320,16 @@
             ]
           },
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -1646,21 +354,21 @@
             ]
           },
           "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Permission"
-            }
+            ]
           },
           "position": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "progress": {
-            "type": "number",
-            "format": "double"
+            "format": "double",
+            "type": "number"
           },
           "result": {
             "type": [
@@ -1679,116 +387,116 @@
             ]
           },
           "secrets": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "startedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/JobState"
           },
           "tags": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "type": "string"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "taskCount": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "tasks": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "$ref": "#/components/schemas/Task"
-            }
-          },
-          "webhooks": {
+            },
             "type": [
               "array",
               "null"
-            ],
+            ]
+          },
+          "webhooks": {
             "items": {
               "$ref": "#/components/schemas/Webhook"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
-        }
+        },
+        "type": "object"
       },
       "JobContext": {
-        "type": "object",
         "description": "`JobContext` holds contextual information for a job.",
         "properties": {
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "job": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "secrets": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "tasks": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           }
-        }
+        },
+        "type": "object"
       },
       "JobDefaults": {
-        "type": "object",
         "description": "`JobDefaults` defines default values for job tasks.",
         "properties": {
           "limits": {
@@ -1802,8 +510,8 @@
             ]
           },
           "priority": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "queue": {
             "type": [
@@ -1827,28 +535,28 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "JobId": {
-        "type": "string",
         "description": "RFC 4122 UUID or 22-character base57 short job ID emitted by the coordinator",
-        "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22})$"
+        "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22})$",
+        "type": "string"
       },
       "JobMetrics": {
-        "type": "object",
         "description": "`JobMetrics` holds metrics about twerk jobs.",
+        "properties": {
+          "running": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
         "required": [
           "running"
         ],
-        "properties": {
-          "running": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
+        "type": "object"
       },
       "JobSchedule": {
-        "type": "object",
         "description": "`JobSchedule` defines a job schedule.",
         "properties": {
           "cron": {
@@ -1867,10 +575,10 @@
               }
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "JobState": {
-        "type": "string",
         "description": "State machine for a [`Job`].\n\nValid transitions:\n- `Pending` -> `Scheduled`\n- `Scheduled` -> `Running`\n- `Running` -> `Completed` | `Failed` | `Cancelled`\n- `Failed` | `Cancelled` -> `Restart`\n- `Restart` -> `Pending`",
         "enum": [
           "PENDING",
@@ -1880,25 +588,25 @@
           "COMPLETED",
           "FAILED",
           "RESTART"
-        ]
+        ],
+        "type": "string"
       },
       "JobSummary": {
-        "type": "object",
         "description": "`JobSummary` provides a summary view of a job.",
         "properties": {
           "completedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdBy": {
             "oneOf": [
@@ -1923,11 +631,11 @@
             ]
           },
           "failedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "id": {
             "oneOf": [
@@ -1940,16 +648,16 @@
             ]
           },
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -1968,12 +676,12 @@
             ]
           },
           "position": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "progress": {
-            "type": "number",
-            "format": "double"
+            "format": "double",
+            "type": "number"
           },
           "result": {
             "type": [
@@ -1992,49 +700,44 @@
             ]
           },
           "startedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/JobState"
           },
           "tags": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           },
           "taskCount": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           }
-        }
+        },
+        "type": "object"
       },
       "MessageResponse": {
-        "type": "object",
-        "required": [
-          "message"
-        ],
         "properties": {
           "message": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
       },
       "Metrics": {
-        "type": "object",
         "description": "Metrics holds aggregated metrics across all twerk components.",
-        "required": [
-          "jobs",
-          "tasks",
-          "nodes"
-        ],
         "properties": {
           "jobs": {
             "$ref": "#/components/schemas/JobMetrics"
@@ -2045,10 +748,15 @@
           "tasks": {
             "$ref": "#/components/schemas/TaskMetrics"
           }
-        }
+        },
+        "required": [
+          "jobs",
+          "tasks",
+          "nodes"
+        ],
+        "type": "object"
       },
       "Mount": {
-        "type": "object",
         "description": "Mount represents a filesystem mount configuration.",
         "properties": {
           "id": {
@@ -2058,16 +766,16 @@
             ]
           },
           "opts": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "source": {
             "type": [
@@ -2087,17 +795,17 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "Node": {
-        "type": "object",
         "properties": {
           "cpuPercent": {
+            "format": "double",
             "type": [
               "number",
               "null"
-            ],
-            "format": "double"
+            ]
           },
           "hostname": {
             "type": [
@@ -2116,11 +824,11 @@
             ]
           },
           "lastHeartbeatAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "name": {
             "type": [
@@ -2129,11 +837,11 @@
             ]
           },
           "port": {
+            "format": "int64",
             "type": [
               "integer",
               "null"
-            ],
-            "format": "int64"
+            ]
           },
           "queue": {
             "type": [
@@ -2142,11 +850,11 @@
             ]
           },
           "startedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "status": {
             "oneOf": [
@@ -2159,11 +867,11 @@
             ]
           },
           "taskCount": {
+            "format": "int64",
             "type": [
               "integer",
               "null"
-            ],
-            "format": "int64"
+            ]
           },
           "version": {
             "type": [
@@ -2171,64 +879,56 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "NodeMetrics": {
-        "type": "object",
         "description": "`NodeMetrics` holds metrics about twerk nodes.",
+        "properties": {
+          "cpuPercent": {
+            "format": "double",
+            "type": "number"
+          },
+          "online": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
         "required": [
           "online",
           "cpuPercent"
         ],
-        "properties": {
-          "cpuPercent": {
-            "type": "number",
-            "format": "double"
-          },
-          "online": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
+        "type": "object"
       },
       "NodeStatus": {
-        "type": "string",
         "enum": [
           "UP",
           "DOWN",
           "OFFLINE"
-        ]
+        ],
+        "type": "string"
       },
       "Page_JobSummary": {
-        "type": "object",
         "description": "Page represents a paginated result set",
-        "required": [
-          "items",
-          "number",
-          "size",
-          "total_pages",
-          "total_items"
-        ],
         "properties": {
           "items": {
-            "type": "array",
+            "description": "Items in the current page",
             "items": {
-              "type": "object",
               "description": "`JobSummary` provides a summary view of a job.",
               "properties": {
                 "completedAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "createdAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "createdBy": {
                   "oneOf": [
@@ -2253,11 +953,11 @@
                   ]
                 },
                 "failedAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "id": {
                   "oneOf": [
@@ -2270,16 +970,16 @@
                   ]
                 },
                 "inputs": {
-                  "type": [
-                    "object",
-                    "null"
-                  ],
                   "additionalProperties": {
                     "type": "string"
                   },
                   "propertyNames": {
                     "type": "string"
-                  }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": [
@@ -2298,12 +998,12 @@
                   ]
                 },
                 "position": {
-                  "type": "integer",
-                  "format": "int64"
+                  "format": "int64",
+                  "type": "integer"
                 },
                 "progress": {
-                  "type": "number",
-                  "format": "double"
+                  "format": "double",
+                  "type": "number"
                 },
                 "result": {
                   "type": [
@@ -2322,57 +1022,54 @@
                   ]
                 },
                 "startedAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "state": {
                   "$ref": "#/components/schemas/JobState"
                 },
                 "tags": {
+                  "items": {
+                    "type": "string"
+                  },
                   "type": [
                     "array",
                     "null"
-                  ],
-                  "items": {
-                    "type": "string"
-                  }
+                  ]
                 },
                 "taskCount": {
-                  "type": "integer",
-                  "format": "int64"
+                  "format": "int64",
+                  "type": "integer"
                 }
-              }
+              },
+              "type": "object"
             },
-            "description": "Items in the current page"
+            "type": "array"
           },
           "number": {
-            "type": "integer",
+            "description": "Current page number",
             "format": "int64",
-            "description": "Current page number"
+            "type": "integer"
           },
           "size": {
-            "type": "integer",
+            "description": "Page size",
             "format": "int64",
-            "description": "Page size"
+            "type": "integer"
           },
           "total_items": {
-            "type": "integer",
+            "description": "Total number of items",
             "format": "int64",
-            "description": "Total number of items"
+            "type": "integer"
           },
           "total_pages": {
-            "type": "integer",
+            "description": "Total number of pages",
             "format": "int64",
-            "description": "Total number of pages"
+            "type": "integer"
           }
-        }
-      },
-      "Page_ScheduledJobSummary": {
-        "type": "object",
-        "description": "Page represents a paginated result set",
+        },
         "required": [
           "items",
           "number",
@@ -2380,19 +1077,22 @@
           "total_pages",
           "total_items"
         ],
+        "type": "object"
+      },
+      "Page_ScheduledJobSummary": {
+        "description": "Page represents a paginated result set",
         "properties": {
           "items": {
-            "type": "array",
+            "description": "Items in the current page",
             "items": {
-              "type": "object",
               "description": "`ScheduledJobSummary` provides a summary view of a scheduled job.",
               "properties": {
                 "createdAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "createdBy": {
                   "oneOf": [
@@ -2427,16 +1127,16 @@
                   ]
                 },
                 "inputs": {
-                  "type": [
-                    "object",
-                    "null"
-                  ],
                   "additionalProperties": {
                     "type": "string"
                   },
                   "propertyNames": {
                     "type": "string"
-                  }
+                  },
+                  "type": [
+                    "object",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": [
@@ -2448,43 +1148,40 @@
                   "$ref": "#/components/schemas/ScheduledJobState"
                 },
                 "tags": {
+                  "items": {
+                    "type": "string"
+                  },
                   "type": [
                     "array",
                     "null"
-                  ],
-                  "items": {
-                    "type": "string"
-                  }
+                  ]
                 }
-              }
+              },
+              "type": "object"
             },
-            "description": "Items in the current page"
+            "type": "array"
           },
           "number": {
-            "type": "integer",
+            "description": "Current page number",
             "format": "int64",
-            "description": "Current page number"
+            "type": "integer"
           },
           "size": {
-            "type": "integer",
+            "description": "Page size",
             "format": "int64",
-            "description": "Page size"
+            "type": "integer"
           },
           "total_items": {
-            "type": "integer",
+            "description": "Total number of items",
             "format": "int64",
-            "description": "Total number of items"
+            "type": "integer"
           },
           "total_pages": {
-            "type": "integer",
+            "description": "Total number of pages",
             "format": "int64",
-            "description": "Total number of pages"
+            "type": "integer"
           }
-        }
-      },
-      "Page_TaskLogPart": {
-        "type": "object",
-        "description": "Page represents a paginated result set",
+        },
         "required": [
           "items",
           "number",
@@ -2492,11 +1189,14 @@
           "total_pages",
           "total_items"
         ],
+        "type": "object"
+      },
+      "Page_TaskLogPart": {
+        "description": "Page represents a paginated result set",
         "properties": {
           "items": {
-            "type": "array",
+            "description": "Items in the current page",
             "items": {
-              "type": "object",
               "description": "`TaskLogPart` represents a part of a task's log output.",
               "properties": {
                 "contents": {
@@ -2506,50 +1206,58 @@
                   ]
                 },
                 "createdAt": {
+                  "format": "date-time",
                   "type": [
                     "string",
                     "null"
-                  ],
-                  "format": "date-time"
+                  ]
                 },
                 "id": {
                   "type": "string"
                 },
                 "number": {
-                  "type": "integer",
-                  "format": "int64"
+                  "format": "int64",
+                  "type": "integer"
                 },
                 "taskId": {
                   "type": "string"
                 }
-              }
+              },
+              "type": "object"
             },
-            "description": "Items in the current page"
+            "type": "array"
           },
           "number": {
-            "type": "integer",
+            "description": "Current page number",
             "format": "int64",
-            "description": "Current page number"
+            "type": "integer"
           },
           "size": {
-            "type": "integer",
+            "description": "Page size",
             "format": "int64",
-            "description": "Page size"
+            "type": "integer"
           },
           "total_items": {
-            "type": "integer",
+            "description": "Total number of items",
             "format": "int64",
-            "description": "Total number of items"
+            "type": "integer"
           },
           "total_pages": {
-            "type": "integer",
+            "description": "Total number of pages",
             "format": "int64",
-            "description": "Total number of pages"
+            "type": "integer"
           }
-        }
+        },
+        "required": [
+          "items",
+          "number",
+          "size",
+          "total_pages",
+          "total_items"
+        ],
+        "type": "object"
       },
       "Permission": {
-        "type": "object",
         "description": "Permission defines access permissions.",
         "properties": {
           "role": {
@@ -2572,10 +1280,10 @@
               }
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "Probe": {
-        "type": "object",
         "description": "Probe defines health check configuration for a task.",
         "properties": {
           "path": {
@@ -2585,8 +1293,8 @@
             ]
           },
           "port": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "timeout": {
             "type": [
@@ -2594,36 +1302,36 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "QueueInfo": {
-        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subscribers": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "unacked": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
         "required": [
           "name",
           "size",
           "subscribers",
           "unacked"
         ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "subscribers": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "unacked": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
+        "type": "object"
       },
       "Registry": {
-        "type": "object",
         "description": "Registry defines container registry credentials.",
         "properties": {
           "password": {
@@ -2638,17 +1346,17 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "Role": {
-        "type": "object",
         "properties": {
           "created_at": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "id": {
             "type": "string"
@@ -2665,10 +1373,10 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "ScheduledJob": {
-        "type": "object",
         "description": "`ScheduledJob` represents a scheduled job.",
         "properties": {
           "autoDelete": {
@@ -2682,11 +1390,11 @@
             ]
           },
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdBy": {
             "oneOf": [
@@ -2731,16 +1439,16 @@
             ]
           },
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -2755,76 +1463,76 @@
             ]
           },
           "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Permission"
-            }
+            ]
           },
           "secrets": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/ScheduledJobState"
           },
           "tags": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "type": "string"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "tasks": {
-            "type": [
-              "array",
-              "null"
-            ],
             "items": {
               "$ref": "#/components/schemas/Task"
-            }
-          },
-          "webhooks": {
+            },
             "type": [
               "array",
               "null"
-            ],
+            ]
+          },
+          "webhooks": {
             "items": {
               "$ref": "#/components/schemas/Webhook"
-            }
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
-        }
+        },
+        "type": "object"
       },
       "ScheduledJobState": {
-        "type": "string",
         "description": "State for a [`ScheduledJob`].",
         "enum": [
           "ACTIVE",
           "PAUSED"
-        ]
+        ],
+        "type": "string"
       },
       "ScheduledJobSummary": {
-        "type": "object",
         "description": "`ScheduledJobSummary` provides a summary view of a scheduled job.",
         "properties": {
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdBy": {
             "oneOf": [
@@ -2859,16 +1567,16 @@
             ]
           },
           "inputs": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -2880,53 +1588,53 @@
             "$ref": "#/components/schemas/ScheduledJobState"
           },
           "tags": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           }
-        }
+        },
+        "type": "object"
       },
       "StatusResponse": {
-        "type": "object",
-        "required": [
-          "status"
-        ],
         "properties": {
           "status": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
       "Task": {
-        "type": "object",
         "description": "Task is the basic unit of work that a Worker can handle.",
         "properties": {
           "cmd": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           },
           "completedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "description": {
             "type": [
@@ -2945,25 +1653,25 @@
             ]
           },
           "entrypoint": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           },
           "env": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "error": {
             "type": [
@@ -2972,23 +1680,23 @@
             ]
           },
           "failedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "files": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "gpus": {
             "type": [
@@ -3025,13 +1733,13 @@
             ]
           },
           "mounts": {
+            "items": {
+              "$ref": "#/components/schemas/Mount"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Mount"
-            }
+            ]
           },
           "name": {
             "type": [
@@ -3040,13 +1748,13 @@
             ]
           },
           "networks": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           },
           "nodeId": {
             "oneOf": [
@@ -3072,30 +1780,30 @@
             "type": "string"
           },
           "position": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "post": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Task"
-            }
+            ]
           },
           "pre": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Task"
-            }
+            ]
           },
           "priority": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "probe": {
             "oneOf": [
@@ -3108,8 +1816,8 @@
             ]
           },
           "progress": {
-            "type": "number",
-            "format": "double"
+            "format": "double",
+            "type": "number"
           },
           "queue": {
             "type": [
@@ -3118,8 +1826,8 @@
             ]
           },
           "redelivered": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "registry": {
             "oneOf": [
@@ -3154,27 +1862,27 @@
             ]
           },
           "scheduledAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "sidecars": {
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/Task"
-            }
+            ]
           },
           "startedAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/TaskState"
@@ -3190,13 +1898,13 @@
             ]
           },
           "tags": {
+            "items": {
+              "type": "string"
+            },
             "type": [
               "array",
               "null"
-            ],
-            "items": {
-              "type": "string"
-            }
+            ]
           },
           "timeout": {
             "type": [
@@ -3216,10 +1924,10 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "TaskLimits": {
-        "type": "object",
         "description": "`TaskLimits` defines resource limits for a task.",
         "properties": {
           "cpus": {
@@ -3234,10 +1942,10 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "TaskLogPart": {
-        "type": "object",
         "description": "`TaskLogPart` represents a part of a task's log output.",
         "properties": {
           "contents": {
@@ -3247,53 +1955,53 @@
             ]
           },
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "id": {
             "type": "string"
           },
           "number": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "taskId": {
             "type": "string"
           }
-        }
+        },
+        "type": "object"
       },
       "TaskMetrics": {
-        "type": "object",
         "description": "`TaskMetrics` holds metrics about twerk tasks.",
+        "properties": {
+          "running": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
         "required": [
           "running"
         ],
-        "properties": {
-          "running": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
+        "type": "object"
       },
       "TaskRetry": {
-        "type": "object",
         "description": "`TaskRetry` defines retry configuration for a task.",
         "properties": {
           "attempts": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           },
           "limit": {
-            "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "type": "integer"
           }
-        }
+        },
+        "type": "object"
       },
       "TaskState": {
-        "type": "string",
         "description": "`TaskState` represents the list of states that a task can be in at any given moment.",
         "enum": [
           "CREATED",
@@ -3305,16 +2013,11 @@
           "COMPLETED",
           "FAILED",
           "SKIPPED"
-        ]
+        ],
+        "type": "string"
       },
       "Trigger": {
-        "type": "object",
         "description": "A trigger entity with state and variant information.",
-        "required": [
-          "id",
-          "state",
-          "variant"
-        ],
         "properties": {
           "id": {
             "$ref": "#/components/schemas/string"
@@ -3325,14 +2028,15 @@
           "variant": {
             "$ref": "#/components/schemas/TriggerVariant"
           }
-        }
+        },
+        "required": [
+          "id",
+          "state",
+          "variant"
+        ],
+        "type": "object"
       },
       "TriggerErrorResponse": {
-        "type": "object",
-        "required": [
-          "error",
-          "message"
-        ],
         "properties": {
           "body_id": {
             "type": [
@@ -3352,29 +2056,27 @@
               "null"
             ]
           }
-        }
+        },
+        "required": [
+          "error",
+          "message"
+        ],
+        "type": "object"
       },
       "TriggerId": {
         "type": "string"
       },
       "TriggerState": {
-        "type": "string",
         "description": "The runtime state of a trigger.",
         "enum": [
           "Active",
           "Paused",
           "Disabled",
           "Error"
-        ]
+        ],
+        "type": "string"
       },
       "TriggerUpdateRequest": {
-        "type": "object",
-        "required": [
-          "name",
-          "enabled",
-          "event",
-          "action"
-        ],
         "properties": {
           "action": {
             "type": "string"
@@ -3398,52 +2100,47 @@
             ]
           },
           "metadata": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
           },
           "version": {
+            "format": "int64",
+            "minimum": 0,
             "type": [
               "integer",
               "null"
-            ],
-            "format": "int64",
-            "minimum": 0
+            ]
           }
-        }
+        },
+        "required": [
+          "name",
+          "enabled",
+          "event",
+          "action"
+        ],
+        "type": "object"
       },
       "TriggerVariant": {
-        "type": "string",
         "description": "The type/kind of a trigger.",
         "enum": [
           "Cron",
           "Webhook",
           "Polling"
-        ]
+        ],
+        "type": "string"
       },
       "TriggerView": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "enabled",
-          "event",
-          "action",
-          "metadata",
-          "version",
-          "created_at",
-          "updated_at"
-        ],
         "properties": {
           "action": {
             "type": "string"
@@ -3455,8 +2152,8 @@
             ]
           },
           "created_at": {
-            "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "type": "string"
           },
           "enabled": {
             "type": "boolean"
@@ -3468,37 +2165,48 @@
             "type": "string"
           },
           "metadata": {
-            "type": "object",
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": "object"
           },
           "name": {
             "type": "string"
           },
           "updated_at": {
-            "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "type": "string"
           },
           "version": {
-            "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "type": "integer"
           }
-        }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "event",
+          "action",
+          "metadata",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
       },
       "User": {
-        "type": "object",
         "properties": {
           "createdAt": {
+            "format": "date-time",
             "type": [
               "string",
               "null"
-            ],
-            "format": "date-time"
+            ]
           },
           "disabled": {
             "type": "boolean"
@@ -3518,18 +2226,18 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "WaitMode": {
-        "type": "string",
         "description": "Whether the create-job endpoint should block until the job completes.",
         "enum": [
           "Detached",
           "Blocking"
-        ]
+        ],
+        "type": "string"
       },
       "Webhook": {
-        "type": "object",
         "description": "Webhook defines webhook notification configuration.",
         "properties": {
           "event": {
@@ -3539,16 +2247,16 @@
             ]
           },
           "headers": {
-            "type": [
-              "object",
-              "null"
-            ],
             "additionalProperties": {
               "type": "string"
             },
             "propertyNames": {
               "type": "string"
-            }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "if": {
             "type": [
@@ -3562,10 +2270,1218 @@
               "null"
             ]
           }
-        }
+        },
+        "type": "object"
       },
       "string": {
         "type": "string"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Twerk Contributors"
+    },
+    "description": "Task scheduling and job queue management API",
+    "license": {
+      "identifier": "Apache-2.0",
+      "name": "Apache-2.0"
+    },
+    "title": "Twerk API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/triggers": {
+      "get": {
+        "operationId": "list_triggers_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of triggers"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Persistence error"
+          }
+        },
+        "summary": "GET /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; persistence and serialization\nfailures are converted into HTTP responses.",
+        "tags": [
+          "Triggers"
+        ]
+      },
+      "post": {
+        "operationId": "create_trigger_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            },
+            "description": "Trigger created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "POST /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\ncreation, and serialization failures are converted into HTTP responses.",
+        "tags": [
+          "Triggers"
+        ]
+      }
+    },
+    "/api/v1/triggers/{id}": {
+      "delete": {
+        "operationId": "delete_trigger_handler",
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trigger deleted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid ID format"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Trigger not found"
+          }
+        },
+        "tags": [
+          "Triggers"
+        ]
+      },
+      "get": {
+        "operationId": "get_trigger_handler",
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            },
+            "description": "Trigger found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid ID format"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Trigger not found"
+          }
+        },
+        "summary": "GET /api/v1/triggers/{id}\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing\ntriggers, and serialization failures are converted into HTTP responses.",
+        "tags": [
+          "Triggers"
+        ]
+      },
+      "put": {
+        "operationId": "update_trigger_handler",
+        "parameters": [
+          {
+            "description": "Trigger ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            },
+            "description": "Trigger updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error or invalid request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Trigger not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            },
+            "description": "Version conflict"
+          }
+        },
+        "summary": "Handler for `PUT /api/v1/triggers/{id}`.\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\nupdate, and serialization failures are converted into HTTP responses.",
+        "tags": [
+          "Triggers"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Service is healthy"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Service is unhealthy"
+          }
+        },
+        "summary": "Health check handler",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/jobs": {
+      "get": {
+        "operationId": "list_jobs_handler",
+        "parameters": [
+          {
+            "description": "Page number",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search query",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_JobSummary"
+                }
+              }
+            },
+            "description": "Paginated jobs"
+          }
+        },
+        "summary": "GET /jobs\n# Errors\nReturns an error when the requested page of jobs cannot be loaded from the datastore.",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_job_handler",
+        "parameters": [
+          {
+            "description": "Whether to block until the job completes (true/false/blocking)",
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "application/x-yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            },
+            "text/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            }
+          },
+          "description": "Job definition as JSON or YAML",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateJobResponse"
+                }
+              }
+            },
+            "description": "Job created or completed when wait=blocking"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Invalid job definition or unsupported content type"
+          }
+        },
+        "summary": "POST /jobs\n# Errors\nReturns an error when the request body cannot be parsed, the job fails validation, the\ndatastore or broker operation fails, or the blocking wait path times out.",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "operationId": "get_job_handler",
+        "parameters": [
+          {
+            "description": "The job ID as either an RFC 4122 UUID or a 22-character base57 short ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "description": "Job found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job not found"
+          }
+        },
+        "summary": "GET /jobs/{id}\n# Errors\nReturns an error when the job cannot be loaded or its tasks cannot be fetched from the\ndatastore.",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/jobs/{id}/cancel": {
+      "post": {
+        "deprecated": true,
+        "operationId": "cancel_job_handler_post",
+        "parameters": [
+          {
+            "description": "The job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Job cancelled"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job cannot be cancelled in its current state"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job not found"
+          }
+        },
+        "summary": "POST /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "put": {
+        "operationId": "cancel_job_handler",
+        "parameters": [
+          {
+            "description": "The job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Job cancelled"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job cannot be cancelled in its current state"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job not found"
+          }
+        },
+        "summary": "PUT /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/jobs/{id}/log": {
+      "get": {
+        "operationId": "get_job_log_handler",
+        "parameters": [
+          {
+            "description": "The job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          },
+          {
+            "description": "Page number",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TaskLogPart"
+                }
+              }
+            },
+            "description": "Paginated job log parts"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job not found"
+          }
+        },
+        "summary": "GET /jobs/{id}/log\n# Errors\nReturns an error when the job cannot be loaded or the requested log page cannot be fetched.",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/jobs/{id}/restart": {
+      "put": {
+        "operationId": "restart_job_handler",
+        "parameters": [
+          {
+            "description": "The job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Job restarted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job cannot be restarted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Job not found"
+          }
+        },
+        "summary": "PUT /jobs/{id}/restart\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be restarted from its current state.",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "get_metrics_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            },
+            "description": "System metrics"
+          }
+        },
+        "summary": "GET /metrics\n# Errors",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/nodes": {
+      "get": {
+        "operationId": "list_nodes_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Node"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of active nodes"
+          }
+        },
+        "summary": "GET /nodes\n# Errors",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/queues": {
+      "get": {
+        "description": "# Errors",
+        "operationId": "list_queues_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QueueInfo"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of queues"
+          }
+        },
+        "summary": "GET /queues",
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/queues/{name}": {
+      "delete": {
+        "description": "# Errors",
+        "operationId": "delete_queue_handler",
+        "parameters": [
+          {
+            "description": "Queue name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue deleted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Queue not found"
+          }
+        },
+        "summary": "DELETE /queues/{name}",
+        "tags": [
+          "Queues"
+        ]
+      },
+      "get": {
+        "description": "# Errors",
+        "operationId": "get_queue_handler",
+        "parameters": [
+          {
+            "description": "Queue name",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueInfo"
+                }
+              }
+            },
+            "description": "Queue info"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Queue not found"
+          }
+        },
+        "summary": "GET /queues/{name}",
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/scheduled-jobs": {
+      "get": {
+        "operationId": "list_scheduled_jobs_handler",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ScheduledJobSummary"
+                }
+              }
+            },
+            "description": "List of scheduled jobs"
+          }
+        },
+        "summary": "GET /scheduled-jobs\n# Errors\nReturns an error when the requested page of scheduled jobs cannot be loaded.",
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_scheduled_job_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "application/x-yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            },
+            "text/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledJobBody"
+              }
+            }
+          },
+          "description": "Scheduled job definition as JSON or YAML",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledJobSummary"
+                }
+              }
+            },
+            "description": "Scheduled job created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Invalid scheduled job payload"
+          }
+        },
+        "summary": "POST /scheduled-jobs\n# Errors\nReturns an error when the request body cannot be parsed, the scheduled job fails validation,\npersistence fails, or the creation event cannot be serialized or published.",
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      }
+    },
+    "/scheduled-jobs/{id}": {
+      "delete": {
+        "operationId": "delete_scheduled_job_handler",
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Scheduled job deleted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job not found"
+          }
+        },
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      },
+      "get": {
+        "operationId": "get_scheduled_job_handler",
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledJob"
+                }
+              }
+            },
+            "description": "Scheduled job found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job not found"
+          }
+        },
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      }
+    },
+    "/scheduled-jobs/{id}/pause": {
+      "put": {
+        "operationId": "pause_scheduled_job_handler",
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Scheduled job paused"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job cannot be paused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job not found"
+          }
+        },
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      }
+    },
+    "/scheduled-jobs/{id}/resume": {
+      "put": {
+        "operationId": "resume_scheduled_job_handler",
+        "parameters": [
+          {
+            "description": "Scheduled job ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Scheduled job resumed"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job cannot be resumed"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Scheduled job not found"
+          }
+        },
+        "tags": [
+          "Scheduled Jobs"
+        ]
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "operationId": "get_task_handler",
+        "parameters": [
+          {
+            "description": "Task ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Task details"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Task not found"
+          }
+        },
+        "summary": "GET /tasks/{id}\n# Errors",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/tasks/{id}/log": {
+      "get": {
+        "operationId": "get_task_log_handler",
+        "parameters": [
+          {
+            "description": "Task ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size (max 100)",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search query",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TaskLogPart"
+                }
+              }
+            },
+            "description": "Paginated task log entries"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Task not found"
+          }
+        },
+        "summary": "GET /tasks/{id}/log\n# Errors",
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "description": "# Errors",
+        "operationId": "create_user_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User created"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Missing username or password"
+          }
+        },
+        "summary": "POST /users",
+        "tags": [
+          "System"
+        ]
       }
     }
   }

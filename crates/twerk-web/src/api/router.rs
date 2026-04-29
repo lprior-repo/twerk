@@ -181,6 +181,19 @@ fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
         )
 }
 
-async fn serve_openapi_spec() -> axum::response::Json<utoipa::openapi::OpenApi> {
-    axum::Json(openapi::generate_spec())
+async fn serve_openapi_spec() -> axum::http::Response<axum::body::Body> {
+    openapi::generate_json()
+        .map(|json| {
+            axum::response::Response::builder()
+                .status(200)
+                .header(axum::http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(json.into_bytes()))
+                .unwrap()
+        })
+        .unwrap_or_else(|_| {
+            axum::response::Response::builder()
+                .status(500)
+                .body(axum::body::Body::empty())
+                .unwrap()
+        })
 }

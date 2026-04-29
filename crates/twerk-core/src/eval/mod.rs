@@ -32,6 +32,7 @@ pub mod state_dispatch;
 pub mod task;
 pub mod template;
 pub mod transform;
+pub mod vm;
 
 // Re-export all public APIs at module level for convenience
 pub use condition::{evaluate_condition, evaluate_task_condition};

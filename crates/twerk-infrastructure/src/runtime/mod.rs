@@ -166,6 +166,7 @@ impl Mounter for MultiMounter {
 
 pub mod docker;
 pub mod podman;
+pub mod timer;
 
 #[cfg(test)]
 mod tests {

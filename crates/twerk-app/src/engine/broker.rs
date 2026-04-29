@@ -8,11 +8,9 @@
 //!
 //! Matches `engine/broker.go`:
 //! - [`BrokerProxy`] delegates every `Broker` method with init-check
-//! - `create_broker()` dispatches on type (inmemory / rabbitmq)
-//! - delegates RabbitMQ to the infrastructure implementation
+//! - `create_broker()` dispatches on type (inmemory only)
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
@@ -20,13 +18,11 @@ use twerk_core::job::JobEvent;
 use twerk_core::node::Node;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{
-    inmemory::InMemoryBroker, rabbitmq::RabbitMQBroker, BoxedFuture, Broker, EventHandler,
-    HeartbeatHandler, JobHandler, QueueInfo, RabbitMQOptions, TaskHandler, TaskLogPartHandler,
-    TaskProgressHandler,
+    inmemory::InMemoryBroker, BoxedFuture, Broker, EventHandler, HeartbeatHandler, JobHandler,
+    QueueInfo, TaskHandler, TaskLogPartHandler, TaskProgressHandler,
 };
 
-use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
-use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL};
+use super::engine_helpers::ensure_config_loaded;
 
 // ── Typed error for broker proxy ───────────────────────────────────
 
@@ -41,18 +37,13 @@ struct BrokerNotInitialized;
 pub enum BrokerType {
     /// In-memory broker
     InMemory,
-    /// `RabbitMQ` broker
-    RabbitMQ,
 }
 
 impl BrokerType {
     /// Parse broker type from string.
     #[must_use]
-    pub fn parse(s: &str) -> Self {
-        match s.to_ascii_lowercase().as_str() {
-            "rabbitmq" => Self::RabbitMQ,
-            _ => Self::InMemory,
-        }
+    pub fn parse(_s: &str) -> Self {
+        Self::InMemory
     }
 }
 
@@ -148,7 +139,6 @@ macro_rules! delegate {
 }
 
 impl Broker for BrokerProxy {
-    // Methods with reference args must clone the data to satisfy 'static bound.
     fn publish_task(&self, qname: String, task: &Task) -> BoxedFuture<()> {
         let inner = self.inner.clone();
         let task = task.clone();
@@ -213,91 +203,22 @@ impl Broker for BrokerProxy {
     delegate!(shutdown() -> BoxedFuture<()>);
 }
 
-// ── Typed errors for broker factory ────────────────────────────────
-
-#[derive(Debug, thiserror::Error)]
-enum BrokerFactoryError {
-    #[error("unable to connect to RabbitMQ: {0}")]
-    RabbitMqConnection(String),
-}
-
-// ── Config helpers ─────────────────────────────────────────────
-
-/// Get a duration from environment (parsed as milliseconds) with default.
-fn env_duration_ms_default(key: &str, default: u64) -> Duration {
-    let value = env_string(key);
-    if value.is_empty() {
-        Duration::from_millis(default)
-    } else {
-        value
-            .parse::<u64>()
-            .map(Duration::from_millis)
-            .unwrap_or_else(|_| Duration::from_millis(default))
-    }
-}
-
-/// Get a bool from environment (parsed as "true"/"false") with default.
-fn env_bool(key: &str, default: bool) -> bool {
-    let value = env_string(key);
-    if value.is_empty() {
-        default
-    } else {
-        value == "true" || value == "1"
-    }
-}
-
 // ── Broker factory ─────────────────────────────────────────────
 
 /// Creates a broker based on the given type string.
 ///
 /// Matches Go `createBroker()`:
 /// - `"inmemory"` → [`InMemoryBroker`]
-/// - `"rabbitmq"` → [`RabbitMQBroker`] with full config from env
 ///
 /// # Errors
 ///
-/// Returns an error if:
-/// - The `RabbitMQ` connection cannot be established
+/// Currently always succeeds as only inmemory is supported.
 pub async fn create_broker(
     btype: &str,
-    engine_id: Option<&str>,
+    _engine_id: Option<&str>,
 ) -> Result<Box<dyn Broker + Send + Sync>> {
     ensure_config_loaded();
     match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
-        BrokerType::RabbitMQ => {
-            let url = env_string_default("broker.rabbitmq.url", DEFAULT_RABBITMQ_URL);
-            let management_url = {
-                let v = env_string("broker.rabbitmq.management.url");
-                if v.is_empty() {
-                    None
-                } else {
-                    Some(v)
-                }
-            };
-            let _consumer_timeout = env_duration_ms_default(
-                "broker.rabbitmq.consumer.timeout",
-                DEFAULT_CONSUMER_TIMEOUT_MS,
-            );
-            let durable = env_bool("broker.rabbitmq.durable.queues", true);
-            let queue_type = env_string_default("broker.rabbitmq.queue.type", "quorum");
-
-            let broker = RabbitMQBroker::new(
-                &url,
-                RabbitMQOptions {
-                    management_url,
-                    durable_queues: durable,
-                    queue_type,
-                    consumer_timeout: Some(_consumer_timeout),
-                },
-                engine_id,
-            )
-            .await
-            .map_err(|e| BrokerFactoryError::RabbitMqConnection(e.to_string()))?;
-
-            Ok(Box::new(broker))
-        }
     }
 }
-
-// ── In-memory broker (Removed, moved to twerk-infrastructure)

@@ -3,10 +3,10 @@
 //! Executes bytecode-compiled expressions against a slot array.
 //! Fixed 64-entry eval stack. All operations are pure and return Result.
 
-use super::types::{EngineError, *};
-use super::expression::{CompiledExpr, Op, AccessorSegment};
+use super::expression::{CompiledExpr, Op};
+use super::slot::{CompactText, RunFrame, SlotValue};
 use super::types::AccessorIdx;
-use super::slot::{SlotValue, RunFrame, CompactText};
+use super::types::{EngineError, *};
 
 /// Maximum evaluation stack depth.
 pub const EXPR_STACK_MAX: usize = 64;
@@ -16,16 +16,37 @@ pub type ExprResult<T> = Result<T, ExprError>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprError {
-    StackOverflow { depth: usize, max: usize },
-    StackUnderflow { needed: usize },
-    SlotNotInitialized { slot: u16 },
-    SlotOutOfBounds { slot: u16, max: u16 },
-    ConstOutOfBounds { index: u16 },
-    AccessorOutOfBounds { accessor: u16 },
+    StackOverflow {
+        depth: usize,
+        max: usize,
+    },
+    StackUnderflow {
+        needed: usize,
+    },
+    SlotNotInitialized {
+        slot: u16,
+    },
+    SlotOutOfBounds {
+        slot: u16,
+        max: u16,
+    },
+    ConstOutOfBounds {
+        index: u16,
+    },
+    AccessorOutOfBounds {
+        accessor: u16,
+    },
     DivisionByZero,
-    TypeMismatch { expected: &'static str, actual: &'static str },
-    InvalidJump { offset: u16 },
-    ExpressionTooComplex { instruction_count: u16 },
+    TypeMismatch {
+        expected: &'static str,
+        actual: &'static str,
+    },
+    InvalidJump {
+        offset: u16,
+    },
+    ExpressionTooComplex {
+        instruction_count: u16,
+    },
     /// Expression evaluated to null where a value was required.
     NullValue,
 }
@@ -33,12 +54,23 @@ pub enum ExprError {
 impl From<ExprError> for EngineError {
     fn from(e: ExprError) -> Self {
         match e {
-            ExprError::SlotNotInitialized { slot } => EngineError::SlotNotInitialized { slot: SlotIdx(slot) },
-            ExprError::SlotOutOfBounds { slot, max } => EngineError::SlotOutOfBounds { slot: SlotIdx(slot), max },
+            ExprError::SlotNotInitialized { slot } => EngineError::SlotNotInitialized {
+                slot: SlotIdx(slot),
+            },
+            ExprError::SlotOutOfBounds { slot, max } => EngineError::SlotOutOfBounds {
+                slot: SlotIdx(slot),
+                max,
+            },
             ExprError::DivisionByZero => EngineError::DivisionByZero,
-            ExprError::TypeMismatch { expected, actual } => EngineError::TypeMismatch { expected, actual },
-            ExprError::ExpressionTooComplex { instruction_count } => EngineError::ExpressionTooComplex { instruction_count },
-            _ => EngineError::ExpressionTooComplex { instruction_count: u16::MAX },
+            ExprError::TypeMismatch { expected, actual } => {
+                EngineError::TypeMismatch { expected, actual }
+            }
+            ExprError::ExpressionTooComplex { instruction_count } => {
+                EngineError::ExpressionTooComplex { instruction_count }
+            }
+            _ => EngineError::ExpressionTooComplex {
+                instruction_count: u16::MAX,
+            },
         }
     }
 }
@@ -60,7 +92,10 @@ impl EvalStack {
 
     fn push(&mut self, value: SlotValue) -> ExprResult<()> {
         if self.depth >= EXPR_STACK_MAX {
-            return Err(ExprError::StackOverflow { depth: self.depth, max: EXPR_STACK_MAX });
+            return Err(ExprError::StackOverflow {
+                depth: self.depth,
+                max: EXPR_STACK_MAX,
+            });
         }
         self.slots[self.depth] = Some(value);
         self.depth += 1;
@@ -83,6 +118,7 @@ impl EvalStack {
         Ok((a, b))
     }
 
+    #[expect(dead_code)]
     fn peek(&self) -> ExprResult<&SlotValue> {
         if self.depth == 0 {
             return Err(ExprError::StackUnderflow { needed: 1 });
@@ -135,7 +171,10 @@ impl<'a> ExprVm<'a> {
             Op::LoadSlot(idx) => {
                 let slot_idx = idx.0 as usize;
                 if slot_idx >= frame.slots.len() {
-                    return Err(ExprError::SlotOutOfBounds { slot: idx.0, max: frame.slots.len() as u16 });
+                    return Err(ExprError::SlotOutOfBounds {
+                        slot: idx.0,
+                        max: frame.slots.len() as u16,
+                    });
                 }
                 let value = frame.slots[slot_idx].clone();
                 stack.push(value)?;
@@ -319,14 +358,20 @@ impl<'a> ExprVm<'a> {
     }
 
     /// Resolve an accessor path (e.g., $input.body.issue.title).
-    fn resolve_accessor(&self, accessor_idx: AccessorIdx, frame: &RunFrame) -> ExprResult<SlotValue> {
+    fn resolve_accessor(
+        &self,
+        accessor_idx: AccessorIdx,
+        frame: &RunFrame,
+    ) -> ExprResult<SlotValue> {
         // Accessors are resolved at compile time to slot indices.
         // At runtime, we just load from the resolved slot.
         // This method is for when we need to follow a path.
         // For now, return Null if slot not found.
         let slot_idx = accessor_idx.0 as usize;
         if slot_idx >= frame.slots.len() {
-            return Err(ExprError::AccessorOutOfBounds { accessor: accessor_idx.0 });
+            return Err(ExprError::AccessorOutOfBounds {
+                accessor: accessor_idx.0,
+            });
         }
         Ok(frame.slots[slot_idx].clone())
     }
@@ -350,7 +395,10 @@ impl<'a> ExprVm<'a> {
         match (a, b) {
             (SlotValue::Number(n1), SlotValue::Number(n2)) => Ok(n1 > n2),
             (SlotValue::Text(t1), SlotValue::Text(t2)) => Ok(t1.as_str() > t2.as_str()),
-            _ => Err(ExprError::TypeMismatch { expected: "number or text", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number or text",
+                actual: "other",
+            }),
         }
     }
 
@@ -358,7 +406,10 @@ impl<'a> ExprVm<'a> {
         match (a, b) {
             (SlotValue::Number(n1), SlotValue::Number(n2)) => Ok(n1 < n2),
             (SlotValue::Text(t1), SlotValue::Text(t2)) => Ok(t1.as_str() < t2.as_str()),
-            _ => Err(ExprError::TypeMismatch { expected: "number or text", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number or text",
+                actual: "other",
+            }),
         }
     }
 
@@ -366,7 +417,10 @@ impl<'a> ExprVm<'a> {
         match (a, b) {
             (SlotValue::Number(n1), SlotValue::Number(n2)) => Ok(n1 >= n2),
             (SlotValue::Text(t1), SlotValue::Text(t2)) => Ok(t1.as_str() >= t2.as_str()),
-            _ => Err(ExprError::TypeMismatch { expected: "number or text", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number or text",
+                actual: "other",
+            }),
         }
     }
 
@@ -374,7 +428,10 @@ impl<'a> ExprVm<'a> {
         match (a, b) {
             (SlotValue::Number(n1), SlotValue::Number(n2)) => Ok(n1 <= n2),
             (SlotValue::Text(t1), SlotValue::Text(t2)) => Ok(t1.as_str() <= t2.as_str()),
-            _ => Err(ExprError::TypeMismatch { expected: "number or text", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number or text",
+                actual: "other",
+            }),
         }
     }
 
@@ -403,39 +460,54 @@ impl<'a> ExprVm<'a> {
 
     fn add(a: &SlotValue, b: &SlotValue) -> ExprResult<SlotValue> {
         match (a, b) {
-            (SlotValue::Number(n1), SlotValue::Number(n2)) => {
-                n1.checked_add(*n2)
-                    .map(SlotValue::Number)
-                    .ok_or(ExprError::TypeMismatch { expected: "number", actual: "overflow" })
-            }
+            (SlotValue::Number(n1), SlotValue::Number(n2)) => n1
+                .checked_add(*n2)
+                .map(SlotValue::Number)
+                .ok_or(ExprError::TypeMismatch {
+                    expected: "number",
+                    actual: "overflow",
+                }),
             (SlotValue::Text(t1), SlotValue::Text(t2)) => {
                 let mut result = t1.as_str().to_string();
                 result.push_str(t2.as_str());
                 Ok(SlotValue::Text(CompactText(result.into_boxed_str())))
             }
-            _ => Err(ExprError::TypeMismatch { expected: "number or text", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number or text",
+                actual: "other",
+            }),
         }
     }
 
     fn sub(a: &SlotValue, b: &SlotValue) -> ExprResult<SlotValue> {
         match (a, b) {
-            (SlotValue::Number(n1), SlotValue::Number(n2)) => {
-                n1.checked_sub(*n2)
-                    .map(SlotValue::Number)
-                    .ok_or(ExprError::TypeMismatch { expected: "number", actual: "overflow" })
-            }
-            _ => Err(ExprError::TypeMismatch { expected: "number", actual: "other" }),
+            (SlotValue::Number(n1), SlotValue::Number(n2)) => n1
+                .checked_sub(*n2)
+                .map(SlotValue::Number)
+                .ok_or(ExprError::TypeMismatch {
+                    expected: "number",
+                    actual: "overflow",
+                }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number",
+                actual: "other",
+            }),
         }
     }
 
     fn mul(a: &SlotValue, b: &SlotValue) -> ExprResult<SlotValue> {
         match (a, b) {
-            (SlotValue::Number(n1), SlotValue::Number(n2)) => {
-                n1.checked_mul(*n2)
-                    .map(SlotValue::Number)
-                    .ok_or(ExprError::TypeMismatch { expected: "number", actual: "overflow" })
-            }
-            _ => Err(ExprError::TypeMismatch { expected: "number", actual: "other" }),
+            (SlotValue::Number(n1), SlotValue::Number(n2)) => n1
+                .checked_mul(*n2)
+                .map(SlotValue::Number)
+                .ok_or(ExprError::TypeMismatch {
+                    expected: "number",
+                    actual: "overflow",
+                }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number",
+                actual: "other",
+            }),
         }
     }
 
@@ -447,9 +519,15 @@ impl<'a> ExprVm<'a> {
                 }
                 n1.checked_div(*n2)
                     .map(SlotValue::Number)
-                    .ok_or(ExprError::TypeMismatch { expected: "number", actual: "overflow" })
+                    .ok_or(ExprError::TypeMismatch {
+                        expected: "number",
+                        actual: "overflow",
+                    })
             }
-            _ => Err(ExprError::TypeMismatch { expected: "number", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number",
+                actual: "other",
+            }),
         }
     }
 
@@ -461,9 +539,15 @@ impl<'a> ExprVm<'a> {
                 }
                 n1.checked_rem(*n2)
                     .map(SlotValue::Number)
-                    .ok_or(ExprError::TypeMismatch { expected: "number", actual: "overflow" })
+                    .ok_or(ExprError::TypeMismatch {
+                        expected: "number",
+                        actual: "overflow",
+                    })
             }
-            _ => Err(ExprError::TypeMismatch { expected: "number", actual: "other" }),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "number",
+                actual: "other",
+            }),
         }
     }
 
@@ -473,13 +557,17 @@ impl<'a> ExprVm<'a> {
                 if let SlotValue::Text(needle_text) = needle {
                     Ok(text.as_str().contains(needle_text.as_str()))
                 } else {
-                    Err(ExprError::TypeMismatch { expected: "text", actual: "other" })
+                    Err(ExprError::TypeMismatch {
+                        expected: "text",
+                        actual: "other",
+                    })
                 }
             }
-            SlotValue::List(list) => {
-                Ok(list.0.contains(needle))
-            }
-            _ => Err(ExprError::TypeMismatch { expected: "text or list", actual: "other" }),
+            SlotValue::List(list) => Ok(list.0.contains(needle)),
+            _ => Err(ExprError::TypeMismatch {
+                expected: "text or list",
+                actual: "other",
+            }),
         }
     }
 
@@ -487,7 +575,10 @@ impl<'a> ExprVm<'a> {
         if let (SlotValue::Text(t), SlotValue::Text(p)) = (text, prefix) {
             Ok(t.as_str().starts_with(p.as_str()))
         } else {
-            Err(ExprError::TypeMismatch { expected: "text", actual: "other" })
+            Err(ExprError::TypeMismatch {
+                expected: "text",
+                actual: "other",
+            })
         }
     }
 
@@ -495,7 +586,10 @@ impl<'a> ExprVm<'a> {
         if let (SlotValue::Text(t), SlotValue::Text(s)) = (text, suffix) {
             Ok(t.as_str().ends_with(s.as_str()))
         } else {
-            Err(ExprError::TypeMismatch { expected: "text", actual: "other" })
+            Err(ExprError::TypeMismatch {
+                expected: "text",
+                actual: "other",
+            })
         }
     }
 

@@ -253,7 +253,7 @@
     "/health": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "Health check handler",
         "operationId": "health_handler",
@@ -657,7 +657,7 @@
     "/metrics": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "GET /metrics\n# Errors",
         "operationId": "get_metrics_handler",
@@ -678,7 +678,7 @@
     "/nodes": {
       "get": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "GET /nodes\n# Errors",
         "operationId": "list_nodes_handler",
@@ -699,10 +699,52 @@
         }
       }
     },
+    "/nodes/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "GET /nodes/{id}\n# Errors\nReturns `ApiError` if the node is not found or if there is an error retrieving it.",
+        "operationId": "get_node_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The node ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Node"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queues": {
       "get": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "GET /queues",
         "description": "# Errors",
@@ -727,7 +769,7 @@
     "/queues/{name}": {
       "get": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "GET /queues/{name}",
         "description": "# Errors",
@@ -768,7 +810,7 @@
       },
       "delete": {
         "tags": [
-          "super::handlers::queues"
+          "Queues"
         ],
         "summary": "DELETE /queues/{name}",
         "description": "# Errors",
@@ -1173,7 +1215,7 @@
     "/users": {
       "post": {
         "tags": [
-          "super::handlers::system"
+          "System"
         ],
         "summary": "POST /users",
         "description": "# Errors",
@@ -1194,6 +1236,26 @@
           },
           "400": {
             "description": "Missing username or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required",
             "content": {
               "application/json": {
                 "schema": {
@@ -1228,6 +1290,28 @@
             ],
             "properties": {
               "NotFound": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Forbidden"
+            ],
+            "properties": {
+              "Forbidden": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Unauthorized"
+            ],
+            "properties": {
+              "Unauthorized": {
                 "type": "string"
               }
             }

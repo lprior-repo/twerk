@@ -111,7 +111,7 @@ async fn wait_for_job_completion(state: AppState, job: Job) -> Result<Response, 
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?;
 
-    let completion = tokio::time::timeout(tokio::time::Duration::from_secs(3600), async {
+    let completion = tokio::time::timeout(tokio::time::Duration::from_hours(1), async {
         loop {
             match subscription.recv().await {
                 Ok(

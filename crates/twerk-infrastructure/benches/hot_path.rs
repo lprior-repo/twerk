@@ -1,6 +1,6 @@
-//! Hot-path benchmarks for the in-memory broker publish path.
+//! Hot-path benchmarks for the in-memory datastore.
 //!
-//! Baseline measurement BEFORE optimization changes.
+//! Measures the performance of secondary index vs full scan queries.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use dashmap::DashMap;
@@ -14,66 +14,89 @@ fn make_job_id() -> JobId {
 }
 
 /// Creates a task with minimal fields for benchmarking.
-fn make_task(id: &str) -> Task {
+fn make_task(id: &str, job_id: &JobId) -> Task {
     Task {
         id: Some(TaskId::new(id).unwrap()),
-        job_id: Some(make_job_id()),
+        job_id: Some(job_id.clone()),
         state: TaskState::Pending,
         name: Some(format!("task-{}", id)),
         ..Default::default()
     }
 }
 
-/// Creates multiple tasks for batch benchmarks.
-fn make_tasks(count: usize) -> Vec<Task> {
-    (0..count).map(|i| make_task(&format!("task-{}", i))).collect()
+// ── Secondary Index Benchmark (synchronous) ─────────────────────────────────────
+
+/// Simulates the old full-scan query
+fn query_full_scan(tasks: &DashMap<String, Task>, job_id: &str) -> Vec<Task> {
+    tasks
+        .iter()
+        .filter(|e| e.value().job_id.as_deref() == Some(job_id))
+        .map(|e| e.value().clone())
+        .collect()
 }
 
-// ── DashMap Operations (synchronous measurements) ───────────────────────────
-
-fn dashmap_task_insert(c: &mut Criterion) {
-    let mut group = c.benchmark_group("dashmap_task_insert");
-
-    for size in [1, 10, 100, 1000] {
-        group.throughput(Throughput::Elements(size as u64));
-
-        group.bench_function(BenchmarkId::from_parameter(size), |b| {
-            b.iter(|| {
-                let tasks: DashMap<String, Task> = DashMap::new();
-                let tasks_vec = make_tasks(size);
-                for task in tasks_vec {
-                    if let Some(id) = &task.id {
-                        tasks.insert(id.to_string(), task);
-                    }
-                }
-            });
-        });
+/// Simulates the new indexed query
+fn query_indexed(tasks: &DashMap<String, Task>, tasks_by_job: &DashMap<JobId, Vec<TaskId>>, job_id: &JobId) -> Vec<Task> {
+    if let Some(task_ids) = tasks_by_job.get(job_id) {
+        task_ids
+            .value()
+            .iter()
+            .filter_map(|tid| {
+                // TaskId implements AsRef<str> and Deref<Target = str>
+                let tid_str: &str = tid.as_ref();
+                tasks.get(tid_str).map(|t| t.value().clone())
+            })
+            .collect()
+    } else {
+        Vec::new()
     }
-
-    group.finish();
 }
 
-fn dashmap_task_iterate(c: &mut Criterion) {
-    let mut group = c.benchmark_group("dashmap_task_iterate");
+fn secondary_index_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("secondary_index_comparison");
 
-    for size in [100, 1000, 10000] {
-        group.throughput(Throughput::Elements(size as u64));
+    for total_tasks in [100, 1000, 10000] {
+        group.throughput(Throughput::Elements(total_tasks as u64));
 
-        // Pre-populate
+        let job_id = make_job_id();
+        let job_id_str = job_id.as_str().to_string();
+
+        // Pre-populate DashMap
         let tasks: DashMap<String, Task> = DashMap::new();
-        let tasks_vec = make_tasks(size);
-        for task in tasks_vec {
-            if let Some(id) = &task.id {
-                tasks.insert(id.to_string(), task);
-            }
+        let tasks_by_job: DashMap<JobId, Vec<TaskId>> = DashMap::new();
+
+        for i in 0..total_tasks {
+            let task_id = format!("task-{}", i);
+            let task = make_task(&task_id, &job_id);
+            let tid = task.id.clone().unwrap();
+            tasks.insert(task_id, task);
+            tasks_by_job.entry(job_id.clone()).or_default().push(tid);
         }
 
-        group.bench_function(BenchmarkId::from_parameter(size), |b| {
-            b.iter(|| {
-                let count = tasks.iter().count();
-                criterion::black_box(count);
-            });
-        });
+        // Benchmark: old full scan
+        group.bench_with_input(
+            BenchmarkId::new("full_scan", total_tasks),
+            &total_tasks,
+            |b, &_total| {
+                b.iter(|| {
+                    let result = query_full_scan(&tasks, &job_id_str);
+                    criterion::black_box(result);
+                });
+            },
+        );
+
+        // Benchmark: new indexed lookup
+        group.bench_with_input(
+            BenchmarkId::new("indexed_lookup", total_tasks),
+            &total_tasks,
+            |b, &_total| {
+                let job_id = make_job_id();
+                b.iter(|| {
+                    let result = query_indexed(&tasks, &tasks_by_job, &job_id);
+                    criterion::black_box(result);
+                });
+            },
+        );
     }
 
     group.finish();
@@ -82,7 +105,8 @@ fn dashmap_task_iterate(c: &mut Criterion) {
 // ── Clone overhead ────────────────────────────────────────────────────────────
 
 fn task_clone_overhead(c: &mut Criterion) {
-    let task = make_task("clone-test");
+    let job_id = make_job_id();
+    let task = make_task("clone-test", &job_id);
 
     let mut group = c.benchmark_group("task_clone");
     group.throughput(Throughput::Elements(1));
@@ -109,7 +133,7 @@ fn task_clone_overhead(c: &mut Criterion) {
     group.finish();
 }
 
-// ── Vec vs DashMap for queue ─────────────────────────────────────────────────
+// ── DashMap vs Vec comparison ────────────────────────────────────────────────
 
 fn queue_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("queue_operations");
@@ -118,9 +142,8 @@ fn queue_operations(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         // Pre-create tasks
-        let tasks: Vec<Arc<Task>> = make_tasks(size)
-            .into_iter()
-            .map(|t| Arc::new(t))
+        let tasks: Vec<Arc<Task>> = (0..size)
+            .map(|i| Arc::new(make_task(&format!("task-{}", i), &make_job_id())))
             .collect();
 
         group.bench_function(BenchmarkId::new("vec_push", size), |b| {
@@ -147,39 +170,11 @@ fn queue_operations(c: &mut Criterion) {
     group.finish();
 }
 
-// ── Handler invocation simulation ─────────────────────────────────────────────
-
-fn handler_invocation_overhead(c: &mut Criterion) {
-    let mut group = c.benchmark_group("handler_invocation");
-
-    // Simulate a simple handler
-    async fn handler(_task: Arc<Task>) -> Result<(), ()> {
-        Ok(())
-    }
-
-    let task = Arc::new(make_task("test"));
-
-    group.bench_function("direct_call", |b| {
-        b.iter(|| {
-            let _ = criterion::black_box(handler(task.clone()));
-        });
-    });
-
-    group.bench_function("arc_clone_only", |b| {
-        let task = Arc::new(make_task("test"));
-        b.iter(|| {
-            let _ = Arc::clone(&task);
-        });
-    });
-
-    group.finish();
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 criterion_group!(
     name = benches;
     config = Criterion::default().sample_size(100);
-    targets = dashmap_task_insert, dashmap_task_iterate, task_clone_overhead, queue_operations, handler_invocation_overhead
+    targets = secondary_index_benchmark, task_clone_overhead, queue_operations
 );
 criterion_main!(benches);

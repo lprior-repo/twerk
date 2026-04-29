@@ -4,8 +4,9 @@
 
 use anyhow::Result;
 use std::sync::Arc;
+use std::time::Duration;
 use twerk_app::engine::coordinator::handlers;
-use twerk_app::engine::{BrokerProxy, DatastoreProxy};
+use twerk_app::engine::{BrokerProxy, DatastoreProxy, TOPIC_JOB_FAILED};
 use twerk_core::id::{JobId, NodeId};
 use twerk_core::job::{Job, JobState};
 use twerk_core::node::{Node, NodeStatus};
@@ -183,6 +184,71 @@ async fn handle_error_publishes_to_failed_queue() -> Result<()> {
 }
 
 #[tokio::test]
+async fn handle_error_publishes_failed_task_without_routing_job_twice() -> Result<()> {
+    let (datastore, broker) = setup().await?;
+    let ds = to_ds(&datastore);
+    let b = to_broker(&broker);
+
+    let job_id = "550e8400-e29b-41d4-a716-446655440208";
+    let task_id = "error-single-route-task";
+
+    datastore
+        .clone_inner()
+        .create_job(&Job {
+            id: Some(to_job_id(job_id)),
+            state: JobState::Running,
+            ..Default::default()
+        })
+        .await?;
+
+    let task = Task {
+        id: Some(task_id.into()),
+        job_id: Some(to_job_id(job_id)),
+        state: TaskState::Running,
+        error: Some("task failed once".to_string()),
+        ..Default::default()
+    };
+    datastore.clone_inner().create_task(&task).await?;
+
+    let mut failed_events = broker
+        .clone_inner()
+        .subscribe(TOPIC_JOB_FAILED.to_string())
+        .await?;
+
+    handlers::handle_error(ds.clone(), b.clone(), task.clone()).await?;
+
+    let job_before_failed_queue = datastore.clone_inner().get_job_by_id(job_id).await?;
+    assert_eq!(job_before_failed_queue.state, JobState::Running);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), failed_events.recv())
+            .await
+            .is_err()
+    );
+
+    let queued_failed_task = Task {
+        state: TaskState::Failed,
+        failed_at: datastore
+            .clone_inner()
+            .get_task_by_id(task_id)
+            .await?
+            .failed_at,
+        ..task
+    };
+    handlers::handle_task_failed(ds, b, queued_failed_task).await?;
+
+    let failed_job = datastore.clone_inner().get_job_by_id(job_id).await?;
+    assert_eq!(failed_job.state, JobState::Failed);
+    tokio::time::timeout(Duration::from_secs(1), failed_events.recv()).await??;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), failed_events.recv())
+            .await
+            .is_err()
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn handle_heartbeat_updates_node_status() -> Result<()> {
     let (datastore, broker) = setup().await?;
     let ds = to_ds(&datastore);
@@ -204,6 +270,93 @@ async fn handle_heartbeat_updates_node_status() -> Result<()> {
 
     let updated_node = datastore.clone_inner().get_node_by_id("worker-1").await?;
     assert_eq!(updated_node.status, Some(NodeStatus::UP));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn handle_heartbeat_creates_visible_node_when_worker_omits_queue_and_version() -> Result<()> {
+    let (datastore, broker) = setup().await?;
+    let ds = to_ds(&datastore);
+    let b = to_broker(&broker);
+
+    let node = Node {
+        id: Some(NodeId::new("worker-missing-fields").unwrap()),
+        name: Some("benchmark-worker".to_string()),
+        hostname: Some("benchmark-host".to_string()),
+        ..Default::default()
+    };
+
+    handlers::handle_heartbeat(ds, b, node).await?;
+
+    let stored = datastore
+        .clone_inner()
+        .get_node_by_id("worker-missing-fields")
+        .await?;
+    assert_eq!(stored.status, Some(NodeStatus::UP));
+    assert_eq!(stored.queue.as_deref(), Some("default"));
+    assert!(stored.version.is_some());
+    assert!(stored.last_heartbeat_at.is_some());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn handle_heartbeat_preserves_explicit_down_status() -> Result<()> {
+    let (datastore, broker) = setup().await?;
+    let ds = to_ds(&datastore);
+    let b = to_broker(&broker);
+
+    // Given a worker heartbeat explicitly reports DOWN
+    let node = Node {
+        id: Some(NodeId::new("worker-down").unwrap()),
+        name: Some("down-worker".to_string()),
+        hostname: Some("benchmark-host".to_string()),
+        status: Some(NodeStatus::DOWN),
+        ..Default::default()
+    };
+
+    // When the coordinator ingests the heartbeat
+    handlers::handle_heartbeat(ds, b, node).await?;
+
+    // Then explicit DOWN is preserved rather than forced UP
+    let stored = datastore
+        .clone_inner()
+        .get_node_by_id("worker-down")
+        .await?;
+    assert_eq!(stored.status, Some(NodeStatus::DOWN));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn handle_heartbeat_clamps_future_heartbeat_timestamp() -> Result<()> {
+    let (datastore, broker) = setup().await?;
+    let ds = to_ds(&datastore);
+    let b = to_broker(&broker);
+    let before_ingest = time::OffsetDateTime::now_utc();
+
+    // Given a worker heartbeat contains a future timestamp
+    let node = Node {
+        id: Some(NodeId::new("worker-future").unwrap()),
+        name: Some("future-worker".to_string()),
+        hostname: Some("benchmark-host".to_string()),
+        last_heartbeat_at: Some(before_ingest + time::Duration::hours(1)),
+        ..Default::default()
+    };
+
+    // When the coordinator ingests the heartbeat
+    handlers::handle_heartbeat(ds, b, node).await?;
+
+    // Then the stored timestamp is clamped back to ingestion time
+    let stored = datastore
+        .clone_inner()
+        .get_node_by_id("worker-future")
+        .await?;
+    assert!(stored
+        .last_heartbeat_at
+        .is_some_and(|heartbeat_at| heartbeat_at >= before_ingest
+            && heartbeat_at <= time::OffsetDateTime::now_utc()));
 
     Ok(())
 }
@@ -249,6 +402,57 @@ async fn handle_log_part_stores_log_parts() -> Result<()> {
         .await?;
     assert_eq!(parts.items.len(), 1);
     assert_eq!(parts.items[0].contents, Some("First log line".to_string()));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn handle_log_part_assigns_missing_part_id_before_storage() -> Result<()> {
+    let (datastore, broker) = setup().await?;
+    let ds = to_ds(&datastore);
+    let b = to_broker(&broker);
+
+    let job_id = "550e8400-e29b-41d4-a716-446655440207";
+    let task_id = "missing-log-part-id-task";
+
+    let job = Job {
+        id: Some(to_job_id(job_id)),
+        state: JobState::Running,
+        ..Default::default()
+    };
+    datastore.clone_inner().create_job(&job).await?;
+
+    let task = Task {
+        id: Some(task_id.into()),
+        job_id: Some(to_job_id(job_id)),
+        state: TaskState::Running,
+        ..Default::default()
+    };
+    datastore.clone_inner().create_task(&task).await?;
+
+    let log_part = TaskLogPart {
+        id: None,
+        task_id: Some(task_id.into()),
+        number: 1,
+        contents: Some("log line without publisher id".to_string()),
+        ..Default::default()
+    };
+
+    let result = handlers::handle_log_part(ds.clone(), b.clone(), log_part.clone()).await;
+    assert!(matches!(result, Ok(_)));
+    let redelivery_result = handlers::handle_log_part(ds, b, log_part).await;
+    assert!(matches!(redelivery_result, Ok(_)));
+
+    let parts = datastore
+        .clone_inner()
+        .get_task_log_parts(task_id, "", 1, 10)
+        .await?;
+    assert_eq!(parts.items.len(), 1);
+    assert!(parts.items[0].id.is_some());
+    assert_eq!(
+        parts.items[0].contents,
+        Some("log line without publisher id".to_string())
+    );
 
     Ok(())
 }

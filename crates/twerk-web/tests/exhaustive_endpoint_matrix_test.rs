@@ -19,8 +19,9 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
-use twerk_core::id::{JobId, TaskId};
+use twerk_core::id::{JobId, NodeId, TaskId};
 use twerk_core::job::{Job, JobState};
+use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::{TaskLogPart, TaskState};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
@@ -32,6 +33,23 @@ mod support;
 
 async fn setup_state() -> AppState {
     support::TestHarness::new().await.into_state()
+}
+
+async fn setup_state_with_live_worker() -> AppState {
+    let ds = Arc::new(InMemoryDatastore::new());
+    ds.create_node(&Node {
+        id: Some(NodeId::new("worker-1").unwrap()),
+        name: Some("worker-1".to_string()),
+        hostname: Some("localhost".to_string()),
+        status: Some(NodeStatus::UP),
+        queue: Some("default".to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        last_heartbeat_at: Some(time::OffsetDateTime::now_utc()),
+        ..Default::default()
+    })
+    .await
+    .unwrap();
+    AppState::new(Arc::new(InMemoryBroker::new()), ds, Config::default())
 }
 
 async fn setup_state_with_queue(queue_name: &str) -> AppState {
@@ -74,7 +92,7 @@ mod health {
 
     #[tokio::test]
     async fn get_health_returns_200() {
-        let state = setup_state().await;
+        let state = setup_state_with_live_worker().await;
         let app = create_router(state);
 
         let response = app
@@ -95,7 +113,7 @@ mod health {
 
     #[tokio::test]
     async fn get_health_response_includes_version() {
-        let state = setup_state().await;
+        let state = setup_state_with_live_worker().await;
         let app = create_router(state);
 
         let response = app

@@ -5,8 +5,10 @@ use axum::http::{header, Method, Request, StatusCode};
 use bytes::Bytes;
 use http_body_util::BodyExt;
 use serde_json::Value;
+use time::OffsetDateTime;
 use tower::ServiceExt;
-use twerk_core::node::Node;
+use twerk_core::id::NodeId;
+use twerk_core::node::{Node, NodeStatus};
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
 use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
@@ -53,6 +55,16 @@ impl TestHarness {
                 .publish_task(name.to_string(), &queued_task("queued-task"))
                 .await
                 .unwrap();
+            ds.create_node(&Node {
+                id: Some(NodeId::new("queued-worker").unwrap()),
+                name: Some("queued-worker".to_string()),
+                status: Some(NodeStatus::UP),
+                queue: Some(name.to_string()),
+                last_heartbeat_at: Some(OffsetDateTime::now_utc()),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
         }
 
         trigger_ids.iter().for_each(|id| {

@@ -11,6 +11,9 @@ use twerk_infrastructure::broker::{
 
 use super::engine_helpers::{ensure_config_loaded, env_string, env_string_default};
 use twerk_common::constants::{DEFAULT_CONSUMER_TIMEOUT_MS, DEFAULT_RABBITMQ_URL, QUEUE_TYPE_CLASSIC};
+use twerk_common::conf::int_default;
+
+const DEFAULT_RABBITMQ_PREFETCH_COUNT: u16 = 1;
 
 // ── Typed errors for broker factory ────────────────────────────────
 
@@ -99,6 +102,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
             );
             let durable = env_bool("broker.rabbitmq.durable.queues", false);
             let queue_type = env_string_default("broker.rabbitmq.queue.type", QUEUE_TYPE_CLASSIC);
+            let prefetch_count = rabbitmq_prefetch_count();
 
             let broker = RabbitMQBroker::new(
                 &url,
@@ -107,6 +111,7 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
                     durable_queues: durable,
                     queue_type,
                     consumer_timeout: Some(consumer_timeout),
+                    prefetch_count,
                 },
             )
             .await
@@ -115,4 +120,14 @@ pub async fn create_broker(btype: &str) -> Result<Box<dyn Broker + Send + Sync>>
             Ok(Box::new(broker))
         }
     }
+}
+
+fn rabbitmq_prefetch_count() -> u16 {
+    u16::try_from(int_default(
+        "broker.rabbitmq.prefetch.count",
+        i64::from(DEFAULT_RABBITMQ_PREFETCH_COUNT),
+    ))
+    .ok()
+    .filter(|value| *value > 0)
+    .map_or(DEFAULT_RABBITMQ_PREFETCH_COUNT, std::convert::identity)
 }

@@ -506,3 +506,31 @@ pub fn new_scheduled_job_summary(sj: &ScheduledJob) -> ScheduledJobSummary {
         created_at: sj.created_at,
     }
 }
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::*;
+
+    #[test]
+    fn job_summary_timestamps_serialize_as_rfc3339_strings() {
+        let timestamp = match OffsetDateTime::from_unix_timestamp(1_777_000_000) {
+            Ok(value) => value,
+            Err(error) => panic!("test timestamp should be valid: {error}"),
+        };
+        let summary = JobSummary {
+            created_at: Some(timestamp),
+            started_at: Some(timestamp),
+            completed_at: Some(timestamp),
+            ..Default::default()
+        };
+
+        let json = match serde_json::to_value(summary) {
+            Ok(value) => value,
+            Err(error) => panic!("job summary should serialize: {error}"),
+        };
+
+        assert!(json["createdAt"].is_string());
+        assert!(json["startedAt"].is_string());
+        assert!(json["completedAt"].is_string());
+    }
+}

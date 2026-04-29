@@ -23,7 +23,7 @@ impl PostgresDatastore {
             "contents is required".to_string(),
         ))?;
 
-        let q = r"INSERT INTO tasks_log_parts (id, number_, task_id, created_at, contents) VALUES ($1, $2, $3, $4, $5)";
+        let q = r"INSERT INTO tasks_log_parts (id, number_, task_id, created_at, contents) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING";
         let query = sqlx::query(q)
             .bind(&**id)
             .bind(part.number)

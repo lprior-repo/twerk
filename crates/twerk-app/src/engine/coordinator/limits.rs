@@ -16,7 +16,14 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::sync::Arc;
 
-type SharedLimiter = Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, DefaultClock, NoOpMiddleware>>;
+type SharedLimiter = Arc<
+    RateLimiter<
+        governor::state::NotKeyed,
+        governor::state::InMemoryState,
+        DefaultClock,
+        NoOpMiddleware,
+    >,
+>;
 
 // ── Rate Limiting ──────────────────────────────────────────────
 

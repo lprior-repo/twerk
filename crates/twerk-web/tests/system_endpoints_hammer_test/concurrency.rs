@@ -21,6 +21,7 @@ async fn spawn_concurrent_requests(
 #[tokio::test]
 async fn health_handles_concurrent_requests() {
     let harness = TestHarness::new().await;
+    harness.seed_node(&node("test-node-1", "worker-1")).await;
     let results = spawn_concurrent_requests(&harness, "/health", 50).await;
 
     results.into_iter().for_each(|response| {

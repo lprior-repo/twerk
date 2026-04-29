@@ -1,6 +1,20 @@
-   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s
-   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
+    Blocking waiting for file lock on package cache
+    Checking twerk-common v0.1.0 (/home/lewis/src/twerk/crates/twerk-common)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+    Checking twerk-core v0.1.0 (/home/lewis/src/twerk/crates/twerk-core)
+    Checking twerk-infrastructure v0.1.0 (/home/lewis/src/twerk/crates/twerk-infrastructure)
+    Checking twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
+    Checking twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+    Checking twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk/crates/twerk-openapi-gen)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.80s
+warning: unused import: `std::str::FromStr`
+ --> crates/twerk-core/tests/mutation_kill_test.rs:2:5
+  |
+2 | use std::str::FromStr;
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 warning: unexpected `cfg` condition name: `kani`
    --> crates/twerk-core/src/domain/webhook_url/tests.rs:266:11
     |
@@ -16,16 +30,9 @@ warning: unexpected `cfg` condition name: `kani`
     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
     = note: `#[warn(unexpected_cfgs)]` on by default
 
-warning: `twerk-core` (lib test) generated 1 warning
-warning: unused import: `std::str::FromStr`
- --> crates/twerk-core/tests/mutation_kill_test.rs:2:5
-  |
-2 | use std::str::FromStr;
-  |     ^^^^^^^^^^^^^^^^^
-  |
-  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
 warning: `twerk-core` (test "mutation_kill_test") generated 1 warning (run `cargo fix --test "mutation_kill_test" -p twerk-core` to apply 1 suggestion)
+warning: `twerk-core` (lib test) generated 1 warning
+   Compiling twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
 warning: variable does not need to be mutable
    --> crates/twerk-infrastructure/tests/docker_cleanup_test.rs:139:13
     |
@@ -37,15 +44,26 @@ warning: variable does not need to be mutable
     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused imports: `JobId`, `NodeId`, and `UserId`
-   --> crates/twerk-infrastructure/src/datastore/inmemory.rs:440:26
+   --> crates/twerk-infrastructure/src/datastore/inmemory.rs:443:26
     |
-440 |     use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
+443 |     use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
     |                          ^^^^^  ^^^^^^                  ^^^^^^
     |
     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: `twerk-infrastructure` (test "docker_cleanup_test") generated 1 warning (run `cargo fix --test "docker_cleanup_test" -p twerk-infrastructure` to apply 1 suggestion)
 warning: `twerk-infrastructure` (lib test) generated 1 warning (run `cargo fix --lib -p twerk-infrastructure --tests` to apply 1 suggestion)
+   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+   Compiling twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk/crates/twerk-openapi-gen)
+warning: unused import: `json`
+  --> crates/twerk-web/tests/task_endpoints_test.rs:23:18
+   |
+23 | use serde_json::{json, Value};
+   |                  ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 warning: fields `command` and `exit_code` are never read
   --> crates/twerk-cli/tests/e2e_cli_test.rs:58:5
    |
@@ -61,17 +79,138 @@ warning: fields `command` and `exit_code` are never read
    = note: `JsonCliOutput` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
+warning: function `valid_scheduled_job_body` is never used
+   --> crates/twerk-web/tests/openapi_spec_integration_test.rs:132:4
+    |
+132 | fn valid_scheduled_job_body() -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused `Result` that must be used
+  --> crates/twerk-web/tests/openapi_spec_integration_test.rs:72:5
+   |
+72 |     trigger_ds.upsert(trigger("trg_test_1"));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+72 |     let _ = trigger_ds.upsert(trigger("trg_test_1"));
+   |     +++++++
+
+warning: unused `Result` that must be used
+  --> crates/twerk-web/tests/openapi_spec_integration_test.rs:73:5
+   |
+73 |     trigger_ds.upsert(trigger("trg_test_2"));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+73 |     let _ = trigger_ds.upsert(trigger("trg_test_2"));
+   |     +++++++
+
 warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.43s
-     Running unittests src/lib.rs (target/debug/deps/twerk_app-fe05b43e13ca2dbc)
-     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-306ef8b5eaa30a06)
-     Running tests/bdd_behavioral_contracts.rs (target/debug/deps/bdd_behavioral_contracts-c221452eff746b91)
-     Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-9d4bb9f7c06cfc11)
-     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-97449607e99e955c)
-     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-1c712991c26d193a)
-     Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-816f0d119fe914ea)
-     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-71495acac2c1e822)
-     Running tests/handlers_test.rs (target/debug/deps/handlers_test-efdb10e1445ce545)
-     Running tests/middleware_test.rs (target/debug/deps/middleware_test-1d961b0aa6c5326a)
-     Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-7402909e8d0eddfc)
-     Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-5451e9e47d4ce750)
+warning: `twerk-web` (test "openapi_spec_integration_test") generated 3 warnings
+warning: `twerk-web` (test "task_endpoints_test") generated 1 warning (run `cargo fix --test "task_endpoints_test" -p twerk-web` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 41.32s
+     Running unittests src/lib.rs (target/debug/deps/twerk_app-8021ad4c5bd78484)
+     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-5c37b503db8ee8ab)
+     Running tests/bdd_behavioral_contracts.rs (target/debug/deps/bdd_behavioral_contracts-db06c47ecef0edc2)
+     Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-ea1c8b95cef525ff)
+     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-57422bb4c64bb5e5)
+     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-c7bfc336c99db812)
+     Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-0bc44c5d85e8c35d)
+     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-47c2791bdb28a605)
+     Running tests/handlers_test.rs (target/debug/deps/handlers_test-72d0dcdbc5f9d95e)
+     Running tests/middleware_test.rs (target/debug/deps/middleware_test-cdc5662d6a204c0e)
+     Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-d3ce46308d95971d)
+     Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-1e4c6bcc90d6fc48)
+     Running tests/realistic_profiling.rs (target/debug/deps/realistic_profiling-2043b9012ef879d3)
+     Running tests/standalone_e2e_test.rs (target/debug/deps/standalone_e2e_test-206d9167a343128a)
+     Running tests/twerk_chaos_engineering_benchmark.rs (target/debug/deps/twerk_chaos_engineering_benchmark-f599489d4d7a54c2)
+     Running tests/twerk_yaml_workflow_benchmark.rs (target/debug/deps/twerk_yaml_workflow_benchmark-15ac23963b304210)
+     Running unittests src/lib.rs (target/debug/deps/twerk_cli-f0148822ce0d2f81)
+     Running unittests src/main.rs (target/debug/deps/twerk-1514180ac0060dc7)
+     Running tests/bdd_behavior_report.rs (target/debug/deps/bdd_behavior_report-8a49aabf12c5fb1f)
+     Running tests/bdd_behavioral_contract_test.rs (target/debug/deps/bdd_behavioral_contract_test-9cfc352a1cd20b79)
+     Running tests/e2e_cli_test.rs (target/debug/deps/e2e_cli_test-4a1bd0300f40f1b4)
+     Running tests/trigger_contract_regression_test.rs (target/debug/deps/trigger_contract_regression_test-2ba1763bbba74970)
+     Running unittests src/lib.rs (target/debug/deps/twerk_common-497d04e1012b3216)
+     Running unittests src/lib.rs (target/debug/deps/twerk_core-85798ddb463cdccd)
+     Running tests/asl_adversarial_test.rs (target/debug/deps/asl_adversarial_test-4c279f985d0b314c)
+     Running tests/asl_container_test.rs (target/debug/deps/asl_container_test-65957be2799863bc)
+     Running tests/asl_data_flow_test.rs (target/debug/deps/asl_data_flow_test-2db8eadcfd75e56d)
+     Running tests/asl_functions_test.rs (target/debug/deps/asl_functions_test-aaa40a6560fdb373)
+     Running tests/asl_machine_test.rs (target/debug/deps/asl_machine_test-ceb88bf090335156)
+     Running tests/asl_states_test.rs (target/debug/deps/asl_states_test-4c22aa11f640e0de)
+     Running tests/asl_transition_test.rs (target/debug/deps/asl_transition_test-4ff85f0b464cf3a3)
+     Running tests/asl_types_test.rs (target/debug/deps/asl_types_test-14b38b3c5405eeb3)
+     Running tests/asl_validation_test.rs (target/debug/deps/asl_validation_test-134241fb18a2c052)
+     Running tests/domain_roundtrip_test.rs (target/debug/deps/domain_roundtrip_test-837259d48eb6f75c)
+     Running tests/domain_verification_test.rs (target/debug/deps/domain_verification_test-e83226a659304c6f)
+     Running tests/eval_test.rs (target/debug/deps/eval_test-1777de08dca7f1a9)
+     Running tests/mutation_kill_test.rs (target/debug/deps/mutation_kill_test-1eca11e9b12eba79)
+     Running tests/red_queen_adversarial.rs (target/debug/deps/red_queen_adversarial-6a7b9eee68ceacfe)
+     Running tests/red_queen_deser_fix.rs (target/debug/deps/red_queen_deser_fix-278c63adbadad409)
+     Running tests/red_queen_gen2.rs (target/debug/deps/red_queen_gen2-19c94ec761f17c4c)
+     Running tests/red_queen_gen3.rs (target/debug/deps/red_queen_gen3-893538eaa2b944a4)
+     Running tests/red_queen_gen4.rs (target/debug/deps/red_queen_gen4-619cab52e0f615c6)
+     Running tests/red_queen_trigger_error.rs (target/debug/deps/red_queen_trigger_error-3a4349c7937ff3b9)
+     Running tests/repository_inmemory_test.rs (target/debug/deps/repository_inmemory_test-a500238d57e0fded)
+     Running tests/trigger_data_test.rs (target/debug/deps/trigger_data_test-3097ac2c13fb1e87)
+     Running tests/trigger_registry_test.rs (target/debug/deps/trigger_registry_test-c0c82de69b76d37e)
+     Running tests/types_integration_test.rs (target/debug/deps/types_integration_test-c5c45d6cb70386a7)
+     Running tests/validation_test.rs (target/debug/deps/validation_test-48816383f0466c11)
+     Running tests/webhook_test.rs (target/debug/deps/webhook_test-ce31a70d19834783)
+     Running tests/yaml_roundtrip_fidelity_test.rs (target/debug/deps/yaml_roundtrip_fidelity_test-b243ff073fad416d)
+     Running unittests src/lib.rs (target/debug/deps/twerk_infrastructure-3c5aa41b073f12d0)
+     Running tests/cache_test.rs (target/debug/deps/cache_test-bcd2a3a4d7e63e18)
+     Running tests/docker_cleanup_test.rs (target/debug/deps/docker_cleanup_test-2039e92f75117dcd)
+     Running tests/postgres_encrypt_test.rs (target/debug/deps/postgres_encrypt_test-089d244702a98e0d)
+     Running tests/postgres_records_test.rs (target/debug/deps/postgres_records_test-c604b6a69e58ebe4)
+     Running tests/postgres_schema_test.rs (target/debug/deps/postgres_schema_test-7fd90b94f229aaa7)
+     Running tests/postgres_test.rs (target/debug/deps/postgres_test-58236cbbc5b2bbdb)
+     Running tests/rabbitmq_isolation_test.rs (target/debug/deps/rabbitmq_isolation_test-57eec7946bc9398e)
+     Running tests/rabbitmq_test.rs (target/debug/deps/rabbitmq_test-d28436c37e7d44c1)
+     Running tests/runtime_test.rs (target/debug/deps/runtime_test-9eb1369e34f94bf4)
+     Running unittests src/main.rs (target/debug/deps/twerk_openapi_gen-d07178bc8ed19275)
+     Running unittests src/lib.rs (target/debug/deps/twerk_web-073b1984fb6b5475)
+     Running unittests src/bin/openapi_gen.rs (target/debug/deps/openapi_gen-2d01cbde7aebbfda)
+     Running tests/adversarial_trigger_update_test.rs (target/debug/deps/adversarial_trigger_update_test-5b320247573d4eea)
+     Running tests/api_endpoints_test.rs (target/debug/deps/api_endpoints_test-b0e96ea1a1eb836d)
+     Running tests/api_test.rs (target/debug/deps/api_test-79ea98d182d0c7af)
+     Running tests/batch_yaml_100_task_test.rs (target/debug/deps/batch_yaml_100_task_test-0974774f40c787fb)
+     Running tests/comprehensive_api_test.rs (target/debug/deps/comprehensive_api_test-171d9a287f6d1928)
+     Running tests/concurrent_isolation_test.rs (target/debug/deps/concurrent_isolation_test-be31fef2608d7837)
+     Running tests/distributed_e2e_test.rs (target/debug/deps/distributed_e2e_test-a68d51d1697df24c)
+     Running tests/exhaustive_endpoint_matrix_test.rs (target/debug/deps/exhaustive_endpoint_matrix_test-f13998d0f179609b)
+     Running tests/generated_workload_contracts.rs (target/debug/deps/generated_workload_contracts-724e191be3109ce0)
+     Running tests/helpers.rs (target/debug/deps/helpers-8b4af123d8fd3dbe)
+     Running tests/mutation_workload_bench.rs (target/debug/deps/mutation_workload_bench-9ba45cbd0cad64e1)
+     Running tests/openapi_contract_test.rs (target/debug/deps/openapi_contract_test-1c598314112c6253)
+     Running tests/openapi_spec_integration_test.rs (target/debug/deps/openapi_spec_integration_test-2be869ba9b4b8b28)
+     Running tests/openapi_validation_test.rs (target/debug/deps/openapi_validation_test-8284df2119f772b5)
+     Running tests/qa_12_step_test.rs (target/debug/deps/qa_12_step_test-76c6d4f1e01671b2)
+     Running tests/redact_test.rs (target/debug/deps/redact_test-fd6f02a8f6c45d35)
+     Running tests/system_endpoints_hammer_test.rs (target/debug/deps/system_endpoints_hammer_test-a8597bb9560243f2)
+     Running tests/task_endpoints_test.rs (target/debug/deps/task_endpoints_test-464eaaa00d044c40)
+     Running tests/trigger_update_adversarial_test.rs (target/debug/deps/trigger_update_adversarial_test-60a271524df202f6)
+     Running tests/trigger_update_density_matrix_test.rs (target/debug/deps/trigger_update_density_matrix_test-021f02da97c0ab61)
+     Running tests/trigger_update_integration_red_test.rs (target/debug/deps/trigger_update_integration_red_test-8b7611853495fcfe)
+     Running tests/trigger_update_proptest_red_test.rs (target/debug/deps/trigger_update_proptest_red_test-74a686ece29e1ad8)
+     Running tests/trigger_view_rfc3339_contract_test.rs (target/debug/deps/trigger_view_rfc3339_contract_test-603cd644d4ff54d7)
+     Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-8848209edcef1a90)
+   Doc-tests twerk_app
+   Doc-tests twerk_cli
+   Doc-tests twerk_common
+   Doc-tests twerk_core
+   Doc-tests twerk_infrastructure
+   Doc-tests twerk_web
+   Compiling twerk-app v0.1.0 (/home/lewis/src/twerk/crates/twerk-app)
+   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk/crates/twerk-web)
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk/crates/twerk-cli)
+   Compiling twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk/crates/twerk-openapi-gen)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.50s

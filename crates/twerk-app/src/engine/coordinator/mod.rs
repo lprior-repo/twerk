@@ -136,7 +136,7 @@ impl Coordinator for DefaultCoordinator {
             .await?;
         self.subscribe_task_handler(QUEUE_COMPLETED, handlers::handle_task_completed)
             .await?;
-        self.subscribe_task_handler(QUEUE_FAILED, handlers::handle_error)
+        self.subscribe_task_handler(QUEUE_FAILED, handlers::handle_task_failed)
             .await?;
         self.subscribe_task_handler(QUEUE_STARTED, handlers::handle_started)
             .await?;

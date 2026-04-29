@@ -4,7 +4,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
+use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use base64::Engine;
 use std::collections::HashMap;
 
@@ -22,7 +22,9 @@ fn derive_key(passphrase: &str, salt: &[u8]) -> Result<[u8; KEY_LEN], Error> {
         .hash_password(passphrase.as_bytes(), &salt_str)
         .map_err(|e| Error::Encryption(format!("argon2 hash failed: {e}")))?;
 
-    let hash_str = hash.hash.ok_or_else(|| Error::Encryption("no hash output".to_string()))?;
+    let hash_str = hash
+        .hash
+        .ok_or_else(|| Error::Encryption("no hash output".to_string()))?;
     let hash_bytes = hash_str.as_bytes();
 
     if hash_bytes.len() < KEY_LEN {

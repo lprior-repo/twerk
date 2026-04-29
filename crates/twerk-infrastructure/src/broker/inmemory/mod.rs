@@ -42,7 +42,7 @@ use twerk_core::task::TaskLogPart;
 ///   `tokio::sync::broadcast` senders for typed `JobEvent` streams.
 pub struct InMemoryBroker {
     /// Queue name -> list of tasks
-    pub(crate) tasks: DashMap<String, Vec<Arc<twerk_core::task::Task>>>,
+    pub(crate) tasks: Arc<DashMap<String, Vec<Arc<twerk_core::task::Task>>>>,
     /// Queue name -> list of task handlers
     pub(crate) handlers: DashMap<String, Vec<TaskHandler>>,
     /// Job handlers
@@ -74,7 +74,7 @@ impl InMemoryBroker {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            tasks: DashMap::new(),
+            tasks: Arc::new(DashMap::new()),
             handlers: DashMap::new(),
             job_handlers: Arc::new(RwLock::new(Vec::new())),
             progress_handlers: Arc::new(RwLock::new(Vec::new())),

@@ -61,6 +61,7 @@ pub struct RabbitMQBroker {
     durable_queues: bool,
     queue_type: String,
     consumer_timeout: Option<Duration>,
+    prefetch_count: u16,
     shutting_down: Arc<RwLock<bool>>,
     declared_queues: Arc<RwLock<std::collections::HashMap<String, String>>>,
     engine_id: String,
@@ -127,6 +128,7 @@ impl RabbitMQBroker {
             durable_queues: opts.durable_queues,
             queue_type: opts.queue_type,
             consumer_timeout: opts.consumer_timeout,
+            prefetch_count: opts.prefetch_count.max(1),
             shutting_down: Arc::new(RwLock::new(false)),
             declared_queues: Arc::new(RwLock::new(std::collections::HashMap::new())),
             engine_id: engine_id.to_string(),
@@ -181,10 +183,15 @@ impl RabbitMQBroker {
     }
 
     async fn declare_queue(&self, ch: &lapin::Channel, qname: &str) -> Result<()> {
+        if self.declared_queues.read().await.contains_key(qname) {
+            return Ok(());
+        }
+
         let mut declared = self.declared_queues.write().await;
         if declared.contains_key(qname) {
             return Ok(());
         }
+
         let durable = self.durable_queues || self.queue_type == "quorum";
         ch.queue_declare(
             qname.into(),
@@ -267,7 +274,8 @@ impl RabbitMQBroker {
             )
             .await?;
         }
-        ch.basic_qos(1, BasicQosOptions::default()).await?;
+        ch.basic_qos(self.prefetch_count, BasicQosOptions::default())
+            .await?;
         let mut consumer = ch
             .basic_consume(
                 qname.into(),
@@ -674,6 +682,7 @@ impl Clone for RabbitMQBroker {
             durable_queues: self.durable_queues,
             queue_type: self.queue_type.clone(),
             consumer_timeout: self.consumer_timeout,
+            prefetch_count: self.prefetch_count,
             shutting_down: Arc::clone(&self.shutting_down),
             declared_queues: Arc::clone(&self.declared_queues),
             engine_id: self.engine_id.clone(),

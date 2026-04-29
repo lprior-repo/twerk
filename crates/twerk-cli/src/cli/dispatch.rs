@@ -43,10 +43,10 @@ pub(super) fn parse_cli_args(args: &[OsString]) -> Result<super::CliAction, clap
         .map(|cli| super::CliAction::Execute(cli.command, cli.json))
 }
 
-pub(super) fn handle_parse_error(error: clap::Error, emit_json: bool) -> i32 {
+pub(super) fn handle_parse_error(error: clap::Error, emit_json: bool, args: &[OsString]) -> i32 {
     let exit_code = error.exit_code();
     if emit_json {
-        let content = error.to_string();
+        let content = parse_error_message(&error, args);
         let payload = match error.kind() {
             ErrorKind::DisplayHelp => json_help_payload(content),
             ErrorKind::DisplayVersion => json_version_payload(content),
@@ -59,19 +59,57 @@ pub(super) fn handle_parse_error(error: clap::Error, emit_json: bool) -> i32 {
     }
 }
 
+fn parse_error_message(error: &clap::Error, args: &[OsString]) -> String {
+    if matches!(
+        error.kind(),
+        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+    ) {
+        return error.to_string();
+    }
+
+    let command_path = args
+        .iter()
+        .enumerate()
+        .filter(|(_, arg)| !os_string_eq(arg, "--json"))
+        .filter(|(_, arg)| !arg.to_string_lossy().starts_with('-'))
+        .map(|(index, arg)| command_segment(index, arg))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let content = error.to_string();
+    let looks_like_missing_subcommand_help = !content.starts_with("error:")
+        && content.contains("Usage:")
+        && command_path.split_whitespace().count() > 1;
+
+    if error.kind() != ErrorKind::MissingSubcommand && !looks_like_missing_subcommand_help {
+        return content;
+    }
+
+    if command_path.is_empty() {
+        content
+    } else {
+        format!("error: '{command_path}' requires a subcommand but one was not provided")
+    }
+}
+
+fn command_segment(index: usize, arg: &OsString) -> String {
+    if index == 0 {
+        return std::path::Path::new(arg).file_name().map_or_else(
+            || arg.to_string_lossy().into_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+    }
+
+    arg.to_string_lossy().into_owned()
+}
+
 pub(super) fn handle_runtime_error(error: CliError, emit_json: bool) -> i32 {
     if emit_json {
-        let kind = match error {
-            CliError::InvalidEndpoint(_)
-            | CliError::MissingArgument(_)
-            | CliError::InvalidHostname(_) => "validation",
-            _ => "runtime",
-        };
-        print_json(&json_error_payload(kind, error.to_string(), None));
+        let kind = error.kind().to_string();
+        print_json(&json_error_payload(&kind, error.to_string(), None));
     } else {
         eprintln!("Error: {error}");
     }
-    super::ExitStatus::Failure as i32
+    error.exit_code()
 }
 
 pub(super) fn handle_json_help_subcommand(args: &[OsString]) -> Option<i32> {

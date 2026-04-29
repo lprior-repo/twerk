@@ -8,6 +8,7 @@ use super::black_box_support::{
 #[tokio::test]
 async fn health_returns_200_with_status_up() {
     let harness = TestHarness::new().await;
+    harness.seed_node(&node("test-node-1", "worker-1")).await;
     let response = harness.get("/health").await;
 
     assert_health_up(&response);
@@ -16,6 +17,7 @@ async fn health_returns_200_with_status_up() {
 #[tokio::test]
 async fn health_contract_has_exact_two_fields() {
     let harness = TestHarness::new().await;
+    harness.seed_node(&node("test-node-1", "worker-1")).await;
     let response = harness.get("/health").await;
 
     assert_health_up(&response);

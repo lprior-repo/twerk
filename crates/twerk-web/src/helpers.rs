@@ -4,8 +4,11 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tower::make::Shared;
+use twerk_core::id::NodeId;
+use twerk_core::node::{Node, NodeStatus};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
 use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
+use twerk_infrastructure::datastore::Datastore;
 
 pub struct TestServer {
     pub addr: SocketAddr,
@@ -35,6 +38,7 @@ impl TestServer {
 pub async fn start_test_server() -> Result<TestServer, std::io::Error> {
     let ds = Arc::new(InMemoryDatastore::new());
     let broker = Arc::new(InMemoryBroker::new());
+    seed_test_worker(&ds).await?;
     let state = AppState::new(broker.clone(), ds.clone(), Config::default());
     let app = create_router(state);
 
@@ -58,6 +62,19 @@ pub async fn start_test_server() -> Result<TestServer, std::io::Error> {
         datastore: ds,
         shutdown_tx,
     })
+}
+
+async fn seed_test_worker(ds: &Arc<InMemoryDatastore>) -> Result<(), std::io::Error> {
+    ds.create_node(&Node {
+        id: Some(NodeId::new("test-worker").map_err(std::io::Error::other)?),
+        name: Some("test-worker".to_string()),
+        last_heartbeat_at: Some(time::OffsetDateTime::now_utc()),
+        queue: Some("default".to_string()),
+        status: Some(NodeStatus::UP),
+        ..Default::default()
+    })
+    .await
+    .map_err(std::io::Error::other)
 }
 
 #[cfg(test)]

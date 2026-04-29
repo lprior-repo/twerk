@@ -15,10 +15,11 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
-use twerk_core::id::JobId;
+use twerk_core::id::{JobId, NodeId};
 use twerk_core::job::Job;
+use twerk_core::node::{Node, NodeStatus, LAST_HEARTBEAT_TIMEOUT};
 use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
-use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
+use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 use twerk_web::api::{create_router, AppState, Config};
 
 fn to_job_id(value: impl Into<String>) -> JobId {
@@ -157,7 +158,7 @@ impl twerk_infrastructure::broker::Broker for SignalingBroker {
 
 #[tokio::test]
 async fn health_status_is_up_when_engine_is_ready() {
-    let state = setup_state().await;
+    let state = setup_state_with_active_worker().await;
     let app = create_router(state);
 
     let response = app
@@ -170,6 +171,197 @@ async fn health_status_is_up_when_engine_is_ready() {
         .await
         .expect("app should not panic");
 
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "UP");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_no_live_workers_are_visible() {
+    // Given no workers are visible
+    let state = setup_state().await;
+
+    // When health is requested
+    let app = create_router(state);
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_worker_is_down() {
+    // Given a DOWN worker is visible
+    let state =
+        setup_state_with_worker(NodeStatus::DOWN, Some(time::OffsetDateTime::now_utc())).await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_worker_is_offline() {
+    // Given an OFFLINE worker is visible
+    let state =
+        setup_state_with_worker(NodeStatus::OFFLINE, Some(time::OffsetDateTime::now_utc())).await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_worker_heartbeat_is_stale() {
+    // Given an UP worker has only a stale heartbeat
+    let stale_heartbeat =
+        time::OffsetDateTime::now_utc() - LAST_HEARTBEAT_TIMEOUT - time::Duration::seconds(1);
+    let state = setup_state_with_worker(NodeStatus::UP, Some(stale_heartbeat)).await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_worker_heartbeat_is_future_dated() {
+    // Given an UP worker reports a future heartbeat timestamp
+    let future_heartbeat = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let state = setup_state_with_worker(NodeStatus::UP, Some(future_heartbeat)).await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_worker_queue_is_missing() {
+    // Given an UP fresh node has no worker queue
+    let state =
+        setup_state_with_worker_queue(NodeStatus::UP, Some(time::OffsetDateTime::now_utc()), None)
+            .await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_503_when_node_queue_is_internal() {
+    // Given an UP fresh node is assigned to an internal coordinator queue
+    let state = setup_state_with_worker_queue(
+        NodeStatus::UP,
+        Some(time::OffsetDateTime::now_utc()),
+        Some("x-pending"),
+    )
+    .await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is not ready for work
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = body_to_json(response).await;
+    assert_eq!(body["status"], "DOWN");
+}
+
+#[tokio::test]
+async fn health_status_returns_up_when_worker_is_up_and_fresh() {
+    // Given an UP worker has a fresh heartbeat
+    let state =
+        setup_state_with_worker(NodeStatus::UP, Some(time::OffsetDateTime::now_utc())).await;
+
+    // When health is requested
+    let response = create_router(state)
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/health")
+                .body(axum::body::Body::empty())
+                .expect("request builder should not fail"),
+        )
+        .await
+        .expect("app should not panic");
+
+    // Then the service is ready for work
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
     assert_eq!(body["status"], "UP");
@@ -941,6 +1133,39 @@ async fn error_response_formatted_as_json_when_job_missing() {
 
 async fn setup_state() -> AppState {
     let ds = Arc::new(InMemoryDatastore::new());
+    let broker = Arc::new(InMemoryBroker::new());
+    AppState::new(broker, ds, Config::default())
+}
+
+async fn setup_state_with_active_worker() -> AppState {
+    setup_state_with_worker(NodeStatus::UP, Some(time::OffsetDateTime::now_utc())).await
+}
+
+async fn setup_state_with_worker(
+    status: NodeStatus,
+    last_heartbeat_at: Option<time::OffsetDateTime>,
+) -> AppState {
+    setup_state_with_worker_queue(status, last_heartbeat_at, Some("default")).await
+}
+
+async fn setup_state_with_worker_queue(
+    status: NodeStatus,
+    last_heartbeat_at: Option<time::OffsetDateTime>,
+    queue: Option<&str>,
+) -> AppState {
+    let ds = Arc::new(InMemoryDatastore::new());
+    ds.create_node(&Node {
+        id: Some(NodeId::new("worker-1").expect("valid worker node id")),
+        name: Some("worker-1".to_string()),
+        hostname: Some("localhost".to_string()),
+        status: Some(status),
+        queue: queue.map(str::to_string),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        last_heartbeat_at,
+        ..Default::default()
+    })
+    .await
+    .expect("active worker fixture should persist");
     let broker = Arc::new(InMemoryBroker::new());
     AppState::new(broker, ds, Config::default())
 }

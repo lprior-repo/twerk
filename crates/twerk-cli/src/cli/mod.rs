@@ -169,7 +169,7 @@ pub async fn run() -> i32 {
     let emit_json = json_requested(&args);
     let action = match parse_cli_args(&args) {
         Ok(action) => action,
-        Err(error) => return handle_parse_error(error, emit_json),
+        Err(error) => return handle_parse_error(error, emit_json, &args),
     };
 
     let (cmd, json_mode) = match action {

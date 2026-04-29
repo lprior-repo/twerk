@@ -12,6 +12,7 @@ use crate::engine::coordinator::handlers::util::{
 use crate::engine::coordinator::scheduler::Scheduler;
 use crate::engine::coordinator::webhook::fire_task_webhooks;
 use anyhow::Result;
+use std::convert::identity;
 use std::sync::Arc;
 use tracing::{error, instrument, warn};
 use twerk_core::task::{TaskLogPart, TaskState};
@@ -130,9 +131,45 @@ pub async fn handle_log_part(
     _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     part: TaskLogPart,
 ) -> Result<()> {
-    ds.create_task_log_part(&part)
+    let persistable_part = ensure_task_log_part_id(part);
+    ds.create_task_log_part(&persistable_part)
         .await
         .map_err(anyhow::Error::from)
+}
+
+fn ensure_task_log_part_id(part: TaskLogPart) -> TaskLogPart {
+    if part.id.is_some() {
+        part
+    } else {
+        TaskLogPart {
+            id: Some(deterministic_task_log_part_id(&part)),
+            ..part
+        }
+    }
+}
+
+fn deterministic_task_log_part_id(part: &TaskLogPart) -> String {
+    let task_id = part.task_id.as_deref().map_or("", identity);
+    let contents = part.contents.as_deref().map_or("", identity);
+    let first = stable_log_part_hash("twerk-log-part-v1", task_id, part.number, contents);
+    let second = stable_log_part_hash(
+        "twerk-log-part-v1-secondary",
+        task_id,
+        part.number,
+        contents,
+    );
+    format!("{first:016x}{second:016x}")
+}
+
+fn stable_log_part_hash(seed: &str, task_id: &str, number: i64, contents: &str) -> u64 {
+    seed.as_bytes()
+        .iter()
+        .chain(task_id.as_bytes())
+        .chain(&number.to_be_bytes())
+        .chain(contents.as_bytes())
+        .fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+        })
 }
 
 /// Handles task completion.
@@ -210,9 +247,7 @@ pub async fn handle_error(
     failed_task.failed_at = Some(now);
     broker
         .publish_task(QUEUE_FAILED.to_string(), &failed_task)
-        .await?;
-
-    handle_task_failed(ds, broker, failed_task).await
+        .await
 }
 
 async fn persist_task_progress(

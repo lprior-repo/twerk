@@ -17,12 +17,32 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower::ServiceExt;
+use twerk_core::id::NodeId;
+use twerk_core::node::{Node, NodeStatus};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
-use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
+use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 use twerk_web::api::{create_router, AppState, Config};
 
 async fn setup_state() -> AppState {
     let ds = Arc::new(InMemoryDatastore::new());
+    let broker = Arc::new(InMemoryBroker::new());
+    AppState::new(broker, ds, Config::default())
+}
+
+async fn setup_state_with_active_worker() -> AppState {
+    let ds = Arc::new(InMemoryDatastore::new());
+    ds.create_node(&Node {
+        id: Some(NodeId::new("worker-1").expect("valid worker node id")),
+        name: Some("worker-1".to_string()),
+        hostname: Some("localhost".to_string()),
+        status: Some(NodeStatus::UP),
+        queue: Some("default".to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        last_heartbeat_at: Some(time::OffsetDateTime::now_utc()),
+        ..Default::default()
+    })
+    .await
+    .expect("active worker fixture should persist");
     let broker = Arc::new(InMemoryBroker::new());
     AppState::new(broker, ds, Config::default())
 }
@@ -199,12 +219,14 @@ async fn openapi_spec_includes_all_router_endpoints() {
         .filter(|e| !spec_set.contains(e))
         .collect();
 
-    let post_cancel_drift = missing_in_spec.iter().find(|(path, method)| {
-        *path == "/jobs/{id}/cancel" && *method == "POST"
-    });
+    let post_cancel_drift = missing_in_spec
+        .iter()
+        .find(|(path, method)| *path == "/jobs/{id}/cancel" && *method == "POST");
 
     if let Some(_drift) = post_cancel_drift {
-        eprintln!("DRIFT DETECTED: POST /jobs/{{id}}/cancel is in router but missing from OpenAPI spec");
+        eprintln!(
+            "DRIFT DETECTED: POST /jobs/{{id}}/cancel is in router but missing from OpenAPI spec"
+        );
         eprintln!("CAUSE: cancel_job_handler is registered for both PUT and POST but utoipa only picks up first method");
         eprintln!("FIX NEEDED: Either create separate POST handler or update utoipa config");
     }
@@ -295,7 +317,7 @@ async fn openapi_endpoint_count_matches() {
 
 #[tokio::test]
 async fn openapi_health_endpoint_returns_200() {
-    let state = setup_state().await;
+    let state = setup_state_with_active_worker().await;
     let app = create_router(state);
 
     let response = app
@@ -546,9 +568,7 @@ async fn openapi_trigger_update_returns_404_for_nonexistent() {
                 .method("PUT")
                 .uri("/api/v1/triggers/nonexistent-trigger")
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(axum::body::Body::from(
-                    serde_json::to_vec(&update).unwrap(),
-                ))
+                .body(axum::body::Body::from(serde_json::to_vec(&update).unwrap()))
                 .unwrap(),
         )
         .await
@@ -574,9 +594,7 @@ async fn openapi_trigger_update_returns_400_for_invalid_id() {
                 .method("PUT")
                 .uri("/api/v1/triggers/bad$id")
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(axum::body::Body::from(
-                    serde_json::to_vec(&update).unwrap(),
-                ))
+                .body(axum::body::Body::from(serde_json::to_vec(&update).unwrap()))
                 .unwrap(),
         )
         .await
@@ -842,10 +860,19 @@ async fn openapi_schemas_include_required_types() {
     let components = &body["components"]["schemas"];
 
     assert!(components.get("Job").is_some(), "Job schema missing");
-    assert!(components.get("JobState").is_some(), "JobState schema missing");
+    assert!(
+        components.get("JobState").is_some(),
+        "JobState schema missing"
+    );
     assert!(components.get("Task").is_some(), "Task schema missing");
-    assert!(components.get("Trigger").is_some(), "Trigger schema missing");
-    assert!(components.get("ApiError").is_some(), "ApiError schema missing");
+    assert!(
+        components.get("Trigger").is_some(),
+        "Trigger schema missing"
+    );
+    assert!(
+        components.get("ApiError").is_some(),
+        "ApiError schema missing"
+    );
 }
 
 #[tokio::test]
@@ -919,10 +946,7 @@ async fn openapi_error_responses_match_runtime_behavior() {
     if let Some(op) = &queue_delete.delete {
         let has_404 = op.responses.contains_key("404");
         let has_200 = op.responses.contains_key("200");
-        assert!(
-            has_200,
-            "DELETE /queues/{{name}} should have 200 response"
-        );
+        assert!(has_200, "DELETE /queues/{{name}} should have 200 response");
         if has_404 {
             eprintln!("NOTE: DELETE /queues/{{name}} has 404 in spec, but InMemoryBroker returns 200 for all queues");
         }

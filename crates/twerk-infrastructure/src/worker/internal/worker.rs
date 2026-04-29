@@ -245,13 +245,9 @@ mod tests {
         let tasks_notify = Arc::new(tokio::sync::Notify::new());
 
         let (cancel_tx, _) = broadcast::channel(1);
-        let task_id = TaskId::new("task-1").unwrap_or_else(|_| {
-            panic!("TaskId::new(\"task-1\") should always succeed in tests")
-        });
-        active_tasks.insert(
-            task_id,
-            RunningTask { cancel_tx },
-        );
+        let task_id = TaskId::new("task-1")
+            .unwrap_or_else(|_| panic!("TaskId::new(\"task-1\") should always succeed in tests"));
+        active_tasks.insert(task_id, RunningTask { cancel_tx });
 
         let active_tasks_clone = active_tasks.clone();
         let tasks_notify_clone = tasks_notify.clone();

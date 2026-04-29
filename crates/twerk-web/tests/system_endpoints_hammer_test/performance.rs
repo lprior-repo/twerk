@@ -5,6 +5,7 @@ use super::black_box_support::{
 #[tokio::test]
 async fn repeated_health_requests_keep_exact_contract() {
     let harness = TestHarness::new().await;
+    harness.seed_node(&node("test-node-1", "worker-1")).await;
 
     repeated_gets(&harness, "/health", 100)
         .await

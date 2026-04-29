@@ -3,7 +3,39 @@
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::warn;
+use twerk_core::node::Node;
 use twerk_core::node::NodeStatus;
+
+const DEFAULT_NODE_QUEUE: &str = "default";
+const DEFAULT_NODE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn heartbeat_node(node: Node) -> Node {
+    let now = time::OffsetDateTime::now_utc();
+    let heartbeat_at = match node.last_heartbeat_at {
+        Some(timestamp) if timestamp <= now => timestamp,
+        Some(_) | None => now,
+    };
+    let status = match node.status {
+        Some(status) => status,
+        None => NodeStatus::UP,
+    };
+    let queue = match node.queue {
+        Some(queue) if !queue.trim().is_empty() => queue,
+        _ => DEFAULT_NODE_QUEUE.to_string(),
+    };
+    let version = match node.version {
+        Some(version) if !version.trim().is_empty() => version,
+        _ => DEFAULT_NODE_VERSION.to_string(),
+    };
+
+    Node {
+        status: Some(status),
+        last_heartbeat_at: Some(heartbeat_at),
+        queue: Some(queue),
+        version: Some(version),
+        ..node
+    }
+}
 
 /// Handles node heartbeat.
 ///
@@ -14,11 +46,7 @@ pub async fn handle_heartbeat(
     _broker: Arc<dyn twerk_infrastructure::broker::Broker>,
     node: twerk_core::node::Node,
 ) -> Result<()> {
-    let mut new_node = node;
-    new_node.status = Some(NodeStatus::UP);
-    if new_node.last_heartbeat_at.is_none() {
-        new_node.last_heartbeat_at = Some(time::OffsetDateTime::now_utc());
-    }
+    let new_node = heartbeat_node(node);
 
     if let Some(node_id) = &new_node.id {
         let node_id_str = node_id.to_string();
@@ -29,12 +57,19 @@ pub async fn handle_heartbeat(
                     let heartbeat_at = new_node.last_heartbeat_at;
                     let cpu = new_node.cpu_percent;
                     let task_count = new_node.task_count;
-                    move |mut u: twerk_core::node::Node| {
-                        u.last_heartbeat_at = heartbeat_at;
-                        u.cpu_percent = cpu;
-                        u.task_count = task_count;
-                        u.status = Some(NodeStatus::UP);
-                        Ok(u)
+                    let status = new_node.status.clone();
+                    let queue = new_node.queue.clone();
+                    let version = new_node.version.clone();
+                    move |u: twerk_core::node::Node| {
+                        Ok(twerk_core::node::Node {
+                            last_heartbeat_at: heartbeat_at,
+                            cpu_percent: cpu,
+                            task_count,
+                            status,
+                            queue,
+                            version,
+                            ..u
+                        })
                     }
                 }),
             )

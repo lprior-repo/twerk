@@ -134,10 +134,13 @@ impl Datastore for InMemoryDatastore {
             .task_id
             .clone()
             .ok_or_else(|| DatastoreError::InvalidInput("task_id required".to_string()))?;
-        self.task_log_parts
-            .entry(task_id)
-            .or_default()
-            .push(part.clone());
+        let mut entry = self.task_log_parts.entry(task_id).or_default();
+        if !entry
+            .iter()
+            .any(|stored| stored.id.is_some() && stored.id == part.id)
+        {
+            entry.push(part.clone());
+        }
         Ok(())
     }
 

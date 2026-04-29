@@ -54,7 +54,11 @@ pub async fn handle_top_level_task_completed(
 
         broker.publish_task(QUEUE_PENDING.to_string(), &task).await
     } else {
-        let job_id_str = job.id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default();
+        let job_id_str = job
+            .id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_default();
         ds.update_job(
             &job_id_str,
             Box::new(move |mut u| {

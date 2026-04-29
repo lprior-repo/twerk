@@ -104,10 +104,10 @@ pub async fn trigger_get(endpoint: &str, id: &str, json_mode: bool) -> Result<St
 
     if status == reqwest::StatusCode::NOT_FOUND {
         if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
-            return Err(CliError::ApiError {
-                code: status.as_u16(),
-                message: err_resp.message,
-            });
+            return Err(CliError::NotFound(format!(
+                "trigger {} not found",
+                err_resp.message
+            )));
         }
         return Err(CliError::NotFound(format!("trigger {} not found", id)));
     }

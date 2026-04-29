@@ -7,6 +7,7 @@ use super::super::support::{
 #[tokio::test]
 async fn health_returns_up_status() {
     let harness = TestHarness::new().await;
+    harness.seed_node(&node("test-node-1", "worker-1")).await;
     let response = harness.get("/health").await;
 
     assert_health_up(&response);

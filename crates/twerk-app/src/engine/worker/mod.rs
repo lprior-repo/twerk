@@ -98,10 +98,12 @@ impl Worker for DefaultWorker {
         );
         Box::pin(async move {
             info!("Worker {} ({}) starting", name, id);
+            let heartbeat_queue = primary_worker_queue(&queues);
             spawn_heartbeat_loop(
                 broker.clone(),
                 id.clone(),
                 name.clone(),
+                heartbeat_queue,
                 runtime.clone(),
                 terminate_tx.clone(),
             );
@@ -135,14 +137,16 @@ fn spawn_heartbeat_loop(
     broker: BrokerProxy,
     id: String,
     name: String,
+    queue: String,
     runtime: Arc<dyn RuntimeTrait + Send + Sync>,
     terminate_tx: broadcast::Sender<()>,
 ) {
     let mut terminate_rx = terminate_tx.subscribe();
+    let identity = HeartbeatIdentity::new(id, name, queue);
     tokio::spawn(async move {
         let mut sys = System::new_all();
         loop {
-            send_heartbeat(&broker, &id, &name, &mut sys, runtime.clone()).await;
+            send_heartbeat(&broker, &identity, &mut sys, runtime.clone()).await;
             tokio::select! {
                 _ = terminate_rx.recv() => break,
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {}
@@ -175,6 +179,13 @@ fn spawn_queue_subscribers(
                 active_tasks.clone(),
             );
         }
+    }
+}
+
+fn primary_worker_queue(queues: &HashMap<String, i32>) -> String {
+    match queues.keys().filter(|qname| is_worker_queue(qname)).min() {
+        Some(queue) => queue.clone(),
+        None => "default".to_string(),
     }
 }
 
@@ -236,10 +247,33 @@ fn spawn_cancel_listener(
 // Heartbeat & task execution internals
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone)]
+struct HeartbeatIdentity {
+    id: String,
+    name: String,
+    queue: String,
+    hostname: String,
+    version: String,
+}
+
+impl HeartbeatIdentity {
+    fn new(id: String, name: String, queue: String) -> Self {
+        Self {
+            id,
+            name,
+            queue,
+            hostname: hostname::get().map_or_else(
+                |_| "unknown".to_string(),
+                |hostname| hostname.to_string_lossy().into_owned(),
+            ),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+}
+
 async fn send_heartbeat(
     broker: &BrokerProxy,
-    id: &str,
-    name: &str,
+    identity: &HeartbeatIdentity,
     sys: &mut System,
     runtime: Arc<dyn RuntimeTrait + Send + Sync>,
 ) {
@@ -252,15 +286,14 @@ async fn send_heartbeat(
         }
     };
     let node = Node {
-        id: Some(NodeId::from(id)),
-        name: Some(name.to_string()),
-        hostname: Some(
-            hostname::get()
-                .map(|h| h.to_string_lossy().into_owned())
-                .unwrap_or_else(|_| "unknown".to_string()),
-        ),
+        id: Some(NodeId::from(identity.id.as_str())),
+        name: Some(identity.name.clone()),
+        hostname: Some(identity.hostname.clone()),
         cpu_percent: Some(sys.global_cpu_usage() as f64),
         status: Some(status),
+        queue: Some(identity.queue.clone()),
+        version: Some(identity.version.clone()),
+        last_heartbeat_at: Some(time::OffsetDateTime::now_utc()),
         ..Default::default()
     };
     if let Err(e) = broker.publish_heartbeat(node).await {
@@ -594,29 +627,72 @@ mod tests {
 
     #[tokio::test]
     async fn send_heartbeat_when_health_check_succeeds_returns_up_status() {
+        // Given a healthy worker runtime subscribed to the default queue.
         let runtime = FakeRuntime::new(true);
         let spy = SpyBroker::new();
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();
+        let identity = HeartbeatIdentity::new(
+            "node-1".to_string(),
+            "test-node".to_string(),
+            "default".to_string(),
+        );
 
-        send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+        // When the worker publishes its heartbeat.
+        send_heartbeat(&broker, &identity, &mut sys, Arc::new(runtime)).await;
 
+        // Then the coordinator receives a datastore-ready UP node record.
         let heartbeats = spy.get_heartbeats().await;
         assert_eq!(heartbeats.len(), 1);
         assert_eq!(heartbeats[0].status, Some(NodeStatus::UP));
+        assert_eq!(heartbeats[0].queue.as_deref(), Some("default"));
+        assert_eq!(
+            heartbeats[0].version.as_deref(),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
+        assert!(heartbeats[0].last_heartbeat_at.is_some());
     }
 
     #[tokio::test]
     async fn send_heartbeat_when_health_check_fails_returns_down_status() {
+        // Given a worker runtime that fails its health check.
         let runtime = FakeRuntime::new(false);
         let spy = SpyBroker::new();
         let broker = create_broker_proxy(spy.clone()).await;
         let mut sys = System::new_all();
+        let identity = HeartbeatIdentity::new(
+            "node-1".to_string(),
+            "test-node".to_string(),
+            "default".to_string(),
+        );
 
-        send_heartbeat(&broker, "node-1", "test-node", &mut sys, Arc::new(runtime)).await;
+        // When the worker publishes its heartbeat.
+        send_heartbeat(&broker, &identity, &mut sys, Arc::new(runtime)).await;
 
+        // Then the node is reported DOWN without dropping required node fields.
         let heartbeats = spy.get_heartbeats().await;
         assert_eq!(heartbeats.len(), 1);
         assert_eq!(heartbeats[0].status, Some(NodeStatus::DOWN));
+        assert_eq!(heartbeats[0].queue.as_deref(), Some("default"));
+        assert_eq!(
+            heartbeats[0].version.as_deref(),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
+    }
+
+    #[test]
+    fn primary_worker_queue_uses_deterministic_worker_queue_for_heartbeats() {
+        // Given a worker configured with multiple worker queues and a coordinator queue.
+        let queues = HashMap::from([
+            ("zeta".to_string(), 1),
+            ("x-pending".to_string(), 1),
+            ("alpha".to_string(), 1),
+        ]);
+
+        // When the heartbeat queue is selected.
+        let queue = primary_worker_queue(&queues);
+
+        // Then the selected queue is a stable worker queue, not a coordinator queue.
+        assert_eq!(queue, "alpha");
     }
 }

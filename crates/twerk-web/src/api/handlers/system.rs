@@ -5,8 +5,10 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
-use twerk_core::node::Node;
+use time::OffsetDateTime;
+use twerk_core::node::{Node, NodeStatus, LAST_HEARTBEAT_TIMEOUT};
 use twerk_core::stats::Metrics;
+use twerk_infrastructure::broker::is_worker_queue;
 
 use super::super::domain::{Password, PasswordError, Username, UsernameError};
 use super::super::error::ApiError;
@@ -14,6 +16,28 @@ use super::super::openapi_types::{HealthResponse, MessageResponse};
 use super::{AppState, VERSION};
 use tracing::instrument;
 use utoipa::ToSchema;
+
+fn is_live_worker(node: &Node, now: OffsetDateTime) -> bool {
+    let is_up = matches!(node.status, Some(NodeStatus::UP));
+    let is_fresh = node.last_heartbeat_at.is_some_and(|heartbeat_at| {
+        heartbeat_at <= now && now - heartbeat_at <= LAST_HEARTBEAT_TIMEOUT
+    });
+    let has_worker_queue = node.queue.as_deref().is_some_and(is_health_worker_queue);
+
+    is_up && is_fresh && has_worker_queue
+}
+
+fn is_health_worker_queue(queue: &str) -> bool {
+    let trimmed = queue.trim();
+    !trimmed.is_empty()
+        && is_worker_queue(trimmed)
+        && !trimmed.starts_with("x-")
+        && !trimmed.starts_with("cancel.")
+}
+
+fn has_live_worker(nodes: &[Node], now: OffsetDateTime) -> bool {
+    nodes.iter().any(|node| is_live_worker(node, now))
+}
 
 /// Health check handler
 #[utoipa::path(
@@ -29,8 +53,13 @@ use utoipa::ToSchema;
 pub async fn health_handler(State(state): State<AppState>) -> Response {
     let ds_ok = state.ds.health_check().await.is_ok();
     let broker_ok = state.broker.health_check().await.is_ok();
+    let has_live_workers = state
+        .ds
+        .get_active_nodes()
+        .await
+        .is_ok_and(|nodes| has_live_worker(&nodes, OffsetDateTime::now_utc()));
 
-    let (status, body) = if ds_ok && broker_ok {
+    let (status, body) = if ds_ok && broker_ok && has_live_workers {
         (StatusCode::OK, json!({"status": "UP", "version": VERSION}))
     } else {
         (

@@ -159,6 +159,26 @@ async fn engine_run_starts_without_panic() -> Result<()> {
 }
 
 #[tokio::test]
+async fn await_shutdown_returns_for_late_waiter_after_terminate_completes() -> Result<()> {
+    // Given a running standalone engine
+    let mut engine = engine_with_mode(Mode::Standalone);
+    engine.start().await?;
+
+    // When shutdown completes before a waiter subscribes
+    engine.terminate().await?;
+
+    // Then a late await_shutdown call observes the latched shutdown and returns immediately
+    let result = tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        engine.await_shutdown(),
+    )
+    .await;
+    assert!(result.is_ok());
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn broker_proxy_can_be_used_as_broker_trait() -> Result<()> {
     let broker = BrokerProxy::new();
     broker.init("inmemory", Some("")).await?;

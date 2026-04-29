@@ -10,8 +10,10 @@ use tower::ServiceExt;
 
 use std::sync::Arc;
 
+use twerk_core::id::NodeId;
+use twerk_core::node::{Node, NodeStatus};
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
-use twerk_infrastructure::datastore::inmemory::InMemoryDatastore;
+use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
 use twerk_web::api::{create_router, AppState, Config};
 
 struct TestResponse {
@@ -44,6 +46,26 @@ impl TestResponse {
 fn app() -> axum::Router {
     let broker = Arc::new(InMemoryBroker::new());
     let datastore = Arc::new(InMemoryDatastore::new());
+    let state = AppState::new(broker, datastore, Config::default());
+    create_router(state)
+}
+
+async fn app_with_live_worker() -> axum::Router {
+    let broker = Arc::new(InMemoryBroker::new());
+    let datastore = Arc::new(InMemoryDatastore::new());
+    datastore
+        .create_node(&Node {
+            id: Some(NodeId::new("worker-1").expect("valid worker node id")),
+            name: Some("worker-1".to_string()),
+            hostname: Some("localhost".to_string()),
+            status: Some(NodeStatus::UP),
+            queue: Some("default".to_string()),
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            last_heartbeat_at: Some(time::OffsetDateTime::now_utc()),
+            ..Default::default()
+        })
+        .await
+        .expect("active worker fixture should persist");
     let state = AppState::new(broker, datastore, Config::default());
     create_router(state)
 }
@@ -191,9 +213,40 @@ async fn create_job_returns_400_with_invalid_json() {
 
 #[tokio::test]
 async fn health_response_includes_version() {
-    let response = get("/health").await;
+    let response = app_with_live_worker()
+        .await
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .body(Body::empty())
+                .expect("GET request should build"),
+        )
+        .await
+        .expect("request should succeed");
+    let response = TestResponse {
+        status: response.status(),
+        content_type: response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_string(),
+        body: Bytes::new(),
+        json: body_json(response).await,
+    };
     assert_eq!(response.status(), StatusCode::OK);
     assert!(response.json()["version"]
         .as_str()
         .is_some_and(|value| !value.is_empty()));
+}
+
+async fn body_json(response: axum::response::Response) -> serde_json::Value {
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("response body should be readable")
+        .to_bytes();
+    serde_json::from_slice(&body).expect("response body should be valid JSON")
 }

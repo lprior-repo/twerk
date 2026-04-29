@@ -31,14 +31,11 @@ fn spawn_handler<T: Send + 'static>(
 
 /// Publish a task to a queue.
 pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFuture<()> {
-    let task_arc = Arc::new(task.clone());
+    use futures_util::StreamExt;
 
-    // Store the task
-    broker
-        .tasks
-        .entry(qname.to_string())
-        .or_default()
-        .push(Arc::clone(&task_arc));
+    let task_arc = Arc::new(task.clone());
+    let tasks = Arc::clone(&broker.tasks);
+    let queue_name = qname.to_string();
 
     // Collect handlers for this queue before spawning tasks
     let handlers: Vec<super::TaskHandler> = broker
@@ -47,13 +44,35 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
         .map(|entry| entry.value().clone())
         .unwrap_or_default();
 
-    // Invoke all registered handlers for this queue
-    for handler in handlers {
-        let task_clone = Arc::clone(&task_arc);
-        spawn_handler(handler, task_clone, "task handler failed");
+    if handlers.is_empty() {
+        tasks
+            .entry(queue_name)
+            .or_default()
+            .push(Arc::clone(&task_arc));
+        return Box::pin(async { Ok(()) });
     }
 
-    Box::pin(async { Ok(()) })
+    Box::pin(async move {
+        let failed = futures_util::stream::iter(handlers)
+            .then(|handler| {
+                let task = Arc::clone(&task_arc);
+                async move { handler(task).await }
+            })
+            .fold(false, |failed, result| async move {
+                if result.is_err() {
+                    warn!("task handler failed");
+                    true
+                } else {
+                    failed
+                }
+            })
+            .await;
+
+        if failed {
+            tasks.entry(queue_name).or_default().push(task_arc);
+        }
+        Ok(())
+    })
 }
 
 /// Publish multiple tasks to a queue.
@@ -65,13 +84,8 @@ pub(crate) fn tasks(
     use futures_util::StreamExt;
 
     let task_arcs: Vec<Arc<Task>> = tasks.iter().map(|t| Arc::new(t.clone())).collect();
-
-    // Store the tasks in one go
-    broker
-        .tasks
-        .entry(qname.to_string())
-        .or_default()
-        .extend(task_arcs.clone());
+    let pending_tasks = Arc::clone(&broker.tasks);
+    let queue_name = qname.to_string();
 
     // Collect handlers for this queue before spawning tasks
     let handlers: Vec<super::TaskHandler> = broker
@@ -80,22 +94,45 @@ pub(crate) fn tasks(
         .map(|entry| entry.value().clone())
         .unwrap_or_default();
 
+    if handlers.is_empty() {
+        pending_tasks
+            .entry(queue_name)
+            .or_default()
+            .extend(task_arcs.clone());
+        return Box::pin(async { Ok(()) });
+    }
+
     Box::pin(async move {
-        // Invoke all registered handlers for each task
-        if !handlers.is_empty() && !task_arcs.is_empty() {
-            let mut jobs = Vec::with_capacity(task_arcs.len() * handlers.len());
-            for task_arc in &task_arcs {
-                for handler in &handlers {
-                    jobs.push((handler.clone(), Arc::clone(task_arc)));
+        let failed_tasks = futures_util::stream::iter(task_arcs)
+            .then(|task_arc| {
+                let handlers = handlers.clone();
+                async move {
+                    let failed = futures_util::stream::iter(handlers)
+                        .then(|handler| {
+                            let task = Arc::clone(&task_arc);
+                            async move { handler(task).await }
+                        })
+                        .fold(false, |failed, result| async move {
+                            if let Err(e) = result {
+                                warn!(error = %e, "batch task handler failed");
+                                true
+                            } else {
+                                failed
+                            }
+                        })
+                        .await;
+                    (task_arc, failed)
                 }
-            }
-            futures_util::stream::iter(jobs)
-                .for_each_concurrent(None, |(handler, task)| async move {
-                    if let Err(e) = handler(task).await {
-                        warn!(error = %e, "batch task handler failed");
-                    }
-                })
-                .await;
+            })
+            .filter_map(|(task_arc, failed)| async move { failed.then_some(task_arc) })
+            .collect::<Vec<_>>()
+            .await;
+
+        if !failed_tasks.is_empty() {
+            pending_tasks
+                .entry(queue_name)
+                .or_default()
+                .extend(failed_tasks);
         }
         Ok(())
     })

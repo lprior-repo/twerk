@@ -456,6 +456,116 @@ async fn test_get_queues_unacked() {
 }
 
 #[tokio::test]
+async fn subscribed_queue_drains_after_successful_task_handler() {
+    let broker = InMemoryBroker::new();
+    let qname = format!("test-queue-{}", new_uuid());
+    let (tx, mut rx) = oneshot::channel();
+    let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
+
+    // Given a queue with a successful task subscriber
+    let handler: super::super::TaskHandler = Arc::new(move |_| {
+        let tx = tx.clone();
+        Box::pin(async move {
+            if let Some(sender) = tx.lock().unwrap().take() {
+                sender.send(()).unwrap();
+            }
+            Ok(())
+        })
+    });
+    broker
+        .subscribe_for_tasks(qname.clone(), handler)
+        .await
+        .unwrap();
+
+    // When a task is published and the handler succeeds
+    broker
+        .publish_task(qname.clone(), &Task::default())
+        .await
+        .unwrap();
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("handler should run");
+
+    // Then the subscribed queue remains observable but has no pending tasks
+    let queue = broker.queue_info(qname).await.unwrap();
+    assert_eq!(queue.size, 0);
+    assert_eq!(queue.subscribers, 1);
+}
+
+#[tokio::test]
+async fn subscribed_queue_keeps_pending_task_when_handler_fails() {
+    let broker = InMemoryBroker::new();
+    let qname = format!("test-queue-{}", new_uuid());
+
+    // Given a queue with a failing task subscriber
+    let handler: super::super::TaskHandler =
+        Arc::new(|_| Box::pin(async { Err(anyhow::anyhow!("intentional handler failure")) }));
+    broker
+        .subscribe_for_tasks(qname.clone(), handler)
+        .await
+        .unwrap();
+
+    // When a task is published and delivery fails
+    broker
+        .publish_task(qname.clone(), &Task::default())
+        .await
+        .unwrap();
+
+    // Then the subscribed queue keeps the failed delivery pending
+    let queue = broker.queue_info(qname).await.unwrap();
+    assert_eq!(queue.size, 1);
+    assert_eq!(queue.subscribers, 1);
+}
+
+#[tokio::test]
+async fn subscribed_queue_keeps_pending_batch_task_when_handler_fails() {
+    let broker = InMemoryBroker::new();
+    let qname = format!("test-queue-{}", new_uuid());
+
+    // Given a queue with a failing task subscriber
+    let handler: super::super::TaskHandler =
+        Arc::new(|_| Box::pin(async { Err(anyhow::anyhow!("intentional batch handler failure")) }));
+    broker
+        .subscribe_for_tasks(qname.clone(), handler)
+        .await
+        .unwrap();
+
+    // When a batch task is published and delivery fails
+    broker
+        .publish_tasks(qname.clone(), &[Task::default()])
+        .await
+        .unwrap();
+
+    // Then the subscribed queue keeps the failed delivery pending
+    let queue = broker.queue_info(qname).await.unwrap();
+    assert_eq!(queue.size, 1);
+    assert_eq!(queue.subscribers, 1);
+}
+
+#[tokio::test]
+async fn unsubscribed_queue_reports_pending_published_tasks() {
+    let broker = InMemoryBroker::new();
+    let qname = format!("test-queue-{}", new_uuid());
+
+    // Given a queue with no subscribers
+
+    // When tasks are published
+    broker
+        .publish_task(qname.clone(), &Task::default())
+        .await
+        .unwrap();
+    broker
+        .publish_task(qname.clone(), &Task::default())
+        .await
+        .unwrap();
+
+    // Then pending queue size reflects undelivered work
+    let queue = broker.queue_info(qname).await.unwrap();
+    assert_eq!(queue.size, 2);
+    assert_eq!(queue.subscribers, 0);
+}
+
+#[tokio::test]
 async fn test_delete_queue() {
     let broker = InMemoryBroker::new();
     let qname = format!("test-queue-{}", new_uuid());

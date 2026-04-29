@@ -62,6 +62,10 @@ pub fn node(id: &str, name: &str) -> Node {
         name: Some(name.to_string()),
         status: Some(NodeStatus::UP),
         cpu_percent: Some(0.0),
+        hostname: Some("localhost".to_string()),
+        queue: Some("default".to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        last_heartbeat_at: Some(OffsetDateTime::now_utc()),
         ..Default::default()
     }
 }

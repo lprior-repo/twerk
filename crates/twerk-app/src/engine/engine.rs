@@ -5,10 +5,10 @@ use super::datastore::DatastoreProxy;
 use super::state::{Mode, State};
 use super::types::{Config, Middleware};
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use tokio::sync::broadcast;
-use tokio::sync::Notify;
 use tokio::sync::RwLock;
+use tokio::sync::{broadcast, watch};
 use twerk_infrastructure::broker::{Broker, Broker as BrokerTrait};
 use twerk_infrastructure::datastore::{Datastore, Datastore as DatastoreTrait};
 use twerk_infrastructure::runtime::{MultiMounter, Runtime};
@@ -28,8 +28,10 @@ pub struct Engine {
     pub(crate) terminate_tx: broadcast::Sender<()>,
     /// Broadcast sender used by signal handler tasks to subscribe for termination
     pub(crate) terminate_broadcaster: Arc<broadcast::Sender<()>>,
-    /// Notify for termination completion - properly wakes late waiters
-    pub(crate) terminated_notify: Arc<Notify>,
+    /// Latched shutdown completion flag; late subscribers observe completed shutdown.
+    pub(crate) shutdown_tx: watch::Sender<bool>,
+    /// Single-owner guard for shutdown cleanup.
+    pub(crate) shutdown_started: Arc<AtomicBool>,
     pub(crate) locker: Arc<RwLock<Option<Box<dyn super::locker::Locker + Send + Sync>>>>,
     pub(crate) middleware: Middleware,
     pub(crate) endpoints: HashMap<String, super::types::EndpointHandler>,
@@ -53,6 +55,7 @@ impl Engine {
     /// Creates a new engine with the given configuration
     pub fn new(config: Config) -> Self {
         let (terminate_tx, _terminate_rx) = broadcast::channel(1);
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         let engine_id = super::engine_helpers::resolve_engine_id(config.engine_id);
         Self {
             state: State::Idle,
@@ -65,7 +68,8 @@ impl Engine {
             coordinator: Arc::new(RwLock::new(None)),
             terminate_tx: terminate_tx.clone(),
             terminate_broadcaster: Arc::new(terminate_tx),
-            terminated_notify: Arc::new(Notify::new()),
+            shutdown_tx,
+            shutdown_started: Arc::new(AtomicBool::new(false)),
             locker: Arc::new(RwLock::new(None)),
             middleware: config.middleware,
             endpoints: config.endpoints,

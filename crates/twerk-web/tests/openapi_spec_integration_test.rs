@@ -229,7 +229,10 @@ mod response_content_type {
     async fn error_response_returns_application_json() {
         let app = create_router(setup_state().await);
         let resp = app
-            .oneshot(make_request("GET", "/jobs/00000000-0000-0000-0000-000000009999"))
+            .oneshot(make_request(
+                "GET",
+                "/jobs/00000000-0000-0000-0000-000000009999",
+            ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -252,7 +255,11 @@ mod response_schema {
         let body = body_to_json(resp).await;
         assert!(body["status"].is_string(), "status must be string");
         assert!(body["version"].is_string(), "version must be string");
-        assert_eq!(body.as_object().unwrap().len(), 2, "health should have exactly 2 fields");
+        assert_eq!(
+            body.as_object().unwrap().len(),
+            2,
+            "health should have exactly 2 fields"
+        );
     }
 
     #[tokio::test]
@@ -320,13 +327,22 @@ mod response_schema {
             ds,
             Config::default(),
         ));
-        let resp = app.oneshot(make_request("GET", "/jobs?page=1&size=10")).await.unwrap();
+        let resp = app
+            .oneshot(make_request("GET", "/jobs?page=1&size=10"))
+            .await
+            .unwrap();
         let body = body_to_json(resp).await;
         assert!(body["items"].is_array(), "items must be array");
         assert!(body["number"].is_number(), "number must be number");
         assert!(body["size"].is_number(), "size must be number");
-        assert!(body["total_pages"].is_number(), "total_pages must be number");
-        assert!(body["total_items"].is_number(), "total_items must be number");
+        assert!(
+            body["total_pages"].is_number(),
+            "total_pages must be number"
+        );
+        assert!(
+            body["total_items"].is_number(),
+            "total_items must be number"
+        );
     }
 
     #[tokio::test]
@@ -368,7 +384,10 @@ mod response_schema {
     async fn error_response_has_message_field() {
         let app = create_router(setup_state().await);
         let resp = app
-            .oneshot(make_request("GET", "/jobs/00000000-0000-0000-0000-000000009999"))
+            .oneshot(make_request(
+                "GET",
+                "/jobs/00000000-0000-0000-0000-000000009999",
+            ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -594,10 +613,13 @@ mod endpoint_secret_redaction {
         // Update job with secrets
         let mut secrets = HashMap::new();
         secrets.insert("DB_PASS".to_string(), "hunter2".to_string());
-        ds.update_job(id.as_ref(), Box::new(move |mut j| {
-            j.secrets = Some(secrets);
-            Ok(j)
-        }))
+        ds.update_job(
+            id.as_ref(),
+            Box::new(move |mut j| {
+                j.secrets = Some(secrets);
+                Ok(j)
+            }),
+        )
         .await
         .unwrap();
 
@@ -782,10 +804,7 @@ mod scheduled_job_state_transitions {
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
         let body = body_to_json(resp).await;
         assert!(
-            body["message"]
-                .as_str()
-                .unwrap()
-                .contains("not active"),
+            body["message"].as_str().unwrap().contains("not active"),
             "Expected 'not active' message, got: {body}"
         );
     }
@@ -806,10 +825,7 @@ mod scheduled_job_state_transitions {
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
         let body = body_to_json(resp).await;
         assert!(
-            body["message"]
-                .as_str()
-                .unwrap()
-                .contains("not paused"),
+            body["message"].as_str().unwrap().contains("not paused"),
             "Expected 'not paused' message, got: {body}"
         );
     }
@@ -1142,7 +1158,10 @@ mod method_rejection {
     #[tokio::test]
     async fn delete_health_returns_405() {
         let app = create_router(setup_state().await);
-        let resp = app.oneshot(make_request("DELETE", "/health")).await.unwrap();
+        let resp = app
+            .oneshot(make_request("DELETE", "/health"))
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
@@ -1285,7 +1304,10 @@ mod pagination_edge_cases {
             Config::default(),
         ));
         let resp = app
-            .oneshot(make_request("GET", "/tasks/00000000-0000-0000-0000-000000000002/log?page=1&size=1"))
+            .oneshot(make_request(
+                "GET",
+                "/tasks/00000000-0000-0000-0000-000000000002/log?page=1&size=1",
+            ))
             .await
             .unwrap();
         let body = body_to_json(resp).await;

@@ -2,6 +2,7 @@
 //!
 //! HTTP client functions for task API operations.
 
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::Deserialize;
 
 use crate::error::CliError;
@@ -119,6 +120,7 @@ pub async fn task_log(
     task_id: &str,
     page: Option<i64>,
     size: Option<i64>,
+    q: Option<String>,
     json_mode: bool,
 ) -> Result<String, CliError> {
     let mut url = format!("{}/tasks/{}/log", endpoint.trim_end_matches('/'), task_id);
@@ -128,6 +130,12 @@ pub async fn task_log(
     }
     if let Some(s) = size {
         params.push(format!("size={}", s));
+    }
+    if let Some(ref query) = q {
+        if !query.is_empty() {
+            let encoded = utf8_percent_encode(query, NON_ALPHANUMERIC).to_string();
+            params.push(format!("q={}", encoded));
+        }
     }
     if !params.is_empty() {
         url.push('?');

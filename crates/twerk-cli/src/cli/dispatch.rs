@@ -175,8 +175,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
                 TaskCommand::Get { id } => {
                     handlers::task::task_get(ep_str, &id, json_mode).await?;
                 }
-                TaskCommand::Log { id, page, size } => {
-                    handlers::task::task_log(ep_str, &id, page, size, json_mode).await?;
+                TaskCommand::Log { id, page, size, q } => {
+                    handlers::task::task_log(ep_str, &id, page, size, q, json_mode).await?;
                 }
             }
             Ok(())

@@ -5919,6 +5919,7 @@ dependencies = [
  "config",
  "futures-util",
  "itertools 0.14.0",
+ "percent-encoding",
  "reqwest",
  "serde",
  "serde_json",

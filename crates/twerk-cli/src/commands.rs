@@ -87,6 +87,8 @@ pub enum TaskCommand {
         page: Option<i64>,
         #[arg(long)]
         size: Option<i64>,
+        #[arg(long)]
+        q: Option<String>,
     },
 }
 

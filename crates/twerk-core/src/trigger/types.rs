@@ -161,6 +161,7 @@ pub struct Trigger {
 #[serde(rename_all = "camelCase")]
 pub struct TriggerContext {
     pub trigger_id: TriggerId,
+    #[serde(with = "time::serde::rfc3339")]
     pub timestamp: time::OffsetDateTime,
     pub event_data: Option<serde_json::Value>,
     pub trigger_type: TriggerVariant,

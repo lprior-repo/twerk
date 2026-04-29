@@ -24,7 +24,8 @@ pub struct User {
     pub password_hash: Option<String>,
     #[serde(skip)]
     pub password: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "time::serde::rfc3339::option")]
     pub created_at: Option<OffsetDateTime>,
     #[serde(default)]
     pub disabled: bool,

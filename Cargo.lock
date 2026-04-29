@@ -6014,6 +6014,7 @@ dependencies = [
  "bcrypt",
  "bollard",
  "config",
+ "criterion",
  "dashmap",
  "dirs",
  "fjall",

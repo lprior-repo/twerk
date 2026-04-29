@@ -66,3 +66,8 @@ testcontainers.workspace = true
 testcontainers-modules = { workspace = true, features = ["postgres", "rabbitmq"] }
 rstest.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }
+criterion = "0.5"
+
+[[bench]]
+name = "hot_path"
+harness = false

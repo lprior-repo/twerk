@@ -15,11 +15,12 @@
 //!
 //! 1M expression evaluations in under 100ms.
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 const EVAL_STACK_SIZE: usize = 64;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SlotValue {
     Null,
     Bool(bool),
@@ -72,7 +73,7 @@ impl std::fmt::Display for SlotValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Op {
     LoadSlot(usize),
     LoadConst(SlotValue),

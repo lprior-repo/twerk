@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::asl::{
     ChoiceStateError, MapStateError, ParallelStateError, State, StateKind, StateMachine,
-    StateMachineError, TaskStateError,
+    StateMachineError, SwitchStateError, TaskStateError,
 };
 
 mod arms;
@@ -30,6 +30,9 @@ pub enum StateEvalError {
 
     #[error("map state invariant violated after ASL dispatch: {0}")]
     MapState(#[from] MapStateError),
+
+    #[error("switch state invariant violated after ASL dispatch: {0}")]
+    SwitchState(#[from] SwitchStateError),
 
     #[error("state machine invalid after recursive ASL dispatch: {0:?}")]
     StateMachine(Vec<StateMachineError>),
@@ -71,6 +74,12 @@ fn evaluate_state_kind(
         StateKind::Pass(pass) => Ok(StateKind::Pass(pass.clone())),
         StateKind::Choice(choice) => {
             build_choice_arm(choice.choices().to_vec(), choice.default().cloned())
+        }
+        StateKind::Switch(switch) => {
+            use crate::asl::SwitchState;
+            SwitchState::new(switch.cases().to_vec(), switch.default().cloned())
+                .map(StateKind::Switch)
+                .map_err(StateEvalError::from)
         }
         StateKind::Wait(wait) => Ok(StateKind::Wait(wait.clone())),
         StateKind::Succeed(succeed) => Ok(StateKind::Succeed(*succeed)),

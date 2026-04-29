@@ -11,6 +11,7 @@ use super::choice::ChoiceState;
 use super::map::MapState;
 use super::parallel::ParallelState;
 use super::pass::PassState;
+use super::switch::SwitchState;
 use super::task_state::TaskState;
 use super::terminal::{FailState, SucceedState};
 use super::transition::Transition;
@@ -21,13 +22,14 @@ use super::wait::WaitState;
 // StateKind
 // ---------------------------------------------------------------------------
 
-/// The 8-variant discriminated union for ASL state types.
+/// The 9-variant discriminated union for ASL state types.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum StateKind {
     Task(TaskState),
     Pass(PassState),
     Choice(ChoiceState),
+    Switch(SwitchState),
     Wait(WaitState),
     Succeed(SucceedState),
     Fail(FailState),
@@ -43,7 +45,7 @@ impl StateKind {
     }
 
     /// Returns the `Transition` for states that have one.
-    /// `None` for `Choice` (uses choices/default) and terminals (`Succeed`, `Fail`).
+    /// `None` for `Choice` and `Switch` (uses cases/default) and terminals (`Succeed`, `Fail`).
     #[must_use]
     pub fn transition(&self) -> Option<&Transition> {
         match self {
@@ -52,7 +54,7 @@ impl StateKind {
             Self::Wait(s) => Some(s.transition()),
             Self::Parallel(s) => Some(s.transition()),
             Self::Map(s) => Some(s.transition()),
-            Self::Choice(_) | Self::Succeed(_) | Self::Fail(_) => None,
+            Self::Choice(_) | Self::Switch(_) | Self::Succeed(_) | Self::Fail(_) => None,
         }
     }
 }

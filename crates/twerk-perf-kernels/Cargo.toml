@@ -1,0 +1,16 @@
+[package]
+name = "twerk-perf-kernels"
+version = "0.1.0"
+edition = "2021"
+description = "Performance-critical SIMD kernels for Twerk"
+publish = false
+
+[dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = { workspace = true }
+
+# Enable nightly features in this crate only
+[target.'cfg(feature = "nightly")'.dependencies]

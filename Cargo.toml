@@ -8,6 +8,7 @@ members = [
     "crates/twerk-web",
     "crates/twerk-cli",
     "crates/twerk-openapi-gen",
+    "crates/twerk-perf-kernels",
 ]
 exclude = [
     "pokemon-server",
@@ -27,6 +28,7 @@ twerk-core = { path = "crates/twerk-core" }
 twerk-infrastructure = { path = "crates/twerk-infrastructure" }
 twerk-app = { path = "crates/twerk-app" }
 twerk-web = { path = "crates/twerk-web" }
+twerk-perf-kernels = { path = "crates/twerk-perf-kernels" }
 
 # Shared External Dependencies
 tokio = { version = "1.49", features = ["full"] }
@@ -120,3 +122,30 @@ proptest = "1.5"
 # Logging
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# ============================================================================
+# Performance Profiles
+# ============================================================================
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+
+[profile.hardened]
+inherits = "release"
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+lto = "thin"
+codegen-units = 1

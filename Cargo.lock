@@ -6067,6 +6067,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "twerk-perf-kernels"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "proptest",
+ "rayon",
+]
+
+[[package]]
 name = "twerk-web"
 version = "0.1.0"
 dependencies = [

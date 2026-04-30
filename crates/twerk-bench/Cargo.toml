@@ -4,12 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
-dashmap = { workspace = true }
 crossbeam-channel = "0.5"
-anyhow = { workspace = true }
-
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-tokio-test = { workspace = true }

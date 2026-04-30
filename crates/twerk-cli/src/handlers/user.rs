@@ -3,6 +3,7 @@
 //! HTTP client functions for user API operations.
 
 use crate::error::CliError;
+use crate::handlers::common::TriggerErrorResponse;
 
 pub async fn user_create(
     endpoint: &str,
@@ -32,6 +33,12 @@ pub async fn user_create(
         .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::BAD_REQUEST {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status

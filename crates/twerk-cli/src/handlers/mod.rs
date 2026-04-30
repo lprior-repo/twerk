@@ -2,7 +2,11 @@
 //!
 //! HTTP client implementations for API operations.
 
+<<<<<<< HEAD
 pub mod job;
+=======
+pub mod common;
+>>>>>>> origin/twerk-0gr
 pub mod metrics;
 pub mod node;
 pub mod queue;

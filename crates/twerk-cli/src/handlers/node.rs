@@ -5,6 +5,7 @@
 use serde::Deserialize;
 
 use crate::error::CliError;
+use crate::handlers::common::{encode_path_segment, TriggerErrorResponse};
 
 #[derive(Debug, Deserialize)]
 pub struct Node {
@@ -29,6 +30,16 @@ pub async fn node_list(endpoint: &str, json_mode: bool) -> Result<String, CliErr
     let status = response.status();
 
     if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .map_err(|e| CliError::InvalidBody(e.to_string()))?;
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
@@ -70,27 +81,38 @@ pub async fn node_list(endpoint: &str, json_mode: bool) -> Result<String, CliErr
 }
 
 pub async fn node_get(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/nodes/{}", endpoint.trim_end_matches('/'), id);
+    let url = format!("{}/nodes/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
     let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::NOT_FOUND {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::NotFound(format!("node {} not found", id)));
     }
 
     if !status.is_success() {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
         });
     }
-
-    let body = response
-        .text()
-        .await
-        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     let node: Node =
         serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;

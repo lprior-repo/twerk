@@ -5,6 +5,7 @@
 use serde::Deserialize;
 
 use crate::error::CliError;
+use crate::handlers::common::{encode_path_segment, TriggerErrorResponse};
 
 #[derive(Debug, Deserialize)]
 pub struct QueueInfo {
@@ -22,6 +23,16 @@ pub async fn queue_list(endpoint: &str, json_mode: bool) -> Result<String, CliEr
     let status = response.status();
 
     if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .map_err(|e| CliError::InvalidBody(e.to_string()))?;
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
@@ -60,27 +71,38 @@ pub async fn queue_list(endpoint: &str, json_mode: bool) -> Result<String, CliEr
 }
 
 pub async fn queue_get(endpoint: &str, name: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), name);
+    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), encode_path_segment(name));
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
     let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::NOT_FOUND {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::NotFound(format!("queue {} not found", name)));
     }
 
     if !status.is_success() {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),
         });
     }
-
-    let body = response
-        .text()
-        .await
-        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     let queue: QueueInfo =
         serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
@@ -98,18 +120,34 @@ pub async fn queue_get(endpoint: &str, name: &str, json_mode: bool) -> Result<St
 }
 
 pub async fn queue_delete(endpoint: &str, name: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), name);
+    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), encode_path_segment(name));
 
     let client = reqwest::Client::new();
     let response = client.delete(&url).send().await.map_err(CliError::Http)?;
 
     let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::NOT_FOUND {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::NotFound(format!("queue {} not found", name)));
     }
 
     if !status.is_success() {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status.canonical_reason().unwrap_or("Unknown").to_string(),

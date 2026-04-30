@@ -1,3 +1,4 @@
+<<<<<<< HEAD
    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s
    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
@@ -75,3 +76,5 @@ warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
      Running tests/middleware_test.rs (target/debug/deps/middleware_test-1d961b0aa6c5326a)
      Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-7402909e8d0eddfc)
      Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-5451e9e47d4ce750)
+=======
+>>>>>>> origin/twerk-0gr

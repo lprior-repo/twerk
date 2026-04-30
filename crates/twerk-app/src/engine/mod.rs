@@ -4,6 +4,9 @@
 //! between broker, datastore, locker, worker, and coordinator components.
 
 #![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
 #![allow(clippy::pedantic)]
 
 pub mod broker;

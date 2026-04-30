@@ -1,3 +1,8 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
+
 pub mod conf;
 pub mod constants;
 pub mod env;

@@ -880,3 +880,108 @@ async fn broker_shutdown_fails_health_check_after() {
 
     broker.health_check().await.unwrap();
 }
+
+#[tokio::test]
+async fn test_subscribe_returns_broadcast_receiver() {
+    let broker = InMemoryBroker::new();
+    let mut rx = broker
+        .subscribe("test.*".to_string())
+        .await
+        .unwrap();
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn test_subscribe_pattern_matches_order_created() {
+    let broker = InMemoryBroker::new();
+    let mut rx = broker.subscribe("order.*".to_string()).await.unwrap();
+
+    let job = serde_json::json!({
+        "id": "job-1",
+        "state": "COMPLETED"
+    });
+    broker
+        .publish_event("order.created".to_string(), job)
+        .await
+        .unwrap();
+
+    let event = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .expect("Should receive event")
+        .expect("Should receive event without error");
+    assert!(matches!(event, twerk_core::job::JobEvent::Completed(_)));
+}
+
+#[tokio::test]
+async fn test_subscribe_pattern_matches_order_updated() {
+    let broker = InMemoryBroker::new();
+    let mut rx = broker.subscribe("order.*".to_string()).await.unwrap();
+
+    let job = serde_json::json!({
+        "id": "job-2",
+        "state": "COMPLETED"
+    });
+    broker
+        .publish_event("order.updated".to_string(), job)
+        .await
+        .unwrap();
+
+    let event = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .expect("Should receive event")
+        .expect("Should receive event without error");
+    assert!(matches!(event, twerk_core::job::JobEvent::Completed(_)));
+}
+
+#[tokio::test]
+async fn test_subscribe_pattern_does_not_match_payment_created() {
+    let broker = InMemoryBroker::new();
+    let mut rx = broker.subscribe("order.*".to_string()).await.unwrap();
+
+    let order_job = serde_json::json!({
+        "id": "job-1",
+        "state": "COMPLETED"
+    });
+    broker
+        .publish_event("order.created".to_string(), order_job)
+        .await
+        .unwrap();
+
+    let _order_event = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .expect("Should receive order event")
+        .expect("Should receive order event without error");
+
+    let payment_job = serde_json::json!({
+        "id": "job-2",
+        "state": "COMPLETED"
+    });
+    broker
+        .publish_event("payment.created".to_string(), payment_job)
+        .await
+        .unwrap();
+
+    let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx.recv()).await;
+    assert!(result.is_err() || result.as_ref().is_err());
+}
+
+#[tokio::test]
+async fn test_subscribe_accepts_pattern_without_immediate_validation() {
+    let broker = InMemoryBroker::new();
+    let result = broker.subscribe("[invalid".to_string()).await;
+    assert!(result.is_ok());
+    let mut rx = result.unwrap();
+    let job = serde_json::json!({
+        "id": "job-1",
+        "state": "COMPLETED"
+    });
+    broker
+        .publish_event("order.created".to_string(), job)
+        .await
+        .unwrap();
+    let event = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv())
+        .await
+        .expect("Should receive event")
+        .expect("Should receive event without error");
+    assert!(matches!(event, twerk_core::job::JobEvent::Completed(_)));
+}

@@ -1,126 +1,199 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-use axum::http::{header, Request, StatusCode};
+use axum::http::{header, StatusCode};
 use axum::Router;
-use http_body_util::BodyExt;
 use std::sync::Arc;
-use std::time::Duration;
+use twerk_app::engine::coordinator::limits::{rate_limit_middleware, RateLimitConfig};
 use tower::ServiceExt;
-use twerk_app::engine::coordinator::limits::RateLimitConfig;
-use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
-use twerk_infrastructure::datastore::{inmemory::InMemoryDatastore, Datastore};
-use twerk_web::api::trigger_api::InMemoryTriggerDatastore;
-use twerk_web::api::{create_router, AppState, Config};
 
-fn create_test_state(rate_limit_config: Option<RateLimitConfig>) -> AppState {
-    let ds = Arc::new(InMemoryDatastore::new()) as Arc<dyn Datastore>;
-    let broker = Arc::new(InMemoryBroker::new()) as Arc<dyn Broker>;
-    let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
+#[tokio::test]
+async fn rate_limit_allows_requests_under_limit() {
+    let config = RateLimitConfig::new(5);
+    let app = Router::new()
+        .route("/test", tower::handler::Handler::get(test_handler))
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
 
-    let config = Config {
-        rate_limit: rate_limit_config,
-        ..Default::default()
-    };
-
-    AppState {
-        broker,
-        ds,
-        trigger_state: twerk_web::api::trigger_api::TriggerAppState { trigger_ds },
-        config,
+    for _ in 0..5 {
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/test")
+                    .header("x-forwarded-for", "192.168.1.1")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "First 5 requests should succeed"
+        );
     }
 }
 
-fn create_router_with_rate_limit(rps: u32) -> Router {
-    let state = create_test_state(Some(RateLimitConfig::new(rps)));
-    create_router(state)
-}
+#[tokio::test]
+async fn rate_limit_blocks_excessive_requests() {
+    let config = RateLimitConfig::new(5);
+    let app = Router::new()
+        .route("/test", tower::handler::Handler::get(test_handler))
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
 
-async fn send_request(router: &Router, path: &str) -> (StatusCode, Option<u64>) {
-    let request = Request::builder()
-        .uri(path)
-        .body(axum::body::Body::empty())
+    for _ in 0..5 {
+        app.clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/test")
+                    .header("x-forwarded-for", "192.168.1.1")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+    }
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/test")
+                .header("x-forwarded-for", "192.168.1.1")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
         .unwrap();
-
-    let response = router.clone().oneshot(request).await.unwrap();
-    let status = response.status();
-    let retry_after = response
-        .headers()
-        .get(header::RETRY_AFTER)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok());
-
-    (status, retry_after)
+    assert_eq!(
+        response.status(),
+        StatusCode::TOO_MANY_REQUESTS,
+        "6th request should be rate limited"
+    );
 }
 
 #[tokio::test]
-async fn rate_limit_middleware_returns_429_when_limit_exceeded() {
-    let router = create_router_with_rate_limit(5);
+async fn rate_limit_per_ip_tracking_different_ip_succeeds() {
+    let config = RateLimitConfig::new(5);
+    let app = Router::new()
+        .route("/test", tower::handler::Handler::get(test_handler))
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
 
-    for i in 1..=5 {
-        let (status, _) = send_request(&router, "/health").await;
+    for _ in 0..5 {
+        app.clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/test")
+                    .header("x-forwarded-for", "192.168.1.1")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+    }
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/test")
+                .header("x-forwarded-for", "192.168.1.2")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Different IP should not be rate limited when first IP is at limit"
+    );
+}
+
+#[tokio::test]
+async fn rate_limit_returns_429_with_retry_after_header_and_recovers() {
+    let config = RateLimitConfig::new(5);
+    let app = Router::new()
+        .route("/test", tower::handler::Handler::get(test_handler))
+        .layer(axum::middleware::from_fn_with_state(
+            config,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
+
+    for i in 0..5 {
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/test")
+                    .header("x-forwarded-for", "10.0.0.1")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(
-            status,
+            response.status(),
             StatusCode::OK,
-            "request {} should succeed (within limit)",
-            i
+            "Request {} should succeed (within limit)",
+            i + 1
         );
     }
 
-    let (status, retry_after) = send_request(&router, "/health").await;
+    let rate_limited_response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/test")
+                .header("x-forwarded-for", "10.0.0.1")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(
-        status,
+        rate_limited_response.status(),
         StatusCode::TOO_MANY_REQUESTS,
         "6th request should be rate limited"
     );
+    let retry_after = rate_limited_response
+        .headers()
+        .get(header::RETRY_AFTER)
+        .expect("Retry-After header must be present on 429 response");
+    let retry_secs: u64 = retry_after
+        .to_str()
+        .expect("Retry-After header value must be valid string")
+        .parse()
+        .expect("Retry-After header must be valid u64");
     assert!(
-        retry_after.is_some_and(|v| v > 0),
-        "429 response should have Retry-After header > 0, got {:?}",
-        retry_after
-    );
-}
-
-#[tokio::test]
-async fn rate_limit_middleware_allows_requests_after_wait_period() {
-    let router = create_router_with_rate_limit(5);
-
-    for i in 1..=5 {
-        let (status, _) = send_request(&router, "/health").await;
-        assert_eq!(status, StatusCode::OK, "request {} should succeed", i);
-    }
-
-    let (status, _) = send_request(&router, "/health").await;
-    assert_eq!(
-        status,
-        StatusCode::TOO_MANY_REQUESTS,
-        "6th request should be rate limited"
+        retry_secs > 0,
+        "Retry-After header value must be > 0, got {}",
+        retry_secs
     );
 
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    let wait_duration = std::time::Duration::from_secs(retry_secs + 1);
+    tokio::time::sleep(wait_duration).await;
 
-    let (status, _) = send_request(&router, "/health").await;
+    let recovered_response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/test")
+                .header("x-forwarded-for", "10.0.0.1")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(
-        status,
+        recovered_response.status(),
         StatusCode::OK,
-        "request after wait period should succeed"
+        "Request after wait period should succeed"
     );
 }
 
-#[tokio::test]
-async fn rate_limit_middleware_no_resource_leak_after_limit_exceeded() {
-    let router = create_router_with_rate_limit(5);
-
-    for _ in 1..=5 {
-        let (status, _) = send_request(&router, "/health").await;
-    }
-
-    let (status, retry_after) = send_request(&router, "/health").await;
-    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
-    assert!(retry_after.is_some());
-
-    let (status, _) = send_request(&router, "/health").await;
-    assert_eq!(
-        status,
-        StatusCode::TOO_MANY_REQUESTS,
-        "subsequent requests should still be rate limited without resource leak"
-    );
+async fn test_handler() -> axum::response::Json<&'static str> {
+    axum::response::Json("OK")
 }

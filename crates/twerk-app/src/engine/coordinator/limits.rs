@@ -5,7 +5,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 use governor::{Quota, RateLimiter};
@@ -27,13 +27,9 @@ impl RateLimitConfig {
     }
 }
 
-fn retry_after_header_value(seconds: u64) -> HeaderValue {
-    HeaderValue::from_str(&seconds.to_string()).unwrap_or(HeaderValue::from_static("1"))
-}
-
 /// Rate limiting middleware that enforces requests per second quota.
 /// # Errors
-/// Returns `StatusCode::TOO_MANY_REQUESTS` with `Retry-After` header if rate limit is exceeded.
+/// Returns `StatusCode::TOO_MANY_REQUESTS` if rate limit is exceeded.
 pub async fn rate_limit_middleware(
     axum::extract::State(config): axum::extract::State<RateLimitConfig>,
     request: axum::extract::Request,
@@ -45,16 +41,14 @@ pub async fn rate_limit_middleware(
     match limiter.check() {
         Ok(()) => Ok(next.run(request).await),
         Err(not_until) => {
-            let retry_after = not_until
-                .retry_after()
-                .as_secs()
-                .max(1);
-            let mut response = Response::new(axum::body::Body::empty());
-            *response.status_mut() = StatusCode::TOO_MANY_REQUESTS;
-            response.headers_mut().insert(
-                header::RETRY_AFTER,
-                retry_after_header_value(retry_after),
-            );
+            let wait_time = not_until.wait_time_from(std::time::Instant::now());
+            let retry_after = wait_time.as_secs().max(1);
+            let response = Response::builder()
+                .status(StatusCode::TOO_MANY_REQUESTS)
+                .header(header::RETRY_AFTER, retry_after)
+                .body(axum::body::Body::empty())
+                .ok()
+                .unwrap();
             Ok(response)
         }
     }

@@ -897,7 +897,7 @@ async fn test_subscribe_pattern_matches_order_created() {
     let mut rx = broker.subscribe("order.*".to_string()).await.unwrap();
 
     let job = serde_json::json!({
-        "id": "job-1",
+        "id": "00000000-0000-0000-0000-000000000001",
         "state": "COMPLETED"
     });
     broker
@@ -918,7 +918,7 @@ async fn test_subscribe_pattern_matches_order_updated() {
     let mut rx = broker.subscribe("order.*".to_string()).await.unwrap();
 
     let job = serde_json::json!({
-        "id": "job-2",
+        "id": "00000000-0000-0000-0000-000000000002",
         "state": "COMPLETED"
     });
     broker

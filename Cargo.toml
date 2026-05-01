@@ -8,6 +8,7 @@ members = [
     "crates/twerk-web",
     "crates/twerk-cli",
     "crates/twerk-openapi-gen",
+    "crates/twerk-store",
 ]
 exclude = [
     "pokemon-server",
@@ -35,6 +36,7 @@ twerk-core = { path = "crates/twerk-core" }
 twerk-infrastructure = { path = "crates/twerk-infrastructure" }
 twerk-app = { path = "crates/twerk-app" }
 twerk-web = { path = "crates/twerk-web" }
+twerk-store = { path = "crates/twerk-store" })
 
 # Shared External Dependencies
 tokio = { version = "1.49", features = ["full"] }

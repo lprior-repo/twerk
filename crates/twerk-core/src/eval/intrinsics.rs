@@ -279,13 +279,13 @@ pub fn array_range_fn(args: &Value) -> Result<Value, String> {
     if step == 0 {
         return Err("arrayRange: step must not be zero".into());
     }
-    let diff = if step > 0 {
+    let diff: i64 = if step > 0 {
         end.saturating_sub(start)
     } else {
         start.saturating_sub(end)
     };
-    let step_abs = step.abs() as usize;
-    let num_elements = diff / step_abs + if diff % step_abs != 0 { 1 } else { 0 };
+    let step_abs = step.unsigned_abs() as usize;
+    let num_elements = diff.unsigned_abs() as usize / step_abs + if diff.unsigned_abs() as usize % step_abs != 0 { 1 } else { 0 };
     if num_elements > MAX_ARRAY_RANGE_ELEMENTS {
         return Err(format!(
             "arrayRange: result would have {} elements, maximum allowed is {}",

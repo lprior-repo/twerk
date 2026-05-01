@@ -22,6 +22,7 @@ pub mod task;
 pub mod trigger;
 pub mod types;
 pub mod user;
+pub mod workflow;
 pub use twerk_common::uuid;
 pub mod validation;
 pub mod webhook;

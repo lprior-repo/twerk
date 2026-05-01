@@ -12,6 +12,8 @@ use sha2::{Digest, Sha256};
 
 use super::context::{eval_value_to_json, json_to_eval_value};
 
+const MAX_ARRAY_RANGE_ELEMENTS: usize = 100_000;
+
 // ───────────────── helpers ─────────────────
 
 fn extract_tuple(args: &Value, name: &str, expected: usize) -> Result<Vec<Value>, String> {
@@ -277,7 +279,20 @@ pub fn array_range_fn(args: &Value) -> Result<Value, String> {
     if step == 0 {
         return Err("arrayRange: step must not be zero".into());
     }
-    let mut result = Vec::new();
+    let diff = if step > 0 {
+        end.saturating_sub(start)
+    } else {
+        start.saturating_sub(end)
+    };
+    let step_abs = step.abs() as usize;
+    let num_elements = diff / step_abs + if diff % step_abs != 0 { 1 } else { 0 };
+    if num_elements > MAX_ARRAY_RANGE_ELEMENTS {
+        return Err(format!(
+            "arrayRange: result would have {} elements, maximum allowed is {}",
+            num_elements, MAX_ARRAY_RANGE_ELEMENTS
+        ));
+    }
+    let mut result = Vec::with_capacity(num_elements);
     let mut current = start;
     while (step > 0 && current < end) || (step < 0 && current > end) {
         result.push(Value::Int(current));

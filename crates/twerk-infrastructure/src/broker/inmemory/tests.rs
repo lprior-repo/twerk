@@ -985,3 +985,199 @@ async fn test_subscribe_accepts_pattern_without_immediate_validation() {
         .expect("Should receive event without error");
     assert!(matches!(event, twerk_core::job::JobEvent::Completed(_)));
 }
+
+#[tokio::test]
+async fn test_broker_maintains_fifo_order_per_topic_single_topic() {
+    let broker = InMemoryBroker::new();
+    let received = Arc::new(RwLock::new(Vec::new()));
+    let (tx, mut rx) = oneshot::channel();
+    let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
+
+    let received_clone = received.clone();
+    let tx_clone = tx.clone();
+    let handler: super::super::TaskHandler = Arc::new(move |task: std::sync::Arc<twerk_core::task::Task>| {
+        let received = received_clone.clone();
+        let tx = tx_clone.clone();
+        Box::pin(async move {
+            let name = task.name.clone().unwrap_or_else(|| "unnamed".to_string());
+            received.write().await.push(name);
+            if received.read().await.len() == 3 {
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(());
+                }
+            }
+            Ok(())
+        })
+    });
+
+    let topic_a = format!("topic-A-{}", new_uuid());
+    broker.subscribe_for_tasks(topic_a.clone(), handler).await.unwrap();
+
+    let m1 = twerk_core::task::Task {
+        name: Some("m1".to_string()),
+        ..Default::default()
+    };
+    let m2 = twerk_core::task::Task {
+        name: Some("m2".to_string()),
+        ..Default::default()
+    };
+    let m3 = twerk_core::task::Task {
+        name: Some("m3".to_string()),
+        ..Default::default()
+    };
+
+    broker.publish_task(topic_a.clone(), &m1).await.unwrap();
+    broker.publish_task(topic_a.clone(), &m2).await.unwrap();
+    broker.publish_task(topic_a.clone(), &m3).await.unwrap();
+
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Should receive all 3 messages");
+
+    let guard = received.read().await;
+    assert_eq!(*guard, vec!["m1", "m2", "m3"], "Messages should arrive in FIFO order");
+}
+
+#[tokio::test]
+async fn test_broker_maintains_fifo_order_per_topic_topic_b() {
+    let broker = InMemoryBroker::new();
+    let received = Arc::new(RwLock::new(Vec::new()));
+    let (tx, mut rx) = oneshot::channel();
+    let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
+
+    let received_clone = received.clone();
+    let tx_clone = tx.clone();
+    let handler: super::super::TaskHandler = Arc::new(move |task: std::sync::Arc<twerk_core::task::Task>| {
+        let received = received_clone.clone();
+        let tx = tx_clone.clone();
+        Box::pin(async move {
+            let name = task.name.clone().unwrap_or_else(|| "unnamed".to_string());
+            received.write().await.push(name);
+            if received.read().await.len() == 2 {
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(());
+                }
+            }
+            Ok(())
+        })
+    });
+
+    let topic_b = format!("topic-B-{}", new_uuid());
+    broker.subscribe_for_tasks(topic_b.clone(), handler).await.unwrap();
+
+    let m4 = twerk_core::task::Task {
+        name: Some("m4".to_string()),
+        ..Default::default()
+    };
+    let m5 = twerk_core::task::Task {
+        name: Some("m5".to_string()),
+        ..Default::default()
+    };
+
+    broker.publish_task(topic_b.clone(), &m4).await.unwrap();
+    broker.publish_task(topic_b.clone(), &m5).await.unwrap();
+
+    wait_for_handler_notification(&mut rx)
+        .await
+        .expect("Should receive all 2 messages");
+
+    let guard = received.read().await;
+    assert_eq!(*guard, vec!["m4", "m5"], "Messages on topic B should arrive in FIFO order");
+}
+
+#[tokio::test]
+async fn test_broker_maintains_fifo_order_per_topic_interleaved_publishes() {
+    let broker = InMemoryBroker::new();
+    let received_a = Arc::new(RwLock::new(Vec::new()));
+    let received_b = Arc::new(RwLock::new(Vec::new()));
+    let (tx_a, mut rx_a) = oneshot::channel();
+    let (tx_b, mut rx_b) = oneshot::channel();
+    let tx_a = Arc::new(std::sync::Mutex::new(Some(tx_a)));
+    let tx_b = Arc::new(std::sync::Mutex::new(Some(tx_b)));
+
+    let received_a_clone = received_a.clone();
+    let tx_a_clone = tx_a.clone();
+    let handler_a: super::super::TaskHandler = Arc::new(move |task: std::sync::Arc<twerk_core::task::Task>| {
+        let received = received_a_clone.clone();
+        let tx = tx_a_clone.clone();
+        Box::pin(async move {
+            let name = task.name.clone().unwrap_or_else(|| "unnamed".to_string());
+            received.write().await.push(name);
+            if received.read().await.len() == 3 {
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(());
+                }
+            }
+            Ok(())
+        })
+    });
+
+    let received_b_clone = received_b.clone();
+    let tx_b_clone = tx_b.clone();
+    let handler_b: super::super::TaskHandler = Arc::new(move |task: std::sync::Arc<twerk_core::task::Task>| {
+        let received = received_b_clone.clone();
+        let tx = tx_b_clone.clone();
+        Box::pin(async move {
+            let name = task.name.clone().unwrap_or_else(|| "unnamed".to_string());
+            received.write().await.push(name);
+            if received.read().await.len() == 2 {
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    let _ = tx.send(());
+                }
+            }
+            Ok(())
+        })
+    });
+
+    let topic_a = format!("topic-A-{}", new_uuid());
+    let topic_b = format!("topic-B-{}", new_uuid());
+    broker.subscribe_for_tasks(topic_a.clone(), handler_a).await.unwrap();
+    broker.subscribe_for_tasks(topic_b.clone(), handler_b).await.unwrap();
+
+    let m1 = twerk_core::task::Task {
+        name: Some("m1".to_string()),
+        ..Default::default()
+    };
+    let m2 = twerk_core::task::Task {
+        name: Some("m2".to_string()),
+        ..Default::default()
+    };
+    let m3 = twerk_core::task::Task {
+        name: Some("m3".to_string()),
+        ..Default::default()
+    };
+    let m4 = twerk_core::task::Task {
+        name: Some("m4".to_string()),
+        ..Default::default()
+    };
+    let m5 = twerk_core::task::Task {
+        name: Some("m5".to_string()),
+        ..Default::default()
+    };
+
+    broker.publish_task(topic_a.clone(), &m1).await.unwrap();
+    broker.publish_task(topic_b.clone(), &m4).await.unwrap();
+    broker.publish_task(topic_a.clone(), &m2).await.unwrap();
+    broker.publish_task(topic_b.clone(), &m5).await.unwrap();
+    broker.publish_task(topic_a.clone(), &m3).await.unwrap();
+
+    wait_for_handler_notification(&mut rx_a)
+        .await
+        .expect("Should receive all 3 messages on topic A");
+    wait_for_handler_notification(&mut rx_b)
+        .await
+        .expect("Should receive all 2 messages on topic B");
+
+    let guard_a = received_a.read().await;
+    let guard_b = received_b.read().await;
+    assert_eq!(
+        *guard_a,
+        vec!["m1", "m2", "m3"],
+        "Messages on topic A should arrive in FIFO order despite interleaved publishes"
+    );
+    assert_eq!(
+        *guard_b,
+        vec!["m4", "m5"],
+        "Messages on topic B should arrive in FIFO order despite interleaved publishes"
+    );
+}

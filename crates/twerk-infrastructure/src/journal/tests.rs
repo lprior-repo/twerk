@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use futures_lite::StreamExt;
 use tokio::sync::{Barrier, Mutex};
 use tokio::task;
 
@@ -61,13 +62,13 @@ async fn test_concurrent_appends() {
     start_signal.wait().await;
 
     for handle in handles {
-        handle.expect("task should not panic");
+        handle.await.expect("task should not panic");
     }
 
     drop(writer);
 
-    let reader = JournalReader::open(temp_dir.path()).expect("reader should open");
-    let entries: Vec<_> = reader.replay().collect::<Result<Vec<_>, _>>().await.unwrap();
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     assert_eq!(
         entries.len(),
@@ -89,7 +90,7 @@ async fn test_concurrent_appends() {
             "task {task_id} should have {entries_per_task} entries"
         );
 
-        let payloads: Vec<u8> = task_entries
+        let payloads: Vec<Vec<u8>> = task_entries
             .iter()
             .map(|e| {
                 if let super::JournalEvent::WorkflowStarted { input, .. } = &e.event {
@@ -172,13 +173,13 @@ async fn test_concurrent_mixed_events() {
     start_signal.wait().await;
 
     for handle in handles {
-        handle.expect("task should not panic");
+        handle.await.expect("task should not panic");
     }
 
     drop(writer);
 
-    let reader = JournalReader::open(temp_dir.path()).expect("reader should open");
-    let entries: Vec<_> = reader.replay().collect::<Result<Vec<_>, _>>().await.unwrap();
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     assert_eq!(
         entries.len(),
@@ -201,4 +202,26 @@ async fn test_concurrent_mixed_events() {
             events_per_task * 2
         );
     }
+}
+
+#[tokio::test]
+async fn test_journal_writer_commit_does_not_panic() {
+    let temp_dir = tempfile::tempdir().expect("tempdir should succeed");
+    let config = JournalWriterConfig {
+        path: temp_dir.path().to_path_buf(),
+        batch_size: 100,
+        channel_capacity: 1000,
+    };
+    let writer = JournalWriter::new(config).await.expect("writer should create");
+
+    let workflow_id = WorkflowId::new("test-workflow");
+    for i in 0..10 {
+        writer
+            .workflow_started(workflow_id.clone(), vec![i as u8])
+            .await
+            .expect("workflow_started should succeed");
+    }
+
+    writer.commit().await.expect("commit should succeed");
+    drop(writer);
 }

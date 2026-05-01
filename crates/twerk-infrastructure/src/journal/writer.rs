@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
-use fjall::{Database, Keyspace, KeyspaceCreateOptions};
+use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
 use time::OffsetDateTime;
 use tokio::sync::mpsc;
 use tokio::task;
@@ -184,5 +184,10 @@ impl JournalWriter {
     #[must_use]
     pub fn current_seq(&self) -> SequenceNumber {
         SequenceNumber(0)
+    }
+
+    pub async fn commit(&self) -> Result<()> {
+        self.db.persist(PersistMode::SyncAll)?;
+        Ok(())
     }
 }

@@ -8,22 +8,27 @@
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
-use governor::{clock::Clock, Quota, RateLimiter};
+use governor::{clock::Clock, Quota, RateLimiter, DefaultDirectRateLimiter};
 use std::future::Future;
 use std::num::NonZeroU32;
 use std::pin::Pin;
+use std::sync::Arc;
 
 // ── Rate Limiting ──────────────────────────────────────────────
 
 #[derive(Clone, Debug)]
 pub struct RateLimitConfig {
-    pub(crate) rps: u32,
+    pub(crate) limiter: Arc<DefaultDirectRateLimiter>,
 }
 
 impl RateLimitConfig {
     #[must_use]
     pub fn new(rps: u32) -> Self {
-        Self { rps }
+        let rps = NonZeroU32::new(rps.max(1)).unwrap_or(NonZeroU32::MIN);
+        let limiter = RateLimiter::direct(Quota::per_second(rps));
+        Self {
+            limiter: Arc::new(limiter),
+        }
     }
 }
 
@@ -35,8 +40,7 @@ pub async fn rate_limit_middleware(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let rps = NonZeroU32::new(config.rps.max(1)).unwrap_or(NonZeroU32::MIN);
-    let limiter = RateLimiter::direct(Quota::per_second(rps));
+    let limiter = config.limiter.as_ref();
 
     match limiter.check() {
         Ok(()) => Ok(next.run(request).await),

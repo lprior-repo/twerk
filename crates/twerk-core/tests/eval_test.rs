@@ -791,3 +791,77 @@ fn test_evaluate_expr_boolean_implication() {
     assert!(matches!(result, Ok(_)));
     assert_eq!(result.unwrap(), serde_json::json!(false));
 }
+
+// ---------------------------------------------------------------------------
+// Conditional expression (if-then-else) tests for ASL
+// These tests verify short-circuit evaluation of if-then-else expressions.
+// evalexpr does NOT natively support if-then-else, so these tests will fail
+// until a transformation layer is implemented.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_conditional_if_then_else_basic_positive() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(5));
+    let result = evaluate_expr("if x > 0 then x * 2 else -x", &context);
+    assert!(
+        result.is_ok(),
+        "if-then-else should be supported for ASL expressions"
+    );
+    assert_eq!(result.unwrap(), serde_json::json!(10));
+}
+
+#[test]
+fn test_conditional_if_then_else_basic_negative() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(-3));
+    let result = evaluate_expr("if x > 0 then x * 2 else -x", &context);
+    assert!(
+        result.is_ok(),
+        "if-then-else should be supported for ASL expressions"
+    );
+    assert_eq!(result.unwrap(), serde_json::json!(3));
+}
+
+#[test]
+fn test_conditional_if_then_else_zero() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(0));
+    let result = evaluate_expr("if x > 0 then x * 2 else -x", &context);
+    assert!(
+        result.is_ok(),
+        "if-then-else should be supported for ASL expressions"
+    );
+    assert_eq!(result.unwrap(), serde_json::json!(0));
+}
+
+#[test]
+fn test_conditional_nested_if_then_else() {
+    let mut context = empty_context();
+    context.insert("a".to_string(), serde_json::json!(true));
+    context.insert("b".to_string(), serde_json::json!(false));
+    let result = evaluate_expr("if a then if b then 1 else 2 else 3", &context);
+    assert!(
+        result.is_ok(),
+        "if-then-else should be supported for ASL expressions"
+    );
+    assert_eq!(result.unwrap(), serde_json::json!(2));
+}
+
+#[test]
+fn test_conditional_short_circuit_true_branch() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(5));
+    let result = evaluate_expr("if x > 0 then x else 1 / 0", &context);
+    assert!(result.is_ok(), "short-circuit: true branch should execute without error");
+    assert_eq!(result.unwrap(), serde_json::json!(5));
+}
+
+#[test]
+fn test_conditional_short_circuit_false_branch() {
+    let mut context = empty_context();
+    context.insert("x".to_string(), serde_json::json!(-1));
+    let result = evaluate_expr("if x > 0 then 1 / 0 else x", &context);
+    assert!(result.is_ok(), "short-circuit: false branch should execute without error");
+    assert_eq!(result.unwrap(), serde_json::json!(-1));
+}

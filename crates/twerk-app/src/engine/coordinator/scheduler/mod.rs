@@ -24,6 +24,8 @@ mod shared;
 mod subjob;
 
 #[cfg(test)]
+mod dag;
+#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
@@ -46,6 +48,10 @@ pub(super) enum SchedulerError {
     MissingEachTemplate,
     #[error("failed to evaluate {context}: {error}")]
     Evaluation { context: String, error: String },
+    #[error("circular dependency detected involving task {task_id}")]
+    CircularDependency { task_id: String },
+    #[error("task not found: {task_id}")]
+    TaskNotFound { task_id: String },
 }
 
 /// Scheduler handles task scheduling based on task type.
@@ -78,5 +84,112 @@ impl Scheduler {
         } else {
             self.schedule_regular_task(task).await
         }
+    }
+
+    #[cfg(test)]
+    pub(super) async fn submit_dag(&self, tasks: Vec<twerk_core::task::Task>) -> Result<()> {
+        use twerk_core::id::TaskId;
+        use std::collections::{HashMap, HashSet};
+
+        if tasks.is_empty() {
+            return Ok(());
+        }
+
+        let task_ids: HashSet<TaskId> = tasks.iter().filter_map(|t| t.id.clone()).collect();
+        let mut adjacency: HashMap<TaskId, Vec<TaskId>> = HashMap::new();
+        let mut in_degree: HashMap<TaskId, usize> = HashMap::new();
+
+        for task in &tasks {
+            let id = task.id.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("task ID required")
+            })?;
+            in_degree.insert(id.clone(), 0);
+            adjacency.insert(id.clone(), vec![]);
+        }
+
+        for task in &tasks {
+            let id = task.id.as_ref().ok_or_else(|| anyhow::anyhow!("task ID required"))?;
+            if let Some(deps) = &task.depends_on {
+                for dep_id in deps {
+                    if !task_ids.contains(dep_id) {
+                        return Err(anyhow::anyhow!("dependency {} not found in submitted tasks", dep_id)).into();
+                    }
+                    adjacency.get_mut(dep_id).unwrap().push(id.clone());
+                    *in_degree.get_mut(id).unwrap() += 1;
+                }
+            }
+        }
+
+        let mut queue: Vec<TaskId> = in_degree.iter().filter(|(_, &d)| d == 0).map(|(id, _)| id.clone()).collect();
+        let mut sorted: Vec<TaskId> = Vec::new();
+
+        while let Some(node) = queue.pop() {
+            sorted.push(node.clone());
+            if let Some(neighbors) = adjacency.get(&node) {
+                for neighbor in neighbors {
+                    *in_degree.get_mut(neighbor).unwrap() -= 1;
+                    if in_degree.get(neighbor) == Some(&0) {
+                        queue.push(neighbor.clone());
+                    }
+                }
+            }
+        }
+
+        if sorted.len() != tasks.len() {
+            let remaining: Vec<TaskId> = in_degree.iter().filter(|(_, &d)| d > 0).map(|(id, _)| id.clone()).collect();
+            if let Some(first) = remaining.first() {
+                return Err(anyhow::anyhow!("circular dependency detected involving task {}", first)).into();
+            }
+        }
+
+        for task_id in sorted {
+            let task = tasks.iter().find(|t| t.id.as_ref() == Some(&task_id)).unwrap();
+            self.schedule_task(task.clone()).await?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) async fn mark_task_failed(&self, task_id: &twerk_core::id::TaskId) -> Result<()> {
+        use twerk_core::task::TaskState;
+
+        let task = self.ds.get_task_by_id(&task_id.to_string()).await
+            .map_err(|_| SchedulerError::TaskNotFound { task_id: task_id.to_string() })?;
+
+        if task.state != TaskState::Failed {
+            self.ds.update_task(&task_id.to_string(), Box::new(|mut t| {
+                t.state = TaskState::Failed;
+                Ok(t)
+            })).await.map_err(|e| anyhow::anyhow!(e))?;
+        }
+
+        self.propagate_cancellation(task_id).await?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    async fn propagate_cancellation(&self, failed_task_id: &twerk_core::id::TaskId) -> Result<()> {
+        use twerk_core::task::TaskState;
+
+        let all_tasks = self.ds.get_all_tasks_for_job(&failed_task_id.to_string()).await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        let dependents: Vec<twerk_core::id::TaskId> = all_tasks.iter()
+            .filter(|t| t.depends_on.as_ref().map_or(false, |deps| deps.contains(failed_task_id)))
+            .filter(|t| t.state.is_active())
+            .map(|t| t.id.clone().unwrap())
+            .collect();
+
+        for dependent_id in dependents {
+            self.ds.update_task(&dependent_id.to_string(), Box::new(|mut t| {
+                t.state = TaskState::Cancelled;
+                Ok(t)
+            })).await.map_err(|e| anyhow::anyhow!(e))?;
+
+            self.propagate_cancellation(&dependent_id).await?;
+        }
+
+        Ok(())
     }
 }

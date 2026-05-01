@@ -229,3 +229,95 @@ async fn journal_writer_without_commit_events_lost_on_crash() {
         "Without commit(), events should be lost on crash (not durable)"
     );
 }
+
+#[tokio::test]
+async fn journal_writer_batch_commit_throughput_vs_individual_commits() {
+    let event_count = 100;
+    let batch_size = event_count * 2;
+
+    let temp_dir = TempDir::new().unwrap();
+    let journal_path = temp_dir.path().join("journal_batch");
+
+    let config = JournalWriterConfig {
+        path: journal_path.clone(),
+        batch_size,
+        channel_capacity: event_count * 2,
+    };
+    let writer = JournalWriter::new(config).await.unwrap();
+
+    let workflow_id = WorkflowId::new("batch-throughput-test");
+
+    let start = std::time::Instant::now();
+    for i in 0..event_count {
+        let data = format!("batch-event-{}", i);
+        writer
+            .workflow_started(workflow_id.clone(), data.into_bytes())
+            .await
+            .unwrap();
+    }
+    writer.commit().await.unwrap();
+    let batch_time = start.elapsed();
+
+    drop(writer);
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let reader = JournalReader::open(&journal_path).await.unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+    assert_eq!(
+        entries.len(),
+        event_count,
+        "All {} events should be recoverable after batch commit",
+        event_count
+    );
+
+    let sequences: Vec<u64> = entries.iter().map(|e| e.seq.0).collect();
+    let mut expected_sequences: Vec<u64> = (0..event_count as u64).collect();
+    assert_eq!(
+        sequences, expected_sequences,
+        "Sequence numbers should be in order 0..{}", event_count - 1
+    );
+
+    let temp_dir2 = TempDir::new().unwrap();
+    let journal_path2 = temp_dir2.path().join("journal_individual");
+
+    let config2 = JournalWriterConfig {
+        path: journal_path2.clone(),
+        batch_size,
+        channel_capacity: event_count * 2,
+    };
+    let writer2 = JournalWriter::new(config2).await.unwrap();
+
+    let workflow_id2 = WorkflowId::new("individual-throughput-test");
+
+    let start_individual = std::time::Instant::now();
+    for i in 0..event_count {
+        let data = format!("individual-event-{}", i);
+        writer2
+            .workflow_started(workflow_id2.clone(), data.into_bytes())
+            .await
+            .unwrap();
+        writer2.commit().await.unwrap();
+    }
+    let individual_time = start_individual.elapsed();
+
+    drop(writer2);
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let reader2 = JournalReader::open(&journal_path2).await.unwrap();
+    let entries2: Vec<_> = reader2.replay().try_collect().await.unwrap();
+    assert_eq!(
+        entries2.len(),
+        event_count,
+        "All {} events should be recoverable after individual commits",
+        event_count
+    );
+
+    let speedup = individual_time.as_secs_f64() / batch_time.as_secs_f64();
+
+    assert!(
+        speedup > 5.0,
+        "Batch commit should be >5x faster than individual commits. \
+         Batch: {:?}, Individual: {:?}, Speedup: {:.2}x",
+        batch_time, individual_time, speedup
+    );
+}

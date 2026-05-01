@@ -6,7 +6,6 @@ use tracing::error;
 use utoipa::ToSchema;
 
 const PROBLEM_CONTENT_TYPE: &str = "application/problem+json";
-const INTERNAL_ERROR_MSG: &str = "Internal Server Error";
 
 #[derive(Debug, Error, PartialEq, Eq, ToSchema)]
 pub enum ApiError {
@@ -33,7 +32,7 @@ impl ApiError {
 
     fn problem_type_uri(&self) -> &'static str {
         match self {
-            Self::BadRequest(_) => "https://httpstatus.es/400",
+            Self::BadRequest(_) => "about:blank",
             Self::NotFound(_) => "https://httpstatus.es/404",
             Self::Internal(_) => "https://httpstatus.es/500",
         }

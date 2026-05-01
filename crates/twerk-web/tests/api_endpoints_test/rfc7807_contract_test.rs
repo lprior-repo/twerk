@@ -4,7 +4,6 @@ use axum::{
 };
 use bytes::Bytes;
 use http_body_util::BodyExt;
-use serde_json::json;
 use tower::ServiceExt;
 
 use twerk_infrastructure::broker::inmemory::InMemoryBroker;
@@ -250,4 +249,39 @@ async fn all_error_responses_use_application_problem_json() {
             response.content_type()
         );
     }
+}
+
+#[tokio::test]
+async fn post_invalid_json_returns_rfc7807_problem_with_about_blank_type() {
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("/jobs")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from("{invalid json"))
+        .expect("request should build");
+    let response = call(request).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(
+        response.content_type().contains("application/problem+json"),
+        "expected application/problem+json, got: {}",
+        response.content_type()
+    );
+
+    let json = response.json();
+    assert!(json.get("type").is_some(), "RFC 7807 response missing 'type' field");
+    assert!(json.get("title").is_some(), "RFC 7807 response missing 'title' field");
+    assert!(json.get("status").is_some(), "RFC 7807 response missing 'status' field");
+    assert!(json.get("detail").is_some(), "RFC 7807 response missing 'detail' field");
+    assert_eq!(
+        json["status"].as_i64().unwrap() as u16,
+        400,
+        "status field mismatch"
+    );
+    assert_eq!(
+        json["type"].as_str().unwrap(),
+        "about:blank",
+        "type URI should be 'about:blank', got: {}",
+        json["type"]
+    );
 }

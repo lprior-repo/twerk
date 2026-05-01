@@ -3,15 +3,18 @@
 use super::state::{Mode, State};
 use super::types::{
     EndpointHandler, JobListener, JobMiddlewareFunc, LogMiddlewareFunc, NodeMiddlewareFunc,
-    TaskMiddlewareFunc, WebMiddlewareFunc,
+    SubmitTaskError, TaskHandle, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 use super::TOPIC_JOB;
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::error;
+use twerk_core::id::TaskId;
+use twerk_core::task::Task;
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::datastore::Datastore;
 use twerk_infrastructure::runtime::{Mounter, Runtime};
+use twerk_common::constants::DEFAULT_TASK_NAME;
 
 // ── Typed engine registration errors ───────────────────────────────
 
@@ -198,5 +201,39 @@ impl super::Engine {
     pub fn add_job_listener(&self, listener: JobListener) {
         let mut listeners = self.job_listeners.blocking_write();
         listeners.push(listener);
+    }
+
+    /// Submit a task to the engine and returns a handle with the task ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The engine is not running
+    /// - A task with the same ID has already been submitted
+    pub async fn submit_task(&self, mut task: Task) -> Result<TaskHandle, SubmitTaskError> {
+        if self.state != State::Running {
+            return Err(SubmitTaskError::NotRunning);
+        }
+
+        let task_id = match task.id {
+            Some(id) => {
+                if self.submitted_tasks.contains(&id) {
+                    return Err(SubmitTaskError::DuplicateTaskId(id));
+                }
+                id
+            }
+            None => TaskId::new(DEFAULT_TASK_NAME),
+        };
+
+        task.id = Some(task_id.clone());
+        self.submitted_tasks.insert(task_id.clone());
+
+        let queue_name = task.queue.clone().unwrap_or_else(|| DEFAULT_TASK_NAME.to_string());
+        self.broker
+            .publish_task(queue_name, &task)
+            .await
+            .map_err(|e| SubmitTaskError::NotRunning)?;
+
+        Ok(TaskHandle { task_id })
     }
 }

@@ -35,9 +35,9 @@ pub use datastore::DatastoreProxy;
 pub use engine_helpers::{resolve_locker_type, MockRuntime};
 pub use types::{
     Config, EndpointHandler, JobEventType, JobHandlerError, JobHandlerFunc, JobListener,
-    JobMiddlewareFunc, LogHandlerError, LogHandlerFunc, LogMiddlewareFunc, Middleware, Mode,
-    NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, TaskEventType, TaskHandlerError,
-    TaskHandlerFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
+    JobMiddlewareFunc, LogHandlerError, LogMiddlewareFunc, Middleware, Mode,
+    NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, SubmitTaskError, TaskEventType,
+    TaskHandlerError, TaskHandlerFunc, TaskHandle, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 
 /// Topic constant for job events

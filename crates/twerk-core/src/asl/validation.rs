@@ -4,11 +4,28 @@
 //! dead-end identification for [`StateMachine`].
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use thiserror::Error;
 
 use super::machine::StateMachine;
 use super::state::StateKind;
 use super::transition::Transition;
 use super::types::StateName;
+
+// ---------------------------------------------------------------------------
+// TransitionValidationError
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum TransitionValidationError {
+    #[error("transition from '{0}' to '{1}' is not valid")]
+    InvalidTransition(StateName, StateName),
+
+    #[error("state '{0}' is terminal and cannot have an outgoing transition")]
+    TerminalState(StateName),
+
+    #[error("target state '{0}' does not exist in the state machine")]
+    UnknownState(StateName),
+}
 
 // ---------------------------------------------------------------------------
 // ValidationReport
@@ -194,5 +211,126 @@ pub fn analyze(machine: &StateMachine) -> ValidationReport {
         unreachable_states,
         cycles,
         dead_end_states,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// validate_transition
+// ---------------------------------------------------------------------------
+
+fn is_valid_transition(from: &StateName, to: &StateName) -> bool {
+    let valid_pairs = [
+        ("Running", "Succeeded"),
+        ("Running", "Fail"),
+        ("Running", "Done"),
+        ("Pending", "Running"),
+        ("Init", "Running"),
+        ("Init", "Pending"),
+    ];
+
+    valid_pairs
+        .iter()
+        .any(|(f, t)| from.as_str() == *f && to.as_str() == *t)
+}
+
+pub fn validate_transition(
+    machine: &StateMachine,
+    from: &StateName,
+    to: &StateName,
+) -> Result<(), TransitionValidationError> {
+    let from_state = machine
+        .get_state(from)
+        .ok_or_else(|| TransitionValidationError::UnknownState(from.clone()))?;
+
+    if !machine.states().contains_key(to) {
+        return Err(TransitionValidationError::UnknownState(to.clone()));
+    }
+
+    if from_state.kind().is_terminal() {
+        return Err(TransitionValidationError::TerminalState(from.clone()));
+    }
+
+    if !is_valid_transition(from, to) {
+        return Err(TransitionValidationError::InvalidTransition(
+            from.clone(),
+            to.clone(),
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::asl::machine::StateMachine;
+    use crate::asl::pass::PassState;
+    use crate::asl::state::State;
+    use indexmap::IndexMap;
+
+    fn make_pass_next(target: &str) -> State {
+        State::new(StateKind::Pass(PassState::new(
+            None,
+            Transition::next(StateName::new(target).unwrap()),
+        )))
+    }
+
+    fn make_succeed() -> State {
+        State::new(StateKind::Succeed(crate::asl::terminal::SucceedState::new()))
+    }
+
+    fn make_fail() -> State {
+        State::new(StateKind::Fail(crate::asl::terminal::FailState::new(
+            None,
+            None,
+        )))
+    }
+
+    fn sn(name: &str) -> StateName {
+        StateName::new(name).unwrap()
+    }
+
+    #[test]
+    fn validate_transition_running_to_succeeded_is_ok() {
+        let mut states = IndexMap::new();
+        states.insert(sn("Running"), make_pass_next("Succeeded"));
+        states.insert(sn("Succeeded"), make_succeed());
+        let m = StateMachine::new(sn("Running"), states);
+        assert_eq!(validate_transition(&m, &sn("Running"), &sn("Succeeded")), Ok(()));
+    }
+
+    #[test]
+    fn validate_transition_running_to_pending_is_err() {
+        let mut states = IndexMap::new();
+        states.insert(sn("Running"), make_pass_next("Pending"));
+        states.insert(sn("Pending"), make_pass_next("Running"));
+        let m = StateMachine::new(sn("Running"), states);
+        assert!(matches!(
+            validate_transition(&m, &sn("Running"), &sn("Pending")),
+            Err(TransitionValidationError::InvalidTransition(_, _))
+        ));
+    }
+
+    #[test]
+    fn validate_transition_from_terminal_state_is_err() {
+        let mut states = IndexMap::new();
+        states.insert(sn("Succeeded"), make_succeed());
+        states.insert(sn("Running"), make_pass_next("Succeeded"));
+        let m = StateMachine::new(sn("Succeeded"), states);
+        assert!(matches!(
+            validate_transition(&m, &sn("Succeeded"), &sn("Running")),
+            Err(TransitionValidationError::TerminalState(_))
+        ));
+    }
+
+    #[test]
+    fn validate_transition_to_unknown_state_is_err() {
+        let mut states = IndexMap::new();
+        states.insert(sn("Running"), make_pass_next("Ghost"));
+        let m = StateMachine::new(sn("Running"), states);
+        assert!(matches!(
+            validate_transition(&m, &sn("Running"), &sn("Ghost")),
+            Err(TransitionValidationError::UnknownState(_))
+        ));
     }
 }

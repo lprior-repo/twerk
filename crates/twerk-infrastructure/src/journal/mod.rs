@@ -10,7 +10,7 @@ mod writer;
 #[cfg(test)]
 mod tests;
 
-pub use events::{JournalEntry, JournalEvent, SequenceNumber};
+pub use events::{JournalEntry, JournalEvent, SequenceNumber, Timestamp};
 pub use reader::JournalReader;
 pub use writer::{JournalWriter, JournalWriterConfig};
 

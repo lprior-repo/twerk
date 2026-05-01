@@ -5,12 +5,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
-use time::OffsetDateTime;
 use tokio::sync::mpsc;
 use tokio::task;
 use tracing::{debug, error, instrument};
 
-use super::events::{JournalEntry, JournalEvent, SequenceNumber};
+use super::events::{JournalEntry, JournalEvent, SequenceNumber, Timestamp};
 use super::{SlotId, StepName, WorkflowId, JOURNAL_PARTITION};
 
 #[derive(Debug, Clone)]
@@ -77,7 +76,7 @@ impl JournalWriter {
                     current_seq = SequenceNumber::next(Some(current_seq));
                     let entry = JournalEntry {
                         seq: current_seq,
-                        ts: OffsetDateTime::now_utc(),
+                        ts: Timestamp::now(),
                         event,
                     };
                     let encoded = postcard::to_allocvec(&entry)?;

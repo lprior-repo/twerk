@@ -11,7 +11,7 @@ use tokio::sync::{Barrier, Mutex};
 use tokio::task;
 
 use super::{JournalReader, JournalWriter, JournalWriterConfig};
-use super::{JournalEntry, JournalEvent, SequenceNumber};
+use super::{JournalEntry, JournalEvent, SequenceNumber, Timestamp};
 use crate::journal::{StepName, WorkflowId, JOURNAL_PARTITION};
 
 fn temp_journal_path() -> tempfile::TempDir {
@@ -232,7 +232,7 @@ async fn test_journal_writer_commit_does_not_panic() {
 fn write_entry_direct(
     db: &Database,
     seq: SequenceNumber,
-    ts: time::OffsetDateTime,
+    ts: Timestamp,
     event: JournalEvent,
 ) {
     let keyspace = db
@@ -250,10 +250,11 @@ async fn test_journal_reader_replays_in_chronological_order() {
     let db = Database::builder(temp_dir.path()).open().unwrap();
     let workflow_id = WorkflowId::new("chronological-test-workflow");
 
-    let base_ts = time::OffsetDateTime::now_utc();
+    let base_dt = time::OffsetDateTime::now_utc();
 
     for i in 0..10u64 {
-        let ts = base_ts + Duration::seconds(i as i64);
+        let ts_dt = base_dt + Duration::seconds(i as i64);
+        let ts = Timestamp::from_offsetdatetime(ts_dt);
         let entry_num = i as u8;
         write_entry_direct(
             &db,
@@ -281,7 +282,8 @@ async fn test_journal_reader_replays_in_chronological_order() {
             i,
             i
         );
-        let expected_ts = base_ts + Duration::seconds(i as i64);
+        let expected_ts_dt = base_dt + Duration::seconds(i as i64);
+        let expected_ts = Timestamp::from_offsetdatetime(expected_ts_dt);
         assert_eq!(
             entries[i].ts, expected_ts,
             "entry {} should have ts {:?}, got {:?}",
@@ -306,12 +308,12 @@ async fn test_journal_reader_out_of_order_timestamp_still_returns_in_seq_order()
     let db = Database::builder(temp_dir.path()).open().unwrap();
     let workflow_id = WorkflowId::new("ooto-test-workflow");
 
-    let base_ts = time::OffsetDateTime::now_utc();
+    let base_dt = time::OffsetDateTime::now_utc();
 
     write_entry_direct(
         &db,
         SequenceNumber(0),
-        base_ts + Duration::seconds(5),
+        Timestamp::from_offsetdatetime(base_dt + Duration::seconds(5)),
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_id.clone(),
             input: vec![0],
@@ -320,7 +322,7 @@ async fn test_journal_reader_out_of_order_timestamp_still_returns_in_seq_order()
     write_entry_direct(
         &db,
         SequenceNumber(1),
-        base_ts + Duration::seconds(1),
+        Timestamp::from_offsetdatetime(base_dt + Duration::seconds(1)),
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_id.clone(),
             input: vec![1],
@@ -329,7 +331,7 @@ async fn test_journal_reader_out_of_order_timestamp_still_returns_in_seq_order()
     write_entry_direct(
         &db,
         SequenceNumber(2),
-        base_ts + Duration::seconds(3),
+        Timestamp::from_offsetdatetime(base_dt + Duration::seconds(3)),
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_id.clone(),
             input: vec![2],
@@ -362,14 +364,14 @@ async fn test_journal_reader_no_native_seek_by_timestamp() {
     let db = Database::builder(temp_dir.path()).open().unwrap();
     let workflow_id = WorkflowId::new("seek-test-workflow");
 
-    let base_ts = time::OffsetDateTime::now_utc();
+    let base_dt = time::OffsetDateTime::now_utc();
 
     for i in 0..5u64 {
-        let ts = base_ts + Duration::seconds(i as i64);
+        let ts_dt = base_dt + Duration::seconds(i as i64);
         write_entry_direct(
             &db,
             SequenceNumber(i),
-            ts,
+            Timestamp::from_offsetdatetime(ts_dt),
             JournalEvent::WorkflowStarted {
                 workflow_id: workflow_id.clone(),
                 input: vec![i as u8],
@@ -384,7 +386,8 @@ async fn test_journal_reader_no_native_seek_by_timestamp() {
     let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
     assert_eq!(entries.len(), 5, "replay should return all 5 entries");
 
-    let seek_target_ts = base_ts + Duration::seconds(2);
+    let seek_target_dt = base_dt + Duration::seconds(2);
+    let seek_target_ts = Timestamp::from_offsetdatetime(seek_target_dt);
 
     let entries_after_seek: Vec<_> = entries
         .iter()
@@ -394,8 +397,8 @@ async fn test_journal_reader_no_native_seek_by_timestamp() {
 
     assert_eq!(
         entries_after_seek.len(),
-        3,
-        "there are 3 entries with ts > seek_target_ts (seq 3, 4, 5)"
+        2,
+        "there are 2 entries with ts > seek_target_ts (seq 3, 4)"
     );
 
     for entry in &entries_after_seek {

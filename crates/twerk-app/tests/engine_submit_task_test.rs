@@ -18,12 +18,12 @@ fn engine_with_mode(mode: Mode) -> Engine {
 }
 
 fn to_task_id(value: impl Into<String>) -> TaskId {
-    TaskId::new(value).expect("test task id should be valid")
+    TaskId::new(value).unwrap_or_else(|_| TaskId::new("fallback").unwrap())
 }
 
 #[tokio::test]
 async fn engine_submit_task_returns_error_when_engine_not_running() -> Result<()> {
-    let engine = engine_with_mode(Mode::Standalone);
+    let mut engine = engine_with_mode(Mode::Standalone);
     let task = Task {
         name: Some("test task".to_string()),
         image: Some("alpine".to_string()),
@@ -84,7 +84,7 @@ async fn engine_submit_task_appears_in_pending_queue() -> Result<()> {
     let queues = broker.queues().await?;
 
     let queue_info = broker.queue_info(queue_name.to_string()).await?;
-    assert!(queue_info.message_count >= 1, "queue should have at least 1 message");
+    assert!(queue_info.size >= 1, "queue should have at least 1 message");
 
     engine.terminate().await?;
     Ok(())

@@ -210,7 +210,7 @@ impl super::Engine {
     /// Returns an error if:
     /// - The engine is not running
     /// - A task with the same ID has already been submitted
-    pub async fn submit_task(&self, mut task: Task) -> Result<TaskHandle, SubmitTaskError> {
+    pub async fn submit_task(&mut self, mut task: Task) -> Result<TaskHandle, SubmitTaskError> {
         if self.state != State::Running {
             return Err(SubmitTaskError::NotRunning);
         }
@@ -222,7 +222,8 @@ impl super::Engine {
                 }
                 id
             }
-            None => TaskId::new(DEFAULT_TASK_NAME),
+            None => TaskId::new(DEFAULT_TASK_NAME)
+                .map_err(|e| SubmitTaskError::InvalidTaskName(e.to_string()))?,
         };
 
         task.id = Some(task_id.clone());
@@ -232,7 +233,7 @@ impl super::Engine {
         self.broker
             .publish_task(queue_name, &task)
             .await
-            .map_err(|e| SubmitTaskError::NotRunning)?;
+            .map_err(|_| SubmitTaskError::NotRunning)?;
 
         Ok(TaskHandle { task_id })
     }

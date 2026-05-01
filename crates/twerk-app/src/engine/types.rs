@@ -141,6 +141,10 @@ pub enum SubmitTaskError {
     NotRunning,
     #[error("task with id {0} already exists")]
     DuplicateTaskId(twerk_core::id::TaskId),
+    #[error("task was cancelled")]
+    Cancelled,
+    #[error("invalid task name: {0}")]
+    InvalidTaskName(String),
 }
 
 // ── Configuration ──────────────────────────────────────────────

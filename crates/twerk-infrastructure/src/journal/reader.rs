@@ -1,5 +1,6 @@
 //! Journal reader for replaying workflow events.
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -13,43 +14,98 @@ use super::{WorkflowId, JOURNAL_PARTITION};
 
 pub struct JournalReader {
     db: Arc<Database>,
+    entries: RefCell<Vec<JournalEntry>>,
+    position: RefCell<usize>,
 }
 
 impl JournalReader {
     pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         let db = Database::builder(&path).open()?;
-        Ok(Self { db: db.into() })
+        Ok(Self {
+            db: db.into(),
+            entries: RefCell::new(Vec::new()),
+            position: RefCell::new(0),
+        })
+    }
+
+    fn load_entries(&self) -> Result<()> {
+        let mut entries = self.entries.borrow_mut();
+        if !entries.is_empty() {
+            return Ok(());
+        }
+
+        let keyspace = match self.db.keyspace(JOURNAL_PARTITION, KeyspaceCreateOptions::default) {
+            Ok(ks) => ks,
+            Err(e) => return Err(anyhow::anyhow!("failed to open keyspace: {}", e)),
+        };
+
+        for guard in keyspace.range::<Vec<u8>, _>(..) {
+            match guard.into_inner() {
+                Ok((_key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
+                    Ok(entry) => entries.push(entry),
+                    Err(e) => {
+                        return Err(anyhow::anyhow!("failed to deserialize: {}", e))
+                    }
+                },
+                Err(e) => return Err(anyhow::anyhow!("guard error: {}", e)),
+            }
+        }
+
+        entries.sort_by_key(|e| e.ts);
+        *self.position.borrow_mut() = 0;
+        Ok(())
+    }
+
+    pub fn seek_to(&self, timestamp_ms: i64) -> bool {
+        if let Err(e) = self.load_entries() {
+            tracing::debug!("seek_to failed to load entries: {}", e);
+            return false;
+        }
+
+        let entries = self.entries.borrow().clone();
+        let mut position = self.position.borrow_mut();
+
+        if entries.is_empty() {
+            return false;
+        }
+
+        for (i, entry) in entries.iter().enumerate() {
+            if entry.ts.unix_timestamp_nanos() / 1_000_000 >= timestamp_ms as i128 {
+                *position = i;
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn next(&self) -> Option<JournalEntry> {
+        let mut position = self.position.borrow_mut();
+        let entries = self.entries.borrow();
+
+        if *position >= entries.len() {
+            return None;
+        }
+
+        let entry = entries[*position].clone();
+        *position += 1;
+        Some(entry)
     }
 
     pub fn replay(&self) -> impl Stream<Item = Result<JournalEntry>> + '_ {
         debug!("starting journal replay");
 
-        let db = self.db.clone();
-        let entries: Vec<Result<JournalEntry>> = (move || {
-            let keyspace = match db.keyspace(JOURNAL_PARTITION, KeyspaceCreateOptions::default) {
-                Ok(ks) => ks,
-                Err(e) => {
-                    return vec![Err(anyhow::anyhow!("failed to open keyspace: {}", e))];
-                }
-            };
-
-            let mut entries = Vec::new();
-            for guard in keyspace.range::<Vec<u8>, _>(..) {
-                match guard.into_inner() {
-                    Ok((_key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
-                        Ok(entry) => entries.push(Ok(entry)),
-                        Err(e) => {
-                            entries.push(Err(anyhow::anyhow!("failed to deserialize: {}", e)))
-                        }
-                    },
-                    Err(e) => entries.push(Err(anyhow::anyhow!("guard error: {}", e))),
-                }
+        let needs_load = self.entries.borrow().is_empty();
+        if needs_load {
+            if let Err(e) = self.load_entries() {
+                return futures_lite::stream::iter(vec![Err(e)]);
             }
-            entries
-        })();
+        }
 
-        futures_lite::stream::iter(entries)
+        *self.position.borrow_mut() = 0;
+        let entries = self.entries.borrow().clone();
+        let results: Vec<Result<JournalEntry>> = entries.into_iter().map(Ok).collect();
+        futures_lite::stream::iter(results)
     }
 
     pub fn replay_workflow(

@@ -47,6 +47,7 @@ rstest.workspace = true
 proptest.workspace = true
 rand.workspace = true
 rand_chacha = "0.9"
+tracing-subscriber.workspace = true
 
 [[bin]]
 name = "openapi-gen"

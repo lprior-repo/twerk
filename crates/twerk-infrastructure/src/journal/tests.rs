@@ -411,3 +411,101 @@ async fn test_journal_reader_no_native_seek_by_timestamp() {
         );
     }
 }
+
+#[tokio::test]
+async fn test_journal_reader_skips_corrupt_entries() {
+    let temp_dir = temp_journal_path();
+    let db = Database::builder(temp_dir.path()).open().unwrap();
+    let keyspace = db
+        .keyspace(JOURNAL_PARTITION, || KeyspaceCreateOptions::default())
+        .unwrap();
+
+    let workflow_a = WorkflowId::new("workflow-a");
+    let workflow_b = WorkflowId::new("workflow-b");
+    let workflow_c = WorkflowId::new("workflow-c");
+    let base_ts = time::OffsetDateTime::now_utc();
+
+    write_entry_direct(
+        &db,
+        SequenceNumber(0),
+        base_ts,
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_a.clone(),
+            input: vec![0xA],
+        },
+    );
+    write_entry_direct(
+        &db,
+        SequenceNumber(1),
+        base_ts,
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_b.clone(),
+            input: vec![0xB],
+        },
+    );
+
+    let corrupt_key = SequenceNumber(2).0.to_le_bytes().to_vec();
+    let corrupt_value = vec![0xFF, 0xFE, 0xFD];
+    keyspace.insert(corrupt_key.clone(), corrupt_value).unwrap();
+
+    write_entry_direct(
+        &db,
+        SequenceNumber(3),
+        base_ts,
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_c.clone(),
+            input: vec![0xC],
+        },
+    );
+
+    drop(db);
+
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(
+        entries.len(),
+        3,
+        "should have exactly 3 valid entries (corrupt entry skipped), got {}",
+        entries.len()
+    );
+
+    let entry_0 = entries
+        .iter()
+        .find(|e| e.seq == SequenceNumber(0))
+        .expect("entry A (seq 0) should be present");
+    if let JournalEvent::WorkflowStarted { workflow_id, input } = &entry_0.event {
+        assert_eq!(workflow_id, &workflow_a);
+        assert_eq!(input, &[0xA]);
+    } else {
+        panic!("expected WorkflowStarted for entry A");
+    }
+
+    let entry_1 = entries
+        .iter()
+        .find(|e| e.seq == SequenceNumber(1))
+        .expect("entry B (seq 1) should be present");
+    if let JournalEvent::WorkflowStarted { workflow_id, input } = &entry_1.event {
+        assert_eq!(workflow_id, &workflow_b);
+        assert_eq!(input, &[0xB]);
+    } else {
+        panic!("expected WorkflowStarted for entry B");
+    }
+
+    let entry_3 = entries
+        .iter()
+        .find(|e| e.seq == SequenceNumber(3))
+        .expect("entry C (seq 3) should be present");
+    if let JournalEvent::WorkflowStarted { workflow_id, input } = &entry_3.event {
+        assert_eq!(workflow_id, &workflow_c);
+        assert_eq!(input, &[0xC]);
+    } else {
+        panic!("expected WorkflowStarted for entry C");
+    }
+
+    let corrupt_present = entries.iter().any(|e| e.seq == SequenceNumber(2));
+    assert!(
+        !corrupt_present,
+        "corrupt entry (seq 2) should NOT be present in replayed entries"
+    );
+}

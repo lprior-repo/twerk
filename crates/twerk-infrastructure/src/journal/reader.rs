@@ -7,7 +7,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use fjall::{Database, KeyspaceCreateOptions};
 use futures_lite::Stream;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::events::{JournalEntry, SequenceNumber};
 use super::{WorkflowId, JOURNAL_PARTITION};
@@ -42,13 +42,15 @@ impl JournalReader {
 
         for guard in keyspace.range::<Vec<u8>, _>(..) {
             match guard.into_inner() {
-                Ok((_key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
+                Ok((key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
                     Ok(entry) => entries.push(entry),
                     Err(e) => {
-                        return Err(anyhow::anyhow!("failed to deserialize: {}", e))
+                        warn!(key = ?key, error = %e, "skipping corrupt journal entry during load");
                     }
                 },
-                Err(e) => return Err(anyhow::anyhow!("guard error: {}", e)),
+                Err(e) => {
+                    warn!(error = %e, "guard error during journal load");
+                }
             }
         }
 
@@ -71,7 +73,7 @@ impl JournalReader {
         }
 
         for (i, entry) in entries.iter().enumerate() {
-            if entry.ts.unix_timestamp_nanos() / 1_000_000 >= timestamp_ms as i128 {
+            if entry.ts.to_offsetdatetime().unix_timestamp_nanos() / 1_000_000 >= timestamp_ms as i128 {
                 *position = i;
                 return true;
             }
@@ -127,17 +129,19 @@ impl JournalReader {
             let mut entries = Vec::new();
             for guard in keyspace.range::<Vec<u8>, _>(..) {
                 match guard.into_inner() {
-                    Ok((_key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
+                    Ok((key, value)) => match postcard::from_bytes::<JournalEntry>(&value) {
                         Ok(entry) => {
                             if entry.event.workflow_id() == &wid {
                                 entries.push(Ok(entry));
                             }
                         }
                         Err(e) => {
-                            entries.push(Err(anyhow::anyhow!("failed to deserialize: {}", e)))
+                            warn!(key = ?key, error = %e, "skipping corrupt journal entry during workflow replay");
                         }
                     },
-                    Err(e) => entries.push(Err(anyhow::anyhow!("guard error: {}", e))),
+                    Err(e) => {
+                        warn!(error = %e, "guard error during workflow journal replay");
+                    }
                 }
             }
             entries

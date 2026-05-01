@@ -1,12 +1,10 @@
 #![allow(clippy::unwrap_used)]
 
-use std::io::Read as IoRead;
-use futures_lite::StreamExt;
+use futures_lite::stream::StreamExt;
 use tempfile::TempDir;
 use twerk_infrastructure::journal::{
-    JournalReader, JournalWriter, JournalWriterConfig, StepName, WorkflowId, JOURNAL_PARTITION,
+    JournalReader, JournalWriter, JournalWriterConfig, StepName, WorkflowId,
 };
-use fjall::{Database, KeyspaceCreateOptions};
 
 #[tokio::test]
 async fn journal_writer_commit_flushes_entries_to_disk() {
@@ -35,6 +33,8 @@ async fn journal_writer_commit_flushes_entries_to_disk() {
     writer.commit().await.unwrap();
 
     drop(writer);
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let reader = JournalReader::open(&journal_path).await.unwrap();
     let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
@@ -86,13 +86,15 @@ async fn journal_writer_entries_order_preserved_after_commit() {
 
     drop(writer);
 
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
     let reader = JournalReader::open(&journal_path).await.unwrap();
     let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     assert_eq!(entries.len(), 10);
 
     let sequences: Vec<u64> = entries.iter().map(|e| e.seq.0).collect();
-    let mut expected_sequences: Vec<u64> = (0..10).collect();
+    let expected_sequences: Vec<u64> = (0..10).collect();
     assert_eq!(
         sequences, expected_sequences,
         "Sequence numbers should be in order 0..9"
@@ -130,6 +132,8 @@ async fn journal_writer_file_size_reasonable_after_commit() {
     writer.commit().await.unwrap();
 
     drop(writer);
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let reader = JournalReader::open(&journal_path).await.unwrap();
     let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
@@ -230,6 +234,137 @@ async fn journal_writer_without_commit_events_lost_on_crash() {
     );
 }
 
+const EVENT_COUNT: usize = 100;
+const EXPECTED_SPEEDUP_THRESHOLD: f64 = 5.0;
+
+fn create_test_entry_data() -> Vec<Vec<u8>> {
+    (0..EVENT_COUNT).map(|i| format!("batch-entry-{}", i).into_bytes()).collect()
+}
+
+#[tokio::test]
+async fn journal_writer_batch_commit_throughput_vs_individual() {
+    let entry_data = create_test_entry_data();
+
+    let batch_time = {
+        let temp_dir = TempDir::new().unwrap();
+        let journal_path = temp_dir.path().join("journal_batch");
+
+        let config = JournalWriterConfig {
+            path: journal_path.clone(),
+            batch_size: EVENT_COUNT,
+            channel_capacity: EVENT_COUNT * 2,
+        };
+        let writer = JournalWriter::new(config).await.unwrap();
+
+        let workflow_id = WorkflowId::new("batch-throughput-test");
+
+        let write_start = std::time::Instant::now();
+        for i in 0..EVENT_COUNT {
+            writer
+                .step_completed(
+                    workflow_id.clone(),
+                    StepName::new(format!("step-{}", i)),
+                    entry_data[i].clone(),
+                )
+                .await
+                .unwrap();
+        }
+        let write_duration = write_start.elapsed();
+
+        let commit_start = std::time::Instant::now();
+        writer.commit().await.unwrap();
+        let commit_duration = commit_start.elapsed();
+
+        drop(writer);
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let reader = JournalReader::open(&journal_path).await.unwrap();
+        let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+        assert_eq!(
+            entries.len(),
+            EVENT_COUNT,
+            "Expected {} entries after batch commit",
+            EVENT_COUNT
+        );
+
+        let total_time = write_duration + commit_duration;
+        tracing::info!(
+            "Batch approach: write={:?}, commit={:?}, total={:?}, entries={}",
+            write_duration,
+            commit_duration,
+            total_time,
+            entries.len()
+        );
+        total_time
+    };
+
+    let individual_time = {
+        let temp_dir = TempDir::new().unwrap();
+        let journal_path = temp_dir.path().join("journal_individual");
+
+        let config = JournalWriterConfig {
+            path: journal_path.clone(),
+            batch_size: EVENT_COUNT,
+            channel_capacity: EVENT_COUNT * 2,
+        };
+        let writer = JournalWriter::new(config).await.unwrap();
+
+        let workflow_id = WorkflowId::new("individual-throughput-test");
+
+        let overall_start = std::time::Instant::now();
+        for i in 0..EVENT_COUNT {
+            writer
+                .step_completed(
+                    workflow_id.clone(),
+                    StepName::new(format!("step-{}", i)),
+                    entry_data[i].clone(),
+                )
+                .await
+                .unwrap();
+            writer.commit().await.unwrap();
+        }
+        let total_duration = overall_start.elapsed();
+
+        drop(writer);
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        let reader = JournalReader::open(&journal_path).await.unwrap();
+        let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+        assert_eq!(
+            entries.len(),
+            EVENT_COUNT,
+            "Expected {} entries after individual commits",
+            EVENT_COUNT
+        );
+
+        tracing::info!(
+            "Individual approach: total={:?}, entries={}",
+            total_duration,
+            entries.len()
+        );
+        total_duration
+    };
+
+    let speedup = individual_time.as_secs_f64() / batch_time.as_secs_f64();
+    tracing::info!(
+        "Speedup: {:.2}x (batch={:?} vs individual={:?})",
+        speedup,
+        batch_time,
+        individual_time
+    );
+
+    assert!(
+        speedup > EXPECTED_SPEEDUP_THRESHOLD,
+        "Batch commit should be >{}x faster than individual commits, got {:.2}x (batch={:?}, individual={:?})",
+        EXPECTED_SPEEDUP_THRESHOLD,
+        speedup,
+        batch_time,
+        individual_time
+    );
+}
+
 #[tokio::test]
 async fn journal_writer_batch_commit_throughput_vs_individual_commits() {
     let event_count = 100;
@@ -271,7 +406,7 @@ async fn journal_writer_batch_commit_throughput_vs_individual_commits() {
     );
 
     let sequences: Vec<u64> = entries.iter().map(|e| e.seq.0).collect();
-    let mut expected_sequences: Vec<u64> = (0..event_count as u64).collect();
+    let expected_sequences: Vec<u64> = (0..event_count as u64).collect();
     assert_eq!(
         sequences, expected_sequences,
         "Sequence numbers should be in order 0..{}", event_count - 1
@@ -319,5 +454,79 @@ async fn journal_writer_batch_commit_throughput_vs_individual_commits() {
         "Batch commit should be >5x faster than individual commits. \
          Batch: {:?}, Individual: {:?}, Speedup: {:.2}x",
         batch_time, individual_time, speedup
+    );
+}
+
+#[tokio::test]
+async fn journal_writer_batch_commit_all_events_recoverable() {
+    let temp_dir = TempDir::new().unwrap();
+    let journal_path = temp_dir.path().join("journal_recoverable");
+
+    let config = JournalWriterConfig {
+        path: journal_path.clone(),
+        batch_size: EVENT_COUNT,
+        channel_capacity: EVENT_COUNT * 2,
+    };
+    let writer = JournalWriter::new(config).await.unwrap();
+
+    let workflow_id = WorkflowId::new("recoverable-batch-test");
+    let entry_data: Vec<Vec<u8>> = create_test_entry_data();
+
+    for i in 0..EVENT_COUNT {
+        writer
+            .step_completed(
+                workflow_id.clone(),
+                StepName::new(format!("recoverable-step-{}", i)),
+                entry_data[i].clone(),
+            )
+            .await
+            .unwrap();
+    }
+
+    writer.commit().await.unwrap();
+    drop(writer);
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let reader = JournalReader::open(&journal_path).await.unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(
+        entries.len(),
+        EVENT_COUNT,
+        "Expected all {} events to be recoverable after batch commit",
+        EVENT_COUNT
+    );
+
+    for (i, entry) in entries.iter().enumerate() {
+        assert_eq!(
+            entry.seq.0,
+            i as u64,
+            "Entry {} should have sequence number {}",
+            i,
+            i
+        );
+        match &entry.event {
+            twerk_infrastructure::journal::JournalEvent::StepCompleted { step, output, .. } => {
+                assert_eq!(
+                    step.0,
+                    format!("recoverable-step-{}", i),
+                    "Step name mismatch for entry {}",
+                    i
+                );
+                assert_eq!(
+                    output.as_slice(),
+                    entry_data[i].as_slice(),
+                    "Entry data mismatch for entry {}",
+                    i
+                );
+            }
+            _ => panic!("Expected StepCompleted event, got something else for entry {}", i),
+        }
+    }
+
+    tracing::info!(
+        "Successfully recovered all {} events after batch commit",
+        EVENT_COUNT
     );
 }

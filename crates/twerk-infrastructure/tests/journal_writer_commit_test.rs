@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use std::io::Read as IoRead;
+use futures_lite::StreamExt;
 use tempfile::TempDir;
 use twerk_infrastructure::journal::{
     JournalReader, JournalWriter, JournalWriterConfig, StepName, WorkflowId, JOURNAL_PARTITION,
@@ -36,7 +37,7 @@ async fn journal_writer_commit_flushes_entries_to_disk() {
     drop(writer);
 
     let reader = JournalReader::open(&journal_path).await.unwrap();
-    let entries: Vec<_> = reader.replay().collect::<Result<Vec<_>, _>>().unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     assert_eq!(entries.len(), 10, "Expected 10 entries after commit");
 
@@ -86,7 +87,7 @@ async fn journal_writer_entries_order_preserved_after_commit() {
     drop(writer);
 
     let reader = JournalReader::open(&journal_path).await.unwrap();
-    let entries: Vec<_> = reader.replay().collect::<Result<Vec<_>, _>>().unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     assert_eq!(entries.len(), 10);
 
@@ -131,7 +132,7 @@ async fn journal_writer_file_size_reasonable_after_commit() {
     drop(writer);
 
     let reader = JournalReader::open(&journal_path).await.unwrap();
-    let entries: Vec<_> = reader.replay().collect::<Result<Vec<_>, _>>().unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
 
     let total_data_size: usize = entries
         .iter()
@@ -153,5 +154,78 @@ async fn journal_writer_file_size_reasonable_after_commit() {
         "File size {} should be at least the sum of entry sizes {}",
         file_size,
         total_data_size
+    );
+}
+
+#[tokio::test]
+async fn journal_writer_commit_survives_crash_simulation() {
+    let temp_dir = TempDir::new().unwrap();
+    let journal_path = temp_dir.path().join("journal");
+
+    {
+        let config = JournalWriterConfig {
+            path: journal_path.clone(),
+            batch_size: 100,
+            channel_capacity: 1000,
+        };
+        let writer = JournalWriter::new(config).await.unwrap();
+
+        let workflow_id = WorkflowId::new("crash-test-workflow");
+
+        for i in 0..10 {
+            let data = format!("crash-test-entry-{}", i);
+            writer
+                .workflow_started(workflow_id.clone(), data.into_bytes())
+                .await
+                .unwrap();
+        }
+
+        writer.commit().await.unwrap();
+
+        drop(writer);
+    }
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let reader = JournalReader::open(&journal_path).await.unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(entries.len(), 10, "All 10 committed events should survive crash simulation");
+}
+
+#[tokio::test]
+async fn journal_writer_without_commit_events_lost_on_crash() {
+    let temp_dir = TempDir::new().unwrap();
+    let journal_path = temp_dir.path().join("journal");
+
+    {
+        let config = JournalWriterConfig {
+            path: journal_path.clone(),
+            batch_size: 100,
+            channel_capacity: 1000,
+        };
+        let writer = JournalWriter::new(config).await.unwrap();
+
+        let workflow_id = WorkflowId::new("no-commit-workflow");
+
+        for i in 0..10 {
+            let data = format!("no-commit-entry-{}", i);
+            writer
+                .workflow_started(workflow_id.clone(), data.into_bytes())
+                .await
+                .unwrap();
+        }
+
+        drop(writer);
+    }
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let reader = JournalReader::open(&journal_path).await.unwrap();
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(
+        entries.len(), 0,
+        "Without commit(), events should be lost on crash (not durable)"
     );
 }

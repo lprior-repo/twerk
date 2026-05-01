@@ -93,18 +93,17 @@ enum Color {
     Black,
 }
 
-fn detect_cycles(machine: &StateMachine, reachable: &HashSet<StateName>) -> Vec<Vec<StateName>> {
+fn detect_cycles(machine: &StateMachine) -> Vec<Vec<StateName>> {
     let mut color: HashMap<&StateName, Color> = machine
         .states()
         .keys()
-        .filter(|k| reachable.contains(*k))
         .map(|k| (k, Color::White))
         .collect();
 
     let mut cycles = Vec::new();
     let mut path: Vec<&StateName> = Vec::new();
 
-    for start in machine.states().keys().filter(|k| reachable.contains(*k)) {
+    for start in machine.states().keys() {
         if color.get(start).copied() == Some(Color::White) {
             dfs_visit(machine, start, &mut color, &mut path, &mut cycles);
         }
@@ -188,7 +187,7 @@ pub fn analyze(machine: &StateMachine) -> ValidationReport {
         .cloned()
         .collect();
 
-    let cycles = detect_cycles(machine, &reachable);
+    let cycles = detect_cycles(machine);
     let dead_end_states = find_dead_ends(machine, &reachable);
 
     ValidationReport {

@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/twerk-common",
     "crates/twerk-core",
+    "crates/twerk-runtime",
     "crates/twerk-infrastructure",
     "crates/twerk-app",
     "crates/twerk-web",
@@ -33,10 +34,11 @@ license = "Apache-2.0"
 # Internal Crates (The Hard Boundaries)
 twerk-common = { path = "crates/twerk-common" }
 twerk-core = { path = "crates/twerk-core" }
+twerk-runtime = { path = "crates/twerk-runtime" }
 twerk-infrastructure = { path = "crates/twerk-infrastructure" }
 twerk-app = { path = "crates/twerk-app" }
 twerk-web = { path = "crates/twerk-web" }
-twerk-store = { path = "crates/twerk-store" })
+twerk-store = { path = "crates/twerk-store" }
 
 # Shared External Dependencies
 tokio = { version = "1.49", features = ["full"] }

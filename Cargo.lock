@@ -6129,9 +6129,13 @@ dependencies = [
 name = "twerk-runtime"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
  "thiserror",
+ "time",
  "tokio",
  "tokio-test",
+ "tracing",
 ]
 
 [[package]]
@@ -6139,12 +6143,8 @@ name = "twerk-store"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dashmap",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-test",
+ "fjall",
+ "tempfile",
 ]
 
 [[package]]

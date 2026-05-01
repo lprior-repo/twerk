@@ -1,15 +1,18 @@
-//! Tests for the journal writer.
+//! Tests for the journal writer and reader.
 
 #![allow(clippy::unwrap_used)]
 
 use std::sync::Arc;
 
 use futures_lite::StreamExt;
+use fjall::{Database, KeyspaceCreateOptions};
+use time::Duration;
 use tokio::sync::{Barrier, Mutex};
 use tokio::task;
 
 use super::{JournalReader, JournalWriter, JournalWriterConfig};
-use crate::journal::{StepName, WorkflowId};
+use super::{JournalEntry, JournalEvent, SequenceNumber};
+use crate::journal::{StepName, WorkflowId, JOURNAL_PARTITION};
 
 fn temp_journal_path() -> tempfile::TempDir {
     tempfile::tempdir().expect("tempdir should succeed")
@@ -224,4 +227,184 @@ async fn test_journal_writer_commit_does_not_panic() {
 
     writer.commit().await.expect("commit should succeed");
     drop(writer);
+}
+
+fn write_entry_direct(
+    db: &Database,
+    seq: SequenceNumber,
+    ts: time::OffsetDateTime,
+    event: JournalEvent,
+) {
+    let keyspace = db
+        .keyspace(JOURNAL_PARTITION, || KeyspaceCreateOptions::default())
+        .unwrap();
+    let entry = JournalEntry { seq, ts, event };
+    let encoded = postcard::to_allocvec(&entry).unwrap();
+    let key = seq.0.to_le_bytes().to_vec();
+    keyspace.insert(key, encoded).unwrap();
+}
+
+#[tokio::test]
+async fn test_journal_reader_replays_in_chronological_order() {
+    let temp_dir = temp_journal_path();
+    let db = Database::builder(temp_dir.path()).open().unwrap();
+    let workflow_id = WorkflowId::new("chronological-test-workflow");
+
+    let base_ts = time::OffsetDateTime::now_utc();
+
+    for i in 0..10u64 {
+        let ts = base_ts + Duration::seconds(i as i64);
+        let entry_num = i as u8;
+        write_entry_direct(
+            &db,
+            SequenceNumber(i),
+            ts,
+            JournalEvent::WorkflowStarted {
+                workflow_id: workflow_id.clone(),
+                input: vec![entry_num],
+            },
+        );
+    }
+
+    drop(db);
+
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(entries.len(), 10, "should have 10 entries");
+
+    for i in 0..10 {
+        assert_eq!(
+            entries[i].seq,
+            SequenceNumber(i as u64),
+            "entry {} should have seq {}",
+            i,
+            i
+        );
+        let expected_ts = base_ts + Duration::seconds(i as i64);
+        assert_eq!(
+            entries[i].ts, expected_ts,
+            "entry {} should have ts {:?}, got {:?}",
+            i,
+            expected_ts,
+            entries[i].ts
+        );
+    }
+
+    let is_chronological = entries
+        .windows(2)
+        .all(|w| w[0].ts <= w[1].ts);
+    assert!(
+        is_chronological,
+        "replay should return events in chronological (timestamp) order"
+    );
+}
+
+#[tokio::test]
+async fn test_journal_reader_out_of_order_timestamp_still_returns_in_seq_order() {
+    let temp_dir = temp_journal_path();
+    let db = Database::builder(temp_dir.path()).open().unwrap();
+    let workflow_id = WorkflowId::new("ooto-test-workflow");
+
+    let base_ts = time::OffsetDateTime::now_utc();
+
+    write_entry_direct(
+        &db,
+        SequenceNumber(0),
+        base_ts + Duration::seconds(5),
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_id.clone(),
+            input: vec![0],
+        },
+    );
+    write_entry_direct(
+        &db,
+        SequenceNumber(1),
+        base_ts + Duration::seconds(1),
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_id.clone(),
+            input: vec![1],
+        },
+    );
+    write_entry_direct(
+        &db,
+        SequenceNumber(2),
+        base_ts + Duration::seconds(3),
+        JournalEvent::WorkflowStarted {
+            workflow_id: workflow_id.clone(),
+            input: vec![2],
+        },
+    );
+
+    drop(db);
+
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+
+    assert_eq!(entries.len(), 3, "should have 3 entries");
+
+    let seq_order = entries
+        .windows(2)
+        .all(|w| w[0].seq < w[1].seq);
+    assert!(
+        seq_order,
+        "replay should return events in sequence number order regardless of timestamps"
+    );
+
+    assert_eq!(entries[0].seq, SequenceNumber(0));
+    assert_eq!(entries[1].seq, SequenceNumber(1));
+    assert_eq!(entries[2].seq, SequenceNumber(2));
+}
+
+#[tokio::test]
+async fn test_journal_reader_no_native_seek_by_timestamp() {
+    let temp_dir = temp_journal_path();
+    let db = Database::builder(temp_dir.path()).open().unwrap();
+    let workflow_id = WorkflowId::new("seek-test-workflow");
+
+    let base_ts = time::OffsetDateTime::now_utc();
+
+    for i in 0..5u64 {
+        let ts = base_ts + Duration::seconds(i as i64);
+        write_entry_direct(
+            &db,
+            SequenceNumber(i),
+            ts,
+            JournalEvent::WorkflowStarted {
+                workflow_id: workflow_id.clone(),
+                input: vec![i as u8],
+            },
+        );
+    }
+
+    drop(db);
+
+    let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");
+
+    let entries: Vec<_> = reader.replay().try_collect().await.unwrap();
+    assert_eq!(entries.len(), 5, "replay should return all 5 entries");
+
+    let seek_target_ts = base_ts + Duration::seconds(2);
+
+    let entries_after_seek: Vec<_> = entries
+        .iter()
+        .filter(|e| e.ts > seek_target_ts)
+        .cloned()
+        .collect();
+
+    assert_eq!(
+        entries_after_seek.len(),
+        3,
+        "there are 3 entries with ts > seek_target_ts (seq 3, 4, 5)"
+    );
+
+    for entry in &entries_after_seek {
+        assert!(
+            entry.ts > seek_target_ts,
+            "entry seq {:?} has ts {:?}, should be > {:?}",
+            entry.seq,
+            entry.ts,
+            seek_target_ts
+        );
+    }
 }

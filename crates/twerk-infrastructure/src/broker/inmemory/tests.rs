@@ -1181,3 +1181,106 @@ async fn test_broker_maintains_fifo_order_per_topic_interleaved_publishes() {
         "Messages on topic B should arrive in FIFO order despite interleaved publishes"
     );
 }
+
+#[tokio::test]
+async fn test_pubsub_all_subscribers_receive_message() {
+    let broker = InMemoryBroker::new();
+    let topic = "task.events".to_string();
+
+    let mut rx1 = broker.subscribe(topic.clone()).await.unwrap();
+    let mut rx2 = broker.subscribe(topic.clone()).await.unwrap();
+    let mut rx3 = broker.subscribe(topic.clone()).await.unwrap();
+
+    let job = serde_json::json!({
+        "id": "00000000-0000-0000-0000-000000000001",
+        "state": "CREATED",
+        "name": "test-task"
+    });
+
+    broker.publish_event(topic.clone(), job.clone()).await.unwrap();
+
+    let event1 = tokio::time::timeout(std::time::Duration::from_secs(5), rx1.recv())
+        .await
+        .expect("Consumer 1 should receive event")
+        .expect("Should receive event without error");
+    let event2 = tokio::time::timeout(std::time::Duration::from_secs(5), rx2.recv())
+        .await
+        .expect("Consumer 2 should receive event")
+        .expect("Should receive event without error");
+    let event3 = tokio::time::timeout(std::time::Duration::from_secs(5), rx3.recv())
+        .await
+        .expect("Consumer 3 should receive event")
+        .expect("Should receive event without error");
+
+    assert!(
+        matches!(event1, twerk_core::job::JobEvent::Completed(_)),
+        "Event 1 should be Completed"
+    );
+    assert!(
+        matches!(event2, twerk_core::job::JobEvent::Completed(_)),
+        "Event 2 should be Completed"
+    );
+    assert!(
+        matches!(event3, twerk_core::job::JobEvent::Completed(_)),
+        "Event 3 should be Completed"
+    );
+}
+
+#[tokio::test]
+async fn test_pubsub_after_unsubscribe_only_active_receive() {
+    let broker = InMemoryBroker::new();
+    let topic = "task.events".to_string();
+
+    let mut rx1 = broker.subscribe(topic.clone()).await.unwrap();
+    let mut rx2 = broker.subscribe(topic.clone()).await.unwrap();
+    let mut rx3 = broker.subscribe(topic.clone()).await.unwrap();
+
+    let job1 = serde_json::json!({
+        "id": "00000000-0000-0000-0000-000000000001",
+        "state": "COMPLETED",
+        "name": "test-task-1"
+    });
+
+    broker.publish_event(topic.clone(), job1.clone()).await.unwrap();
+
+    let _event1 = tokio::time::timeout(std::time::Duration::from_secs(5), rx1.recv())
+        .await
+        .expect("Consumer 1 should receive first event")
+        .expect("Should receive event without error");
+    let _event2 = tokio::time::timeout(std::time::Duration::from_secs(5), rx2.recv())
+        .await
+        .expect("Consumer 2 should receive first event")
+        .expect("Should receive event without error");
+    let _event3 = tokio::time::timeout(std::time::Duration::from_secs(5), rx3.recv())
+        .await
+        .expect("Consumer 3 should receive first event")
+        .expect("Should receive event without error");
+
+    drop(rx2);
+
+    let job2 = serde_json::json!({
+        "id": "00000000-0000-0000-0000-000000000002",
+        "state": "COMPLETED",
+        "name": "test-task-2"
+    });
+
+    broker.publish_event(topic.clone(), job2.clone()).await.unwrap();
+
+    let event1_second = tokio::time::timeout(std::time::Duration::from_secs(5), rx1.recv())
+        .await
+        .expect("Consumer 1 should receive second event")
+        .expect("Should receive event without error");
+    let event3_second = tokio::time::timeout(std::time::Duration::from_secs(5), rx3.recv())
+        .await
+        .expect("Consumer 3 should receive second event")
+        .expect("Should receive event without error");
+
+    assert!(
+        matches!(event1_second, twerk_core::job::JobEvent::Completed(_)),
+        "Event 1 second should be Completed"
+    );
+    assert!(
+        matches!(event3_second, twerk_core::job::JobEvent::Completed(_)),
+        "Event 3 second should be Completed"
+    );
+}

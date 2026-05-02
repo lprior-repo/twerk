@@ -48,6 +48,8 @@ proptest.workspace = true
 rand.workspace = true
 rand_chacha = "0.9"
 tracing-subscriber.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
 
 [[bin]]
 name = "openapi-gen"

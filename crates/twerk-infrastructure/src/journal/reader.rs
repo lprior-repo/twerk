@@ -54,7 +54,7 @@ impl JournalReader {
             }
         }
 
-        entries.sort_by_key(|e| e.ts);
+        entries.sort_by_key(|e| e.seq);
         *self.position.borrow_mut() = 0;
         Ok(())
     }

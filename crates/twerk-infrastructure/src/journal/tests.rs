@@ -424,11 +424,12 @@ async fn test_journal_reader_skips_corrupt_entries() {
     let workflow_b = WorkflowId::new("workflow-b");
     let workflow_c = WorkflowId::new("workflow-c");
     let base_ts = time::OffsetDateTime::now_utc();
+    let base_timestamp = Timestamp::from_offsetdatetime(base_ts);
 
     write_entry_direct(
         &db,
         SequenceNumber(0),
-        base_ts,
+        base_timestamp,
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_a.clone(),
             input: vec![0xA],
@@ -437,7 +438,7 @@ async fn test_journal_reader_skips_corrupt_entries() {
     write_entry_direct(
         &db,
         SequenceNumber(1),
-        base_ts,
+        base_timestamp,
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_b.clone(),
             input: vec![0xB],
@@ -451,13 +452,14 @@ async fn test_journal_reader_skips_corrupt_entries() {
     write_entry_direct(
         &db,
         SequenceNumber(3),
-        base_ts,
+        base_timestamp,
         JournalEvent::WorkflowStarted {
             workflow_id: workflow_c.clone(),
             input: vec![0xC],
         },
     );
 
+    drop(keyspace);
     drop(db);
 
     let reader = JournalReader::open(temp_dir.path()).await.expect("reader should open");

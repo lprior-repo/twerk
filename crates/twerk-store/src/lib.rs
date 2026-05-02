@@ -138,4 +138,67 @@ mod tests {
             "uncommitted write should not be visible"
         );
     }
+
+    #[test]
+    fn test_compaction_reclaims_disk_space_from_deleted_keys() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = Store::new(temp_dir.path()).unwrap();
+
+        const NUM_KEYS: usize = 1000;
+        const DELETE_COUNT: usize = 500;
+        const VALUE_SIZE: usize = 1000;
+
+        let value = vec![0x42u8; VALUE_SIZE];
+
+        for i in 0..NUM_KEYS {
+            let key = format!("key_{:04}", i);
+            store.put(&key, &value).unwrap();
+        }
+
+        for i in 0..DELETE_COUNT {
+            let key = format!("key_{:04}", i);
+            store.delete(&key).unwrap();
+        }
+
+        let disk_space_before = store.db.disk_space().unwrap();
+
+        drop(store);
+
+        let store2 = Store::new(temp_dir.path()).unwrap();
+
+        let disk_space_after_reopen = store2.db.disk_space().unwrap();
+
+        for i in DELETE_COUNT..NUM_KEYS {
+            let key = format!("key_{:04}", i);
+            let result = store2.get(&key).unwrap();
+            assert!(
+                result.is_some(),
+                "remaining key {} should be readable",
+                key
+            );
+        }
+
+        for i in 0..DELETE_COUNT {
+            let key = format!("key_{:04}", i);
+            let result = store2.get(&key).unwrap();
+            assert!(
+                result.is_none(),
+                "deleted key {} should return None",
+                key
+            );
+        }
+
+        let size_reduction = disk_space_before.saturating_sub(disk_space_after_reopen);
+        let original_size_per_key = VALUE_SIZE + 20;
+        let expected_savings_min: u64 = (DELETE_COUNT * original_size_per_key / 2) as u64;
+
+        assert!(
+            size_reduction >= expected_savings_min,
+            "compaction should reclaim space: before={}, after={}, saved={}, expected_min={}",
+            disk_space_before,
+            disk_space_after_reopen,
+            size_reduction,
+            expected_savings_min
+        );
+    }
 }

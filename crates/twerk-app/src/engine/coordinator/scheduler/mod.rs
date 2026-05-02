@@ -89,6 +89,7 @@ impl Scheduler {
     #[cfg(test)]
     pub(super) async fn submit_dag(&self, tasks: Vec<twerk_core::task::Task>) -> Result<()> {
         use twerk_core::id::TaskId;
+        use twerk_core::task::TaskState;
         use std::collections::{HashMap, HashSet};
 
         if tasks.is_empty() {
@@ -144,7 +145,14 @@ impl Scheduler {
 
         for task_id in sorted {
             let task = tasks.iter().find(|t| t.id.as_ref() == Some(&task_id)).unwrap();
-            self.schedule_task(task.clone()).await?;
+            if task.depends_on.as_ref().map_or(false, |deps| !deps.is_empty()) {
+                self.ds.update_task(&task_id.to_string(), Box::new(|mut t| {
+                    t.state = TaskState::Pending;
+                    Ok(t)
+                })).await.map_err(|e| anyhow::anyhow!(e))?;
+            } else {
+                self.schedule_task(task.clone()).await?;
+            }
         }
 
         Ok(())
@@ -172,22 +180,30 @@ impl Scheduler {
     async fn propagate_cancellation(&self, failed_task_id: &twerk_core::id::TaskId) -> Result<()> {
         use twerk_core::task::TaskState;
 
-        let all_tasks = self.ds.get_all_tasks_for_job(&failed_task_id.to_string()).await
+        let failed_task = self.ds.get_task_by_id(&failed_task_id.to_string()).await
             .map_err(|e| anyhow::anyhow!(e))?;
+        let job_id = failed_task.job_id.clone().ok_or_else(|| anyhow::anyhow!("task has no job_id"))?;
 
-        let dependents: Vec<twerk_core::id::TaskId> = all_tasks.iter()
-            .filter(|t| t.depends_on.as_ref().map_or(false, |deps| deps.contains(failed_task_id)))
-            .filter(|t| t.state.is_active())
-            .map(|t| t.id.clone().unwrap())
-            .collect();
+        let mut queue: Vec<twerk_core::id::TaskId> = vec![failed_task_id.clone()];
 
-        for dependent_id in dependents {
-            self.ds.update_task(&dependent_id.to_string(), Box::new(|mut t| {
-                t.state = TaskState::Cancelled;
-                Ok(t)
-            })).await.map_err(|e| anyhow::anyhow!(e))?;
+        while let Some(task_id) = queue.pop() {
+            let all_tasks = self.ds.get_all_tasks_for_job(&job_id.to_string()).await
+                .map_err(|e| anyhow::anyhow!(e))?;
 
-            self.propagate_cancellation(&dependent_id).await?;
+            let dependents: Vec<twerk_core::id::TaskId> = all_tasks.iter()
+                .filter(|t| t.depends_on.as_ref().map_or(false, |deps| deps.contains(&task_id)))
+                .filter(|t| t.state.is_active())
+                .map(|t| t.id.clone().unwrap())
+                .collect();
+
+            for dependent_id in dependents {
+                self.ds.update_task(&dependent_id.to_string(), Box::new(|mut t| {
+                    t.state = TaskState::Cancelled;
+                    Ok(t)
+                })).await.map_err(|e| anyhow::anyhow!(e))?;
+
+                queue.push(dependent_id);
+            }
         }
 
         Ok(())

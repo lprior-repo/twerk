@@ -36,7 +36,7 @@ fn create_task_with_id(id: &str) -> Task {
 
 fn create_task_with_deps(id: &str, depends_on: Vec<&str>) -> Task {
     let mut task = create_task_with_id(id);
-    task.depends_on = Some(depends_on.iter().map(|s| TaskId::new(s).unwrap()).collect());
+    task.depends_on = Some(depends_on.iter().map(|s| TaskId::new(*s).unwrap()).collect());
     task
 }
 
@@ -62,10 +62,11 @@ async fn dag_submit_rejects_circular_dependency_a_depends_on_b_which_depends_on_
         result.is_err(),
         "circular dependency A->B->C->A should be rejected at submit time"
     );
+    let err = result.as_ref().unwrap_err();
     assert!(
-        result.unwrap_err().to_string().contains("circular"),
+        err.to_string().contains("circular"),
         "error should mention circular dependency: {:?}",
-        result.err()
+        err
     );
 }
 

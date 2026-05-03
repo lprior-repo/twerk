@@ -13,243 +13,6 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/api/v1/triggers": {
-      "get": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "summary": "GET /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; persistence and serialization\nfailures are converted into HTTP responses.",
-        "operationId": "list_triggers_handler",
-        "responses": {
-          "200": {
-            "description": "List of triggers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TriggerView"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Persistence error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "super::trigger_api::handlers::command"
-        ],
-        "summary": "POST /api/v1/triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\ncreation, and serialization failures are converted into HTTP responses.",
-        "operationId": "create_trigger_handler",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Trigger created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/triggers/{id}": {
-      "get": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "summary": "GET /api/v1/triggers/{id}\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing\ntriggers, and serialization failures are converted into HTTP responses.",
-        "operationId": "get_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Trigger found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid ID format",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "super::trigger_api::handlers::command"
-        ],
-        "summary": "Handler for `PUT /api/v1/triggers/{id}`.\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\nupdate, and serialization failures are converted into HTTP responses.",
-        "operationId": "update_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerUpdateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Trigger updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error or invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Version conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "super::trigger_api::handlers::query"
-        ],
-        "operationId": "delete_trigger_handler",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Trigger ID",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Trigger deleted"
-          },
-          "400": {
-            "description": "Invalid ID format",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Trigger not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
         "tags": [
@@ -1002,6 +765,243 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/triggers": {
+      "get": {
+        "tags": [
+          "super::trigger_api::handlers::query"
+        ],
+        "summary": "GET /triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; persistence and serialization\nfailures are converted into HTTP responses.",
+        "operationId": "list_triggers_handler",
+        "responses": {
+          "200": {
+            "description": "List of triggers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerView"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Persistence error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "super::trigger_api::handlers::command"
+        ],
+        "summary": "POST /triggers\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\ncreation, and serialization failures are converted into HTTP responses.",
+        "operationId": "create_trigger_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Trigger created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/triggers/{id}": {
+      "get": {
+        "tags": [
+          "super::trigger_api::handlers::query"
+        ],
+        "summary": "GET /triggers/{id}\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing\ntriggers, and serialization failures are converted into HTTP responses.",
+        "operationId": "get_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "super::trigger_api::handlers::command"
+        ],
+        "summary": "Handler for `PUT /triggers/{id}`.\n# Errors\nThis handler does not currently return `Err(ApiError)` directly; request validation, trigger\nupdate, and serialization failures are converted into HTTP responses.",
+        "operationId": "update_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Trigger updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "super::trigger_api::handlers::query"
+        ],
+        "operationId": "delete_trigger_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Trigger ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trigger deleted"
+          },
+          "400": {
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trigger not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerErrorResponse"
                 }
               }
             }

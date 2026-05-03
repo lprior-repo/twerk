@@ -89,7 +89,7 @@ async fn adversarial_id_with_unicode_characters() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid\u{1F600}id", // emoji in path
+        "/triggers/valid\u{1F600}id", // emoji in path
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -122,7 +122,7 @@ async fn adversarial_sql_injection_in_name() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -160,7 +160,7 @@ async fn adversarial_field_exceeds_max_length() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -196,7 +196,7 @@ async fn adversarial_whitespace_only_fields() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -228,7 +228,7 @@ async fn adversarial_null_bytes_in_fields() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -266,7 +266,7 @@ async fn adversarial_body_exceeds_max_size() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -302,7 +302,7 @@ async fn adversarial_metadata_empty_key() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -338,7 +338,7 @@ async fn adversarial_metadata_non_ascii_key() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -371,7 +371,7 @@ async fn adversarial_id_with_shell_special_chars() {
     // Path with semicolon (shell command separator)
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid;id",
+        "/triggers/valid;id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -406,7 +406,7 @@ async fn adversarial_id_path_traversal() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri("/api/v1/triggers/../valid-id")
+                .uri("/triggers/../valid-id")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_vec(&body).unwrap()))
                 .expect("request"),
@@ -435,7 +435,7 @@ async fn adversarial_empty_body() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from("".to_string()),
     )
@@ -457,7 +457,7 @@ async fn adversarial_completely_malformed_json() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from("this is not json at all!!!"),
     )
@@ -486,7 +486,7 @@ async fn adversarial_id_with_newlines() {
     // invalid URIs appropriately at construction time.
     let result: Result<Request<Body>, axum::http::Error> = Request::builder()
         .method("PUT")
-        .uri("/api/v1/triggers/valid\nid")
+        .uri("/triggers/valid\nid")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::empty());
 
@@ -517,7 +517,7 @@ async fn adversarial_negative_version() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -549,7 +549,7 @@ async fn adversarial_wrong_type_for_name() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -582,7 +582,7 @@ async fn adversarial_condition_as_number() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -614,7 +614,7 @@ async fn adversarial_enabled_as_string() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -644,7 +644,7 @@ async fn adversarial_id_case_mismatch() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/Valid-Id",
+        "/triggers/Valid-Id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -678,7 +678,7 @@ async fn adversarial_large_metadata_value() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -714,7 +714,7 @@ async fn adversarial_multiple_field_errors() {
 
     let (status, body_json) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -751,7 +751,7 @@ async fn adversarial_id_max_boundary() {
 
     let (status, _) = send_put(
         app,
-        &format!("/api/v1/triggers/{}", max_id),
+        &format!("/triggers/{}", max_id),
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -783,7 +783,7 @@ async fn adversarial_content_type_with_charset() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json; charset=utf-8", // With charset
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -829,7 +829,7 @@ async fn adversarial_very_old_timestamp() {
     // This would work since we're using current time for the update
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -862,7 +862,7 @@ async fn adversarial_id_all_allowed_chars() {
 
     let (status, _) = send_put(
         app,
-        &format!("/api/v1/triggers/{}", allowed_id),
+        &format!("/triggers/{}", allowed_id),
         "application/json",
         Body::from(serde_json::to_vec(&body).unwrap()),
     )
@@ -884,7 +884,7 @@ async fn adversarial_xml_content_type() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/valid-id",
+        "/triggers/valid-id",
         "application/xml",
         Body::from("<root></root>"),
     )

@@ -88,7 +88,7 @@ async fn update_trigger_handler_returns_400_invalid_id_format_when_path_id_is_un
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/bad$id",
+        "/triggers/bad$id",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("bad$id")).expect("serialize")),
     )
@@ -107,7 +107,7 @@ async fn update_trigger_handler_returns_400_unsupported_content_type_when_conten
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "text/plain",
         Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
     )
@@ -128,7 +128,7 @@ async fn update_trigger_handler_returns_400_malformed_json_when_body_is_truncate
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from("{\"name\":"),
     )
@@ -149,7 +149,7 @@ async fn update_trigger_handler_returns_400_validation_failed_when_body_is_empty
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from("{}"),
     )
@@ -170,7 +170,7 @@ async fn update_trigger_handler_returns_400_id_mismatch_when_body_id_differs_fro
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_path",
+        "/triggers/trg_path",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_body")).expect("serialize")),
     )
@@ -188,7 +188,7 @@ async fn update_trigger_handler_returns_404_trigger_not_found_when_trigger_missi
     let app = create_router(build_state(Arc::new(InMemoryTriggerDatastore::new())));
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_missing",
+        "/triggers/trg_missing",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_missing")).expect("serialize")),
     )
@@ -211,7 +211,7 @@ async fn update_trigger_handler_returns_409_version_conflict_when_stale_version_
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body_conflict).expect("serialize")),
     )
@@ -237,7 +237,7 @@ async fn update_trigger_handler_returns_500_persistence_when_datastore_update_fa
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
     )
@@ -258,7 +258,7 @@ async fn update_trigger_handler_returns_200_and_trigger_view_equal_to_committed_
 
     let (status, body) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
     )
@@ -283,7 +283,7 @@ async fn update_trigger_handler_keeps_same_mutable_state_when_same_request_appli
 
     let (first_status, first_body) = send_put(
         app_one,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
     )
@@ -299,7 +299,7 @@ async fn update_trigger_handler_keeps_same_mutable_state_when_same_request_appli
     second_request["version"] = json!(first_version);
     let (second_status, second_body) = send_put(
         app_two,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&second_request).expect("serialize")),
     )
@@ -339,7 +339,7 @@ async fn update_trigger_handler_preserves_preupdate_state_when_modify_closure_re
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&bad).expect("serialize")),
     )
@@ -360,7 +360,7 @@ async fn update_trigger_handler_accepts_min_path_id_length_when_id_length_equals
     let app = create_router(build_state(trigger_ds));
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/aaa",
+        "/triggers/aaa",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok(id)).expect("serialize")),
     )
@@ -374,7 +374,7 @@ async fn update_trigger_handler_accepts_max_path_id_length_when_id_length_equals
     let trigger_ds = Arc::new(InMemoryTriggerDatastore::new());
     trigger_ds.upsert(trigger(&id)).unwrap();
     let app = create_router(build_state(trigger_ds));
-    let path = format!("/api/v1/triggers/{id}");
+    let path = format!("/triggers/{id}");
     let (status, _) = send_put(
         app,
         &path,
@@ -390,7 +390,7 @@ async fn update_trigger_handler_returns_400_invalid_id_format_when_path_id_lengt
 ) {
     let id = "a".repeat(twerk_web::api::trigger_api::TRIGGER_ID_MAX_LEN + 1);
     let app = create_router(build_state(Arc::new(InMemoryTriggerDatastore::new())));
-    let path = format!("/api/v1/triggers/{id}");
+    let path = format!("/triggers/{id}");
     let (status, body) = send_put(
         app,
         &path,

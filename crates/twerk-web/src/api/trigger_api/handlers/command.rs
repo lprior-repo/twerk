@@ -16,10 +16,10 @@ use super::parsing::{decode_trigger_update_request, parse_content_type, prepare_
 use super::response::{error_response, serialize_view};
 use super::{BODY_TOO_LARGE_MSG, MAX_BODY_BYTES};
 
-/// Handler for `PUT /api/v1/triggers/{id}`.
+/// Handler for `PUT /triggers/{id}`.
 #[utoipa::path(
     put,
-    path = "/api/v1/triggers/{id}",
+    path = "/triggers/{id}",
     request_body = TriggerUpdateRequest,
     params(("id" = String, Path, description = "Trigger ID")),
     responses(
@@ -63,10 +63,10 @@ pub async fn update_trigger_handler(
     }
 }
 
-/// POST /api/v1/triggers
+/// POST /triggers
 #[utoipa::path(
     post,
-    path = "/api/v1/triggers",
+    path = "/triggers",
     request_body = TriggerUpdateRequest,
     responses(
         (status = 201, description = "Trigger created", body = TriggerView, content_type = "application/json"),

@@ -127,7 +127,7 @@ async fn critical_endpoint_contracts_use_exact_statuses_and_json_envelopes() {
         .call(
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({
@@ -157,7 +157,7 @@ async fn critical_endpoint_contracts_use_exact_statuses_and_json_envelopes() {
     let missing_trigger_response = harness
         .call(
             Request::builder()
-                .uri("/api/v1/triggers/bad$id")
+                .uri("/triggers/bad$id")
                 .body(Body::empty())
                 .unwrap(),
         )

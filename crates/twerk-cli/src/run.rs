@@ -8,6 +8,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
+use twerk_app::engine::coordinator::auth::{BasicAuthConfig, KeyAuthConfig};
+use twerk_app::engine::coordinator::limits::{BodyLimitConfig, RateLimitConfig};
+use twerk_app::engine::coordinator::middleware::HttpLogConfig;
 use twerk_app::engine::{Config, Engine, Mode};
 use twerk_common::load_config;
 use twerk_infrastructure::config as app_config;
@@ -117,10 +120,42 @@ fn read_api_config() -> ApiConfig {
             .collect()
     };
 
+    let rate_limit = app_config::bool("middleware.web.ratelimit.enabled").then(|| {
+        RateLimitConfig::new(app_config::int_default("middleware.web.ratelimit.rps", 20) as u32)
+    });
+
+    let key_auth = app_config::bool("middleware.web.keyauth.enabled").then(|| {
+        KeyAuthConfig::new(app_config::string_default("middleware.web.keyauth.key", ""))
+    });
+
+    let basic_auth = app_config::bool("middleware.web.basicauth.enabled").then(|| {
+        // Note: BasicAuthConfig needs a datastore handle which we don't have here.
+        // For CLI startup, basic auth is handled differently via the router factory.
+        // Leaving as None for now; basic auth can be enabled via the engine config.
+        None
+    }).flatten();
+
+    let body_limit = app_config::string_default("middleware.web.bodylimit", "500K")
+        .parse::<usize>()
+        .ok()
+        .map(BodyLimitConfig::new);
+
+    let http_log = app_config::bool_default("middleware.web.logger.enabled", true).then(|| {
+        HttpLogConfig::new(
+            app_config::string_default("middleware.web.logger.level", "DEBUG"),
+            app_config::strings_default("middleware.web.logger.skip", &["GET /health"]),
+        )
+    });
+
     ApiConfig {
         address: app_config::string_default("coordinator.address", "0.0.0.0:8000"),
         enabled,
-        ..ApiConfig::default()
+        cors_origins: app_config::strings("middleware.web.cors.origins"),
+        basic_auth,
+        key_auth,
+        rate_limit,
+        body_limit,
+        http_log,
     }
 }
 

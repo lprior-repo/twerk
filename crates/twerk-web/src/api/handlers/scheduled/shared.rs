@@ -87,14 +87,19 @@ pub fn build_scheduled_job(
     created_by: Option<User>,
 ) -> Result<ScheduledJob, ApiError> {
     let id = twerk_core::id::ScheduledJobId::new(twerk_core::uuid::new_short_uuid())?;
+    let mut sanitized_tasks = tasks;
+    for task in sanitized_tasks.iter_mut() {
+        task.name = crate::api::sanitize::sanitize_option(task.name.clone());
+        task.description = crate::api::sanitize::sanitize_option(task.description.clone());
+    }
     Ok(ScheduledJob {
         id: Some(id),
-        name: body.name,
-        description: body.description,
+        name: crate::api::sanitize::sanitize_option(body.name),
+        description: crate::api::sanitize::sanitize_option(body.description),
         cron: Some(cron),
         state: ScheduledJobState::Active,
         inputs: body.inputs,
-        tasks: Some(tasks),
+        tasks: Some(sanitized_tasks),
         created_by,
         defaults: body.defaults,
         auto_delete: body.auto_delete,

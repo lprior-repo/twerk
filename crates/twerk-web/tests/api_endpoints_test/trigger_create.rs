@@ -6,7 +6,7 @@ use super::shared::{setup_state, trigger_input};
 async fn create_trigger(payload: &serde_json::Value) -> crate::support::TestResponse {
     crate::support::TestHarness::new()
         .await
-        .post_json("/api/v1/triggers", payload)
+        .post_json("/triggers", payload)
         .await
 }
 
@@ -76,7 +76,7 @@ async fn create_trigger_returns_400_with_blank_name() {
 async fn create_trigger_returns_400_with_unsupported_content_type() {
     let response = crate::support::TestHarness::new()
         .await
-        .post_yaml("/api/v1/triggers", "plain text body", "text/plain")
+        .post_yaml("/triggers", "plain text body", "text/plain")
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(response.json()["error"], "UnsupportedContentType");
@@ -89,7 +89,7 @@ async fn create_trigger_returns_400_with_invalid_json() {
         &twerk_web::api::create_router(state),
         crate::support::request_with_content_type(
             axum::http::Method::POST,
-            "/api/v1/triggers",
+            "/triggers",
             "application/json",
             axum::body::Body::from("{invalid json"),
         ),

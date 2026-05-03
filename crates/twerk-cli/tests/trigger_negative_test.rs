@@ -68,7 +68,7 @@ async fn b11_internal_error_json() -> (StatusCode, Json<Value>) {
 
 #[tokio::test]
 async fn trigger_list_returns_api_error_when_server_returns_500_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers", routing::get(b11_internal_error_json));
+    let router = Router::new().route("/triggers", routing::get(b11_internal_error_json));
     let server = spawn_router(router).await;
 
     let result = trigger_list(&server.endpoint, true).await;
@@ -92,7 +92,7 @@ async fn b12_plain_text_500() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_list_returns_http_status_when_server_returns_500_with_non_json_body() {
-    let router = Router::new().route("/api/v1/triggers", routing::get(b12_plain_text_500));
+    let router = Router::new().route("/triggers", routing::get(b12_plain_text_500));
     let server = spawn_router(router).await;
 
     let result = trigger_list(&server.endpoint, true).await;
@@ -122,7 +122,7 @@ async fn b13_not_found_json(Path(_id): Path<String>) -> (StatusCode, Json<Value>
 
 #[tokio::test]
 async fn trigger_get_returns_api_error_when_server_returns_404_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b13_not_found_json));
+    let router = Router::new().route("/triggers/{id}", routing::get(b13_not_found_json));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "nonexistent", true).await;
@@ -146,7 +146,7 @@ async fn b14_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_get_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b14_not_found_plain));
+    let router = Router::new().route("/triggers/{id}", routing::get(b14_not_found_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "nonexistent", true).await;
@@ -176,7 +176,7 @@ async fn b15_bad_request_json(Path(_id): Path<String>) -> (StatusCode, Json<Valu
 
 #[tokio::test]
 async fn trigger_get_returns_api_error_when_server_returns_400_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b15_bad_request_json));
+    let router = Router::new().route("/triggers/{id}", routing::get(b15_bad_request_json));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "ab", true).await;
@@ -206,7 +206,7 @@ async fn b16_create_bad_request_json() -> (StatusCode, Json<Value>) {
 
 #[tokio::test]
 async fn trigger_create_returns_api_error_when_server_returns_400_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers", routing::post(b16_create_bad_request_json));
+    let router = Router::new().route("/triggers", routing::post(b16_create_bad_request_json));
     let server = spawn_router(router).await;
 
     let result = trigger_create(&server.endpoint, r#"{"name":"bad"}"#, true).await;
@@ -236,7 +236,7 @@ async fn b17_conflict_json(Path(_id): Path<String>) -> (StatusCode, Json<Value>)
 
 #[tokio::test]
 async fn trigger_update_returns_api_error_when_server_returns_409_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::put(b17_conflict_json));
+    let router = Router::new().route("/triggers/{id}", routing::put(b17_conflict_json));
     let server = spawn_router(router).await;
 
     let result = trigger_update(&server.endpoint, "trg1", "{}", true).await;
@@ -266,7 +266,7 @@ async fn b18_update_not_found_json(Path(_id): Path<String>) -> (StatusCode, Json
 
 #[tokio::test]
 async fn trigger_update_returns_api_error_when_server_returns_404_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::put(b18_update_not_found_json));
+    let router = Router::new().route("/triggers/{id}", routing::put(b18_update_not_found_json));
     let server = spawn_router(router).await;
 
     let result = trigger_update(&server.endpoint, "gone", "{}", true).await;
@@ -296,7 +296,7 @@ async fn b19_delete_not_found_json(Path(_id): Path<String>) -> (StatusCode, Json
 
 #[tokio::test]
 async fn trigger_delete_returns_api_error_when_server_returns_404_with_structured_json() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b19_delete_not_found_json));
+    let router = Router::new().route("/triggers/{id}", routing::delete(b19_delete_not_found_json));
     let server = spawn_router(router).await;
 
     let result = trigger_delete(&server.endpoint, "gone", true).await;
@@ -320,7 +320,7 @@ async fn b20_delete_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_delete_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b20_delete_not_found_plain));
+    let router = Router::new().route("/triggers/{id}", routing::delete(b20_delete_not_found_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_delete(&server.endpoint, "gone", true).await;
@@ -351,7 +351,7 @@ async fn b21_id_too_short(Path(id): Path<String>) -> (StatusCode, Json<Value>) {
 
 #[tokio::test]
 async fn trigger_get_returns_api_error_400_when_trigger_id_has_2_chars_below_minimum() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b21_id_too_short));
+    let router = Router::new().route("/triggers/{id}", routing::get(b21_id_too_short));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "ab", true).await;
@@ -392,7 +392,7 @@ async fn b22_id_at_min(Path(id): Path<String>) -> (StatusCode, String) {
 
 #[tokio::test]
 async fn trigger_get_succeeds_when_trigger_id_has_3_chars_at_minimum_boundary() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b22_id_at_min));
+    let router = Router::new().route("/triggers/{id}", routing::get(b22_id_at_min));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "abc", true).await;
@@ -425,7 +425,7 @@ async fn b23_id_too_long(Path(id): Path<String>) -> (StatusCode, Json<Value>) {
 #[tokio::test]
 async fn trigger_get_returns_api_error_400_when_trigger_id_has_65_chars_above_maximum() {
     let id_65 = "a".repeat(65);
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b23_id_too_long));
+    let router = Router::new().route("/triggers/{id}", routing::get(b23_id_too_long));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, &id_65, true).await;
@@ -451,7 +451,7 @@ async fn b24_id_at_max(Path(id): Path<String>) -> (StatusCode, String) {
 #[tokio::test]
 async fn trigger_get_succeeds_when_trigger_id_has_64_chars_at_maximum_boundary() {
     let id_64 = "a".repeat(64);
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b24_id_at_max));
+    let router = Router::new().route("/triggers/{id}", routing::get(b24_id_at_max));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, &id_64, true).await;
@@ -483,7 +483,7 @@ async fn b25_invalid_charset(Path(id): Path<String>) -> (StatusCode, Json<Value>
 
 #[tokio::test]
 async fn trigger_get_returns_api_error_400_when_trigger_id_contains_special_characters() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b25_invalid_charset));
+    let router = Router::new().route("/triggers/{id}", routing::get(b25_invalid_charset));
     let server = spawn_router(router).await;
 
     // "bad!chars" - axum will URL-decode percent-encoded chars in path
@@ -504,18 +504,18 @@ async fn trigger_get_returns_api_error_400_when_trigger_id_contains_special_char
 
 #[tokio::test]
 async fn trigger_get_returns_not_found_when_trigger_id_is_empty_string() {
-    // Empty string "" passed as id; the URL becomes /api/v1/triggers/
-    // Axum doesn't match this against /api/v1/triggers/{id}, returns a default 404.
+    // Empty string "" passed as id; the URL becomes /triggers/
+    // Axum doesn't match this against /triggers/{id}, returns a default 404.
     // trigger.rs sees 404, can't parse body as TriggerErrorResponse, returns NotFound.
-    // We set up a route at /api/v1/triggers/{id} with a plain-text 404 handler
+    // We set up a route at /triggers/{id} with a plain-text 404 handler
     // to simulate the server's response to a malformed path.
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b14_not_found_plain));
+    let router = Router::new().route("/triggers/{id}", routing::get(b14_not_found_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "", true).await;
 
-    // With empty id, the URL is /api/v1/triggers/ which axum doesn't route to {id}.
-    // reqwest GETs /api/v1/triggers/ and gets 404 from axum's default handler.
+    // With empty id, the URL is /triggers/ which axum doesn't route to {id}.
+    // reqwest GETs /triggers/ and gets 404 from axum's default handler.
     // trigger.rs: status == NOT_FOUND, body not parseable as TriggerErrorResponse
     // → returns NotFound("trigger  not found")
     assert!(
@@ -537,7 +537,7 @@ async fn b26_service_unavailable_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_get_returns_http_status_when_server_returns_non_json_error() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b26_service_unavailable_plain));
+    let router = Router::new().route("/triggers/{id}", routing::get(b26_service_unavailable_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "test", true).await;
@@ -561,7 +561,7 @@ async fn b27_create_internal_error_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_create_returns_http_status_when_server_returns_non_json_error() {
-    let router = Router::new().route("/api/v1/triggers", routing::post(b27_create_internal_error_plain));
+    let router = Router::new().route("/triggers", routing::post(b27_create_internal_error_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_create(&server.endpoint, "{}", true).await;
@@ -585,7 +585,7 @@ async fn b28_teapot_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_update_returns_http_status_when_server_returns_unrecognized_status() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::put(b28_teapot_plain));
+    let router = Router::new().route("/triggers/{id}", routing::put(b28_teapot_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_update(&server.endpoint, "test", "{}", true).await;
@@ -609,7 +609,7 @@ async fn b29_bad_gateway_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_delete_returns_http_status_when_server_returns_unrecognized_status() {
-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b29_bad_gateway_plain));
+    let router = Router::new().route("/triggers/{id}", routing::delete(b29_bad_gateway_plain));
     let server = spawn_router(router).await;
 
     let result = trigger_delete(&server.endpoint, "test", true).await;

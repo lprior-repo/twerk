@@ -1578,7 +1578,7 @@ mod triggers {
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -1610,7 +1610,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1637,7 +1637,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1664,7 +1664,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1691,7 +1691,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1713,7 +1713,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::empty())
                         .unwrap(),
@@ -1733,7 +1733,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("POST")
-                        .uri("/api/v1/triggers")
+                        .uri("/triggers")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from("{invalid"))
                         .unwrap(),
@@ -1756,7 +1756,7 @@ mod triggers {
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -1774,7 +1774,7 @@ mod triggers {
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/api/v1/triggers/non_existent_trigger")
+                        .uri("/triggers/non_existent_trigger")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -1792,7 +1792,7 @@ mod triggers {
             let response = app
                 .oneshot(
                     axum::http::Request::builder()
-                        .uri("/api/v1/triggers/bad$id")
+                        .uri("/triggers/bad$id")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -1822,7 +1822,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1851,7 +1851,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/non_existent_trigger")
+                        .uri("/triggers/non_existent_trigger")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1879,7 +1879,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1908,7 +1908,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/bad$id")
+                        .uri("/triggers/bad$id")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -1930,7 +1930,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from("{invalid"))
                         .unwrap(),
@@ -1950,7 +1950,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::empty())
                         .unwrap(),
@@ -1977,7 +1977,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("PUT")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(axum::body::Body::from(
                             serde_json::to_vec(&trigger_input).unwrap(),
@@ -2003,7 +2003,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("DELETE")
-                        .uri("/api/v1/triggers/trg_test_1")
+                        .uri("/triggers/trg_test_1")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -2025,7 +2025,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("DELETE")
-                        .uri("/api/v1/triggers/non_existent_trigger")
+                        .uri("/triggers/non_existent_trigger")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -2044,7 +2044,7 @@ mod triggers {
                 .oneshot(
                     axum::http::Request::builder()
                         .method("DELETE")
-                        .uri("/api/v1/triggers/bad$id")
+                        .uri("/triggers/bad$id")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -2112,7 +2112,7 @@ mod concurrent {
             "enabled": true
         });
 
-        let uri = "/api/v1/triggers";
+        let uri = "/triggers";
 
         let (r1, r2) = tokio::join!(
             app.clone().oneshot(

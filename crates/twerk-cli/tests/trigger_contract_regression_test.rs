@@ -96,11 +96,11 @@ async fn delete_no_content() -> StatusCode {
 async fn start_bad_timestamp_server() -> HttpTestServer {
     let router = Router::new()
         .route(
-            "/api/v1/triggers",
+            "/triggers",
             get(list_bad_triggers).post(post_bad_trigger),
         )
         .route(
-            "/api/v1/triggers/{id}",
+            "/triggers/{id}",
             get(get_bad_trigger)
                 .put(put_bad_trigger)
                 .delete(delete_no_content),

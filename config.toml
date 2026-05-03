@@ -21,6 +21,14 @@ type = "inmemory"
 address = "localhost:8000"
 name = "Local Coordinator"
 
+[middleware.web]
+cors.enabled = true
+ratelimit.enabled = true
+ratelimit.rps = 100
+security_headers.enabled = true
+logger.enabled = true
+logger.level = "INFO"
+
 [worker]
 address = "localhost:8001"
 name = "Local Worker"

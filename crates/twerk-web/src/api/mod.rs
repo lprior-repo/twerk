@@ -21,6 +21,7 @@ pub mod openapi;
 pub mod openapi_types;
 pub mod redact;
 mod router;
+pub mod sanitize;
 mod state;
 pub mod trigger_api;
 pub mod types;

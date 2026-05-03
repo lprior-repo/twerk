@@ -8,7 +8,7 @@ async fn delete_trigger_returns_204_on_success() {
     let (state, trigger_ds) = setup_state_with_triggers().await;
     let response = crate::support::call(
         &twerk_web::api::create_router(state),
-        crate::support::request(axum::http::Method::DELETE, "/api/v1/triggers/trg_test_1"),
+        crate::support::request(axum::http::Method::DELETE, "/triggers/trg_test_1"),
     )
     .await;
 
@@ -25,7 +25,7 @@ async fn delete_trigger_returns_404_when_not_found() {
         &twerk_web::api::create_router(state),
         crate::support::request(
             axum::http::Method::DELETE,
-            "/api/v1/triggers/non_existent_trigger",
+            "/triggers/non_existent_trigger",
         ),
     )
     .await;
@@ -38,7 +38,7 @@ async fn delete_trigger_returns_400_for_invalid_id_format() {
     let (state, _) = setup_state_with_triggers().await;
     let response = crate::support::call(
         &twerk_web::api::create_router(state),
-        crate::support::request(axum::http::Method::DELETE, "/api/v1/triggers/bad$id"),
+        crate::support::request(axum::http::Method::DELETE, "/triggers/bad$id"),
     )
     .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -49,7 +49,7 @@ async fn delete_trigger_returns_400_for_invalid_id_format() {
 async fn list_triggers_returns_empty_array_when_no_triggers() {
     let response = crate::support::TestHarness::new()
         .await
-        .get("/api/v1/triggers")
+        .get("/triggers")
         .await;
     assert_eq!(response.status(), StatusCode::OK);
     assert!(response.json().as_array().unwrap().is_empty());
@@ -60,7 +60,7 @@ async fn list_triggers_returns_triggers_when_exist() {
     let (state, _) = setup_state_with_triggers().await;
     let response = crate::support::call(
         &twerk_web::api::create_router(state),
-        crate::support::request(axum::http::Method::GET, "/api/v1/triggers"),
+        crate::support::request(axum::http::Method::GET, "/triggers"),
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -72,7 +72,7 @@ async fn get_trigger_returns_trigger_when_exists() {
     let (state, _) = setup_state_with_triggers().await;
     let response = crate::support::call(
         &twerk_web::api::create_router(state),
-        crate::support::request(axum::http::Method::GET, "/api/v1/triggers/trg_test_1"),
+        crate::support::request(axum::http::Method::GET, "/triggers/trg_test_1"),
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -84,7 +84,7 @@ async fn get_trigger_returns_trigger_when_exists() {
 async fn get_trigger_returns_404_when_not_found() {
     let response = crate::support::TestHarness::new()
         .await
-        .get("/api/v1/triggers/non-existent-trigger")
+        .get("/triggers/non-existent-trigger")
         .await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_eq!(response.json()["error"], "TriggerNotFound");
@@ -94,7 +94,7 @@ async fn get_trigger_returns_404_when_not_found() {
 async fn get_trigger_returns_400_for_invalid_id_format() {
     let response = crate::support::TestHarness::new()
         .await
-        .get("/api/v1/triggers/bad$id")
+        .get("/triggers/bad$id")
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(response.json()["error"], "InvalidIdFormat");

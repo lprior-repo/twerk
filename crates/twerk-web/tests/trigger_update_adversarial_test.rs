@@ -113,7 +113,7 @@ async fn adversarial_field_name_exceeds_max_length_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -148,7 +148,7 @@ async fn adversarial_field_event_exceeds_max_length_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -183,7 +183,7 @@ async fn adversarial_field_action_exceeds_max_length_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -218,7 +218,7 @@ async fn adversarial_metadata_empty_key_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -253,7 +253,7 @@ async fn adversarial_metadata_non_ascii_key_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -290,7 +290,7 @@ async fn adversarial_body_exceeds_max_size_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(large_payload),
     )
@@ -328,7 +328,7 @@ async fn adversarial_created_at_immutable_on_update() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body_ok("trg_abc")).expect("serialize")),
     )
@@ -426,7 +426,7 @@ async fn adversarial_whitespace_only_name_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -459,7 +459,7 @@ async fn adversarial_positive_version_mismatch_should_fail() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -495,7 +495,7 @@ async fn adversarial_metadata_with_long_valid_key_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -529,7 +529,7 @@ async fn adversarial_all_whitespace_fields_should_fail() {
 
     let (status, body_err) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -565,7 +565,7 @@ async fn adversarial_body_without_id_field_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -600,7 +600,7 @@ async fn adversarial_null_condition_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -631,7 +631,7 @@ async fn adversarial_null_metadata_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -661,7 +661,7 @@ async fn adversarial_metadata_special_char_key_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -696,7 +696,7 @@ async fn adversarial_field_at_max_length_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -730,7 +730,7 @@ async fn adversarial_empty_metadata_object_should_succeed() {
 
     let (status, _) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )
@@ -763,7 +763,7 @@ async fn adversarial_whitespace_in_fields_should_be_normalized() {
 
     let (status, body_resp) = send_put(
         app,
-        "/api/v1/triggers/trg_abc",
+        "/triggers/trg_abc",
         "application/json",
         Body::from(serde_json::to_vec(&body).expect("serialize")),
     )

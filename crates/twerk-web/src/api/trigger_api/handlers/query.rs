@@ -9,10 +9,10 @@ use crate::AppState;
 use super::super::domain::{TriggerId, TriggerUpdateError, TriggerView, SERIALIZATION_MSG};
 use super::response::{error_response, serialize_view};
 
-/// GET /api/v1/triggers/{id}
+/// GET /triggers/{id}
 #[utoipa::path(
     get,
-    path = "/api/v1/triggers/{id}",
+    path = "/triggers/{id}",
     params(("id" = String, Path, description = "Trigger ID")),
     responses(
         (status = 200, description = "Trigger found", body = TriggerView, content_type = "application/json"),
@@ -48,7 +48,7 @@ pub async fn get_trigger_handler(
 
 #[utoipa::path(
     delete,
-    path = "/api/v1/triggers/{id}",
+    path = "/triggers/{id}",
     params(("id" = String, Path, description = "Trigger ID")),
     responses(
         (status = 204, description = "Trigger deleted"),
@@ -72,10 +72,10 @@ pub async fn delete_trigger_handler(
     }
 }
 
-/// GET /api/v1/triggers
+/// GET /triggers
 #[utoipa::path(
     get,
-    path = "/api/v1/triggers",
+    path = "/triggers",
     responses(
         (status = 200, description = "List of triggers", body = Vec<TriggerView>, content_type = "application/json"),
         (status = 500, description = "Persistence error", body = TriggerErrorResponse, content_type = "application/json")

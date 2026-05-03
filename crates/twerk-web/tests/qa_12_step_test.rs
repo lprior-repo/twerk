@@ -763,7 +763,7 @@ async fn step_08_triggers_list_empty() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -786,7 +786,7 @@ async fn step_08_triggers_full_crud() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({
@@ -815,7 +815,7 @@ async fn step_08_triggers_full_crud() {
         .clone()
         .oneshot(
             axum::http::Request::builder()
-                .uri(format!("/api/v1/triggers/{trigger_id}"))
+                .uri(format!("/triggers/{trigger_id}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -832,7 +832,7 @@ async fn step_08_triggers_full_crud() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri(format!("/api/v1/triggers/{trigger_id}"))
+                .uri(format!("/triggers/{trigger_id}"))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({
@@ -862,7 +862,7 @@ async fn step_08_triggers_full_crud() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri(format!("/api/v1/triggers/{trigger_id}"))
+                .uri(format!("/triggers/{trigger_id}"))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({
@@ -890,7 +890,7 @@ async fn step_08_triggers_full_crud() {
         .oneshot(
             axum::http::Request::builder()
                 .method("DELETE")
-                .uri(format!("/api/v1/triggers/{trigger_id}"))
+                .uri(format!("/triggers/{trigger_id}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -903,7 +903,7 @@ async fn step_08_triggers_full_crud() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri(format!("/api/v1/triggers/{trigger_id}"))
+                .uri(format!("/triggers/{trigger_id}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -922,7 +922,7 @@ async fn step_08_trigger_blank_name_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(
@@ -950,7 +950,7 @@ async fn step_08_trigger_field_too_long_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({"name": "x".repeat(100), "enabled": true, "event": "e", "action": "a"}))
@@ -975,7 +975,7 @@ async fn step_08_trigger_invalid_id_400() {
     let response = app
         .oneshot(
             axum::http::Request::builder()
-                .uri("/api/v1/triggers/bad%20id")
+                .uri("/triggers/bad%20id")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -997,7 +997,7 @@ async fn step_08_trigger_id_mismatch_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/api/v1/triggers/trg-abc")
+                .uri("/triggers/trg-abc")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(&json!({"name": "n", "enabled": true, "event": "e", "action": "a", "id": "trg-xyz"}))
@@ -1022,7 +1022,7 @@ async fn step_08_trigger_update_nonexistent_404() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/api/v1/triggers/trg-nonexistent")
+                .uri("/triggers/trg-nonexistent")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_vec(
@@ -1050,7 +1050,7 @@ async fn step_08_trigger_delete_nonexistent_404() {
         .oneshot(
             axum::http::Request::builder()
                 .method("DELETE")
-                .uri("/api/v1/triggers/trg-nonexistent")
+                .uri("/triggers/trg-nonexistent")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -1072,7 +1072,7 @@ async fn step_08_trigger_malformed_json_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from("{not json"))
                 .unwrap(),
@@ -1095,7 +1095,7 @@ async fn step_08_trigger_unsupported_content_type_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("PUT")
-                .uri("/api/v1/triggers/trg-1")
+                .uri("/triggers/trg-1")
                 .header(header::CONTENT_TYPE, "text/plain")
                 .body(Body::from("not json"))
                 .unwrap(),
@@ -1126,7 +1126,7 @@ async fn step_08_trigger_body_too_large_400() {
         .oneshot(
             axum::http::Request::builder()
                 .method("POST")
-                .uri("/api/v1/triggers")
+                .uri("/triggers")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(payload))
                 .unwrap(),

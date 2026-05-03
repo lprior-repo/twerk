@@ -254,55 +254,55 @@ step_08() {
     section "STEP 8: Triggers CRUD Lifecycle"
 
     # List (empty or existing)
-    CODE=$(api GET /api/v1/triggers)
-    [ "$CODE" = "200" ] && pass "GET /api/v1/triggers -> 200" || fail "List triggers -> $CODE"
+    CODE=$(api GET /triggers)
+    [ "$CODE" = "200" ] && pass "GET /triggers -> 200" || fail "List triggers -> $CODE"
 
     # Create
-    CODE=$(api POST /api/v1/triggers -H "Content-type: application/json" \
+    CODE=$(api POST /triggers -H "Content-type: application/json" \
         -d '{"name":"qa-trigger","enabled":true,"event":"job.completed","action":"notify","metadata":{"channel":"slack"}}')
     if [ "$CODE" = "201" ]; then
         TRIGGER_ID=$(jq -r '.id // empty' /tmp/qa-response.json)
         VER=$(jq -r '.version // empty' /tmp/qa-response.json)
-        pass "POST /api/v1/triggers -> 201 id=$TRIGGER_ID ver=$VER"
+        pass "POST /triggers -> 201 id=$TRIGGER_ID ver=$VER"
     else
-        fail "POST /api/v1/triggers -> $CODE"
+        fail "POST /triggers -> $CODE"
         return
     fi
 
     # Get
-    CODE=$(api GET "/api/v1/triggers/$TRIGGER_ID")
-    [ "$CODE" = "200" ] && pass "GET /api/v1/triggers/$TRIGGER_ID -> 200" || fail "Get trigger -> $CODE"
+    CODE=$(api GET "/triggers/$TRIGGER_ID")
+    [ "$CODE" = "200" ] && pass "GET /triggers/$TRIGGER_ID -> 200" || fail "Get trigger -> $CODE"
 
     # Update
-    CODE=$(api PUT "/api/v1/triggers/$TRIGGER_ID" -H "Content-type: application/json" \
+    CODE=$(api PUT "/triggers/$TRIGGER_ID" -H "Content-type: application/json" \
         -d "{\"name\":\"qa-trigger-v2\",\"enabled\":true,\"event\":\"job.failed\",\"action\":\"alert\",\"metadata\":{},\"version\":$VER}")
     if [ "$CODE" = "200" ]; then
         NEW_VER=$(jq -r '.version // empty' /tmp/qa-response.json)
-        pass "PUT /api/v1/triggers/$TRIGGER_ID -> 200 new_ver=$NEW_VER"
+        pass "PUT /triggers/$TRIGGER_ID -> 200 new_ver=$NEW_VER"
     else
-        fail "PUT /api/v1/triggers/$TRIGGER_ID -> $CODE"
+        fail "PUT /triggers/$TRIGGER_ID -> $CODE"
         NEW_VER=$VER
     fi
 
     # Stale version conflict (409)
-    CODE=$(api PUT "/api/v1/triggers/$TRIGGER_ID" -H "Content-type: application/json" \
+    CODE=$(api PUT "/triggers/$TRIGGER_ID" -H "Content-type: application/json" \
         -d "{\"name\":\"stale\",\"enabled\":true,\"event\":\"x\",\"action\":\"y\",\"version\":$VER}")
     [ "$CODE" = "409" ] && pass "Stale version -> 409 Conflict" || fail "Stale version -> $CODE (expected 409)"
 
     # Invalid ID (400)
-    CODE=$(api GET "/api/v1/triggers/bad%20id")
+    CODE=$(api GET "/triggers/bad%20id")
     [ "$CODE" = "400" ] && pass "Invalid trigger ID -> 400" || fail "Invalid ID -> $CODE (expected 400)"
 
     # Delete
-    CODE=$(api DELETE "/api/v1/triggers/$TRIGGER_ID")
-    [ "$CODE" = "204" ] || [ "$CODE" = "200" ] && pass "DELETE /api/v1/triggers/$TRIGGER_ID -> $CODE" || fail "Delete trigger -> $CODE"
+    CODE=$(api DELETE "/triggers/$TRIGGER_ID")
+    [ "$CODE" = "204" ] || [ "$CODE" = "200" ] && pass "DELETE /triggers/$TRIGGER_ID -> $CODE" || fail "Delete trigger -> $CODE"
 
     # Get after delete (404)
-    CODE=$(api GET "/api/v1/triggers/$TRIGGER_ID")
+    CODE=$(api GET "/triggers/$TRIGGER_ID")
     [ "$CODE" = "404" ] && pass "Get deleted trigger -> 404" || fail "Get after delete -> $CODE (expected 404)"
 
     # Create with blank name (400)
-    CODE=$(api POST /api/v1/triggers -H "Content-type: application/json" \
+    CODE=$(api POST /triggers -H "Content-type: application/json" \
         -d '{"name":"","enabled":true,"event":"x","action":"y"}')
     [ "$CODE" = "400" ] && pass "Create with blank name -> 400" || fail "Blank name -> $CODE (expected 400)"
 }
@@ -440,9 +440,9 @@ step_12() {
 
     # Trigger body too large
     LARGE_NAME=$(python3 -c "print('x' * 100)" 2>/dev/null || echo "xxxxxxxxxxxxxxxxxxxx")
-    CODE=$(api POST /api/v1/triggers -H "Content-type: application/json" \
+    CODE=$(api POST /triggers -H "Content-type: application/json" \
         -d "{\"name\":\"$LARGE_NAME\",\"enabled\":true,\"event\":\"x\",\"action\":\"y\"}")
-    [ "$CODE" = "400" ] && pass "POST /api/v1/triggers (field too long) -> 400" || fail "Long field -> $CODE (expected 400)"
+    [ "$CODE" = "400" ] && pass "POST /triggers (field too long) -> 400" || fail "Long field -> $CODE (expected 400)"
 }
 
 # =============================================================================

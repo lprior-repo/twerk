@@ -389,7 +389,7 @@ pub fn create_openapi_spec(version: &str) -> OpenApi {
     );
 
     paths.insert(
-        "/api/v1/triggers".to_string(),
+        "/triggers".to_string(),
         PathItem {
             get: Some(Operation {
                 summary: "List triggers".to_string(),
@@ -413,7 +413,7 @@ pub fn create_openapi_spec(version: &str) -> OpenApi {
     );
 
     paths.insert(
-        "/api/v1/triggers/{id}".to_string(),
+        "/triggers/{id}".to_string(),
         PathItem {
             get: Some(Operation {
                 summary: "Get trigger by ID".to_string(),

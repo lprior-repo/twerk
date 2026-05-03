@@ -17,6 +17,43 @@ use crate::engine::coordinator::auth::{BasicAuthConfig, KeyAuthConfig};
 use crate::engine::coordinator::limits::{BodyLimitConfig, RateLimitConfig};
 use crate::engine::coordinator::utils::{parse_body_limit, wildcard_match};
 
+// ── Security Headers Middleware ────────────────────────────────
+
+pub async fn security_headers_middleware(
+    request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+
+    headers.insert(
+        axum::http::header::X_CONTENT_TYPE_OPTIONS,
+        axum::http::HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        axum::http::header::X_FRAME_OPTIONS,
+        axum::http::HeaderValue::from_static("DENY"),
+    );
+    headers.insert(
+        axum::http::header::REFERRER_POLICY,
+        axum::http::HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    headers.insert(
+        "X-XSS-Protection",
+        axum::http::HeaderValue::from_static("1; mode=block"),
+    );
+    headers.insert(
+        "Permissions-Policy",
+        axum::http::HeaderValue::from_static("geolocation=(), microphone=(), camera=()"),
+    );
+    headers.insert(
+        axum::http::header::STRICT_TRANSPORT_SECURITY,
+        axum::http::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+    );
+
+    response
+}
+
 // ── CORS Middleware ────────────────────────────────────────────
 
 pub fn cors_layer() -> CorsLayer {
@@ -37,6 +74,12 @@ pub fn cors_layer() -> CorsLayer {
 pub struct HttpLogConfig {
     pub(crate) level: String,
     pub(crate) skip_paths: Vec<String>,
+}
+
+impl HttpLogConfig {
+    pub fn new(level: String, skip_paths: Vec<String>) -> Self {
+        Self { level, skip_paths }
+    }
 }
 
 impl Default for HttpLogConfig {

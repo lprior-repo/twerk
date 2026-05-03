@@ -1350,168 +1350,6 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
-  /api/v1/triggers:
-    get:
-      operationId: list_triggers_handler
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/TriggerView'
-                type: array
-          description: List of triggers
-        '500':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Persistence error
-      summary: |-
-        GET /api/v1/triggers
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; persistence and serialization
-        failures are converted into HTTP responses.
-      tags:
-      - super::trigger_api::handlers::query
-    post:
-      operationId: create_trigger_handler
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TriggerUpdateRequest'
-        required: true
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-          description: Trigger created
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Validation error
-      summary: |-
-        POST /api/v1/triggers
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
-        creation, and serialization failures are converted into HTTP responses.
-      tags:
-      - super::trigger_api::handlers::command
-  /api/v1/triggers/{id}:
-    delete:
-      operationId: delete_trigger_handler
-      parameters:
-      - description: Trigger ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
-      responses:
-        '204':
-          description: Trigger deleted
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Invalid ID format
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Trigger not found
-      tags:
-      - super::trigger_api::handlers::query
-    get:
-      operationId: get_trigger_handler
-      parameters:
-      - description: Trigger ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-          description: Trigger found
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Invalid ID format
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Trigger not found
-      summary: |-
-        GET /api/v1/triggers/{id}
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing
-        triggers, and serialization failures are converted into HTTP responses.
-      tags:
-      - super::trigger_api::handlers::query
-    put:
-      operationId: update_trigger_handler
-      parameters:
-      - description: Trigger ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TriggerUpdateRequest'
-        required: true
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-          description: Trigger updated
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Validation error or invalid request
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Trigger not found
-        '409':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-          description: Version conflict
-      summary: |-
-        Handler for `PUT /api/v1/triggers/{id}`.
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
-        update, and serialization failures are converted into HTTP responses.
-      tags:
-      - super::trigger_api::handlers::command
   /health:
     get:
       operationId: health_handler
@@ -2023,6 +1861,168 @@ paths:
         # Errors
       tags:
       - super::handlers::tasks
+  /triggers:
+    get:
+      operationId: list_triggers_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TriggerView'
+                type: array
+          description: List of triggers
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Persistence error
+      summary: |-
+        GET /triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; persistence and serialization
+        failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::query
+    post:
+      operationId: create_trigger_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerUpdateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger created
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Validation error
+      summary: |-
+        POST /triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        creation, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::command
+  /triggers/{id}:
+    delete:
+      operationId: delete_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Trigger deleted
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Invalid ID format
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+      tags:
+      - super::trigger_api::handlers::query
+    get:
+      operationId: get_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Invalid ID format
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+      summary: |-
+        GET /triggers/{id}
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing
+        triggers, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::query
+    put:
+      operationId: update_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerUpdateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger updated
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Validation error or invalid request
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Version conflict
+      summary: |-
+        Handler for `PUT /triggers/{id}`.
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        update, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::command
   /users:
     post:
       description: '# Errors'

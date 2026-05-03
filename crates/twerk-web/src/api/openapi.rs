@@ -134,11 +134,11 @@ pub fn mounted_route_specs() -> Vec<(String, String)> {
         ("GET".to_string(), "/queues".to_string()),
         ("GET".to_string(), "/queues/{name}".to_string()),
         ("DELETE".to_string(), "/queues/{name}".to_string()),
-        ("GET".to_string(), "/api/v1/triggers".to_string()),
-        ("POST".to_string(), "/api/v1/triggers".to_string()),
-        ("GET".to_string(), "/api/v1/triggers/{id}".to_string()),
-        ("PUT".to_string(), "/api/v1/triggers/{id}".to_string()),
-        ("DELETE".to_string(), "/api/v1/triggers/{id}".to_string()),
+        ("GET".to_string(), "/triggers".to_string()),
+        ("POST".to_string(), "/triggers".to_string()),
+        ("GET".to_string(), "/triggers/{id}".to_string()),
+        ("PUT".to_string(), "/triggers/{id}".to_string()),
+        ("DELETE".to_string(), "/triggers/{id}".to_string()),
     ];
     routes.sort();
     routes

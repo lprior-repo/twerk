@@ -26,7 +26,19 @@ fn parse_job_request(headers: &HeaderMap, body: &Bytes) -> Result<Job, ApiError>
     }
 }
 
+fn sanitize_job(job: &mut Job) {
+    job.name = crate::api::sanitize::sanitize_option(job.name.clone());
+    job.description = crate::api::sanitize::sanitize_option(job.description.clone());
+    if let Some(ref mut tasks) = job.tasks {
+        for task in tasks.iter_mut() {
+            task.name = crate::api::sanitize::sanitize_option(task.name.clone());
+            task.description = crate::api::sanitize::sanitize_option(task.description.clone());
+        }
+    }
+}
+
 async fn enrich_job_defaults(state: &AppState, mut job: Job) -> Job {
+    sanitize_job(&mut job);
     if job.id.is_none() {
         job.id = JobId::new(twerk_core::uuid::new_short_uuid()).ok();
     }

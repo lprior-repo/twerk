@@ -3,7 +3,7 @@ use axum::Router;
 
 use twerk_app::engine::coordinator::auth::{basic_auth_middleware, key_auth_middleware};
 use twerk_app::engine::coordinator::limits::{body_limit_middleware, rate_limit_middleware};
-use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware};
+use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware, security_headers_middleware};
 
 use super::handlers;
 use super::openapi;
@@ -17,6 +17,9 @@ fn is_enabled(enabled: &std::collections::HashMap<String, bool>, key: &str) -> b
 pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
     let mut router = Router::new();
+
+    // Apply security headers to all responses
+    router = router.layer(axum::middleware::from_fn(security_headers_middleware));
 
     if let Some(body_limit) = state.config.body_limit.clone() {
         router = router.layer(axum::middleware::from_fn_with_state(
@@ -170,11 +173,11 @@ fn mount_queue_routes(
 fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
     router
         .route(
-            "/api/v1/triggers",
-            get(handlers::list_triggers_handler).post(handlers::create_trigger_handler),
-        )
-        .route(
-            "/api/v1/triggers/{id}",
+        "/triggers",
+        get(handlers::list_triggers_handler).post(handlers::create_trigger_handler),
+    )
+    .route(
+        "/triggers/{id}",
             get(handlers::get_trigger_handler)
                 .put(handlers::update_trigger_handler)
                 .delete(handlers::delete_trigger_handler),

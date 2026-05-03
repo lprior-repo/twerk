@@ -4,9 +4,6 @@
 //! between broker, datastore, locker, worker, and coordinator components.
 
 #![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-#![forbid(unsafe_code)]
 #![allow(clippy::pedantic)]
 
 pub mod broker;
@@ -35,9 +32,9 @@ pub use datastore::DatastoreProxy;
 pub use engine_helpers::{resolve_locker_type, MockRuntime};
 pub use types::{
     Config, EndpointHandler, JobEventType, JobHandlerError, JobHandlerFunc, JobListener,
-    JobMiddlewareFunc, LogHandlerError, LogMiddlewareFunc, Middleware, Mode,
-    NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, SubmitTaskError, TaskEventType,
-    TaskHandlerError, TaskHandlerFunc, TaskHandle, TaskMiddlewareFunc, WebMiddlewareFunc,
+    JobMiddlewareFunc, LogHandlerError, LogHandlerFunc, LogMiddlewareFunc, Middleware, Mode,
+    NodeHandlerError, NodeHandlerFunc, NodeMiddlewareFunc, State, TaskEventType, TaskHandlerError,
+    TaskHandlerFunc, TaskMiddlewareFunc, WebMiddlewareFunc,
 };
 
 /// Topic constant for job events

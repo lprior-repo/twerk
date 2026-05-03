@@ -128,25 +128,6 @@ pub enum NodeHandlerError {
     Datastore(String),
 }
 
-/// Handle returned by `Engine::submit_task` containing the task metadata.
-#[derive(Debug, Clone)]
-pub struct TaskHandle {
-    pub task_id: twerk_core::id::TaskId,
-}
-
-/// Error returned by `Engine::submit_task`.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-pub enum SubmitTaskError {
-    #[error("engine is not running")]
-    NotRunning,
-    #[error("task with id {0} already exists")]
-    DuplicateTaskId(twerk_core::id::TaskId),
-    #[error("task was cancelled")]
-    Cancelled,
-    #[error("invalid task name: {0}")]
-    InvalidTaskName(String),
-}
-
 // ── Configuration ──────────────────────────────────────────────
 
 /// Middleware configuration — fully typed, zero `dyn Any`.

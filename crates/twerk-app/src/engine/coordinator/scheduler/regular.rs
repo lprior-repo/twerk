@@ -11,27 +11,30 @@ impl Scheduler {
     pub async fn schedule_regular_task(&self, mut task: twerk_core::task::Task) -> Result<()> {
         let task_id = task.id.clone().unwrap_or_default();
         let now = time::OffsetDateTime::now_utc();
+
+        // Get job_id as str reference to avoid clone
         let job_id = task
             .job_id
-            .clone()
+            .as_deref()
             .ok_or_else(|| SchedulerError::JobIdRequired {
                 scheduler: "regular".to_string(),
             })?;
 
-        let job = self.ds.get_job_by_id(job_id.as_str()).await?;
+        let job = self.ds.get_job_by_id(job_id).await?;
 
+        // Apply defaults if present
         if let Some(defaults) = job.defaults.as_ref() {
             if task.queue.is_none() {
-                task.queue = defaults.queue.clone();
+                task.queue.clone_from(&defaults.queue);
             }
             if task.limits.is_none() {
-                task.limits = defaults.limits.clone();
+                task.limits.clone_from(&defaults.limits);
             }
             if task.timeout.is_none() {
-                task.timeout = defaults.timeout.clone();
+                task.timeout.clone_from(&defaults.timeout);
             }
             if task.retry.is_none() {
-                task.retry = defaults.retry.clone();
+                task.retry.clone_from(&defaults.retry);
             }
             if task.priority == 0 {
                 task.priority = defaults.priority;
@@ -45,11 +48,13 @@ impl Scheduler {
             task.queue = Some("default".to_string());
         }
 
+        // Take ownership of fields we need to move into closure
         let q = task.queue.clone().unwrap_or_default();
-        let t_queue = task.queue.clone();
-        let t_limits = task.limits.clone();
-        let t_timeout = task.timeout.clone();
-        let t_retry = task.retry.clone();
+        let queue = task.queue.take();
+        let limits = task.limits.take();
+        let timeout = task.timeout.take();
+        let retry = task.retry.take();
+        let priority = task.priority;
 
         self.ds
             .update_task(
@@ -57,15 +62,20 @@ impl Scheduler {
                 Box::new(move |mut u| {
                     u.state = twerk_core::task::TaskState::Scheduled;
                     u.scheduled_at = Some(now);
-                    u.queue = t_queue;
-                    u.limits = t_limits;
-                    u.timeout = t_timeout;
-                    u.retry = t_retry;
-                    u.priority = task.priority;
+                    u.queue = queue;
+                    u.limits = limits;
+                    u.timeout = timeout;
+                    u.retry = retry;
+                    u.priority = priority;
                     Ok(u)
                 }),
             )
             .await?;
+
+        // Restore task fields for publish (closure moved them)
+        task.queue = Some(q.clone());
+        task.state = twerk_core::task::TaskState::Scheduled;
+        task.scheduled_at = Some(now);
 
         self.broker.publish_task(q, &task).await?;
 

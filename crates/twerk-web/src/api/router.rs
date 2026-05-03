@@ -77,7 +77,9 @@ fn mount_system_routes(
         router
     };
     let router = if is_enabled(enabled, "nodes") {
-        router.route("/nodes", get(handlers::list_nodes_handler))
+        router
+            .route("/nodes", get(handlers::list_nodes_handler))
+            .route("/nodes/{id}", get(handlers::get_node_handler))
     } else {
         router
     };
@@ -179,6 +181,19 @@ fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
         )
 }
 
-async fn serve_openapi_spec() -> axum::response::Json<utoipa::openapi::OpenApi> {
-    axum::Json(openapi::generate_spec())
+async fn serve_openapi_spec() -> axum::http::Response<axum::body::Body> {
+    openapi::generate_json()
+        .map(|json| {
+            axum::response::Response::builder()
+                .status(200)
+                .header(axum::http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(json.into_bytes()))
+                .unwrap()
+        })
+        .unwrap_or_else(|_| {
+            axum::response::Response::builder()
+                .status(500)
+                .body(axum::body::Body::empty())
+                .unwrap()
+        })
 }

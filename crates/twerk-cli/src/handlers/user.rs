@@ -2,37 +2,19 @@
 //!
 //! HTTP client functions for user API operations.
 
-use serde::Deserialize;
-
 use crate::error::CliError;
-
-#[derive(Debug, Deserialize)]
-pub struct User {
-    pub id: String,
-    pub username: String,
-    #[serde(default)]
-    pub email: Option<String>,
-    #[serde(default)]
-    pub created_at: Option<String>,
-    #[serde(default)]
-    pub is_active: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UserCreateResponse {
-    pub user: User,
-    #[serde(default)]
-    pub message: Option<String>,
-}
+use crate::handlers::common::TriggerErrorResponse;
 
 pub async fn user_create(
     endpoint: &str,
     username: &str,
+    password: &str,
     json_mode: bool,
 ) -> Result<String, CliError> {
     let url = format!("{}/users", endpoint.trim_end_matches('/'));
 
-    let body_json = serde_json::json!({ "username": username }).to_string();
+    let body_json =
+        serde_json::json!({ "username": username, "password": password }).to_string();
 
     let client = reqwest::Client::new();
     let response = client
@@ -51,6 +33,12 @@ pub async fn user_create(
         .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
     if status == reqwest::StatusCode::BAD_REQUEST {
+        if let Ok(err_resp) = serde_json::from_str::<TriggerErrorResponse>(&body) {
+            return Err(CliError::ApiError {
+                code: status.as_u16(),
+                message: err_resp.message,
+            });
+        }
         return Err(CliError::HttpStatus {
             status: status.as_u16(),
             reason: status
@@ -67,9 +55,7 @@ pub async fn user_create(
         });
     }
 
-    if status == reqwest::StatusCode::CREATED {
-        let _user_resp: UserCreateResponse =
-            serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
+    if status == reqwest::StatusCode::OK {
         if json_mode {
             println!("{}", body);
         } else {

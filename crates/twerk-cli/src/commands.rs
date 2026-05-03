@@ -2,10 +2,8 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 
-/// Concrete command examples shown in top-level help output.
-const HELP_EXAMPLES: &str = "Examples:\n  twerk run standalone\n  twerk migration --yes\n  twerk health --endpoint http://localhost:8000";
+const HELP_EXAMPLES: &str = "Examples:\n  twerk server-start standalone\n  twerk health --endpoint http://localhost:8000\n  twerk job list";
 
-/// Top-level CLI parser.
 #[derive(Debug, Clone, Parser)]
 #[command(name = "twerk")]
 #[command(bin_name = "twerk")]
@@ -13,187 +11,185 @@ const HELP_EXAMPLES: &str = "Examples:\n  twerk run standalone\n  twerk migratio
 #[command(version = crate::cli::VERSION, propagate_version = true)]
 #[command(after_help = HELP_EXAMPLES)]
 pub struct Cli {
-    /// Enable JSON output for automation and scripting.
-    /// When enabled, commands output structured JSON instead of human-readable text.
     #[arg(long, global = true)]
     pub json: bool,
-
-    /// Subcommand to execute.
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
 
-/// Supported engine run modes.
 #[derive(Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum RunMode {
-    /// Run a single-node instance.
     Standalone,
-    /// Run only the coordinator role.
     Coordinator,
-    /// Run only the worker role.
     Worker,
 }
 
-/// Task subcommands.
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum JobCommand {
+    List,
+    Create {
+        #[arg(required = true)]
+        body: String,
+    },
+    Get {
+        #[arg(required = true)]
+        id: String,
+    },
+    Log {
+        #[arg(required = true)]
+        id: String,
+    },
+    Cancel {
+        #[arg(required = true)]
+        id: String,
+    },
+    Restart {
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum ScheduledJobCommand {
+    List,
+    Create {
+        #[arg(required = true)]
+        body: String,
+    },
+    Get {
+        #[arg(required = true)]
+        id: String,
+    },
+    Delete {
+        #[arg(required = true)]
+        id: String,
+    },
+    Pause {
+        #[arg(required = true)]
+        id: String,
+    },
+    Resume {
+        #[arg(required = true)]
+        id: String,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum TaskCommand {
-    /// Get a task by ID
     Get {
-        /// The task ID
         #[arg(required = true)]
         id: String,
     },
-    /// Get task log entries
     Log {
-        /// The task ID
         #[arg(required = true)]
         id: String,
-        /// Page number
         #[arg(long)]
         page: Option<i64>,
-        /// Page size
         #[arg(long)]
         size: Option<i64>,
+        #[arg(long)]
+        q: Option<String>,
     },
 }
 
-/// Queue subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum QueueCommand {
-    /// List all queues
     List,
-    /// Get a queue by name
     Get {
-        /// The queue name
         #[arg(required = true)]
         name: String,
     },
-    /// Delete a queue by name
     Delete {
-        /// The queue name
         #[arg(required = true)]
         name: String,
     },
 }
 
-/// Trigger subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum TriggerCommand {
-    /// List all triggers
     List,
-    /// Get a trigger by ID
     Get {
-        /// The trigger ID
         #[arg(required = true)]
         id: String,
     },
-    /// Create a trigger
     Create {
-        /// JSON body for the trigger
         #[arg(required = true)]
         body: String,
     },
-    /// Update a trigger
     Update {
-        /// The trigger ID
         #[arg(required = true)]
         id: String,
-        /// JSON body for the update
         #[arg(required = true)]
         body: String,
     },
-    /// Delete a trigger by ID
     Delete {
-        /// The trigger ID
         #[arg(required = true)]
         id: String,
     },
 }
 
-/// Node subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum NodeCommand {
-    /// List all nodes
     List,
-    /// Get a node by ID
-    Get {
-        /// The node ID
-        #[arg(required = true)]
-        id: String,
-    },
 }
 
-/// Metrics subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum MetricsCommand {
-    /// Get system metrics
     Get,
 }
 
-/// User subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum UserCommand {
-    /// Create a user
     Create {
-        /// The username for the new user
         #[arg(required = true)]
         username: String,
+        /// The password for the new user
+        #[arg(required = true)]
+        password: String,
     },
 }
 
-/// CLI subcommands.
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum Commands {
-    /// Run the Twerk engine
-    Run {
-        /// The mode to run in (standalone, coordinator, worker)
+    ServerStart {
         #[arg(value_name = "mode", required = true)]
         mode: RunMode,
-
-        /// The coordinator hostname for workers to connect to
         #[arg(long)]
         hostname: Option<String>,
     },
-    /// Run database migration
-    Migration {
-        /// Skip confirmation prompt (for automation)
-        #[arg(long, short = 'y')]
-        yes: bool,
-    },
-    /// Perform a health check
     Health {
-        /// The endpoint to check (defaults to <http://localhost:8000>)
         #[arg(long, short = 'e')]
         endpoint: Option<String>,
     },
-    /// Show version information
     Version,
-    /// Task operations
+    Job {
+        #[command(subcommand)]
+        command: JobCommand,
+    },
+    ScheduledJob {
+        #[command(subcommand)]
+        command: ScheduledJobCommand,
+    },
     Task {
         #[command(subcommand)]
         command: TaskCommand,
     },
-    /// Queue operations
     Queue {
         #[command(subcommand)]
         command: QueueCommand,
     },
-    /// Trigger operations
     Trigger {
         #[command(subcommand)]
         command: TriggerCommand,
     },
-    /// Node operations
     Node {
         #[command(subcommand)]
         command: NodeCommand,
     },
-    /// Metrics operations
     Metrics {
         #[command(subcommand)]
         command: MetricsCommand,
     },
-    /// User operations
     User {
         #[command(subcommand)]
         command: UserCommand,
@@ -202,7 +198,7 @@ pub enum Commands {
 
 impl Default for Commands {
     fn default() -> Self {
-        Self::Run {
+        Self::ServerStart {
             mode: RunMode::Standalone,
             hostname: None,
         }
@@ -215,20 +211,20 @@ mod tests {
     use clap::error::ErrorKind;
 
     #[test]
-    fn commands_run_variant_matches_run_shape_when_constructed_directly() {
-        let cmd = Commands::Run {
+    fn commands_server_start_variant_matches_shape_when_constructed_directly() {
+        let cmd = Commands::ServerStart {
             mode: RunMode::Standalone,
             hostname: None,
         };
-        assert!(matches!(cmd, Commands::Run { .. }));
+        assert!(matches!(cmd, Commands::ServerStart { .. }));
     }
 
     #[test]
-    fn commands_default_returns_standalone_run_mode_when_no_override_exists() {
+    fn commands_default_returns_standalone_server_start_when_no_override_exists() {
         let cmd = Commands::default();
         assert!(matches!(
             cmd,
-            Commands::Run {
+            Commands::ServerStart {
                 ref mode,
                 hostname: None
             } if mode == &RunMode::Standalone
@@ -251,9 +247,8 @@ mod tests {
         let help = Cli::command().render_long_help().to_string();
 
         assert!(help.contains("Examples:"));
-        assert!(help.contains("twerk run standalone"));
-        assert!(help.contains("twerk migration --yes"));
-        assert!(help.contains("twerk health --endpoint http://localhost:8000"));
+        assert!(help.contains("twerk server-start standalone"));
+        assert!(help.contains("twerk health --endpoint"));
     }
 
     #[test]
@@ -265,14 +260,14 @@ mod tests {
     }
 
     #[test]
-    fn run_mode_value_parser_accepts_known_modes_when_parsing_run_command() {
-        let cli = Cli::try_parse_from(["twerk", "run", "worker"]);
+    fn server_start_accepts_known_modes_when_parsing() {
+        let cli = Cli::try_parse_from(["twerk", "server-start", "worker"]);
 
         assert!(matches!(
             cli,
             Ok(Cli {
                 json: false,
-                command: Some(Commands::Run {
+                command: Some(Commands::ServerStart {
                     mode: RunMode::Worker,
                     hostname: None
                 })
@@ -290,6 +285,136 @@ mod tests {
                 json: false,
                 command: Some(Commands::Version)
             })
+        ));
+    }
+
+    #[test]
+    fn job_list_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "job", "list"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Job { command: JobCommand::List })
+            })
+        ));
+    }
+
+    #[test]
+    fn job_create_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "job", "create", r#"{"name":"test"}"#]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Job { command: JobCommand::Create { ref body } })
+            }) if body == r#"{"name":"test"}"#
+        ));
+    }
+
+    #[test]
+    fn job_get_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "job", "get", "job-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Job { command: JobCommand::Get { ref id } })
+            }) if id == "job-123"
+        ));
+    }
+
+    #[test]
+    fn job_cancel_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "job", "cancel", "job-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Job { command: JobCommand::Cancel { ref id } })
+            }) if id == "job-123"
+        ));
+    }
+
+    #[test]
+    fn job_restart_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "job", "restart", "job-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::Job { command: JobCommand::Restart { ref id } })
+            }) if id == "job-123"
+        ));
+    }
+
+    #[test]
+    fn scheduled_job_list_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "scheduled-job", "list"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::List })
+            })
+        ));
+    }
+
+    #[test]
+    fn scheduled_job_create_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "scheduled-job", "create", r#"{"name":"test"}"#]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Create { ref body } })
+            }) if body == r#"{"name":"test"}"#
+        ));
+    }
+
+    #[test]
+    fn scheduled_job_delete_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "scheduled-job", "delete", "sj-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Delete { ref id } })
+            }) if id == "sj-123"
+        ));
+    }
+
+    #[test]
+    fn scheduled_job_pause_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "scheduled-job", "pause", "sj-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Pause { ref id } })
+            }) if id == "sj-123"
+        ));
+    }
+
+    #[test]
+    fn scheduled_job_resume_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "scheduled-job", "resume", "sj-123"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                json: false,
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Resume { ref id } })
+            }) if id == "sj-123"
         ));
     }
 
@@ -358,6 +483,19 @@ mod tests {
             get,
             Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::Get { ref id } }), .. })
             if id == "trig-1"
+        ));
+    }
+
+    #[test]
+    fn node_list_subcommand_parses() {
+        let cli = Cli::try_parse_from(["twerk", "node", "list"]);
+
+        assert!(matches!(
+            cli,
+            Ok(Cli {
+                command: Some(Commands::Node { command: NodeCommand::List }),
+                ..
+            })
         ));
     }
 }

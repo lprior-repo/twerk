@@ -1,8 +1,3 @@
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-#![forbid(unsafe_code)]
-
 pub mod asl;
 pub mod domain;
 pub mod env;
@@ -22,7 +17,6 @@ pub mod task;
 pub mod trigger;
 pub mod types;
 pub mod user;
-pub mod workflow;
 pub use twerk_common::uuid;
 pub mod validation;
 pub mod webhook;

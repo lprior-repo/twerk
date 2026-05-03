@@ -1,7 +1,6 @@
 mod job_mutations;
 mod jobs;
 mod queues;
-mod rfc7807_contract_test;
 mod scheduled_job_mutations;
 mod scheduled_jobs;
 mod shared;

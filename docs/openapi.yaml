@@ -1,855 +1,38 @@
-openapi: 3.1.0
-info:
-  title: Twerk API
-  description: Task scheduling and job queue management API
-  contact:
-    name: Twerk Contributors
-  license:
-    name: Apache-2.0
-    identifier: Apache-2.0
-  version: 0.1.0
-paths:
-  /api/v1/triggers:
-    get:
-      tags:
-      - super::trigger_api::handlers::query
-      summary: |-
-        GET /api/v1/triggers
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; persistence and serialization
-        failures are converted into HTTP responses.
-      operationId: list_triggers_handler
-      responses:
-        '200':
-          description: List of triggers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TriggerView'
-        '500':
-          description: Persistence error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-    post:
-      tags:
-      - super::trigger_api::handlers::command
-      summary: |-
-        POST /api/v1/triggers
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
-        creation, and serialization failures are converted into HTTP responses.
-      operationId: create_trigger_handler
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TriggerUpdateRequest'
-        required: true
-      responses:
-        '201':
-          description: Trigger created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-  /api/v1/triggers/{id}:
-    get:
-      tags:
-      - super::trigger_api::handlers::query
-      summary: |-
-        GET /api/v1/triggers/{id}
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing
-        triggers, and serialization failures are converted into HTTP responses.
-      operationId: get_trigger_handler
-      parameters:
-      - name: id
-        in: path
-        description: Trigger ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Trigger found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-        '400':
-          description: Invalid ID format
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-        '404':
-          description: Trigger not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-    put:
-      tags:
-      - super::trigger_api::handlers::command
-      summary: |-
-        Handler for `PUT /api/v1/triggers/{id}`.
-        # Errors
-        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
-        update, and serialization failures are converted into HTTP responses.
-      operationId: update_trigger_handler
-      parameters:
-      - name: id
-        in: path
-        description: Trigger ID
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TriggerUpdateRequest'
-        required: true
-      responses:
-        '200':
-          description: Trigger updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerView'
-        '400':
-          description: Validation error or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-        '404':
-          description: Trigger not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-        '409':
-          description: Version conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-    delete:
-      tags:
-      - super::trigger_api::handlers::query
-      operationId: delete_trigger_handler
-      parameters:
-      - name: id
-        in: path
-        description: Trigger ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '204':
-          description: Trigger deleted
-        '400':
-          description: Invalid ID format
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-        '404':
-          description: Trigger not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TriggerErrorResponse'
-  /health:
-    get:
-      tags:
-      - super::handlers::system
-      summary: Health check handler
-      operationId: health_handler
-      responses:
-        '200':
-          description: Service is healthy
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-        '503':
-          description: Service is unhealthy
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-  /jobs:
-    get:
-      tags:
-      - super::handlers::jobs::read
-      summary: |-
-        GET /jobs
-        # Errors
-        Returns an error when the requested page of jobs cannot be loaded from the datastore.
-      operationId: list_jobs_handler
-      parameters:
-      - name: page
-        in: query
-        description: Page number
-        required: false
-        schema:
-          type: string
-      - name: size
-        in: query
-        description: Page size
-        required: false
-        schema:
-          type: string
-      - name: q
-        in: query
-        description: Search query
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Paginated jobs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Page_JobSummary'
-    post:
-      tags:
-      - super::handlers::jobs::create
-      summary: |-
-        POST /jobs
-        # Errors
-        Returns an error when the request body cannot be parsed, the job fails validation, the
-        datastore or broker operation fails, or the blocking wait path times out.
-      operationId: create_job_handler
-      parameters:
-      - name: wait
-        in: query
-        description: Whether to block until the job completes (true/false/blocking)
-        required: false
-        schema:
-          type: string
-      requestBody:
-        description: Job definition as JSON or YAML
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Job'
-          application/x-yaml:
-            schema:
-              $ref: '#/components/schemas/Job'
-          application/yaml:
-            schema:
-              $ref: '#/components/schemas/Job'
-          text/yaml:
-            schema:
-              $ref: '#/components/schemas/Job'
-        required: true
-      responses:
-        '200':
-          description: Job created or completed when wait=blocking
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CreateJobResponse'
-        '400':
-          description: Invalid job definition or unsupported content type
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /jobs/{id}:
-    get:
-      tags:
-      - super::handlers::jobs::read
-      summary: |-
-        GET /jobs/{id}
-        # Errors
-        Returns an error when the job cannot be loaded or its tasks cannot be fetched from the
-        datastore.
-      operationId: get_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: The job ID as either an RFC 4122 UUID or a 22-character base57 short ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/JobId'
-      responses:
-        '200':
-          description: Job found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Job'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /jobs/{id}/cancel:
-    put:
-      tags:
-      - super::handlers::jobs::mutation
-      summary: |-
-        PUT /jobs/{id}/cancel
-        # Errors
-        Returns an error when the job lookup or update fails, the broker publish fails, or the job
-        cannot be cancelled in its current state.
-      operationId: cancel_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: The job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/JobId'
-      responses:
-        '200':
-          description: Job cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '400':
-          description: Job cannot be cancelled in its current state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-    post:
-      tags:
-      - super::handlers::jobs::mutation
-      summary: |-
-        POST /jobs/{id}/cancel
-        # Errors
-        Returns an error when the job lookup or update fails, the broker publish fails, or the job
-        cannot be cancelled in its current state.
-      operationId: cancel_job_handler_post
-      parameters:
-      - name: id
-        in: path
-        description: The job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/JobId'
-      responses:
-        '200':
-          description: Job cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '400':
-          description: Job cannot be cancelled in its current state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-      deprecated: true
-  /jobs/{id}/log:
-    get:
-      tags:
-      - super::handlers::jobs::read
-      summary: |-
-        GET /jobs/{id}/log
-        # Errors
-        Returns an error when the job cannot be loaded or the requested log page cannot be fetched.
-      operationId: get_job_log_handler
-      parameters:
-      - name: id
-        in: path
-        description: The job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/JobId'
-      - name: page
-        in: query
-        description: Page number
-        required: false
-        schema:
-          type: string
-      - name: size
-        in: query
-        description: Page size
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Paginated job log parts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Page_TaskLogPart'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /jobs/{id}/restart:
-    put:
-      tags:
-      - super::handlers::jobs::mutation
-      summary: |-
-        PUT /jobs/{id}/restart
-        # Errors
-        Returns an error when the job lookup or update fails, the broker publish fails, or the job
-        cannot be restarted from its current state.
-      operationId: restart_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: The job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/JobId'
-      responses:
-        '200':
-          description: Job restarted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '400':
-          description: Job cannot be restarted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '404':
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /metrics:
-    get:
-      tags:
-      - super::handlers::system
-      summary: |-
-        GET /metrics
-        # Errors
-      operationId: get_metrics_handler
-      responses:
-        '200':
-          description: System metrics
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Metrics'
-  /nodes:
-    get:
-      tags:
-      - super::handlers::system
-      summary: |-
-        GET /nodes
-        # Errors
-      operationId: list_nodes_handler
-      responses:
-        '200':
-          description: List of active nodes
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Node'
-  /queues:
-    get:
-      tags:
-      - super::handlers::queues
-      summary: GET /queues
-      description: '# Errors'
-      operationId: list_queues_handler
-      responses:
-        '200':
-          description: List of queues
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QueueInfo'
-  /queues/{name}:
-    get:
-      tags:
-      - super::handlers::queues
-      summary: GET /queues/{name}
-      description: '# Errors'
-      operationId: get_queue_handler
-      parameters:
-      - name: name
-        in: path
-        description: Queue name
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Queue info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueueInfo'
-        '404':
-          description: Queue not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-    delete:
-      tags:
-      - super::handlers::queues
-      summary: DELETE /queues/{name}
-      description: '# Errors'
-      operationId: delete_queue_handler
-      parameters:
-      - name: name
-        in: path
-        description: Queue name
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Queue deleted
-        '404':
-          description: Queue not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /scheduled-jobs:
-    get:
-      tags:
-      - super::handlers::scheduled::read
-      summary: |-
-        GET /scheduled-jobs
-        # Errors
-        Returns an error when the requested page of scheduled jobs cannot be loaded.
-      operationId: list_scheduled_jobs_handler
-      responses:
-        '200':
-          description: List of scheduled jobs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Page_ScheduledJobSummary'
-    post:
-      tags:
-      - super::handlers::scheduled::create
-      summary: |-
-        POST /scheduled-jobs
-        # Errors
-        Returns an error when the request body cannot be parsed, the scheduled job fails validation,
-        persistence fails, or the creation event cannot be serialized or published.
-      operationId: create_scheduled_job_handler
-      requestBody:
-        description: Scheduled job definition as JSON or YAML
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateScheduledJobBody'
-          application/x-yaml:
-            schema:
-              $ref: '#/components/schemas/CreateScheduledJobBody'
-          application/yaml:
-            schema:
-              $ref: '#/components/schemas/CreateScheduledJobBody'
-          text/yaml:
-            schema:
-              $ref: '#/components/schemas/CreateScheduledJobBody'
-        required: true
-      responses:
-        '200':
-          description: Scheduled job created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledJobSummary'
-        '400':
-          description: Invalid scheduled job payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /scheduled-jobs/{id}:
-    get:
-      tags:
-      - super::handlers::scheduled::read
-      operationId: get_scheduled_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: Scheduled job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/string'
-      responses:
-        '200':
-          description: Scheduled job found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledJob'
-        '404':
-          description: Scheduled job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-    delete:
-      tags:
-      - super::handlers::scheduled::lifecycle
-      operationId: delete_scheduled_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: Scheduled job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/string'
-      responses:
-        '200':
-          description: Scheduled job deleted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '404':
-          description: Scheduled job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /scheduled-jobs/{id}/pause:
-    put:
-      tags:
-      - super::handlers::scheduled::lifecycle
-      operationId: pause_scheduled_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: Scheduled job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/string'
-      responses:
-        '200':
-          description: Scheduled job paused
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '400':
-          description: Scheduled job cannot be paused
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '404':
-          description: Scheduled job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /scheduled-jobs/{id}/resume:
-    put:
-      tags:
-      - super::handlers::scheduled::lifecycle
-      operationId: resume_scheduled_job_handler
-      parameters:
-      - name: id
-        in: path
-        description: Scheduled job ID
-        required: true
-        schema:
-          $ref: '#/components/schemas/string'
-      responses:
-        '200':
-          description: Scheduled job resumed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusResponse'
-        '400':
-          description: Scheduled job cannot be resumed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '404':
-          description: Scheduled job not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /tasks/{id}:
-    get:
-      tags:
-      - super::handlers::tasks
-      summary: |-
-        GET /tasks/{id}
-        # Errors
-      operationId: get_task_handler
-      parameters:
-      - name: id
-        in: path
-        description: Task ID
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Task details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Task'
-        '404':
-          description: Task not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /tasks/{id}/log:
-    get:
-      tags:
-      - super::handlers::tasks
-      summary: |-
-        GET /tasks/{id}/log
-        # Errors
-      operationId: get_task_log_handler
-      parameters:
-      - name: id
-        in: path
-        description: Task ID
-        required: true
-        schema:
-          type: string
-      - name: page
-        in: query
-        description: Page number
-        required: false
-        schema:
-          type: string
-      - name: size
-        in: query
-        description: Page size (max 100)
-        required: false
-        schema:
-          type: string
-      - name: q
-        in: query
-        description: Search query
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Paginated task log entries
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Page_TaskLogPart'
-        '404':
-          description: Task not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-  /users:
-    post:
-      tags:
-      - super::handlers::system
-      summary: POST /users
-      description: '# Errors'
-      operationId: create_user_handler
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateUserBody'
-        required: true
-      responses:
-        '200':
-          description: User created
-        '400':
-          description: Missing username or password
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
 components:
   schemas:
     ApiError:
       oneOf:
-      - type: object
-        required:
-        - BadRequest
-        properties:
+      - properties:
           BadRequest:
             type: string
-      - type: object
         required:
-        - NotFound
-        properties:
+        - BadRequest
+        type: object
+      - properties:
           NotFound:
             type: string
-      - type: object
         required:
-        - Internal
-        properties:
+        - NotFound
+        type: object
+      - properties:
           Internal:
             type: string
+        required:
+        - Internal
+        type: object
     AutoDelete:
-      type: object
       description: '`AutoDelete` defines automatic cleanup configuration.'
       properties:
         after:
           type:
           - string
           - 'null'
-    CreateJobQuery:
       type: object
-      properties:
-        wait:
-          oneOf:
-          - type: 'null'
-          - $ref: '#/components/schemas/WaitMode'
     CreateJobResponse:
       oneOf:
       - $ref: '#/components/schemas/JobSummary'
       - $ref: '#/components/schemas/Job'
     CreateScheduledJobBody:
-      type: object
       properties:
         auto_delete:
           oneOf:
@@ -868,13 +51,13 @@ components:
           - string
           - 'null'
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type:
           - string
@@ -884,39 +67,39 @@ components:
           - string
           - 'null'
         permissions:
+          items:
+            $ref: '#/components/schemas/Permission'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Permission'
         secrets:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
-        tags:
           type:
-          - array
+          - object
           - 'null'
+        tags:
           items:
             type: string
-        tasks:
           type:
           - array
           - 'null'
+        tasks:
           items:
             $ref: '#/components/schemas/Task'
-        webhooks:
           type:
           - array
           - 'null'
+        webhooks:
           items:
             $ref: '#/components/schemas/Webhook'
-    CreateUserBody:
+          type:
+          - array
+          - 'null'
       type: object
+    CreateUserBody:
       description: User creation body
       properties:
         password:
@@ -927,18 +110,18 @@ components:
           type:
           - string
           - 'null'
-    HealthResponse:
       type: object
-      required:
-      - status
-      - version
+    HealthResponse:
       properties:
         status:
           type: string
         version:
           type: string
-    Job:
+      required:
+      - status
+      - version
       type: object
+    Job:
       description: Job represents a job in the system.
       properties:
         autoDelete:
@@ -946,19 +129,19 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/AutoDelete'
         completedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         context:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/JobContext'
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdBy:
           oneOf:
           - type: 'null'
@@ -968,10 +151,10 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/JobDefaults'
         deleteAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         description:
           type:
           - string
@@ -981,28 +164,28 @@ components:
           - string
           - 'null'
         execution:
+          items:
+            $ref: '#/components/schemas/Task'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Task'
         failedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         id:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/JobId'
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type:
           - string
@@ -1016,17 +199,17 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/JobId'
         permissions:
+          items:
+            $ref: '#/components/schemas/Permission'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Permission'
         position:
-          type: integer
           format: int64
+          type: integer
         progress:
-          type: number
           format: double
+          type: number
         result:
           type:
           - string
@@ -1036,79 +219,79 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/JobSchedule'
         secrets:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         startedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         state:
           $ref: '#/components/schemas/JobState'
         tags:
-          type:
-          - array
-          - 'null'
           items:
             type: string
-        taskCount:
-          type: integer
-          format: int64
-        tasks:
           type:
           - array
           - 'null'
+        taskCount:
+          format: int64
+          type: integer
+        tasks:
           items:
             $ref: '#/components/schemas/Task'
-        webhooks:
           type:
           - array
           - 'null'
+        webhooks:
           items:
             $ref: '#/components/schemas/Webhook'
-    JobContext:
+          type:
+          - array
+          - 'null'
       type: object
+    JobContext:
       description: '`JobContext` holds contextual information for a job.'
       properties:
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         job:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         secrets:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         tasks:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
-    JobDefaults:
+          type:
+          - object
+          - 'null'
       type: object
+    JobDefaults:
       description: '`JobDefaults` defines default values for job tasks.'
       properties:
         limits:
@@ -1116,8 +299,8 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/TaskLimits'
         priority:
-          type: integer
           format: int64
+          type: integer
         queue:
           type:
           - string
@@ -1130,21 +313,21 @@ components:
           type:
           - string
           - 'null'
+      type: object
     JobId:
-      type: string
       description: RFC 4122 UUID or 22-character base57 short job ID emitted by the coordinator
       pattern: ^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22})$
+      type: string
     JobMetrics:
-      type: object
       description: '`JobMetrics` holds metrics about twerk jobs.'
-      required:
-      - running
       properties:
         running:
-          type: integer
           format: int32
-    JobSchedule:
+          type: integer
+      required:
+      - running
       type: object
+    JobSchedule:
       description: '`JobSchedule` defines a job schedule.'
       properties:
         cron:
@@ -1155,8 +338,8 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/string'
+      type: object
     JobState:
-      type: string
       description: |-
         State machine for a [`Job`].
 
@@ -1174,20 +357,20 @@ components:
       - COMPLETED
       - FAILED
       - RESTART
+      type: string
     JobSummary:
-      type: object
       description: '`JobSummary` provides a summary view of a job.'
       properties:
         completedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdBy:
           oneOf:
           - type: 'null'
@@ -1201,22 +384,22 @@ components:
           - string
           - 'null'
         failedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         id:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/JobId'
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type:
           - string
@@ -1226,11 +409,11 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/JobId'
         position:
-          type: integer
           format: int64
+          type: integer
         progress:
-          type: number
           format: double
+          type: number
         result:
           type:
           - string
@@ -1240,35 +423,31 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/JobSchedule'
         startedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         state:
           $ref: '#/components/schemas/JobState'
         tags:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
         taskCount:
-          type: integer
           format: int64
-    MessageResponse:
+          type: integer
       type: object
-      required:
-      - message
+    MessageResponse:
       properties:
         message:
           type: string
-    Metrics:
-      type: object
-      description: Metrics holds aggregated metrics across all twerk components.
       required:
-      - jobs
-      - tasks
-      - nodes
+      - message
+      type: object
+    Metrics:
+      description: Metrics holds aggregated metrics across all twerk components.
       properties:
         jobs:
           $ref: '#/components/schemas/JobMetrics'
@@ -1276,8 +455,12 @@ components:
           $ref: '#/components/schemas/NodeMetrics'
         tasks:
           $ref: '#/components/schemas/TaskMetrics'
-    Mount:
+      required:
+      - jobs
+      - tasks
+      - nodes
       type: object
+    Mount:
       description: Mount represents a filesystem mount configuration.
       properties:
         id:
@@ -1285,13 +468,13 @@ components:
           - string
           - 'null'
         opts:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         source:
           type:
           - string
@@ -1304,14 +487,14 @@ components:
           type:
           - string
           - 'null'
-    Node:
       type: object
+    Node:
       properties:
         cpuPercent:
+          format: double
           type:
           - number
           - 'null'
-          format: double
         hostname:
           type:
           - string
@@ -1321,86 +504,79 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/string'
         lastHeartbeatAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         name:
           type:
           - string
           - 'null'
         port:
+          format: int64
           type:
           - integer
           - 'null'
-          format: int64
         queue:
           type:
           - string
           - 'null'
         startedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         status:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/NodeStatus'
         taskCount:
+          format: int64
           type:
           - integer
           - 'null'
-          format: int64
         version:
           type:
           - string
           - 'null'
-    NodeMetrics:
       type: object
+    NodeMetrics:
       description: '`NodeMetrics` holds metrics about twerk nodes.'
+      properties:
+        cpuPercent:
+          format: double
+          type: number
+        online:
+          format: int32
+          type: integer
       required:
       - online
       - cpuPercent
-      properties:
-        cpuPercent:
-          type: number
-          format: double
-        online:
-          type: integer
-          format: int32
+      type: object
     NodeStatus:
-      type: string
       enum:
       - UP
       - DOWN
       - OFFLINE
+      type: string
     Page_JobSummary:
-      type: object
       description: Page represents a paginated result set
-      required:
-      - items
-      - number
-      - size
-      - total_pages
-      - total_items
       properties:
         items:
-          type: array
+          description: Items in the current page
           items:
-            type: object
             description: '`JobSummary` provides a summary view of a job.'
             properties:
               completedAt:
+                format: date-time
                 type:
                 - string
                 - 'null'
-                format: date-time
               createdAt:
+                format: date-time
                 type:
                 - string
                 - 'null'
-                format: date-time
               createdBy:
                 oneOf:
                 - type: 'null'
@@ -1414,22 +590,22 @@ components:
                 - string
                 - 'null'
               failedAt:
+                format: date-time
                 type:
                 - string
                 - 'null'
-                format: date-time
               id:
                 oneOf:
                 - type: 'null'
                 - $ref: '#/components/schemas/JobId'
               inputs:
-                type:
-                - object
-                - 'null'
                 additionalProperties:
                   type: string
                 propertyNames:
                   type: string
+                type:
+                - object
+                - 'null'
               name:
                 type:
                 - string
@@ -1439,11 +615,11 @@ components:
                 - type: 'null'
                 - $ref: '#/components/schemas/JobId'
               position:
-                type: integer
                 format: int64
+                type: integer
               progress:
-                type: number
                 format: double
+                type: number
               result:
                 type:
                 - string
@@ -1453,126 +629,52 @@ components:
                 - type: 'null'
                 - $ref: '#/components/schemas/JobSchedule'
               startedAt:
+                format: date-time
                 type:
                 - string
                 - 'null'
-                format: date-time
               state:
                 $ref: '#/components/schemas/JobState'
               tags:
+                items:
+                  type: string
                 type:
                 - array
                 - 'null'
-                items:
-                  type: string
               taskCount:
-                type: integer
                 format: int64
-          description: Items in the current page
+                type: integer
+            type: object
+          type: array
         number:
-          type: integer
-          format: int64
           description: Current page number
+          format: int64
+          type: integer
         size:
-          type: integer
-          format: int64
           description: Page size
+          format: int64
+          type: integer
         total_items:
-          type: integer
-          format: int64
           description: Total number of items
-        total_pages:
-          type: integer
           format: int64
+          type: integer
+        total_pages:
           description: Total number of pages
-    Page_ScheduledJobSummary:
-      type: object
-      description: Page represents a paginated result set
+          format: int64
+          type: integer
       required:
       - items
       - number
       - size
       - total_pages
       - total_items
-      properties:
-        items:
-          type: array
-          items:
-            type: object
-            description: '`ScheduledJobSummary` provides a summary view of a scheduled job.'
-            properties:
-              createdAt:
-                type:
-                - string
-                - 'null'
-                format: date-time
-              createdBy:
-                oneOf:
-                - type: 'null'
-                - $ref: '#/components/schemas/User'
-              cron:
-                type:
-                - string
-                - 'null'
-              description:
-                type:
-                - string
-                - 'null'
-              id:
-                oneOf:
-                - type: 'null'
-                - $ref: '#/components/schemas/string'
-              inputs:
-                type:
-                - object
-                - 'null'
-                additionalProperties:
-                  type: string
-                propertyNames:
-                  type: string
-              name:
-                type:
-                - string
-                - 'null'
-              state:
-                $ref: '#/components/schemas/ScheduledJobState'
-              tags:
-                type:
-                - array
-                - 'null'
-                items:
-                  type: string
-          description: Items in the current page
-        number:
-          type: integer
-          format: int64
-          description: Current page number
-        size:
-          type: integer
-          format: int64
-          description: Page size
-        total_items:
-          type: integer
-          format: int64
-          description: Total number of items
-        total_pages:
-          type: integer
-          format: int64
-          description: Total number of pages
+      type: object
     Page_TaskLogPart:
-      type: object
       description: Page represents a paginated result set
-      required:
-      - items
-      - number
-      - size
-      - total_pages
-      - total_items
       properties:
         items:
-          type: array
+          description: Items in the current page
           items:
-            type: object
             description: '`TaskLogPart` represents a part of a task''s log output.'
             properties:
               contents:
@@ -1580,36 +682,43 @@ components:
                 - string
                 - 'null'
               createdAt:
+                format: date-time
                 type:
                 - string
                 - 'null'
-                format: date-time
               id:
                 type: string
               number:
-                type: integer
                 format: int64
+                type: integer
               taskId:
                 type: string
-          description: Items in the current page
+            type: object
+          type: array
         number:
-          type: integer
-          format: int64
           description: Current page number
+          format: int64
+          type: integer
         size:
-          type: integer
-          format: int64
           description: Page size
+          format: int64
+          type: integer
         total_items:
-          type: integer
-          format: int64
           description: Total number of items
-        total_pages:
-          type: integer
           format: int64
+          type: integer
+        total_pages:
           description: Total number of pages
-    Permission:
+          format: int64
+          type: integer
+      required:
+      - items
+      - number
+      - size
+      - total_pages
+      - total_items
       type: object
+    Permission:
       description: Permission defines access permissions.
       properties:
         role:
@@ -1620,8 +729,8 @@ components:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/User'
-    Probe:
       type: object
+    Probe:
       description: Probe defines health check configuration for a task.
       properties:
         path:
@@ -1629,33 +738,33 @@ components:
           - string
           - 'null'
         port:
-          type: integer
           format: int64
+          type: integer
         timeout:
           type:
           - string
           - 'null'
-    QueueInfo:
       type: object
+    QueueInfo:
+      properties:
+        name:
+          type: string
+        size:
+          format: int32
+          type: integer
+        subscribers:
+          format: int32
+          type: integer
+        unacked:
+          format: int32
+          type: integer
       required:
       - name
       - size
       - subscribers
       - unacked
-      properties:
-        name:
-          type: string
-        size:
-          type: integer
-          format: int32
-        subscribers:
-          type: integer
-          format: int32
-        unacked:
-          type: integer
-          format: int32
-    Registry:
       type: object
+    Registry:
       description: Registry defines container registry credentials.
       properties:
         password:
@@ -1666,14 +775,14 @@ components:
           type:
           - string
           - 'null'
-    Role:
       type: object
+    Role:
       properties:
         created_at:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         id:
           type: string
         name:
@@ -1684,8 +793,8 @@ components:
           type:
           - string
           - 'null'
-    ScheduledJob:
       type: object
+    ScheduledJob:
       description: '`ScheduledJob` represents a scheduled job.'
       properties:
         autoDelete:
@@ -1693,10 +802,10 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/AutoDelete'
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdBy:
           oneOf:
           - type: 'null'
@@ -1718,13 +827,13 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/string'
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type:
           - string
@@ -1734,54 +843,54 @@ components:
           - string
           - 'null'
         permissions:
+          items:
+            $ref: '#/components/schemas/Permission'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Permission'
         secrets:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         state:
           $ref: '#/components/schemas/ScheduledJobState'
         tags:
-          type:
-          - array
-          - 'null'
           items:
             type: string
-        tasks:
           type:
           - array
           - 'null'
+        tasks:
           items:
             $ref: '#/components/schemas/Task'
-        webhooks:
           type:
           - array
           - 'null'
+        webhooks:
           items:
             $ref: '#/components/schemas/Webhook'
+          type:
+          - array
+          - 'null'
+      type: object
     ScheduledJobState:
-      type: string
       description: State for a [`ScheduledJob`].
       enum:
       - ACTIVE
       - PAUSED
+      type: string
     ScheduledJobSummary:
-      type: object
       description: '`ScheduledJobSummary` provides a summary view of a scheduled job.'
       properties:
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdBy:
           oneOf:
           - type: 'null'
@@ -1799,13 +908,13 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/string'
         inputs:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type:
           - string
@@ -1813,38 +922,38 @@ components:
         state:
           $ref: '#/components/schemas/ScheduledJobState'
         tags:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
-    StatusResponse:
       type: object
-      required:
-      - status
+    StatusResponse:
       properties:
         status:
           type: string
-    Task:
+      required:
+      - status
       type: object
+    Task:
       description: Task is the basic unit of work that a Worker can handle.
       properties:
         cmd:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
         completedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         description:
           type:
           - string
@@ -1854,36 +963,36 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/EachTask'
         entrypoint:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
         env:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         error:
           type:
           - string
           - 'null'
         failedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         files:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         gpus:
           type:
           - string
@@ -1905,21 +1014,21 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/TaskLimits'
         mounts:
+          items:
+            $ref: '#/components/schemas/Mount'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Mount'
         name:
           type:
           - string
           - 'null'
         networks:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
         nodeId:
           oneOf:
           - type: 'null'
@@ -1931,37 +1040,37 @@ components:
         parentId:
           type: string
         position:
-          type: integer
           format: int64
+          type: integer
         post:
+          items:
+            $ref: '#/components/schemas/Task'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Task'
         pre:
+          items:
+            $ref: '#/components/schemas/Task'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Task'
         priority:
-          type: integer
           format: int64
+          type: integer
         probe:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/Probe'
         progress:
-          type: number
           format: double
+          type: number
         queue:
           type:
           - string
           - 'null'
         redelivered:
-          type: integer
           format: int64
+          type: integer
         registry:
           oneOf:
           - type: 'null'
@@ -1979,21 +1088,21 @@ components:
           - string
           - 'null'
         scheduledAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         sidecars:
+          items:
+            $ref: '#/components/schemas/Task'
           type:
           - array
           - 'null'
-          items:
-            $ref: '#/components/schemas/Task'
         startedAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         state:
           $ref: '#/components/schemas/TaskState'
         subjob:
@@ -2001,11 +1110,11 @@ components:
           - type: 'null'
           - $ref: '#/components/schemas/SubJobTask'
         tags:
+          items:
+            type: string
           type:
           - array
           - 'null'
-          items:
-            type: string
         timeout:
           type:
           - string
@@ -2018,8 +1127,8 @@ components:
           type:
           - string
           - 'null'
-    TaskLimits:
       type: object
+    TaskLimits:
       description: '`TaskLimits` defines resource limits for a task.'
       properties:
         cpus:
@@ -2030,8 +1139,8 @@ components:
           type:
           - string
           - 'null'
-    TaskLogPart:
       type: object
+    TaskLogPart:
       description: '`TaskLogPart` represents a part of a task''s log output.'
       properties:
         contents:
@@ -2039,38 +1148,38 @@ components:
           - string
           - 'null'
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         id:
           type: string
         number:
-          type: integer
           format: int64
+          type: integer
         taskId:
           type: string
-    TaskMetrics:
       type: object
+    TaskMetrics:
       description: '`TaskMetrics` holds metrics about twerk tasks.'
-      required:
-      - running
       properties:
         running:
-          type: integer
           format: int32
-    TaskRetry:
+          type: integer
+      required:
+      - running
       type: object
+    TaskRetry:
       description: '`TaskRetry` defines retry configuration for a task.'
       properties:
         attempts:
-          type: integer
           format: int64
+          type: integer
         limit:
-          type: integer
           format: int64
+          type: integer
+      type: object
     TaskState:
-      type: string
       description: '`TaskState` represents the list of states that a task can be in at any given moment.'
       enum:
       - CREATED
@@ -2082,25 +1191,8 @@ components:
       - COMPLETED
       - FAILED
       - SKIPPED
-    Trigger:
-      type: object
-      description: A trigger entity with state and variant information.
-      required:
-      - id
-      - state
-      - variant
-      properties:
-        id:
-          $ref: '#/components/schemas/string'
-        state:
-          $ref: '#/components/schemas/TriggerState'
-        variant:
-          $ref: '#/components/schemas/TriggerVariant'
+      type: string
     TriggerErrorResponse:
-      type: object
-      required:
-      - error
-      - message
       properties:
         body_id:
           type:
@@ -2114,23 +1206,13 @@ components:
           type:
           - string
           - 'null'
+      required:
+      - error
+      - message
+      type: object
     TriggerId:
       type: string
-    TriggerState:
-      type: string
-      description: The runtime state of a trigger.
-      enum:
-      - Active
-      - Paused
-      - Disabled
-      - Error
     TriggerUpdateRequest:
-      type: object
-      required:
-      - name
-      - enabled
-      - event
-      - action
       properties:
         action:
           type: string
@@ -2147,30 +1229,59 @@ components:
           - string
           - 'null'
         metadata:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         name:
           type: string
         version:
+          format: int64
+          minimum: 0
           type:
           - integer
           - 'null'
+      required:
+      - name
+      - enabled
+      - event
+      - action
+      type: object
+    TriggerView:
+      properties:
+        action:
+          type: string
+        condition:
+          type:
+          - string
+          - 'null'
+        created_at:
+          format: date-time
+          type: string
+        enabled:
+          type: boolean
+        event:
+          type: string
+        id:
+          type: string
+        metadata:
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+          type: object
+        name:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+        version:
           format: int64
           minimum: 0
-    TriggerVariant:
-      type: string
-      description: The type/kind of a trigger.
-      enum:
-      - Cron
-      - Webhook
-      - Polling
-    TriggerView:
-      type: object
+          type: integer
       required:
       - id
       - name
@@ -2181,45 +1292,14 @@ components:
       - version
       - created_at
       - updated_at
-      properties:
-        action:
-          type: string
-        condition:
-          type:
-          - string
-          - 'null'
-        created_at:
-          type: string
-          format: date-time
-        enabled:
-          type: boolean
-        event:
-          type: string
-        id:
-          type: string
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
-          propertyNames:
-            type: string
-        name:
-          type: string
-        updated_at:
-          type: string
-          format: date-time
-        version:
-          type: integer
-          format: int64
-          minimum: 0
-    User:
       type: object
+    User:
       properties:
         createdAt:
+          format: date-time
           type:
           - string
           - 'null'
-          format: date-time
         disabled:
           type: boolean
         id:
@@ -2232,14 +1312,8 @@ components:
           type:
           - string
           - 'null'
-    WaitMode:
-      type: string
-      description: Whether the create-job endpoint should block until the job completes.
-      enum:
-      - Detached
-      - Blocking
-    Webhook:
       type: object
+    Webhook:
       description: Webhook defines webhook notification configuration.
       properties:
         event:
@@ -2247,13 +1321,13 @@ components:
           - string
           - 'null'
         headers:
-          type:
-          - object
-          - 'null'
           additionalProperties:
             type: string
           propertyNames:
             type: string
+          type:
+          - object
+          - 'null'
         if:
           type:
           - string
@@ -2262,5 +1336,712 @@ components:
           type:
           - string
           - 'null'
+      type: object
     string:
       type: string
+info:
+  contact:
+    name: Twerk Contributors
+  description: ''
+  license:
+    identifier: Apache-2.0
+    name: Apache-2.0
+  title: Twerk API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/v1/triggers:
+    get:
+      operationId: list_triggers_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TriggerView'
+                type: array
+          description: List of triggers
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Persistence error
+      summary: |-
+        GET /api/v1/triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; persistence and serialization
+        failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::query
+    post:
+      operationId: create_trigger_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerUpdateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger created
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Validation error
+      summary: |-
+        POST /api/v1/triggers
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        creation, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::command
+  /api/v1/triggers/{id}:
+    delete:
+      operationId: delete_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Trigger deleted
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Invalid ID format
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+      tags:
+      - super::trigger_api::handlers::query
+    get:
+      operationId: get_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger found
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Invalid ID format
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+      summary: |-
+        GET /api/v1/triggers/{id}
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; invalid identifiers, missing
+        triggers, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::query
+    put:
+      operationId: update_trigger_handler
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerUpdateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerView'
+          description: Trigger updated
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Validation error or invalid request
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Trigger not found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerErrorResponse'
+          description: Version conflict
+      summary: |-
+        Handler for `PUT /api/v1/triggers/{id}`.
+        # Errors
+        This handler does not currently return `Err(ApiError)` directly; request validation, trigger
+        update, and serialization failures are converted into HTTP responses.
+      tags:
+      - super::trigger_api::handlers::command
+  /health:
+    get:
+      operationId: health_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: Service is healthy
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: Service is unhealthy
+      summary: Health check handler
+      tags:
+      - super::handlers::system
+  /jobs:
+    get:
+      operationId: list_jobs_handler
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        required: false
+        schema:
+          type: string
+      - description: Page size
+        in: query
+        name: size
+        required: false
+        schema:
+          type: string
+      - description: Search query
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_JobSummary'
+          description: Paginated jobs
+      summary: |-
+        GET /jobs
+        # Errors
+        Returns an error when the requested page of jobs cannot be loaded from the datastore.
+      tags:
+      - super::handlers::jobs::read
+    post:
+      operationId: create_job_handler
+      parameters:
+      - description: Whether to block until the job completes (true/false/blocking)
+        in: query
+        name: wait
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job'
+          application/x-yaml:
+            schema:
+              $ref: '#/components/schemas/Job'
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/Job'
+          text/yaml:
+            schema:
+              $ref: '#/components/schemas/Job'
+        description: Job definition as JSON or YAML
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateJobResponse'
+          description: Job created or completed when wait=blocking
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Invalid job definition or unsupported content type
+      summary: |-
+        POST /jobs
+        # Errors
+        Returns an error when the request body cannot be parsed, the job fails validation, the
+        datastore or broker operation fails, or the blocking wait path times out.
+      tags:
+      - super::handlers::jobs::create
+  /jobs/{id}:
+    get:
+      operationId: get_job_handler
+      parameters:
+      - description: The job ID as either an RFC 4122 UUID or a 22-character base57 short ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: Job found
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        GET /jobs/{id}
+        # Errors
+        Returns an error when the job cannot be loaded or its tasks cannot be fetched from the
+        datastore.
+      tags:
+      - super::handlers::jobs::read
+  /jobs/{id}/cancel:
+    put:
+      operationId: cancel_job_handler
+      parameters:
+      - description: The job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+          description: Job cancelled
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job cannot be cancelled in its current state
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        PUT /jobs/{id}/cancel
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be cancelled in its current state.
+      tags:
+      - super::handlers::jobs::mutation
+  /jobs/{id}/log:
+    get:
+      operationId: get_job_log_handler
+      parameters:
+      - description: The job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      - description: Page number
+        in: query
+        name: page
+        required: false
+        schema:
+          type: string
+      - description: Page size
+        in: query
+        name: size
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TaskLogPart'
+          description: Paginated job log parts
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        GET /jobs/{id}/log
+        # Errors
+        Returns an error when the job cannot be loaded or the requested log page cannot be fetched.
+      tags:
+      - super::handlers::jobs::read
+  /jobs/{id}/restart:
+    put:
+      operationId: restart_job_handler
+      parameters:
+      - description: The job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+          description: Job restarted
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job cannot be restarted
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        PUT /jobs/{id}/restart
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be restarted from its current state.
+      tags:
+      - super::handlers::jobs::mutation
+  /metrics:
+    get:
+      operationId: get_metrics_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+          description: System metrics
+      summary: |-
+        GET /metrics
+        # Errors
+      tags:
+      - super::handlers::system
+  /nodes:
+    get:
+      operationId: list_nodes_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Node'
+                type: array
+          description: List of active nodes
+      summary: |-
+        GET /nodes
+        # Errors
+      tags:
+      - super::handlers::system
+  /queues:
+    get:
+      description: '# Errors'
+      operationId: list_queues_handler
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/QueueInfo'
+                type: array
+          description: List of queues
+      summary: GET /queues
+      tags:
+      - super::handlers::queues
+  /queues/{name}:
+    delete:
+      description: '# Errors'
+      operationId: delete_queue_handler
+      parameters:
+      - description: Queue name
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Queue deleted
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Queue not found
+      summary: DELETE /queues/{name}
+      tags:
+      - super::handlers::queues
+    get:
+      description: '# Errors'
+      operationId: get_queue_handler
+      parameters:
+      - description: Queue name
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueInfo'
+          description: Queue info
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Queue not found
+      summary: GET /queues/{name}
+      tags:
+      - super::handlers::queues
+  /scheduled-jobs:
+    get:
+      description: '# Errors'
+      operationId: list_scheduled_jobs_handler
+      responses:
+        '200':
+          description: List of scheduled jobs
+      summary: GET /scheduled-jobs
+      tags:
+      - super::handlers::scheduled
+    post:
+      description: |-
+        # Errors
+
+        # Panics
+        Panics if `sj.id` is `None`, which should never happen as `build_scheduled_job` always sets it.
+      operationId: create_scheduled_job_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobBody'
+          application/x-yaml:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobBody'
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobBody'
+          text/yaml:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobBody'
+        description: Scheduled job definition as JSON or YAML
+        required: true
+      responses:
+        '200':
+          description: Scheduled job created
+      summary: POST /scheduled-jobs
+      tags:
+      - super::handlers::scheduled
+  /scheduled-jobs/{id}:
+    delete:
+      operationId: delete_scheduled_job_handler
+      parameters:
+      - description: Scheduled job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/string'
+      responses:
+        '200':
+          description: Scheduled job deleted
+      tags:
+      - super::handlers::scheduled
+    get:
+      operationId: get_scheduled_job_handler
+      parameters:
+      - description: Scheduled job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/string'
+      responses:
+        '200':
+          description: Scheduled job found
+      tags:
+      - super::handlers::scheduled
+  /scheduled-jobs/{id}/pause:
+    put:
+      operationId: pause_scheduled_job_handler
+      parameters:
+      - description: Scheduled job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/string'
+      responses:
+        '200':
+          description: Scheduled job paused
+      tags:
+      - super::handlers::scheduled
+  /scheduled-jobs/{id}/resume:
+    put:
+      operationId: resume_scheduled_job_handler
+      parameters:
+      - description: Scheduled job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/string'
+      responses:
+        '200':
+          description: Scheduled job resumed
+      tags:
+      - super::handlers::scheduled
+  /tasks/{id}:
+    get:
+      operationId: get_task_handler
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: Task details
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Task not found
+      summary: |-
+        GET /tasks/{id}
+        # Errors
+      tags:
+      - super::handlers::tasks
+  /tasks/{id}/log:
+    get:
+      operationId: get_task_log_handler
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      - description: Page number
+        in: query
+        name: page
+        required: false
+        schema:
+          type: string
+      - description: Page size (max 100)
+        in: query
+        name: size
+        required: false
+        schema:
+          type: string
+      - description: Search query
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TaskLogPart'
+          description: Paginated task log entries
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Task not found
+      summary: |-
+        GET /tasks/{id}/log
+        # Errors
+      tags:
+      - super::handlers::tasks
+  /users:
+    post:
+      description: '# Errors'
+      operationId: create_user_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserBody'
+        required: true
+      responses:
+        '200':
+          description: User created
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Missing username or password
+      summary: POST /users
+      tags:
+      - super::handlers::system

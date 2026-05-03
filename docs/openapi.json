@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Twerk API",
-    "description": "Task scheduling and job queue management API",
+    "description": "",
     "contact": {
       "name": "Twerk Contributors"
     },
@@ -489,57 +489,6 @@
             }
           }
         }
-      },
-      "post": {
-        "tags": [
-          "super::handlers::jobs::mutation"
-        ],
-        "summary": "POST /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
-        "operationId": "cancel_job_handler_post",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The job ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/JobId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job cancelled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Job cannot be cancelled in its current state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
       }
     },
     "/jobs/{id}/log": {
@@ -804,28 +753,23 @@
     "/scheduled-jobs": {
       "get": {
         "tags": [
-          "super::handlers::scheduled::read"
+          "super::handlers::scheduled"
         ],
-        "summary": "GET /scheduled-jobs\n# Errors\nReturns an error when the requested page of scheduled jobs cannot be loaded.",
+        "summary": "GET /scheduled-jobs",
+        "description": "# Errors",
         "operationId": "list_scheduled_jobs_handler",
         "responses": {
           "200": {
-            "description": "List of scheduled jobs",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Page_ScheduledJobSummary"
-                }
-              }
-            }
+            "description": "List of scheduled jobs"
           }
         }
       },
       "post": {
         "tags": [
-          "super::handlers::scheduled::create"
+          "super::handlers::scheduled"
         ],
-        "summary": "POST /scheduled-jobs\n# Errors\nReturns an error when the request body cannot be parsed, the scheduled job fails validation,\npersistence fails, or the creation event cannot be serialized or published.",
+        "summary": "POST /scheduled-jobs",
+        "description": "# Errors\n\n# Panics\nPanics if `sj.id` is `None`, which should never happen as `build_scheduled_job` always sets it.",
         "operationId": "create_scheduled_job_handler",
         "requestBody": {
           "description": "Scheduled job definition as JSON or YAML",
@@ -855,24 +799,7 @@
         },
         "responses": {
           "200": {
-            "description": "Scheduled job created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJobSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid scheduled job payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
+            "description": "Scheduled job created"
           }
         }
       }
@@ -880,7 +807,7 @@
     "/scheduled-jobs/{id}": {
       "get": {
         "tags": [
-          "super::handlers::scheduled::read"
+          "super::handlers::scheduled"
         ],
         "operationId": "get_scheduled_job_handler",
         "parameters": [
@@ -896,30 +823,13 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScheduledJob"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
+            "description": "Scheduled job found"
           }
         }
       },
       "delete": {
         "tags": [
-          "super::handlers::scheduled::lifecycle"
+          "super::handlers::scheduled"
         ],
         "operationId": "delete_scheduled_job_handler",
         "parameters": [
@@ -935,24 +845,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job deleted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
+            "description": "Scheduled job deleted"
           }
         }
       }
@@ -960,7 +853,7 @@
     "/scheduled-jobs/{id}/pause": {
       "put": {
         "tags": [
-          "super::handlers::scheduled::lifecycle"
+          "super::handlers::scheduled"
         ],
         "operationId": "pause_scheduled_job_handler",
         "parameters": [
@@ -976,34 +869,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job paused",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Scheduled job cannot be paused",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
+            "description": "Scheduled job paused"
           }
         }
       }
@@ -1011,7 +877,7 @@
     "/scheduled-jobs/{id}/resume": {
       "put": {
         "tags": [
-          "super::handlers::scheduled::lifecycle"
+          "super::handlers::scheduled"
         ],
         "operationId": "resume_scheduled_job_handler",
         "parameters": [
@@ -1027,34 +893,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled job resumed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Scheduled job cannot be resumed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scheduled job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
+            "description": "Scheduled job resumed"
           }
         }
       }
@@ -1253,21 +1092,6 @@
             "type": [
               "string",
               "null"
-            ]
-          }
-        }
-      },
-      "CreateJobQuery": {
-        "type": "object",
-        "properties": {
-          "wait": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/WaitMode"
-              }
             ]
           }
         }
@@ -2286,118 +2110,6 @@
           }
         }
       },
-      "Page_ScheduledJobSummary": {
-        "type": "object",
-        "description": "Page represents a paginated result set",
-        "required": [
-          "items",
-          "number",
-          "size",
-          "total_pages",
-          "total_items"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "description": "`ScheduledJobSummary` provides a summary view of a scheduled job.",
-              "properties": {
-                "createdAt": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "date-time"
-                },
-                "createdBy": {
-                  "oneOf": [
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "$ref": "#/components/schemas/User"
-                    }
-                  ]
-                },
-                "cron": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "description": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "id": {
-                  "oneOf": [
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "$ref": "#/components/schemas/string"
-                    }
-                  ]
-                },
-                "inputs": {
-                  "type": [
-                    "object",
-                    "null"
-                  ],
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "propertyNames": {
-                    "type": "string"
-                  }
-                },
-                "name": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "state": {
-                  "$ref": "#/components/schemas/ScheduledJobState"
-                },
-                "tags": {
-                  "type": [
-                    "array",
-                    "null"
-                  ],
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "description": "Items in the current page"
-          },
-          "number": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Current page number"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Page size"
-          },
-          "total_items": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total number of items"
-          },
-          "total_pages": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total number of pages"
-          }
-        }
-      },
       "Page_TaskLogPart": {
         "type": "object",
         "description": "Page represents a paginated result set",
@@ -3223,26 +2935,6 @@
           "SKIPPED"
         ]
       },
-      "Trigger": {
-        "type": "object",
-        "description": "A trigger entity with state and variant information.",
-        "required": [
-          "id",
-          "state",
-          "variant"
-        ],
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/string"
-          },
-          "state": {
-            "$ref": "#/components/schemas/TriggerState"
-          },
-          "variant": {
-            "$ref": "#/components/schemas/TriggerVariant"
-          }
-        }
-      },
       "TriggerErrorResponse": {
         "type": "object",
         "required": [
@@ -3272,16 +2964,6 @@
       },
       "TriggerId": {
         "type": "string"
-      },
-      "TriggerState": {
-        "type": "string",
-        "description": "The runtime state of a trigger.",
-        "enum": [
-          "Active",
-          "Paused",
-          "Disabled",
-          "Error"
-        ]
       },
       "TriggerUpdateRequest": {
         "type": "object",
@@ -3337,15 +3019,6 @@
             "minimum": 0
           }
         }
-      },
-      "TriggerVariant": {
-        "type": "string",
-        "description": "The type/kind of a trigger.",
-        "enum": [
-          "Cron",
-          "Webhook",
-          "Polling"
-        ]
       },
       "TriggerView": {
         "type": "object",
@@ -3435,14 +3108,6 @@
             ]
           }
         }
-      },
-      "WaitMode": {
-        "type": "string",
-        "description": "Whether the create-job endpoint should block until the job completes.",
-        "enum": [
-          "Detached",
-          "Blocking"
-        ]
       },
       "Webhook": {
         "type": "object",

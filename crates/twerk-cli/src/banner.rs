@@ -63,7 +63,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn banner_mode_from_str_returns_expected_variant_for_supported_and_unknown_values() {
+    fn banner_mode_from_str_returns_expected_variants() {
         assert_eq!(BannerMode::from_str("off"), BannerMode::Off);
         assert_eq!(BannerMode::from_str("console"), BannerMode::Console);
         assert_eq!(BannerMode::from_str("log"), BannerMode::Log);
@@ -73,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    fn banner_mode_from_str_is_case_insensitive_for_known_values() {
+    fn banner_mode_from_str_is_case_insensitive() {
         assert_eq!(BannerMode::from_str("OFF"), BannerMode::Off);
         assert_eq!(BannerMode::from_str("Off"), BannerMode::Off);
         assert_eq!(BannerMode::from_str("LOG"), BannerMode::Log);
@@ -82,7 +82,7 @@ mod tests {
     }
 
     #[test]
-    fn banner_mode_from_str_treats_whitespace_wrapped_values_as_console_default() {
+    fn banner_mode_from_str_whitespace_defaults_to_console() {
         // from_str does NOT trim, so whitespace is preserved
         // " off " becomes " off " after to_lowercase(), which doesn't match "off"
         assert_eq!(BannerMode::from_str(" off "), BannerMode::Console);
@@ -91,12 +91,12 @@ mod tests {
     }
 
     #[test]
-    fn banner_mode_default_returns_console() {
+    fn banner_mode_default_is_console() {
         assert_eq!(BannerMode::default(), BannerMode::Console);
     }
 
     #[test]
-    fn banner_constant_is_not_empty_and_contains_ascii_art_shape_markers() {
+    fn banner_constant_is_not_empty_and_contains_ascii_art() {
         assert!(!BANNER.is_empty());
         // Banner should contain ASCII art characters
         assert!(BANNER.contains('|'));
@@ -104,13 +104,13 @@ mod tests {
     }
 
     #[test]
-    fn banner_constant_contains_expected_branding_pattern() {
+    fn banner_constant_contains_branding() {
         // Banner should contain Twerk branding
         assert!(BANNER.contains("_______"));
     }
 
     #[test]
-    fn banner_mode_equality_and_inequality_are_consistent() {
+    fn banner_mode_implements_equality() {
         assert_eq!(BannerMode::Off, BannerMode::Off);
         assert_eq!(BannerMode::Console, BannerMode::Console);
         assert_eq!(BannerMode::Log, BannerMode::Log);
@@ -119,14 +119,14 @@ mod tests {
     }
 
     #[test]
-    fn banner_mode_copy_semantics_preserve_value() {
+    fn banner_mode_preserves_copy_semantics() {
         let mode = BannerMode::Off;
         let _copied = mode;
         assert_eq!(mode, BannerMode::Off);
     }
 
     #[test]
-    fn banner_mode_clone_semantics_preserve_value() {
+    fn banner_mode_preserves_clone_semantics() {
         let mode = BannerMode::Log;
         let cloned = mode;
         assert_eq!(mode, cloned);

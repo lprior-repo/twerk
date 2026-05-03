@@ -13,6 +13,10 @@ use twerk_core::user::User;
 
 pub struct InMemoryDatastore {
     tasks: Arc<DashMap<TaskId, Task>>,
+    /// Secondary index: job_id -> list of task_ids for fast job-based queries
+    tasks_by_job: Arc<DashMap<JobId, Vec<TaskId>>>,
+    /// Secondary index: parent_task_id -> list of task_ids for fast child lookups
+    tasks_by_parent: Arc<DashMap<String, Vec<TaskId>>>,
     nodes: Arc<DashMap<NodeId, Node>>,
     jobs: Arc<DashMap<JobId, Job>>,
     users: Arc<DashMap<String, User>>,
@@ -27,6 +31,8 @@ impl InMemoryDatastore {
     pub fn new() -> Self {
         Self {
             tasks: Arc::new(DashMap::new()),
+            tasks_by_job: Arc::new(DashMap::new()),
+            tasks_by_parent: Arc::new(DashMap::new()),
             nodes: Arc::new(DashMap::new()),
             jobs: Arc::new(DashMap::new()),
             users: Arc::new(DashMap::new()),
@@ -58,22 +64,52 @@ impl Datastore for InMemoryDatastore {
             .id
             .clone()
             .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+
+        // Index by job_id if present
+        if let Some(ref job_id) = task.job_id {
+            self.tasks_by_job
+                .entry(job_id.clone())
+                .or_default()
+                .push(id.clone());
+        }
+
+        // Index by parent_id if present
+        if let Some(ref parent_id) = task.parent_id {
+            self.tasks_by_parent
+                .entry(parent_id.to_string())
+                .or_default()
+                .push(id.clone());
+        }
+
         self.tasks.insert(id, task.clone());
         Ok(())
     }
 
     async fn create_tasks(&self, tasks: &[Task]) -> Result<()> {
-        tasks
-            .iter()
-            .map(|task| {
-                let id = task
-                    .id
-                    .clone()
-                    .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
-                self.tasks.insert(id, task.clone());
-                Ok(())
-            })
-            .collect::<Result<Vec<()>>>()?;
+        for task in tasks {
+            let id = task
+                .id
+                .clone()
+                .ok_or_else(|| DatastoreError::InvalidInput("id required".to_string()))?;
+
+            // Index by job_id if present
+            if let Some(ref job_id) = task.job_id {
+                self.tasks_by_job
+                    .entry(job_id.clone())
+                    .or_default()
+                    .push(id.clone());
+            }
+
+            // Index by parent_id if present
+            if let Some(ref parent_id) = task.parent_id {
+                self.tasks_by_parent
+                    .entry(parent_id.to_string())
+                    .or_default()
+                    .push(id.clone());
+            }
+
+            self.tasks.insert(id, task.clone());
+        }
         Ok(())
     }
 
@@ -101,6 +137,27 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {
+        // Try to use index first
+        if let Some(job_id_parsed) = JobId::new(job_id).ok() {
+            if let Some(task_ids) = self.tasks_by_job.get(&job_id_parsed) {
+                let tasks: Vec<Task> = task_ids
+                    .value()
+                    .iter()
+                    .filter_map(|tid| {
+                        self.tasks.get(tid).map(|t| {
+                            let task = t.value();
+                            if task.is_active() {
+                                Some(task.clone())
+                            } else {
+                                None
+                            }
+                        }).flatten()
+                    })
+                    .collect();
+                return Ok(tasks);
+            }
+        }
+        // Fallback to scan if job_id not in index
         Ok(self
             .tasks
             .iter()
@@ -110,6 +167,18 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {
+        // Try to use index first
+        if let Some(job_id_parsed) = JobId::new(job_id).ok() {
+            if let Some(task_ids) = self.tasks_by_job.get(&job_id_parsed) {
+                let tasks: Vec<Task> = task_ids
+                    .value()
+                    .iter()
+                    .filter_map(|tid| self.tasks.get(tid).map(|t| t.value().clone()))
+                    .collect();
+                return Ok(tasks);
+            }
+        }
+        // Fallback to scan if job_id not in index
         Ok(self
             .tasks
             .iter()
@@ -119,6 +188,18 @@ impl Datastore for InMemoryDatastore {
     }
 
     async fn get_next_task(&self, parent_task_id: &str) -> Result<Task> {
+        // Try to use parent index first
+        if let Some(child_ids) = self.tasks_by_parent.get(parent_task_id) {
+            for tid in child_ids.value().iter() {
+                if let Some(task_entry) = self.tasks.get(tid) {
+                    let task = task_entry.value();
+                    if task.state == TaskState::Created {
+                        return Ok(task.clone());
+                    }
+                }
+            }
+        }
+        // Fallback to scan
         self.tasks
             .iter()
             .find(|e| {

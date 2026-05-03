@@ -43,8 +43,6 @@ slug = "0.1"
 axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true
-fjall.workspace = true
-postcard.workspace = true
 
 # Security & Crypto
 bcrypt.workspace = true
@@ -60,8 +58,16 @@ dirs.workspace = true
 time.workspace = true
 utoipa.workspace = true
 
+# Persistence
+fjall.workspace = true
+
 [dev-dependencies]
 testcontainers.workspace = true
 testcontainers-modules = { workspace = true, features = ["postgres", "rabbitmq"] }
 rstest.workspace = true
 tokio = { workspace = true, features = ["full", "test-util"] }
+criterion = "0.5"
+
+[[bench]]
+name = "hot_path"
+harness = false

@@ -5,7 +5,6 @@ use super::datastore::DatastoreProxy;
 use super::state::{Mode, State};
 use super::types::{Config, Middleware};
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::Notify;
@@ -38,7 +37,6 @@ pub struct Engine {
     pub(crate) ds_providers: HashMap<String, Box<dyn Datastore + Send + Sync>>,
     pub(crate) broker_providers: HashMap<String, Box<dyn Broker + Send + Sync>>,
     pub(crate) job_listeners: Arc<RwLock<Vec<super::types::JobListener>>>,
-    pub(crate) submitted_tasks: HashSet<twerk_core::id::TaskId>,
 }
 
 impl std::fmt::Debug for Engine {
@@ -75,7 +73,6 @@ impl Engine {
             ds_providers: HashMap::new(),
             broker_providers: HashMap::new(),
             job_listeners: Arc::new(RwLock::new(Vec::new())),
-            submitted_tasks: HashSet::new(),
         }
     }
 }

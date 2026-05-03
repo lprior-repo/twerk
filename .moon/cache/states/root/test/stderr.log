@@ -1,4 +1,140 @@
+<<<<<<< HEAD
    Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-89b/crates/twerk-cli)
+=======
+   Compiling zerocopy v0.8.48
+   Compiling zerocopy-derive v0.8.48
+   Compiling time v0.3.47
+   Compiling futures-util v0.3.32
+   Compiling tokio-stream v0.1.18
+   Compiling either v1.15.0
+   Compiling pin-project-internal v1.1.11
+   Compiling ureq-proto v0.6.0
+   Compiling bollard-buildkit-proto v0.7.0
+   Compiling utf8-zero v0.8.1
+   Compiling url v2.5.8
+   Compiling num-rational v0.4.2
+   Compiling tokio-rustls v0.26.4
+   Compiling num-iter v0.1.45
+   Compiling num-complex v0.4.6
+   Compiling async-stream-impl v0.3.6
+   Compiling regex-automata v0.4.14
+   Compiling semver v1.0.27
+   Compiling winnow v1.0.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling glob v0.3.3
+   Compiling relative-path v1.9.3
+   Compiling wait-timeout v0.2.1
+   Compiling bit-vec v0.8.0
+   Compiling quick-error v1.2.3
+   Compiling rand_xorshift v0.4.0
+   Compiling unarray v0.1.4
+   Compiling darling_core v0.23.0
+   Compiling structmeta-derive v0.3.0
+   Compiling rustc-hash v2.1.2
+   Compiling docker_credential v1.3.2
+   Compiling etcetera v0.11.0
+   Compiling assert-json-diff v2.0.2
+   Compiling ureq v3.3.0
+   Compiling rustc_version v0.4.1
+   Compiling colored v3.1.1
+   Compiling similar v2.7.0
+   Compiling ciborium-io v0.2.2
+   Compiling rusty-fork v0.3.1
+   Compiling plotters-backend v0.3.7
+   Compiling itertools v0.10.5
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling bit-set v0.8.0
+   Compiling num v0.4.3
+   Compiling tinytemplate v1.2.1
+   Compiling is-terminal v0.4.17
+   Compiling anes v0.1.6
+   Compiling rstest_macros v0.26.1
+   Compiling itertools v0.14.0
+   Compiling oorandom v11.1.5
+   Compiling async-stream v0.3.6
+   Compiling plotters-svg v0.3.7
+   Compiling twerk-cli v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-cli)
+   Compiling walkdir v2.5.0
+   Compiling regex v1.12.3
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling async-rs v0.8.2
+   Compiling astral-tokio-tar v0.6.0
+   Compiling darling_macro v0.23.0
+   Compiling plotters v0.3.7
+   Compiling tokio-util v0.7.18
+   Compiling futures-executor v0.3.32
+   Compiling pin-project v1.1.11
+   Compiling toml_edit v0.25.10+spec-1.1.0
+   Compiling futures v0.3.32
+   Compiling serial_test v3.4.0
+   Compiling sqlx-core v0.8.6
+   Compiling proc-macro-crate v3.5.0
+   Compiling ureq v2.12.1
+   Compiling amq-protocol-uri v10.0.1
+   Compiling darling v0.23.0
+   Compiling structmeta v0.3.0
+   Compiling serde_with_macros v3.18.0
+   Compiling parse-display-derive v0.9.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.8.5
+   Compiling serde_with v3.18.0
+   Compiling ahash v0.8.12
+   Compiling half v2.7.1
+   Compiling h2 v0.4.13
+   Compiling tower v0.5.3
+   Compiling tokio-postgres v0.7.17
+   Compiling parse-display v0.9.1
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium-ll v0.2.2
+   Compiling hashbrown v0.14.5
+   Compiling serde-saphyr v0.0.23
+   Compiling criterion-plot v0.5.0
+   Compiling ciborium v0.2.2
+   Compiling rand v0.9.4
+   Compiling hashlink v0.8.4
+   Compiling ordered-multimap v0.7.3
+   Compiling dashmap v6.1.0
+   Compiling prost-derive v0.14.3
+   Compiling proptest v1.11.0
+   Compiling ferroid v0.8.9
+   Compiling rust-ini v0.20.0
+   Compiling yaml-rust2 v0.8.1
+   Compiling asn1-rs v0.7.1
+   Compiling config v0.14.1
+   Compiling governor v0.8.1
+   Compiling criterion v0.5.1
+   Compiling rstest v0.26.1
+   Compiling prost v0.14.3
+   Compiling tower-http v0.6.8
+   Compiling prost-types v0.14.3
+   Compiling twerk-common v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-common)
+   Compiling sqlx-postgres v0.8.6
+   Compiling oid-registry v0.8.1
+   Compiling der-parser v10.0.0
+   Compiling twerk-core v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-core)
+   Compiling postgres v0.19.13
+   Compiling postgres-native-tls v0.5.3
+   Compiling x509-parser v0.18.1
+   Compiling p12-keystore v0.2.1
+   Compiling hyper v1.9.0
+   Compiling tcp-stream v0.34.3
+   Compiling amq-protocol-tcp v10.0.1
+   Compiling amq-protocol v10.0.1
+   Compiling sqlx-macros-core v0.8.6
+   Compiling hyper-util v0.1.20
+   Compiling lapin v4.4.0
+   Compiling sqlx-macros v0.8.6
+   Compiling sqlx v0.8.6
+   Compiling axum v0.8.8
+   Compiling hyper-timeout v0.5.2
+   Compiling hyper-rustls v0.27.7
+   Compiling hyperlocal v0.9.1
+   Compiling hyper-tls v0.6.0
+   Compiling mockito v1.7.2
+   Compiling reqwest v0.12.28
+>>>>>>> origin/twerk-0gr
 warning: unused import: `std::str::FromStr`
  --> crates/twerk-core/tests/mutation_kill_test.rs:2:5
   |
@@ -7,10 +143,25 @@ warning: unused import: `std::str::FromStr`
   |
   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
+<<<<<<< HEAD
 warning: unexpected `cfg` condition name: `kani`
    --> crates/twerk-core/src/domain/webhook_url/tests.rs:266:11
     |
 266 |     #[cfg(kani)]
+=======
+warning: function `rq_te_from_serde_json_error_NOT_IMPLEMENTED` should have a snake case name
+   --> crates/twerk-core/tests/red_queen_trigger_error.rs:126:4
+    |
+126 | fn rq_te_from_serde_json_error_NOT_IMPLEMENTED() {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `rq_te_from_serde_json_error_not_implemented`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: unexpected `cfg` condition name: `kani`
+   --> crates/twerk-core/src/domain/webhook_url/tests.rs:312:11
+    |
+312 |     #[cfg(kani)]
+>>>>>>> origin/twerk-0gr
     |           ^^^^
     |
     = help: expected names are: `docsrs`, `feature`, and `test` and 31 more
@@ -23,6 +174,7 @@ warning: unexpected `cfg` condition name: `kani`
     = note: `#[warn(unexpected_cfgs)]` on by default
 
 warning: `twerk-core` (test "mutation_kill_test") generated 1 warning (run `cargo fix --test "mutation_kill_test" -p twerk-core` to apply 1 suggestion)
+<<<<<<< HEAD
 warning: `twerk-core` (lib test) generated 1 warning
 warning: variable does not need to be mutable
    --> crates/twerk-infrastructure/tests/docker_cleanup_test.rs:139:13
@@ -34,6 +186,18 @@ warning: variable does not need to be mutable
     |
     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
 
+=======
+warning: `twerk-core` (test "red_queen_trigger_error") generated 1 warning
+   Compiling tonic v0.14.5
+   Compiling utoipa-axum v0.2.0
+   Compiling tonic-prost v0.14.5
+   Compiling bollard-stubs v1.52.1-rc.29.1.3
+warning: `twerk-core` (lib test) generated 1 warning
+   Compiling bollard v0.20.2
+   Compiling twerk-infrastructure v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-infrastructure)
+   Compiling testcontainers v0.27.2
+   Compiling testcontainers-modules v0.15.0
+>>>>>>> origin/twerk-0gr
 warning: unused imports: `JobId`, `NodeId`, and `UserId`
    --> crates/twerk-infrastructure/src/datastore/inmemory.rs:440:26
     |
@@ -42,7 +206,12 @@ warning: unused imports: `JobId`, `NodeId`, and `UserId`
     |
     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
+<<<<<<< HEAD
 warning: `twerk-infrastructure` (test "docker_cleanup_test") generated 1 warning (run `cargo fix --test "docker_cleanup_test" -p twerk-infrastructure` to apply 1 suggestion)
+=======
+   Compiling twerk-app v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-app)
+   Compiling twerk-web v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-web)
+>>>>>>> origin/twerk-0gr
 warning: `twerk-infrastructure` (lib test) generated 1 warning (run `cargo fix --lib -p twerk-infrastructure --tests` to apply 1 suggestion)
 warning: fields `command` and `exit_code` are never read
   --> crates/twerk-cli/tests/e2e_cli_test.rs:58:5
@@ -59,6 +228,7 @@ warning: fields `command` and `exit_code` are never read
    = note: `JsonCliOutput` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
+<<<<<<< HEAD
 warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.87s
      Running unittests src/lib.rs (target/debug/deps/twerk_app-fe05b43e13ca2dbc)
@@ -144,3 +314,95 @@ warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
      Running tests/trigger_update_proptest_red_test.rs (target/debug/deps/trigger_update_proptest_red_test-dcdab7e9b4a62b98)
      Running tests/trigger_view_rfc3339_contract_test.rs (target/debug/deps/trigger_view_rfc3339_contract_test-ef8190d031e8a818)
      Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-fa72b3f0fd665998)
+=======
+   Compiling twerk-openapi-gen v0.1.0 (/home/lewis/src/twerk-0gr/crates/twerk-openapi-gen)
+warning: `twerk-cli` (test "e2e_cli_test") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.17s
+     Running unittests src/lib.rs (target/debug/deps/twerk_app-56e2103b42da0717)
+     Running tests/auth_middleware_test.rs (target/debug/deps/auth_middleware_test-8c1b699a7b5fc410)
+     Running tests/bdd_behavioral_contracts.rs (target/debug/deps/bdd_behavioral_contracts-62a1b94e85a14ce4)
+     Running tests/benchmark_test.rs (target/debug/deps/benchmark_test-d8403f9fe3aebda7)
+     Running tests/ci_cd_pipeline_simulation.rs (target/debug/deps/ci_cd_pipeline_simulation-c5f4058cd38c3aa1)
+     Running tests/coordinator_adversarial_test.rs (target/debug/deps/coordinator_adversarial_test-b981ce6c7669bfa0)
+     Running tests/coordinator_test.rs (target/debug/deps/coordinator_test-da61b93a971b1f6d)
+     Running tests/e2e_load_test.rs (target/debug/deps/e2e_load_test-026b2f6480682334)
+     Running tests/engine_lifecycle_test.rs (target/debug/deps/engine_lifecycle_test-85d42e942ecd44fc)
+     Running tests/handlers_test.rs (target/debug/deps/handlers_test-5951ba256e2ebd78)
+     Running tests/middleware_test.rs (target/debug/deps/middleware_test-71fc077280fbdd38)
+     Running tests/pokemon_api_benchmark.rs (target/debug/deps/pokemon_api_benchmark-4b028b4d0e372aba)
+     Running tests/profiling_bench.rs (target/debug/deps/profiling_bench-23c673dc4f56c58d)
+     Running tests/realistic_profiling.rs (target/debug/deps/realistic_profiling-6114fddb9ed7f94c)
+     Running tests/standalone_e2e_test.rs (target/debug/deps/standalone_e2e_test-20e1064712cc9435)
+     Running tests/twerk_chaos_engineering_benchmark.rs (target/debug/deps/twerk_chaos_engineering_benchmark-157acbca1c0de8ac)
+     Running tests/twerk_yaml_workflow_benchmark.rs (target/debug/deps/twerk_yaml_workflow_benchmark-8a0f14ed2e5ece1d)
+     Running unittests src/lib.rs (target/debug/deps/twerk_cli-6f398f6097196917)
+     Running unittests src/main.rs (target/debug/deps/twerk-cef28b8190e96e8d)
+     Running tests/bdd_behavior_report.rs (target/debug/deps/bdd_behavior_report-7867e5baa7256ada)
+     Running tests/bdd_behavioral_contract_test.rs (target/debug/deps/bdd_behavioral_contract_test-f275086e95e257b7)
+     Running tests/e2e_cli_test.rs (target/debug/deps/e2e_cli_test-612b2ebc16b8623f)
+     Running tests/handler_error_body_test.rs (target/debug/deps/handler_error_body_test-9051e36d1471efce)
+     Running tests/trigger_contract_regression_test.rs (target/debug/deps/trigger_contract_regression_test-145cb151226afe54)
+     Running tests/trigger_negative_test.rs (target/debug/deps/trigger_negative_test-3bbdd03f1ffdb794)
+     Running unittests src/lib.rs (target/debug/deps/twerk_common-1e8a18386d70bffc)
+     Running unittests src/lib.rs (target/debug/deps/twerk_core-886fff7005b0e13d)
+     Running tests/asl_adversarial_test.rs (target/debug/deps/asl_adversarial_test-2e30c5a8e905bc0b)
+     Running tests/asl_container_test.rs (target/debug/deps/asl_container_test-75b7f6be0d28ca15)
+     Running tests/asl_data_flow_test.rs (target/debug/deps/asl_data_flow_test-2b1c13057e3005fe)
+     Running tests/asl_functions_test.rs (target/debug/deps/asl_functions_test-88daa400e548c54c)
+     Running tests/asl_machine_test.rs (target/debug/deps/asl_machine_test-a1d1ee83ff99b22c)
+     Running tests/asl_states_test.rs (target/debug/deps/asl_states_test-93b6ecb19f62c63b)
+     Running tests/asl_transition_test.rs (target/debug/deps/asl_transition_test-e5cad43c0ae3c238)
+     Running tests/asl_types_test.rs (target/debug/deps/asl_types_test-c1dbff6dce6ed6e6)
+     Running tests/asl_validation_test.rs (target/debug/deps/asl_validation_test-3a1ac47e231bad40)
+     Running tests/domain_roundtrip_test.rs (target/debug/deps/domain_roundtrip_test-8d8219ca3a19239d)
+     Running tests/domain_verification_test.rs (target/debug/deps/domain_verification_test-78929f969619932a)
+     Running tests/eval_test.rs (target/debug/deps/eval_test-92c92367e864b166)
+     Running tests/mutation_kill_test.rs (target/debug/deps/mutation_kill_test-897776f7cb906c77)
+     Running tests/red_queen_adversarial.rs (target/debug/deps/red_queen_adversarial-022cadb3d0ecc84f)
+     Running tests/red_queen_deser_fix.rs (target/debug/deps/red_queen_deser_fix-fc15489f56042cd5)
+     Running tests/red_queen_gen2.rs (target/debug/deps/red_queen_gen2-59ceae3a20765e23)
+     Running tests/red_queen_gen3.rs (target/debug/deps/red_queen_gen3-4a5db49c12fdfaa5)
+     Running tests/red_queen_gen4.rs (target/debug/deps/red_queen_gen4-76b86436d4a785b3)
+     Running tests/red_queen_trigger_error.rs (target/debug/deps/red_queen_trigger_error-eb8ee6066a03266b)
+     Running tests/trigger_registry_test.rs (target/debug/deps/trigger_registry_test-fee3f3ca2b56a371)
+     Running tests/types_integration_test.rs (target/debug/deps/types_integration_test-05833db48fe8cc73)
+     Running tests/validation_test.rs (target/debug/deps/validation_test-600ff8fa26c00b18)
+     Running tests/webhook_test.rs (target/debug/deps/webhook_test-8cfe24039ed34c3f)
+     Running tests/yaml_roundtrip_fidelity_test.rs (target/debug/deps/yaml_roundtrip_fidelity_test-8fa61f208c3f7859)
+     Running unittests src/lib.rs (target/debug/deps/twerk_infrastructure-1d87a3354f1a984b)
+     Running tests/cache_test.rs (target/debug/deps/cache_test-81df679ad83b21f6)
+     Running tests/docker_cleanup_test.rs (target/debug/deps/docker_cleanup_test-f11de35a05229071)
+     Running tests/postgres_test.rs (target/debug/deps/postgres_test-4342e9dc79dc8d11)
+     Running tests/rabbitmq_isolation_test.rs (target/debug/deps/rabbitmq_isolation_test-d7e8bc6b07b361f6)
+     Running tests/rabbitmq_test.rs (target/debug/deps/rabbitmq_test-945db854aa5de741)
+     Running tests/runtime_test.rs (target/debug/deps/runtime_test-a870e47d789ad5a0)
+     Running unittests src/main.rs (target/debug/deps/twerk_openapi_gen-f1b831b99246f755)
+     Running unittests src/lib.rs (target/debug/deps/twerk_web-5569ac28e600a04e)
+     Running unittests src/bin/openapi_gen.rs (target/debug/deps/openapi_gen-0d33a8a698dbaba8)
+     Running tests/adversarial_trigger_update_test.rs (target/debug/deps/adversarial_trigger_update_test-a7fbff7027f3399e)
+     Running tests/api_endpoints_test.rs (target/debug/deps/api_endpoints_test-509d4cc1b08e2dc5)
+     Running tests/api_test.rs (target/debug/deps/api_test-f1b1a5fcc1fa0eb9)
+     Running tests/batch_yaml_100_task_test.rs (target/debug/deps/batch_yaml_100_task_test-01f7eb390c28ac24)
+     Running tests/comprehensive_api_test.rs (target/debug/deps/comprehensive_api_test-e83bb91976e4f1a0)
+     Running tests/concurrent_isolation_test.rs (target/debug/deps/concurrent_isolation_test-05c73acb731e697b)
+     Running tests/distributed_e2e_test.rs (target/debug/deps/distributed_e2e_test-bcdd2d1a34de1c44)
+     Running tests/exhaustive_endpoint_matrix_test.rs (target/debug/deps/exhaustive_endpoint_matrix_test-e8275fc593126288)
+     Running tests/generated_workload_contracts.rs (target/debug/deps/generated_workload_contracts-0404c29612021664)
+     Running tests/mutation_workload_bench.rs (target/debug/deps/mutation_workload_bench-f5169a16bc052d5f)
+     Running tests/openapi_contract_test.rs (target/debug/deps/openapi_contract_test-949bd1da512ef5d7)
+     Running tests/qa_12_step_test.rs (target/debug/deps/qa_12_step_test-1e4ffd00ff92e674)
+     Running tests/redact_test.rs (target/debug/deps/redact_test-8a2ca2fab60560d5)
+     Running tests/system_endpoints_hammer_test.rs (target/debug/deps/system_endpoints_hammer_test-fa273c3a375bd795)
+     Running tests/trigger_update_adversarial_test.rs (target/debug/deps/trigger_update_adversarial_test-5489b1a9a931f067)
+     Running tests/trigger_update_density_matrix_test.rs (target/debug/deps/trigger_update_density_matrix_test-7ea63fa29fc4d777)
+     Running tests/trigger_update_integration_red_test.rs (target/debug/deps/trigger_update_integration_red_test-7c77126e64c34559)
+     Running tests/trigger_update_proptest_red_test.rs (target/debug/deps/trigger_update_proptest_red_test-7f8b35c65e276d09)
+     Running tests/trigger_view_rfc3339_contract_test.rs (target/debug/deps/trigger_view_rfc3339_contract_test-ec77132ed444b84e)
+     Running tests/yaml_parse_benchmark.rs (target/debug/deps/yaml_parse_benchmark-954ace92c7b48442)
+   Doc-tests twerk_app
+   Doc-tests twerk_cli
+   Doc-tests twerk_common
+   Doc-tests twerk_core
+   Doc-tests twerk_infrastructure
+   Doc-tests twerk_web
+>>>>>>> origin/twerk-0gr

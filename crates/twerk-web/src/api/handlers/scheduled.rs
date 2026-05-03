@@ -1,11 +1,446 @@
-pub mod create;
-pub mod lifecycle;
-pub mod read;
-pub mod shared;
+//! Scheduled job handlers - API endpoints for scheduled job operations.
 
-pub use create::create_scheduled_job_handler;
-pub use lifecycle::{
-    delete_scheduled_job_handler, pause_scheduled_job_handler, resume_scheduled_job_handler,
-};
-pub use read::{get_scheduled_job_handler, list_scheduled_jobs_handler};
-pub use shared::CreateScheduledJobBody;
+use axum::body::Bytes;
+use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use twerk_core::id::ScheduledJobId;
+use twerk_core::job::{new_scheduled_job_summary, ScheduledJob, ScheduledJobState};
+use twerk_core::repository;
+use twerk_core::user::User;
+use twerk_core::validation::{validate_cron, validate_job};
+
+use super::super::error::ApiError;
+use super::tasks::{PaginationQuery, RawPaginationQuery};
+use super::{default_user, extract_current_user, AppState};
+use crate::api::redact::{redact_scheduled_job, redact_scheduled_job_summary};
+use tracing::instrument;
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct CreateScheduledJobBody {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub cron: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub tasks: Option<Vec<twerk_core::task::Task>>,
+    pub inputs: Option<std::collections::HashMap<String, String>>,
+    pub secrets: Option<std::collections::HashMap<String, String>>,
+    pub output: Option<String>,
+    pub defaults: Option<twerk_core::job::JobDefaults>,
+    pub webhooks: Option<Vec<twerk_core::webhook::Webhook>>,
+    pub permissions: Option<Vec<twerk_core::task::Permission>>,
+    pub auto_delete: Option<twerk_core::task::AutoDelete>,
+}
+
+// ============================================================================================
+// Pure extraction and validation functions
+// ============================================================================================
+
+/// Extract normalized content type from headers (pure).
+fn extract_content_type(headers: &HeaderMap) -> String {
+    headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map_or("", |v| v)
+        .split(';')
+        .next()
+        .map_or("", str::trim)
+        .to_ascii_lowercase()
+}
+
+/// Parse create body based on content type (partial - I/O in yaml parsing but contained).
+fn parse_create_body(content_type: &str, body: &[u8]) -> Result<CreateScheduledJobBody, ApiError> {
+    match content_type {
+        "application/json" => {
+            serde_json::from_slice(body).map_err(|e| ApiError::bad_request(e.to_string()))
+        }
+        "text/yaml" | "application/x-yaml" | "application/yaml" => {
+            super::super::yaml::from_slice(body)
+        }
+        _ => Err(ApiError::bad_request("unsupported content type")),
+    }
+}
+
+/// Validate create input and extract required fields (pure).
+fn validate_create_input(
+    body: &CreateScheduledJobBody,
+) -> Result<(String, Vec<twerk_core::task::Task>), ApiError> {
+    let cron = body
+        .cron
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("cron is required"))?
+        .clone();
+    let tasks = body
+        .tasks
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("tasks is required"))?
+        .clone();
+
+    validate_cron(&cron).map_err(ApiError::bad_request)?;
+
+    let job_err = validate_job(
+        body.name.as_ref(),
+        body.tasks.as_ref(),
+        body.defaults.as_ref(),
+        body.output.as_ref(),
+    );
+    if let Err(errors) = job_err {
+        return Err(ApiError::bad_request(errors.join("; ")));
+    }
+
+    Ok((cron, tasks))
+}
+
+/// Build `ScheduledJob` from validated input (pure).
+fn build_scheduled_job(
+    body: CreateScheduledJobBody,
+    cron: String,
+    tasks: Vec<twerk_core::task::Task>,
+    created_by: Option<User>,
+) -> Result<ScheduledJob, ApiError> {
+    let id = twerk_core::id::ScheduledJobId::new(twerk_core::uuid::new_short_uuid())?;
+    Ok(ScheduledJob {
+        id: Some(id),
+        name: body.name,
+        description: body.description,
+        cron: Some(cron),
+        state: ScheduledJobState::Active,
+        inputs: body.inputs,
+        tasks: Some(tasks),
+        created_by,
+        defaults: body.defaults,
+        auto_delete: body.auto_delete,
+        webhooks: body.webhooks,
+        permissions: body.permissions,
+        created_at: Some(time::OffsetDateTime::now_utc()),
+        tags: body.tags,
+        secrets: body.secrets,
+        output: body.output,
+    })
+}
+
+/// Validate scheduled job can be paused (pure).
+fn validate_pause(sj: &ScheduledJob) -> Result<(), ApiError> {
+    if sj.state != ScheduledJobState::Active {
+        return Err(ApiError::bad_request("scheduled job is not active"));
+    }
+    Ok(())
+}
+
+/// Validate scheduled job can be resumed (pure).
+fn validate_resume(sj: &ScheduledJob) -> Result<(), ApiError> {
+    if sj.state != ScheduledJobState::Paused {
+        return Err(ApiError::bad_request("scheduled job is not paused"));
+    }
+    Ok(())
+}
+
+/// Build pause state transition closure (pure factory).
+fn pause_state_transition(
+) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
+    Box::new(|mut sj| {
+        sj.state = ScheduledJobState::Paused;
+        Ok(sj)
+    })
+}
+
+/// Build resume state transition closure (pure factory).
+fn resume_state_transition(
+) -> Box<dyn FnOnce(ScheduledJob) -> Result<ScheduledJob, repository::Error> + Send> {
+    Box::new(|mut sj| {
+        sj.state = ScheduledJobState::Active;
+        Ok(sj)
+    })
+}
+
+/// Build status OK response (pure).
+fn status_ok_response() -> Response {
+    (StatusCode::OK, axum::Json(json!({"status": "OK"}))).into_response()
+}
+
+/// Check if scheduled job was active (pure).
+fn was_active(sj: &ScheduledJob) -> bool {
+    sj.state == ScheduledJobState::Active
+}
+
+/// Build paused scheduled job for event (pure).
+fn build_paused_for_event(sj: &ScheduledJob) -> ScheduledJob {
+    let mut paused = sj.clone();
+    paused.state = ScheduledJobState::Paused;
+    paused
+}
+
+/// Build event value from scheduled job (pure).
+fn build_scheduled_job_event_value_from_sj(
+    sj: &ScheduledJob,
+) -> Result<serde_json::Value, ApiError> {
+    serde_json::to_value(sj).map_err(|e| ApiError::internal(e.to_string()))
+}
+
+// ============================================================================================
+// Handlers (thin orchestration)
+// ============================================================================================
+
+/// POST /scheduled-jobs
+///
+/// # Errors
+///
+/// # Panics
+/// Panics if `sj.id` is `None`, which should never happen as `build_scheduled_job` always sets it.
+#[utoipa::path(
+    post,
+    path = "/scheduled-jobs",
+    request_body(
+        description = "Scheduled job definition as JSON or YAML",
+        content(
+            (CreateScheduledJobBody = "application/json"),
+            (CreateScheduledJobBody = "application/yaml"),
+            (CreateScheduledJobBody = "application/x-yaml"),
+            (CreateScheduledJobBody = "text/yaml")
+        )
+    ),
+    responses(
+        (status = 200, description = "Scheduled job created")
+    )
+)]
+#[instrument(name = "create_scheduled_job_handler", skip_all)]
+pub async fn create_scheduled_job_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, ApiError> {
+    let content_type = extract_content_type(&headers);
+    let sj_input = parse_create_body(&content_type, &body)?;
+    let (cron, tasks) = validate_create_input(&sj_input)?;
+    let user = default_user(&state).await;
+    let sj = build_scheduled_job(sj_input, cron, tasks, user)?;
+
+    state
+        .ds
+        .create_scheduled_job(&sj)
+        .await
+        .map_err(ApiError::from)?;
+
+    let created = state
+        .ds
+        .get_scheduled_job_by_id(sj.id.as_ref().expect("id must be set"))
+        .await
+        .map_err(ApiError::from)?;
+
+    let mut created_redacted = created;
+    redact_scheduled_job(&mut created_redacted);
+
+    state
+        .broker
+        .publish_event(
+            "scheduled.job".to_string(),
+            build_scheduled_job_event_value_from_sj(&created_redacted)?,
+        )
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    let summary = new_scheduled_job_summary(&created_redacted);
+    Ok((StatusCode::OK, axum::Json(summary)).into_response())
+}
+
+/// GET /scheduled-jobs
+///
+/// # Errors
+#[utoipa::path(
+    get,
+    path = "/scheduled-jobs",
+    responses(
+        (status = 200, description = "List of scheduled jobs")
+    )
+)]
+#[instrument(name = "list_scheduled_jobs_handler", skip_all)]
+pub async fn list_scheduled_jobs_handler(
+    State(state): State<AppState>,
+    Query(raw): Query<RawPaginationQuery>,
+    req: axum::extract::Request,
+) -> Result<Response, ApiError> {
+    let qp = PaginationQuery::from_raw(raw);
+    let page = qp.page()?;
+    let size = qp.size(10, 20)?;
+    let current_user = extract_current_user(&req);
+
+    let mut result = state
+        .ds
+        .get_scheduled_jobs(&current_user, page, size)
+        .await
+        .map_err(ApiError::from)?;
+
+    for sj in &mut result.items {
+        redact_scheduled_job_summary(sj);
+    }
+    Ok(axum::Json(result).into_response())
+}
+
+#[utoipa::path(
+    get,
+    path = "/scheduled-jobs/{id}",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job found")
+    )
+)]
+#[allow(clippy::missing_errors_doc)]
+#[instrument(name = "get_scheduled_job_handler", skip_all)]
+pub async fn get_scheduled_job_handler(
+    State(state): State<AppState>,
+    Path(id): Path<ScheduledJobId>,
+) -> Result<Response, ApiError> {
+    let mut sj = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    redact_scheduled_job(&mut sj);
+    Ok(axum::Json(sj).into_response())
+}
+
+#[utoipa::path(
+    put,
+    path = "/scheduled-jobs/{id}/pause",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job paused")
+    )
+)]
+#[allow(clippy::missing_errors_doc)]
+#[instrument(name = "pause_scheduled_job_handler", skip_all)]
+pub async fn pause_scheduled_job_handler(
+    State(state): State<AppState>,
+    Path(id): Path<ScheduledJobId>,
+) -> Result<Response, ApiError> {
+    let sj = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    validate_pause(&sj)?;
+
+    state
+        .ds
+        .update_scheduled_job(&id, pause_state_transition())
+        .await
+        .map_err(ApiError::from)?;
+
+    let paused = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    state
+        .broker
+        .publish_event(
+            "scheduled.job".to_string(),
+            build_scheduled_job_event_value_from_sj(&paused)?,
+        )
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(status_ok_response())
+}
+
+#[utoipa::path(
+    put,
+    path = "/scheduled-jobs/{id}/resume",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job resumed")
+    )
+)]
+#[allow(clippy::missing_errors_doc)]
+#[instrument(name = "resume_scheduled_job_handler", skip_all)]
+pub async fn resume_scheduled_job_handler(
+    State(state): State<AppState>,
+    Path(id): Path<ScheduledJobId>,
+) -> Result<Response, ApiError> {
+    let sj = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    validate_resume(&sj)?;
+
+    state
+        .ds
+        .update_scheduled_job(&id, resume_state_transition())
+        .await
+        .map_err(ApiError::from)?;
+
+    let resumed = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    state
+        .broker
+        .publish_event(
+            "scheduled.job".to_string(),
+            build_scheduled_job_event_value_from_sj(&resumed)?,
+        )
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
+    Ok(status_ok_response())
+}
+
+#[utoipa::path(
+    delete,
+    path = "/scheduled-jobs/{id}",
+    params(
+        ("id" = twerk_core::id::ScheduledJobId, Path, description = "Scheduled job ID")
+    ),
+    responses(
+        (status = 200, description = "Scheduled job deleted")
+    )
+)]
+#[allow(clippy::missing_errors_doc)]
+#[instrument(name = "delete_scheduled_job_handler", skip_all)]
+pub async fn delete_scheduled_job_handler(
+    State(state): State<AppState>,
+    Path(id): Path<ScheduledJobId>,
+) -> Result<Response, ApiError> {
+    let sj = state
+        .ds
+        .get_scheduled_job_by_id(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    let is_active = was_active(&sj);
+
+    state
+        .ds
+        .delete_scheduled_job(&id)
+        .await
+        .map_err(ApiError::from)?;
+
+    if is_active {
+        let paused_sj = build_paused_for_event(&sj);
+        state
+            .broker
+            .publish_event(
+                "scheduled.job".to_string(),
+                build_scheduled_job_event_value_from_sj(&paused_sj)?,
+            )
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+    }
+
+    Ok(status_ok_response())
+}

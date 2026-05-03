@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ▮▮▮▮ root:ci-source (e2fefae6)
 
 running 59 tests
@@ -299,3 +300,414 @@ test profiling_benchmarks::throughput_batch_operations ... ok
 
 Tasks: 1 skipped
  Time: 6s 593ms (interrupted)
+=======
+▮▮▮▮ root:ci-source (30242aeb)
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:160:
+ 
+ #[tokio::test]
+ async fn queue_get_returns_not_found_when_server_returns_404_with_non_json_body() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::get(b34_queue_get_not_found_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::get(b34_queue_get_not_found_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_get(&server.endpoint, "nonexistent", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:238:
+ 
+ #[tokio::test]
+ async fn queue_get_returns_http_status_when_server_returns_non_json_non_404_error() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::get(b36_queue_get_service_unavailable));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::get(b36_queue_get_service_unavailable),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_get(&server.endpoint, "broken", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:272:
+ 
+ #[tokio::test]
+ async fn queue_delete_returns_api_error_when_server_returns_404_with_structured_json() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::delete(b37_queue_delete_not_found_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::delete(b37_queue_delete_not_found_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_delete(&server.endpoint, "gone", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:296:
+ 
+ #[tokio::test]
+ async fn queue_delete_returns_not_found_when_server_returns_404_with_non_json_body() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::delete(b38_queue_delete_not_found_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::delete(b38_queue_delete_not_found_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_delete(&server.endpoint, "gone", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:326:
+ 
+ #[tokio::test]
+ async fn queue_delete_returns_api_error_when_server_returns_500_with_structured_json() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::delete(b39_queue_delete_internal_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::delete(b39_queue_delete_internal_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_delete(&server.endpoint, "broken", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:350:
+ 
+ #[tokio::test]
+ async fn queue_delete_returns_error_when_name_is_empty_string() {
+[31m-    let router = Router::new().route("/queues", routing::delete(b39_5_queue_delete_not_found_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues",
+(B[m[32m+        routing::delete(b39_5_queue_delete_not_found_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_delete(&server.endpoint, "", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:374:
+ 
+ #[tokio::test]
+ async fn queue_delete_returns_http_status_when_server_returns_non_json_non_404_error() {
+[31m-    let router = Router::new().route("/queues/{name}", routing::delete(b40_queue_delete_bad_gateway));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/queues/{name}",
+(B[m[32m+        routing::delete(b40_queue_delete_bad_gateway),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = queue_delete(&server.endpoint, "broken", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:408:
+ 
+ #[tokio::test]
+ async fn task_get_returns_api_error_when_server_returns_404_with_structured_json() {
+[31m-    let router = Router::new().route("/tasks/{task_id}", routing::get(b41_task_get_not_found_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/tasks/{task_id}",
+(B[m[32m+        routing::get(b41_task_get_not_found_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = task_get(&server.endpoint, "abc-123", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:432:
+ 
+ #[tokio::test]
+ async fn task_get_returns_not_found_when_server_returns_404_with_non_json_body() {
+[31m-    let router = Router::new().route("/tasks/{task_id}", routing::get(b42_task_get_not_found_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/tasks/{task_id}",
+(B[m[32m+        routing::get(b42_task_get_not_found_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = task_get(&server.endpoint, "missing", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:510:
+ 
+ #[tokio::test]
+ async fn task_get_returns_http_status_when_server_returns_non_json_non_404_error() {
+[31m-    let router = Router::new().route("/tasks/{task_id}", routing::get(b44_task_get_service_unavailable));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/tasks/{task_id}",
+(B[m[32m+        routing::get(b44_task_get_service_unavailable),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = task_get(&server.endpoint, "stuck", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/handler_error_body_test.rs:994:
+ // ---------------------------------------------------------------------------
+ 
+ async fn b58_queue_delete_ok() -> (StatusCode, Json<Value>) {
+[31m-    (
+(B[m[31m-        StatusCode::OK,
+(B[m[31m-        Json(json!({"deleted": true, "name": "q1"})),
+(B[m[31m-    )
+(B[m[32m+    (StatusCode::OK, Json(json!({"deleted": true, "name": "q1"})))
+(B[m }
+ 
+ #[tokio::test]
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:206:
+ 
+ #[tokio::test]
+ async fn trigger_create_returns_api_error_when_server_returns_400_with_structured_json() {
+[31m-    let router = Router::new().route("/api/v1/triggers", routing::post(b16_create_bad_request_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers",
+(B[m[32m+        routing::post(b16_create_bad_request_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_create(&server.endpoint, r#"{"name":"bad"}"#, true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:266:
+ 
+ #[tokio::test]
+ async fn trigger_update_returns_api_error_when_server_returns_404_with_structured_json() {
+[31m-    let router = Router::new().route("/api/v1/triggers/{id}", routing::put(b18_update_not_found_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers/{id}",
+(B[m[32m+        routing::put(b18_update_not_found_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_update(&server.endpoint, "gone", "{}", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:296:
+ 
+ #[tokio::test]
+ async fn trigger_delete_returns_api_error_when_server_returns_404_with_structured_json() {
+[31m-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b19_delete_not_found_json));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers/{id}",
+(B[m[32m+        routing::delete(b19_delete_not_found_json),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_delete(&server.endpoint, "gone", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:320:
+ 
+ #[tokio::test]
+ async fn trigger_delete_returns_not_found_when_server_returns_404_with_non_json_body() {
+[31m-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b20_delete_not_found_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers/{id}",
+(B[m[32m+        routing::delete(b20_delete_not_found_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_delete(&server.endpoint, "gone", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:537:
+ 
+ #[tokio::test]
+ async fn trigger_get_returns_http_status_when_server_returns_non_json_error() {
+[31m-    let router = Router::new().route("/api/v1/triggers/{id}", routing::get(b26_service_unavailable_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers/{id}",
+(B[m[32m+        routing::get(b26_service_unavailable_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_get(&server.endpoint, "test", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:561:
+ 
+ #[tokio::test]
+ async fn trigger_create_returns_http_status_when_server_returns_non_json_error() {
+[31m-    let router = Router::new().route("/api/v1/triggers", routing::post(b27_create_internal_error_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers",
+(B[m[32m+        routing::post(b27_create_internal_error_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_create(&server.endpoint, "{}", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:580:
+ // ---------------------------------------------------------------------------
+ 
+ async fn b28_teapot_plain() -> (StatusCode, &'static str) {
+[31m-    (StatusCode::from_u16(418).expect("418 is valid"), "I'm a teapot")
+(B[m[32m+    (
+(B[m[32m+        StatusCode::from_u16(418).expect("418 is valid"),
+(B[m[32m+        "I'm a teapot",
+(B[m[32m+    )
+(B[m }
+ 
+ #[tokio::test]
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-cli/tests/trigger_negative_test.rs:609:
+ 
+ #[tokio::test]
+ async fn trigger_delete_returns_http_status_when_server_returns_unrecognized_status() {
+[31m-    let router = Router::new().route("/api/v1/triggers/{id}", routing::delete(b29_bad_gateway_plain));
+(B[m[32m+    let router = Router::new().route(
+(B[m[32m+        "/api/v1/triggers/{id}",
+(B[m[32m+        routing::delete(b29_bad_gateway_plain),
+(B[m[32m+    );
+(B[m     let server = spawn_router(router).await;
+ 
+     let result = trigger_delete(&server.endpoint, "test", true).await;
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/src/api/yaml/tests.rs:1169:
+         let value = state_machine_value("asl-task-retry.yaml");
+         assert_eq!(value["startAt"], "Build");
+         assert_eq!(value["states"]["Build"]["type"], "task");
+[31m-        assert_eq!(value["states"]["Build"]["retry"][0]["errorEquals"][0], "taskfailed");
+(B[m[32m+        assert_eq!(
+(B[m[32m+            value["states"]["Build"]["retry"][0]["errorEquals"][0],
+(B[m[32m+            "taskfailed"
+(B[m[32m+        );
+(B[m         assert_eq!(value["states"]["Build"]["retry"][0]["intervalSeconds"], 1);
+         assert_eq!(value["states"]["Build"]["retry"][0]["maxAttempts"], 3);
+         assert_eq!(value["states"]["Build"]["retry"][0]["backoffRate"], 2.0);
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:150:
+ 
+         let count = samples.len() as f64;
+         let mean = samples.iter().sum::<f64>() / count;
+[31m-        let variance = samples.iter().map(|sample| (sample - mean).powi(2)).sum::<f64>() / count;
+(B[m[32m+        let variance = samples
+(B[m[32m+            .iter()
+(B[m[32m+            .map(|sample| (sample - mean).powi(2))
+(B[m[32m+            .sum::<f64>()
+(B[m[32m+            / count;
+(B[m         let std_dev = variance.sqrt();
+         let ci_margin = CONFIDENCE_Z_SCORE_95 * std_dev / count.sqrt();
+ 
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:219:
+ 
+ fn structural_weight(job: &Job) -> u64 {
+     let top_level_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| tasks.len() as u64);
+[31m-    let nested_parallel_tasks = job
+(B[m[31m-        .tasks
+(B[m[31m-        .as_ref()
+(B[m[31m-        .map_or(0_u64, |tasks| tasks.iter().map(task_parallel_count).sum::<u64>());
+(B[m[31m-    let each_tasks = job
+(B[m[31m-        .tasks
+(B[m[31m-        .as_ref()
+(B[m[31m-        .map_or(0_u64, |tasks| tasks.iter().map(task_each_count).sum::<u64>());
+(B[m[32m+    let nested_parallel_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| {
+(B[m[32m+        tasks.iter().map(task_parallel_count).sum::<u64>()
+(B[m[32m+    });
+(B[m[32m+    let each_tasks = job.tasks.as_ref().map_or(0_u64, |tasks| {
+(B[m[32m+        tasks.iter().map(task_each_count).sum::<u64>()
+(B[m[32m+    });
+(B[m     let env_vars = job
+         .tasks
+         .as_ref()
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:233:
+         .map_or(0_u64, |tasks| tasks.iter().map(task_env_count).sum::<u64>());
+[31m-    let mounts = job
+(B[m[31m-        .tasks
+(B[m[31m-        .as_ref()
+(B[m[31m-        .map_or(0_u64, |tasks| tasks.iter().map(task_mount_count).sum::<u64>());
+(B[m[32m+    let mounts = job.tasks.as_ref().map_or(0_u64, |tasks| {
+(B[m[32m+        tasks.iter().map(task_mount_count).sum::<u64>()
+(B[m[32m+    });
+(B[m     let name_len = job.name.as_ref().map_or(0_u64, |name| name.len() as u64);
+ 
+[31m-    top_level_tasks * 100 + nested_parallel_tasks * 10 + each_tasks * 7 + env_vars * 5 + mounts * 3 + name_len
+(B[m[32m+    top_level_tasks * 100
+(B[m[32m+        + nested_parallel_tasks * 10
+(B[m[32m+        + each_tasks * 7
+(B[m[32m+        + env_vars * 5
+(B[m[32m+        + mounts * 3
+(B[m[32m+        + name_len
+(B[m }
+ 
+ fn task_parallel_count(task: &Task) -> u64 {
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:248:
+ }
+ 
+ fn task_each_count(task: &Task) -> u64 {
+[31m-    if task.each.is_some() { 1 } else { 0 }
+(B[m[32m+    if task.each.is_some() {
+(B[m[32m+        1
+(B[m[32m+    } else {
+(B[m[32m+        0
+(B[m[32m+    }
+(B[m }
+ 
+ fn task_env_count(task: &Task) -> u64 {
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:256:
+ }
+ 
+ fn task_mount_count(task: &Task) -> u64 {
+[31m-    task.mounts.as_ref().map_or(0_u64, |mounts| mounts.len() as u64)
+(B[m[32m+    task.mounts
+(B[m[32m+        .as_ref()
+(B[m[32m+        .map_or(0_u64, |mounts| mounts.len() as u64)
+(B[m }
+ 
+ fn job_tasks(job: &Job) -> &[Task] {
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:273:
+ }
+ 
+ fn nested_parallel_tasks(task: &Task) -> &[Task] {
+[31m-    match task.parallel.as_ref().and_then(|parallel| parallel.tasks.as_deref()) {
+(B[m[32m+    match task
+(B[m[32m+        .parallel
+(B[m[32m+        .as_ref()
+(B[m[32m+        .and_then(|parallel| parallel.tasks.as_deref())
+(B[m[32m+    {
+(B[m         Some(tasks) => tasks,
+         None => panic!("expected task to include nested parallel tasks: {task:?}"),
+     }
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:420:
+     }
+ 
+     fn expected_parallel_4_job() -> Job {
+[31m-        job_with_tasks("parallel-job-7", vec![parallel_root_task(expected_parallel_tasks_4())])
+(B[m[32m+        job_with_tasks(
+(B[m[32m+            "parallel-job-7",
+(B[m[32m+            vec![parallel_root_task(expected_parallel_tasks_4())],
+(B[m[32m+        )
+(B[m     }
+ 
+     fn expected_parallel_16_job() -> Job {
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:459:
+                     target: Some("/data".to_string()),
+                     ..Mount::default()
+                 }]),
+[31m-                cmd: Some(vec!["ls".to_string(), "-la".to_string(), "/data".to_string()]),
+(B[m[32m+                cmd: Some(vec![
+(B[m[32m+                    "ls".to_string(),
+(B[m[32m+                    "-la".to_string(),
+(B[m[32m+                    "/data".to_string(),
+(B[m[32m+                ]),
+(B[m                 ..Task::default()
+             }],
+         )
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:643:
+ 
+     #[test]
+     fn generated_workload_stats_use_known_percentiles_variance_and_confidence_interval() {
+[31m-        let result = GeneratedWorkloadStats::new(
+(B[m[31m-            WorkloadScenario::SimpleEcho,
+(B[m[31m-            vec![10.0, 20.0, 30.0, 40.0],
+(B[m[31m-        );
+(B[m[32m+        let result =
+(B[m[32m+            GeneratedWorkloadStats::new(WorkloadScenario::SimpleEcho, vec![10.0, 20.0, 30.0, 40.0]);
+(B[m 
+         assert_eq!(result.scenario, WorkloadScenario::SimpleEcho);
+         assert_eq!(result.samples, vec![10.0, 20.0, 30.0, 40.0]);
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:671:
+ 
+     #[test]
+     fn coefficient_of_variation_returns_the_known_percentage_for_known_samples() {
+[31m-        let result = GeneratedWorkloadStats::new(
+(B[m[31m-            WorkloadScenario::SimpleEcho,
+(B[m[31m-            vec![10.0, 20.0, 30.0, 40.0],
+(B[m[31m-        );
+(B[m[32m+        let result =
+(B[m[32m+            GeneratedWorkloadStats::new(WorkloadScenario::SimpleEcho, vec![10.0, 20.0, 30.0, 40.0]);
+(B[m 
+         assert_close(result.coefficient_of_variation(), 44.721_359_549_995_796);
+     }
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:684:
+         let result = run_scenario(WorkloadScenario::MultiTask, 42);
+ 
+         assert_eq!(result.scenario, WorkloadScenario::MultiTask);
+[31m-        assert_eq!(result.samples, expected_sample_values(WorkloadScenario::MultiTask, 42));
+(B[m[32m+        assert_eq!(
+(B[m[32m+            result.samples,
+(B[m[32m+            expected_sample_values(WorkloadScenario::MultiTask, 42)
+(B[m[32m+        );
+(B[m         assert_eq!(result.samples.len(), RUNS_PER_SCENARIO);
+     }
+ 
+Diff in /home/lewis/src/twerk-0gr/crates/twerk-web/tests/generated_workload_contracts.rs:740:
+                 .and_then(|each| each.list.as_deref()),
+             Some("{{ sequence(1,50) }}")
+         );
+[31m-        assert_eq!(task_names(job_tasks(&variability_job)), vec!["env-task", "mounted"]);
+(B[m[32m+        assert_eq!(
+(B[m[32m+            task_names(job_tasks(&variability_job)),
+(B[m[32m+            vec!["env-task", "mounted"]
+(B[m[32m+        );
+(B[m         assert_eq!(nested_parallel_tasks(only_task(&burst_job)).len(), 9);
+     }
+ }
+▮▮▮▮ root:ci-source (440ms, 30242aeb)
+>>>>>>> origin/twerk-0gr

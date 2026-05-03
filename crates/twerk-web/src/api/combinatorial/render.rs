@@ -8,7 +8,7 @@ pub fn generate_test_module(generator: &CombinatorialGenerator) -> String {
     let (title, version) = generator.spec_info();
 
     let mut output =
-        format!("//! Auto-generated combinatorial tests from OpenAPI spec: {title} v{version}\n",);
+        format!("//! Auto-generated combinatorial tests from OpenAPI spec: {title} v{version}\n");
     output.push_str("//!\n");
     output.push_str("//! This file is auto-generated. Do not edit manually.\n");
     output.push_str("//! Regenerate with: combinatorial_test_generator\n\n");
@@ -53,7 +53,7 @@ async fn {}() {{
         })
 }
 
-fn variant_name(variation: &InputVariation) -> &'static str {
+const fn variant_name(variation: &InputVariation) -> &'static str {
     match variation {
         InputVariation::ValidMinimal => "ValidMinimal",
         InputVariation::ValidFull => "ValidFull",

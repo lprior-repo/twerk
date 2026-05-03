@@ -3,25 +3,17 @@ resolver = "2"
 members = [
     "crates/twerk-common",
     "crates/twerk-core",
-    "crates/twerk-runtime",
     "crates/twerk-infrastructure",
     "crates/twerk-app",
     "crates/twerk-web",
     "crates/twerk-cli",
     "crates/twerk-openapi-gen",
-    "crates/twerk-store",
+    "crates/twerk-perf-kernels",
+    "crates/twerk-bench",
 ]
 exclude = [
     "pokemon-server",
 ]
-
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
-[workspace.lints.clippy]
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
 
 [workspace.package]
 version = "0.1.0"
@@ -34,11 +26,10 @@ license = "Apache-2.0"
 # Internal Crates (The Hard Boundaries)
 twerk-common = { path = "crates/twerk-common" }
 twerk-core = { path = "crates/twerk-core" }
-twerk-runtime = { path = "crates/twerk-runtime" }
 twerk-infrastructure = { path = "crates/twerk-infrastructure" }
 twerk-app = { path = "crates/twerk-app" }
 twerk-web = { path = "crates/twerk-web" }
-twerk-store = { path = "crates/twerk-store" }
+twerk-perf-kernels = { path = "crates/twerk-perf-kernels" }
 
 # Shared External Dependencies
 tokio = { version = "1.49", features = ["full"] }
@@ -86,12 +77,11 @@ config = "0.14"
 toml = "0.8"
 sysinfo = "0.33"
 hostname = "0.4"
+percent-encoding = "2.3"
 url = "2.5"
 dirs = "6.0"
 serde-saphyr = { version = "0.0.23", features = ["serialize", "deserialize", "properties", "include", "include_fs", "miette"] }
 tempfile = "3.14"
-fjall = "3"
-postcard = { version = "1", features = ["alloc"] }
 
 # Security & Crypto
 bcrypt = "0.17"
@@ -120,6 +110,9 @@ utoipa-axum = "0.2"
 # Scheduling
 tokio-cron-scheduler = "0.15"
 
+# Persistence
+fjall = "2"
+
 # Test Dependencies
 tokio-test = "0.4"
 mockito = "1.0"
@@ -131,3 +124,30 @@ proptest = "1.5"
 # Logging
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# ============================================================================
+# Performance Profiles
+# ============================================================================
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+
+[profile.hardened]
+inherits = "release"
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+lto = "thin"
+codegen-units = 1

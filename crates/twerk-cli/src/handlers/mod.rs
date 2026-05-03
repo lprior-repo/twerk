@@ -2,9 +2,12 @@
 //!
 //! HTTP client implementations for API operations.
 
+pub mod common;
+pub mod job;
 pub mod metrics;
 pub mod node;
 pub mod queue;
+pub mod scheduled_job;
 pub mod task;
 pub mod trigger;
 pub mod user;

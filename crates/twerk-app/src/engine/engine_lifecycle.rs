@@ -131,53 +131,6 @@ impl super::Engine {
         self.terminated_notify.notified().await;
     }
 
-    /// Shuts down the engine and cancels all queued work.
-    ///
-    /// Unlike `terminate()` which waits for running tasks to complete,
-    /// `shutdown()` cancels queued (pending) tasks immediately.
-    #[instrument(skip_all)]
-    pub async fn shutdown(&mut self) -> Result<()> {
-        if self.state != State::Running && self.state != State::Terminating {
-            return Err(EngineError::NotRunning.into());
-        }
-
-        self.state = State::Terminating;
-        debug!("Shutting down engine - cancelling queued work");
-
-        // Signal termination via terminate_broadcaster
-        if let Err(e) = self.terminate_tx.send(()) {
-            debug!("Termination broadcast failed (no listeners): {}", e);
-        }
-
-        // Clear submitted tasks - these are queued but not yet processed
-        self.submitted_tasks.clear();
-
-        // Stop worker if present
-        {
-            let worker = self.worker.read().await;
-            if let Some(w) = worker.as_ref() {
-                if let Err(e) = w.stop().await {
-                    error!("error stopping worker: {}", e);
-                }
-            }
-        }
-
-        // Stop coordinator if present
-        {
-            let coordinator = self.coordinator.read().await;
-            if let Some(c) = coordinator.as_ref() {
-                if let Err(e) = c.stop().await {
-                    error!("error stopping coordinator: {}", e);
-                }
-            }
-        }
-
-        // Signal termination completion
-        self.terminated_notify.notify_waiters();
-        self.state = State::Terminated;
-        Ok(())
-    }
-
     #[instrument(skip_all)]
     async fn run_coordinator(&mut self) -> Result<()> {
         self.broker

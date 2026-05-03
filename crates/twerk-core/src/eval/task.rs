@@ -251,6 +251,5 @@ pub fn evaluate_task(
         priority: task.priority,
         progress: task.progress,
         probe: task.probe.clone(),
-        depends_on: task.depends_on.clone(),
     })
 }

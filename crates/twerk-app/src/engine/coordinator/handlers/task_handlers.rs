@@ -72,6 +72,8 @@ pub async fn handle_redelivered(
         .id
         .as_deref()
         .ok_or(HandlerError::RedeliveredMissingTaskId)?;
+
+    // Early return if task already in terminal state
     let persisted = ds.get_task_by_id(task_id).await?;
     if matches!(
         persisted.state,
@@ -79,7 +81,12 @@ pub async fn handle_redelivered(
     ) {
         return Ok(());
     }
+
+    // Increment redelivered count
     task.redelivered += 1;
+    let queue = persisted.queue.clone().unwrap_or_else(|| "default".to_string());
+
+    // Update task in datastore with new redelivered count
     ds.update_task(
         task_id,
         Box::new(move |mut current| {
@@ -89,7 +96,7 @@ pub async fn handle_redelivered(
     )
     .await?;
 
-    let queue = persisted.queue.unwrap_or_else(|| "default".to_string());
+    // Publish task for reprocessing
     broker.publish_task(queue, &task).await
 }
 

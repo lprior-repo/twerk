@@ -299,10 +299,6 @@ pub struct Task {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub probe: Option<Probe>,
-
-    #[serde(default)]
-    #[schema(value_type = Option<Vec<String>>)]
-    pub depends_on: Option<Vec<TaskId>>,
 }
 
 impl Task {

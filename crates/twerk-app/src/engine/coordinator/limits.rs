@@ -8,27 +8,22 @@
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
-use governor::{clock::Clock, Quota, RateLimiter, DefaultDirectRateLimiter};
+use governor::{Quota, RateLimiter};
 use std::future::Future;
 use std::num::NonZeroU32;
 use std::pin::Pin;
-use std::sync::Arc;
 
 // ── Rate Limiting ──────────────────────────────────────────────
 
 #[derive(Clone, Debug)]
 pub struct RateLimitConfig {
-    pub(crate) limiter: Arc<DefaultDirectRateLimiter>,
+    pub(crate) rps: u32,
 }
 
 impl RateLimitConfig {
     #[must_use]
     pub fn new(rps: u32) -> Self {
-        let rps = NonZeroU32::new(rps.max(1)).unwrap_or(NonZeroU32::MIN);
-        let limiter = RateLimiter::direct(Quota::per_second(rps));
-        Self {
-            limiter: Arc::new(limiter),
-        }
+        Self { rps }
     }
 }
 
@@ -40,22 +35,12 @@ pub async fn rate_limit_middleware(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let limiter = config.limiter.as_ref();
+    let rps = NonZeroU32::new(config.rps.max(1)).unwrap_or(NonZeroU32::MIN);
+    let limiter = RateLimiter::direct(Quota::per_second(rps));
 
     match limiter.check() {
         Ok(()) => Ok(next.run(request).await),
-        Err(not_until) => {
-            let now = limiter.clock().now();
-            let wait_time = not_until.wait_time_from(now);
-            let retry_after = wait_time.as_secs().max(1);
-            let response = Response::builder()
-                .status(StatusCode::TOO_MANY_REQUESTS)
-                .header(header::RETRY_AFTER, retry_after)
-                .body(axum::body::Body::empty())
-                .ok()
-                .unwrap();
-            Ok(response)
-        }
+        Err(_not_until) => Err(StatusCode::TOO_MANY_REQUESTS),
     }
 }
 

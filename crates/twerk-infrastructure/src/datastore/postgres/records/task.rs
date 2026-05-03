@@ -149,7 +149,6 @@ impl TaskRecordExt for TaskRecord {
             priority: self.priority.map_or(0, |p| p),
             progress: self.progress.map_or(0.0, |p| p),
             probe: None,
-            depends_on: None,
         })
     }
 }

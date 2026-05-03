@@ -2,38 +2,10 @@
 //!
 //! HTTP client functions for trigger API operations.
 
-use serde::Deserialize;
-use time::OffsetDateTime;
-
 use crate::error::CliError;
+use crate::handlers::common::encode_path_segment;
 
-#[derive(Debug, Deserialize)]
-pub struct TriggerView {
-    pub id: String,
-    pub name: String,
-    pub enabled: bool,
-    pub event: String,
-    #[serde(default)]
-    pub condition: Option<String>,
-    pub action: String,
-    #[serde(default)]
-    pub metadata: std::collections::HashMap<String, String>,
-    pub version: u64,
-    #[serde(with = "time::serde::rfc3339")]
-    pub created_at: OffsetDateTime,
-    #[serde(with = "time::serde::rfc3339")]
-    pub updated_at: OffsetDateTime,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TriggerErrorResponse {
-    pub error: String,
-    pub message: String,
-    #[serde(default)]
-    pub path_id: Option<String>,
-    #[serde(default)]
-    pub body_id: Option<String>,
-}
+pub use crate::handlers::common::{TriggerErrorResponse, TriggerView};
 
 pub async fn trigger_list(endpoint: &str, json_mode: bool) -> Result<String, CliError> {
     let url = format!("{}/api/v1/triggers", endpoint.trim_end_matches('/'));
@@ -91,7 +63,7 @@ pub async fn trigger_list(endpoint: &str, json_mode: bool) -> Result<String, Cli
 }
 
 pub async fn trigger_get(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), id);
+    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
@@ -215,7 +187,7 @@ pub async fn trigger_update(
     body_json: &str,
     json_mode: bool,
 ) -> Result<String, CliError> {
-    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), id);
+    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
 
     let client = reqwest::Client::new();
     let response = client
@@ -278,7 +250,7 @@ pub async fn trigger_update(
 }
 
 pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), id);
+    let url = format!("{}/api/v1/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
 
     let client = reqwest::Client::new();
     let response = client.delete(&url).send().await.map_err(CliError::Http)?;

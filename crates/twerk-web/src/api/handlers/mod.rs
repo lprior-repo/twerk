@@ -34,7 +34,8 @@ pub use scheduled::{
     CreateScheduledJobBody,
 };
 pub use system::{
-    create_user_handler, get_metrics_handler, health_handler, list_nodes_handler, CreateUserBody,
+    create_user_handler, get_metrics_handler, get_node_handler, health_handler, list_nodes_handler,
+    CreateUserBody,
 };
 pub use tasks::{get_task_handler, get_task_log_handler, PaginationQuery};
 pub use triggers::{

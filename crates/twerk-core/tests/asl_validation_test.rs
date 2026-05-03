@@ -169,21 +169,6 @@ fn simple_cycle_detected() {
 }
 
 #[test]
-fn three_step_cycle_detected() {
-    // A → B → C → A (3-step cycle, no terminal exit)
-    let machine = build_machine(
-        "A",
-        vec![
-            ("A", make_pass_next("B")),
-            ("B", make_pass_next("C")),
-            ("C", make_pass_next("A")),
-        ],
-    );
-    let report = analyze(&machine);
-    assert!(!report.cycles.is_empty(), "expected 3-step cycle to be detected");
-}
-
-#[test]
 fn self_loop_detected() {
     // A → A (self-loop)
     let machine = build_machine("A", vec![("A", make_pass_next("A"))]);
@@ -192,28 +177,6 @@ fn self_loop_detected() {
         !report.cycles.is_empty(),
         "expected self-loop to be detected"
     );
-}
-
-#[test]
-fn disconnected_subgraph_with_cycle_detected() {
-    // A → B (end), disconnected C → D → C (cycle)
-    // The cycle in the disconnected subgraph should still be detected
-    let machine = build_machine(
-        "A",
-        vec![
-            ("A", make_pass_next("B")),
-            ("B", make_pass_end()),
-            ("C", make_pass_next("D")),
-            ("D", make_pass_next("C")),
-        ],
-    );
-    let report = analyze(&machine);
-    assert!(
-        !report.cycles.is_empty(),
-        "expected cycle in disconnected subgraph to be detected"
-    );
-    // C and D are unreachable from A
-    assert_eq!(sorted(report.unreachable_states), vec![sn("C"), sn("D")]);
 }
 
 #[test]

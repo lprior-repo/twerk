@@ -23,10 +23,7 @@ async fn delete_trigger_returns_404_when_not_found() {
     let (state, _) = setup_state_with_triggers().await;
     let response = crate::support::call(
         &twerk_web::api::create_router(state),
-        crate::support::request(
-            axum::http::Method::DELETE,
-            "/triggers/non_existent_trigger",
-        ),
+        crate::support::request(axum::http::Method::DELETE, "/triggers/non_existent_trigger"),
     )
     .await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);

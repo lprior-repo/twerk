@@ -200,6 +200,39 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "super::handlers::jobs::mutation"
+        ],
+        "summary": "DELETE /jobs/{id}\n# Errors\nReturns an error when the job lookup or deletion fails.",
+        "operationId": "delete_job_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Job deleted"
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/jobs/{id}/cancel": {
@@ -2295,6 +2328,15 @@
           }
         }
       },
+      "Runtime": {
+        "type": "string",
+        "description": "Execution runtime for a [`Task`].",
+        "enum": [
+          "docker",
+          "shell",
+          "podman"
+        ]
+      },
       "ScheduledJob": {
         "type": "object",
         "description": "`ScheduledJob` represents a scheduled job.",
@@ -2599,6 +2641,13 @@
               "null"
             ]
           },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "failedAt": {
             "type": [
               "string",
@@ -2779,6 +2828,16 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "runtime": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Runtime"
+              }
             ]
           },
           "scheduledAt": {

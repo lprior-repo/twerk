@@ -40,7 +40,7 @@ impl Scheduler {
     }
 }
 
-/// Threshold below which sequential iteration beats par_bridge overhead.
+/// Threshold below which sequential iteration beats `par_bridge` overhead.
 /// Rayon spawns require ~10-50µs setup time; sequential is faster for small batches.
 const PARALLEL_THRESHOLD: usize = 8;
 

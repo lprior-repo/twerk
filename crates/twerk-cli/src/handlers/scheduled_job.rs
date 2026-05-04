@@ -48,7 +48,11 @@ pub async fn scheduled_job_list(endpoint: &str, json_mode: bool) -> Result<Strin
     Ok(body)
 }
 
-pub async fn scheduled_job_create(endpoint: &str, body: &str, json_mode: bool) -> Result<String, CliError> {
+pub async fn scheduled_job_create(
+    endpoint: &str,
+    body: &str,
+    json_mode: bool,
+) -> Result<String, CliError> {
     let url = format!("{}/scheduled-jobs", endpoint.trim_end_matches('/'));
 
     let response = reqwest::Client::new()
@@ -82,7 +86,11 @@ pub async fn scheduled_job_create(endpoint: &str, body: &str, json_mode: bool) -
     Ok(response_body)
 }
 
-pub async fn scheduled_job_get(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
+pub async fn scheduled_job_get(
+    endpoint: &str,
+    id: &str,
+    json_mode: bool,
+) -> Result<String, CliError> {
     let url = format!("{}/scheduled-jobs/{}", endpoint.trim_end_matches('/'), id);
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
@@ -90,7 +98,10 @@ pub async fn scheduled_job_get(endpoint: &str, id: &str, json_mode: bool) -> Res
     let status = response.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        return Err(CliError::NotFound(format!("scheduled job {} not found", id)));
+        return Err(CliError::NotFound(format!(
+            "scheduled job {} not found",
+            id
+        )));
     }
 
     if !status.is_success() {
@@ -114,7 +125,11 @@ pub async fn scheduled_job_get(endpoint: &str, id: &str, json_mode: bool) -> Res
     Ok(body)
 }
 
-pub async fn scheduled_job_delete(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
+pub async fn scheduled_job_delete(
+    endpoint: &str,
+    id: &str,
+    json_mode: bool,
+) -> Result<String, CliError> {
     let url = format!("{}/scheduled-jobs/{}", endpoint.trim_end_matches('/'), id);
 
     let response = reqwest::Client::new()
@@ -126,7 +141,10 @@ pub async fn scheduled_job_delete(endpoint: &str, id: &str, json_mode: bool) -> 
     let status = response.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        return Err(CliError::NotFound(format!("scheduled job {} not found", id)));
+        return Err(CliError::NotFound(format!(
+            "scheduled job {} not found",
+            id
+        )));
     }
 
     if !status.is_success() {
@@ -150,8 +168,16 @@ pub async fn scheduled_job_delete(endpoint: &str, id: &str, json_mode: bool) -> 
     Ok(body)
 }
 
-pub async fn scheduled_job_pause(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/scheduled-jobs/{}/pause", endpoint.trim_end_matches('/'), id);
+pub async fn scheduled_job_pause(
+    endpoint: &str,
+    id: &str,
+    json_mode: bool,
+) -> Result<String, CliError> {
+    let url = format!(
+        "{}/scheduled-jobs/{}/pause",
+        endpoint.trim_end_matches('/'),
+        id
+    );
 
     let response = reqwest::Client::new()
         .put(&url)
@@ -162,7 +188,10 @@ pub async fn scheduled_job_pause(endpoint: &str, id: &str, json_mode: bool) -> R
     let status = response.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        return Err(CliError::NotFound(format!("scheduled job {} not found", id)));
+        return Err(CliError::NotFound(format!(
+            "scheduled job {} not found",
+            id
+        )));
     }
 
     if !status.is_success() {
@@ -186,8 +215,16 @@ pub async fn scheduled_job_pause(endpoint: &str, id: &str, json_mode: bool) -> R
     Ok(body)
 }
 
-pub async fn scheduled_job_resume(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/scheduled-jobs/{}/resume", endpoint.trim_end_matches('/'), id);
+pub async fn scheduled_job_resume(
+    endpoint: &str,
+    id: &str,
+    json_mode: bool,
+) -> Result<String, CliError> {
+    let url = format!(
+        "{}/scheduled-jobs/{}/resume",
+        endpoint.trim_end_matches('/'),
+        id
+    );
 
     let response = reqwest::Client::new()
         .put(&url)
@@ -198,7 +235,10 @@ pub async fn scheduled_job_resume(endpoint: &str, id: &str, json_mode: bool) -> 
     let status = response.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        return Err(CliError::NotFound(format!("scheduled job {} not found", id)));
+        return Err(CliError::NotFound(format!(
+            "scheduled job {} not found",
+            id
+        )));
     }
 
     if !status.is_success() {

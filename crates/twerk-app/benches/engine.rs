@@ -5,6 +5,7 @@
 
 use criterion::{criterion_group, criterion_main, Bencher, BenchmarkId, Criterion};
 use twerk_app::engine::{Config, Engine, MockRuntime, Mode};
+use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
 use twerk_core::task::Task;
 
@@ -21,7 +22,7 @@ fn create_test_engine() -> Engine {
 
 fn create_simple_job(id: &str) -> Job {
     Job {
-        id: Some(id.into()),
+        id: Some(JobId::new(id).unwrap()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("test-task".to_string()),
@@ -36,7 +37,7 @@ fn create_simple_job(id: &str) -> Job {
 
 fn create_parallel_job(id: &str, num_tasks: usize) -> Job {
     Job {
-        id: Some(id.into()),
+        id: Some(JobId::new(id).unwrap()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
             name: Some("parallel-task".to_string()),

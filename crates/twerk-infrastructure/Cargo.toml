@@ -58,9 +58,6 @@ dirs.workspace = true
 time.workspace = true
 utoipa.workspace = true
 
-# Persistence
-fjall.workspace = true
-
 [dev-dependencies]
 testcontainers.workspace = true
 testcontainers-modules = { workspace = true, features = ["postgres", "rabbitmq"] }

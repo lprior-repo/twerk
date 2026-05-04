@@ -160,7 +160,10 @@ async fn b34_queue_get_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn queue_get_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/queues/{name}", routing::get(b34_queue_get_not_found_plain));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::get(b34_queue_get_not_found_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_get(&server.endpoint, "nonexistent", true).await;
@@ -238,7 +241,10 @@ async fn b36_queue_get_service_unavailable() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn queue_get_returns_http_status_when_server_returns_non_json_non_404_error() {
-    let router = Router::new().route("/queues/{name}", routing::get(b36_queue_get_service_unavailable));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::get(b36_queue_get_service_unavailable),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_get(&server.endpoint, "broken", true).await;
@@ -272,7 +278,10 @@ async fn b37_queue_delete_not_found_json(Path(name): Path<String>) -> (StatusCod
 
 #[tokio::test]
 async fn queue_delete_returns_api_error_when_server_returns_404_with_structured_json() {
-    let router = Router::new().route("/queues/{name}", routing::delete(b37_queue_delete_not_found_json));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::delete(b37_queue_delete_not_found_json),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_delete(&server.endpoint, "gone", true).await;
@@ -296,7 +305,10 @@ async fn b38_queue_delete_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn queue_delete_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/queues/{name}", routing::delete(b38_queue_delete_not_found_plain));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::delete(b38_queue_delete_not_found_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_delete(&server.endpoint, "gone", true).await;
@@ -326,7 +338,10 @@ async fn b39_queue_delete_internal_json() -> (StatusCode, Json<Value>) {
 
 #[tokio::test]
 async fn queue_delete_returns_api_error_when_server_returns_500_with_structured_json() {
-    let router = Router::new().route("/queues/{name}", routing::delete(b39_queue_delete_internal_json));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::delete(b39_queue_delete_internal_json),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_delete(&server.endpoint, "broken", true).await;
@@ -350,7 +365,10 @@ async fn b39_5_queue_delete_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn queue_delete_returns_error_when_name_is_empty_string() {
-    let router = Router::new().route("/queues", routing::delete(b39_5_queue_delete_not_found_plain));
+    let router = Router::new().route(
+        "/queues",
+        routing::delete(b39_5_queue_delete_not_found_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_delete(&server.endpoint, "", true).await;
@@ -374,7 +392,10 @@ async fn b40_queue_delete_bad_gateway() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn queue_delete_returns_http_status_when_server_returns_non_json_non_404_error() {
-    let router = Router::new().route("/queues/{name}", routing::delete(b40_queue_delete_bad_gateway));
+    let router = Router::new().route(
+        "/queues/{name}",
+        routing::delete(b40_queue_delete_bad_gateway),
+    );
     let server = spawn_router(router).await;
 
     let result = queue_delete(&server.endpoint, "broken", true).await;
@@ -408,7 +429,10 @@ async fn b41_task_get_not_found_json(Path(task_id): Path<String>) -> (StatusCode
 
 #[tokio::test]
 async fn task_get_returns_api_error_when_server_returns_404_with_structured_json() {
-    let router = Router::new().route("/tasks/{task_id}", routing::get(b41_task_get_not_found_json));
+    let router = Router::new().route(
+        "/tasks/{task_id}",
+        routing::get(b41_task_get_not_found_json),
+    );
     let server = spawn_router(router).await;
 
     let result = task_get(&server.endpoint, "abc-123", true).await;
@@ -432,7 +456,10 @@ async fn b42_task_get_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn task_get_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/tasks/{task_id}", routing::get(b42_task_get_not_found_plain));
+    let router = Router::new().route(
+        "/tasks/{task_id}",
+        routing::get(b42_task_get_not_found_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = task_get(&server.endpoint, "missing", true).await;
@@ -510,7 +537,10 @@ async fn b44_task_get_service_unavailable() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn task_get_returns_http_status_when_server_returns_non_json_non_404_error() {
-    let router = Router::new().route("/tasks/{task_id}", routing::get(b44_task_get_service_unavailable));
+    let router = Router::new().route(
+        "/tasks/{task_id}",
+        routing::get(b44_task_get_service_unavailable),
+    );
     let server = spawn_router(router).await;
 
     let result = task_get(&server.endpoint, "stuck", true).await;
@@ -994,10 +1024,7 @@ async fn queue_get_returns_ok_with_body_when_server_returns_200() {
 // ---------------------------------------------------------------------------
 
 async fn b58_queue_delete_ok() -> (StatusCode, Json<Value>) {
-    (
-        StatusCode::OK,
-        Json(json!({"deleted": true, "name": "q1"})),
-    )
+    (StatusCode::OK, Json(json!({"deleted": true, "name": "q1"})))
 }
 
 #[tokio::test]

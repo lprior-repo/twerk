@@ -184,4 +184,5 @@ impl Deref for Hostname {
     }
 }
 
+#[cfg(test)]
 mod tests;

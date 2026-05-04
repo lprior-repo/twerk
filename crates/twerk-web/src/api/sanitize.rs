@@ -10,6 +10,7 @@
 /// - `>` with `&gt;`
 /// - `"` with `&quot;`
 /// - `'` with `&#x27;`
+#[must_use]
 pub fn sanitize_text(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
     for ch in input.chars() {
@@ -26,6 +27,7 @@ pub fn sanitize_text(input: &str) -> String {
 }
 
 /// Sanitize an optional string field.
+#[must_use]
 pub fn sanitize_option(input: Option<String>) -> Option<String> {
     input.map(|s| sanitize_text(&s))
 }

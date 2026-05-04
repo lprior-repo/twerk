@@ -1,6 +1,8 @@
+[build]
+rustflags = ["-Zallow-features=portable_simd,try_blocks"]
+
 [toolchain]
-channel = "nightly-2026-04-27"
-profile = "minimal"
+channel = "1.94.0"
 components = [
     "rustfmt",
     "clippy",
@@ -8,12 +10,5 @@ components = [
     "miri",
     "llvm-tools-preview",
 ]
-targets = [
-    "x86_64-unknown-linux-gnu",
-]
-
-[build]
-# Allow the nightly features we use
-rustflags = [
-    "-Zallow-features=portable_simd,try_blocks",
-]
+profile = "minimal"
+targets = ["x86_64-unknown-linux-gnu"]

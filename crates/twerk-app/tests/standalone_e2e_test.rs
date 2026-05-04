@@ -125,63 +125,86 @@ async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
 }
 
 #[tokio::test]
-async fn standalone_engine_retries_failed_task() -> Result<()> {
-    // Set up environment
+async fn standalone_engine_retrieves_logs_for_failed_shell_task() -> Result<()> {
+    // Set up environment for in-memory components and shell runtime
     std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
     std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
+    std::env::set_var("TWERK_RUNTIME_TYPE", "shell");
+    std::env::set_var("TWERK_RUNTIME_SHELL_CMD", "bash,-c");
 
-    // Initialize engine
+    // Initialize engine in Standalone mode
     let mut config = Config::default();
     config.mode = Mode::Standalone;
     let mut engine = Engine::new(config);
 
-    // Register FAILING runtime
-    engine.register_runtime(Box::new(FailingRuntime));
-
-    // Start
+    // Start the engine (shell runtime auto-created from env)
     engine.start().await?;
 
-    // Create a job with retry
+    // Create a job with a task that produces output and fails
     let job_id = Uuid::new_v4().to_string();
     let job = Job {
         id: Some(to_job_id(job_id.clone())),
+        name: Some("Failed Shell Task Log Test".to_string()),
         state: JobState::Pending,
         tasks: Some(vec![Task {
-            name: Some("retry-task".to_string()),
-            image: Some("alpine".to_string()),
-            run: Some("exit 1".to_string()),
-            retry: Some(twerk_core::task::TaskRetry {
-                limit: 2,
-                ..Default::default()
-            }),
+            name: Some("failing-shell-task".to_string()),
+            run: Some("echo 'stdout-line' && echo 'stderr-line' >&2 && exit 42".to_string()),
             ..Default::default()
         }]),
         task_count: 1,
         ..Default::default()
     };
 
-    // Submit
+    // Submit and wait for failure
     let failed_job = submit_job_and_wait_for_state(
         &engine,
         job,
         &job_id,
         JobState::Failed,
-        "timeout waiting for retry job failure",
+        "timeout waiting for shell task failure",
     )
     .await?;
 
     assert_eq!(failed_job.state, JobState::Failed);
 
-    // Check if task was actually retried by checking task count in datastore for this job
-    // The original task + 2 retries = 3 tasks
-    // Let's check how many tasks are associated with this job
-    // Note: This requires a way to list all tasks for a job, which get_active_tasks might not do for completed/failed ones
+    // Retrieve the task from the datastore
+    let tasks = engine.datastore().get_all_tasks_for_job(&job_id).await?;
+    assert_eq!(tasks.len(), 1, "should have exactly one task");
+    let task = &tasks[0];
+    let task_id = task.id.as_ref().expect("task should have id");
 
-    // Terminate
+    // Query task logs from the datastore — must be available immediately
+    // because InMemoryBroker::task_log_part now awaits handlers directly.
+    let log_parts = engine
+        .datastore()
+        .get_task_log_parts(task_id.as_ref(), "", 1, 100)
+        .await?;
+
+    assert!(
+        !log_parts.items.is_empty(),
+        "task logs should not be empty for failed shell task; got 0 parts"
+    );
+
+    let combined: String = log_parts
+        .items
+        .iter()
+        .filter_map(|p| p.contents.clone())
+        .collect();
+    assert!(
+        combined.contains("stdout-line"),
+        "logs should contain stdout output: {combined}"
+    );
+    assert!(
+        combined.contains("stderr-line"),
+        "logs should contain stderr output: {combined}"
+    );
+
+    // Terminate the engine
     engine.terminate().await?;
 
     Ok(())
 }
+
 #[tokio::test]
 async fn standalone_engine_marks_parallel_job_as_failed_when_subtask_fails() -> Result<()> {
     // Set up environment

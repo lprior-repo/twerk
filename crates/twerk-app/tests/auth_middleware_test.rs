@@ -171,6 +171,9 @@ async fn test_valid_basic_auth_credentials_pass() {
         > {
             unimplemented!()
         }
+        async fn delete_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
         async fn create_scheduled_job(
             &self,
             _sj: &twerk_core::job::ScheduledJob,
@@ -484,6 +487,9 @@ async fn test_invalid_basic_auth_credentials_return_401() {
         > {
             unimplemented!()
         }
+        async fn delete_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> {
+            unimplemented!()
+        }
         async fn create_scheduled_job(
             &self,
             _sj: &twerk_core::job::ScheduledJob,
@@ -785,6 +791,9 @@ async fn test_missing_basic_auth_credentials_return_401() {
         ) -> twerk_infrastructure::datastore::Result<
             twerk_infrastructure::datastore::Page<twerk_core::job::JobSummary>,
         > {
+            unimplemented!()
+        }
+        async fn delete_job(&self, _id: &str) -> twerk_infrastructure::datastore::Result<()> {
             unimplemented!()
         }
         async fn create_scheduled_job(

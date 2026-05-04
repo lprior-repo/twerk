@@ -115,6 +115,7 @@ pub trait Datastore: Send + Sync {
         page: i64,
         size: i64,
     ) -> Result<Page<JobSummary>>;
+    async fn delete_job(&self, id: &str) -> Result<()>;
 
     // Scheduled job operations
     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()>;

@@ -71,7 +71,11 @@ pub async fn queue_list(endpoint: &str, json_mode: bool) -> Result<String, CliEr
 }
 
 pub async fn queue_get(endpoint: &str, name: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), encode_path_segment(name));
+    let url = format!(
+        "{}/queues/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(name)
+    );
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
@@ -120,7 +124,11 @@ pub async fn queue_get(endpoint: &str, name: &str, json_mode: bool) -> Result<St
 }
 
 pub async fn queue_delete(endpoint: &str, name: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/queues/{}", endpoint.trim_end_matches('/'), encode_path_segment(name));
+    let url = format!(
+        "{}/queues/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(name)
+    );
 
     let client = reqwest::Client::new();
     let response = client.delete(&url).send().await.map_err(CliError::Http)?;

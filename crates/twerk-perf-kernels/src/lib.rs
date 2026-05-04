@@ -8,11 +8,10 @@
 //!
 //! # Feature Flags
 //!
-//! - `nightly`: Enable nightly-only features (std::simd)
+//! - `nightly`: Enable nightly-only features (`std::simd`)
 
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
-
 // Enable portable_simd when running on nightly
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
 
@@ -20,11 +19,13 @@
 use std::simd::prelude::*;
 
 /// Number of lanes for f32 SIMD operations.
+#[allow(dead_code)]
 const F32_LANES: usize = 8;
 
 /// Computes the sum of squares for a slice of f32 values using SIMD.
 #[cfg(feature = "nightly")]
 #[cfg_attr(docsrs, doc(cfg(feature = "nightly")))]
+#[must_use]
 pub fn sum_squares_f32_simd(input: &[f32]) -> f32 {
     let mut acc = Simd::<f32, F32_LANES>::splat(0.0);
 
@@ -48,13 +49,19 @@ pub fn sum_squares_f32_simd(input: &[f32]) -> f32 {
 }
 
 /// Scalar reference implementation for sum of squares.
+#[must_use]
 pub fn sum_squares_f32_scalar(input: &[f32]) -> f32 {
     input.iter().map(|value| value * value).sum()
 }
 
 /// Computes the dot product of two f32 slices using SIMD.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` do not have the same length.
 #[cfg(feature = "nightly")]
 #[cfg_attr(docsrs, doc(cfg(feature = "nightly")))]
+#[must_use]
 pub fn dot_product_f32_simd(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "vectors must have same length");
 
@@ -62,7 +69,7 @@ pub fn dot_product_f32_simd(a: &[f32], b: &[f32]) -> f32 {
 
     let mut chunks = a.chunks_exact(F32_LANES);
 
-    for (a_chunk, b_chunk) in chunks.zip(b.chunks_exact(F32_LANES)) {
+    for (a_chunk, b_chunk) in (&mut chunks).zip(b.chunks_exact(F32_LANES)) {
         let a_vals = Simd::<f32, F32_LANES>::load_or_default(a_chunk);
         let b_vals = Simd::<f32, F32_LANES>::load_or_default(b_chunk);
         acc += a_vals * b_vals;
@@ -81,12 +88,23 @@ pub fn dot_product_f32_simd(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Scalar reference for dot product.
+///
+/// # Panics
+///
+/// Panics if `a` and `b` do not have the same length.
+#[must_use]
 pub fn dot_product_f32_scalar(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss
+)]
 mod tests {
     use super::*;
 
@@ -96,20 +114,36 @@ mod tests {
         assert_eq!(sum_squares_f32_scalar(&[1.0]), 1.0);
 
         let exact: Vec<f32> = (0..F32_LANES as i32).map(|i| i as f32).collect();
-        assert_eq!(sum_squares_f32_scalar(&exact), sum_squares_f32_scalar(&exact));
+        assert_eq!(
+            sum_squares_f32_scalar(&exact),
+            sum_squares_f32_scalar(&exact)
+        );
 
         let small: Vec<f32> = (0..(F32_LANES - 1) as i32).map(|i| i as f32).collect();
-        assert_eq!(sum_squares_f32_scalar(&small), sum_squares_f32_scalar(&small));
+        assert_eq!(
+            sum_squares_f32_scalar(&small),
+            sum_squares_f32_scalar(&small)
+        );
 
         let large: Vec<f32> = (0..(F32_LANES + 1) as i32).map(|i| i as f32).collect();
-        assert_eq!(sum_squares_f32_scalar(&large), sum_squares_f32_scalar(&large));
+        assert_eq!(
+            sum_squares_f32_scalar(&large),
+            sum_squares_f32_scalar(&large)
+        );
     }
 }
 
 #[cfg(feature = "nightly")]
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss
+)]
 mod simd_tests {
     use super::*;
+    use proptest::prop_assert;
 
     proptest::proptest! {
         #[test]

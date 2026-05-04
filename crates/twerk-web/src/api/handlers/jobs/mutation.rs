@@ -158,3 +158,25 @@ pub async fn restart_job_handler(
 
     Ok(ok_status_response())
 }
+
+/// DELETE /jobs/{id}
+#[utoipa::path(
+    delete,
+    path = "/jobs/{id}",
+    params(("id" = JobId, description = "The job ID")),
+    responses(
+        (status = 204, description = "Job deleted"),
+        (status = 404, description = "Job not found", body = MessageResponse, content_type = "application/json")
+    )
+)]
+#[instrument(name = "delete_job_handler", skip_all)]
+/// # Errors
+/// Returns an error when the job lookup or deletion fails.
+pub async fn delete_job_handler(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<JobId>,
+) -> Result<Response, ApiError> {
+    state.ds.get_job_by_id(&id).await.map_err(ApiError::from)?;
+    state.ds.delete_job(&id).await.map_err(ApiError::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}

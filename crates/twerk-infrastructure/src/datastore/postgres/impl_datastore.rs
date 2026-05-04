@@ -120,6 +120,10 @@ impl Datastore for PostgresDatastore {
         self.get_jobs_impl(current_user, q, page, size).await
     }
 
+    async fn delete_job(&self, id: &str) -> DatastoreResult<()> {
+        self.delete_job_impl(id).await
+    }
+
     // Scheduled job operations
     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> DatastoreResult<()> {
         self.create_scheduled_job_impl(sj).await

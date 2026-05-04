@@ -121,7 +121,7 @@ impl Scheduler {
             .map_err(anyhow::Error::from)
     }
 
-    /// Threshold below which sequential iteration beats par_bridge overhead.
+    /// Threshold below which sequential iteration beats `par_bridge` overhead.
     const PARALLEL_THRESHOLD: usize = 8;
 
     async fn spawn_each_tasks(&self, request: EachSpawnRequest<'_>) -> Result<()> {
@@ -140,7 +140,9 @@ impl Scheduler {
                 .list
                 .iter()
                 .enumerate()
-                .map(|(ix, item)| Self::build_subtask_with_base(ix, item, &request.context, &base_context))
+                .map(|(ix, item)| {
+                    Self::build_subtask_with_base(ix, item, &request.context, &base_context)
+                })
                 .collect::<Result<Vec<_>>>()?
         } else {
             // Parallel path: benefits kick in at ~8+ tasks
@@ -149,7 +151,9 @@ impl Scheduler {
                 .iter()
                 .enumerate()
                 .par_bridge()
-                .map(|(ix, item)| Self::build_subtask_with_base(ix, item, &request.context, &base_context))
+                .map(|(ix, item)| {
+                    Self::build_subtask_with_base(ix, item, &request.context, &base_context)
+                })
                 .collect::<Result<Vec<_>>>()?
         };
 
@@ -161,19 +165,22 @@ impl Scheduler {
         create_and_publish_subtasks(self, &subtasks).await
     }
 
-    /// Builds the base context once by cloning job_ctx. This is called once
-    /// per parent task (not once per subtask). The resulting HashMap is cloned
+    /// Builds the base context once by cloning `job_ctx`. This is called once
+    /// per parent task (not once per subtask). The resulting `HashMap` is cloned
     /// and extended with item-specific entries for each subtask.
     fn build_base_context(
         job_ctx: &HashMap<String, serde_json::Value>,
     ) -> HashMap<String, serde_json::Value> {
         // Clone job_ctx entries ONCE. Each entry is String -> serde_json::Value,
         // both of which are cheap to clone (String is 24B inline, Value is enum).
-        job_ctx.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+        job_ctx
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
-    /// Extends base_context with item-specific entries for a single subtask.
-    /// This avoids cloning the full job_ctx for every subtask.
+    /// Extends `base_context` with item-specific entries for a single subtask.
+    /// This avoids cloning the full `job_ctx` for every subtask.
     fn extend_context_with_item(
         base: &HashMap<String, serde_json::Value>,
         item: &serde_json::Value,
@@ -181,29 +188,29 @@ impl Scheduler {
         ix: usize,
     ) -> HashMap<String, serde_json::Value> {
         let mut cx = base.clone();
-        cx.insert(format!("{var_name}_index"), serde_json::Value::String(ix.to_string()));
+        cx.insert(
+            format!("{var_name}_index"),
+            serde_json::Value::String(ix.to_string()),
+        );
         Self::insert_item_context_entries(&mut cx, item, var_name);
         cx
     }
 
-    /// Inserts item-specific context entries into an existing HashMap.
+    /// Inserts item-specific context entries into an existing `HashMap`.
     /// Reuses allocation from the pre-cloned base context.
     fn insert_item_context_entries(
         cx: &mut HashMap<String, serde_json::Value>,
         item: &serde_json::Value,
         var_name: &str,
     ) {
-        match item {
-            serde_json::Value::Object(obj) => {
-                cx.insert(var_name.to_string(), item.clone());
-                for (key, value) in obj {
-                    cx.insert(format!("{var_name}_value_{key}"), value.clone());
-                }
+        if let serde_json::Value::Object(obj) = item {
+            cx.insert(var_name.to_string(), item.clone());
+            for (key, value) in obj {
+                cx.insert(format!("{var_name}_value_{key}"), value.clone());
             }
-            _ => {
-                cx.insert(var_name.to_string(), item.clone());
-                cx.insert(format!("{var_name}_value"), item.clone());
-            }
+        } else {
+            cx.insert(var_name.to_string(), item.clone());
+            cx.insert(format!("{var_name}_value"), item.clone());
         }
     }
 
@@ -231,7 +238,6 @@ impl Scheduler {
             ..evaluated
         })
     }
-
 }
 
 #[cfg(test)]
@@ -257,12 +263,7 @@ mod each_tests {
                 .into_iter()
                 .collect();
         let base = Scheduler::build_base_context(&job_ctx);
-        let cx = Scheduler::extend_context_with_item(
-            &base,
-            &serde_json::json!("hello"),
-            "item",
-            5,
-        );
+        let cx = Scheduler::extend_context_with_item(&base, &serde_json::json!("hello"), "item", 5);
         assert_eq!(cx.get("base_key"), Some(&serde_json::json!("base_val")));
         assert_eq!(cx.get("item_index"), Some(&serde_json::json!("5")));
         assert_eq!(cx.get("item"), Some(&serde_json::json!("hello")));
@@ -303,9 +304,8 @@ mod each_tests {
             .map(|i| (format!("key_{i}"), serde_json::json!(i)))
             .collect();
         let base = Scheduler::build_base_context(&job_ctx);
-        let items: Vec<serde_json::Value> = (0..100)
-            .map(|i| serde_json::json!({"val": i}))
-            .collect();
+        let items: Vec<serde_json::Value> =
+            (0..100).map(|i| serde_json::json!({"val": i})).collect();
         let contexts: Vec<_> = items
             .iter()
             .enumerate()

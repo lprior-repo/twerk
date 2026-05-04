@@ -19,10 +19,7 @@ use crate::engine::coordinator::utils::{parse_body_limit, wildcard_match};
 
 // ── Security Headers Middleware ────────────────────────────────
 
-pub async fn security_headers_middleware(
-    request: axum::extract::Request,
-    next: Next,
-) -> Response {
+pub async fn security_headers_middleware(request: axum::extract::Request, next: Next) -> Response {
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
 
@@ -77,6 +74,7 @@ pub struct HttpLogConfig {
 }
 
 impl HttpLogConfig {
+    #[must_use]
     pub fn new(level: String, skip_paths: Vec<String>) -> Self {
         Self { level, skip_paths }
     }
@@ -172,7 +170,10 @@ pub fn create_web_middlewares(
         .then(|| KeyAuthConfig::new(config::string_default("middleware.web.keyauth.key", "")));
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let rate_limit = config::bool("middleware.web.ratelimit.enabled").then(|| {
-        RateLimitConfig::new(config::int_default("middleware.web.ratelimit.rps", 20) as u32)
+        RateLimitConfig::new(
+            config::int_default("middleware.web.ratelimit.rps", 20) as u32,
+            config::int_default("middleware.web.ratelimit.burst", 5) as u32,
+        )
     });
     let body_limit = parse_body_limit(&config::string_default("middleware.web.bodylimit", "500K"))
         .map(BodyLimitConfig::new);

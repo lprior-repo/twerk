@@ -237,6 +237,14 @@ impl Datastore for DatastoreProxy {
         ds.get_jobs(current_user, q, page, size).await
     }
 
+    async fn delete_job(&self, id: &str) -> twerk_infrastructure::datastore::Result<()> {
+        let inner = self.inner.read().await;
+        let ds = inner
+            .as_deref()
+            .ok_or_else(|| DatastoreError::Database(DATSTORE_NOT_INIT.to_string()))?;
+        ds.delete_job(id).await
+    }
+
     async fn create_scheduled_job(
         &self,
         sj: &ScheduledJob,

@@ -3,7 +3,9 @@ use axum::Router;
 
 use twerk_app::engine::coordinator::auth::{basic_auth_middleware, key_auth_middleware};
 use twerk_app::engine::coordinator::limits::{body_limit_middleware, rate_limit_middleware};
-use twerk_app::engine::coordinator::middleware::{cors_layer, http_log_middleware, security_headers_middleware};
+use twerk_app::engine::coordinator::middleware::{
+    cors_layer, http_log_middleware, security_headers_middleware,
+};
 
 use super::handlers;
 use super::openapi;
@@ -18,20 +20,6 @@ pub fn create_router(state: AppState) -> Router {
     let enabled = &state.config.enabled;
     let mut router = Router::new();
 
-    // Apply security headers to all responses
-    router = router.layer(axum::middleware::from_fn(security_headers_middleware));
-
-    if let Some(body_limit) = state.config.body_limit.clone() {
-        router = router.layer(axum::middleware::from_fn_with_state(
-            body_limit,
-            |st, req, next| Box::pin(async move { body_limit_middleware(st, req, next).await }),
-        ));
-    }
-
-    if twerk_infrastructure::config::bool("middleware.web.cors.enabled") {
-        router = router.layer(cors_layer());
-    }
-
     if let Some(basic_auth_config) = state.config.basic_auth.clone() {
         router = router.layer(axum::middleware::from_fn_with_state(
             basic_auth_config,
@@ -43,13 +31,6 @@ pub fn create_router(state: AppState) -> Router {
         router = router.layer(axum::middleware::from_fn_with_state(
             key_auth_config,
             |st, req, next| Box::pin(async move { key_auth_middleware(st, req, next).await }),
-        ));
-    }
-
-    if let Some(rate_limit) = state.config.rate_limit.clone() {
-        router = router.layer(axum::middleware::from_fn_with_state(
-            rate_limit,
-            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
         ));
     }
 
@@ -66,6 +47,26 @@ pub fn create_router(state: AppState) -> Router {
     router = mount_queue_routes(router, enabled);
     router = mount_trigger_routes(router);
     router = router.route("/openapi.json", get(serve_openapi_spec));
+
+    // Apply middleware to all responses (must be after routes are mounted)
+    // Order matters: innermost first, outermost last.
+    // Requests flow from outermost → innermost; responses flow innermost → outermost.
+    if let Some(body_limit) = state.config.body_limit.clone() {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            body_limit,
+            |st, req, next| Box::pin(async move { body_limit_middleware(st, req, next).await }),
+        ));
+    }
+    if let Some(rate_limit) = state.config.rate_limit.clone() {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            rate_limit,
+            |st, req, next| Box::pin(async move { rate_limit_middleware(st, req, next).await }),
+        ));
+    }
+    router = router.layer(axum::middleware::from_fn(security_headers_middleware));
+    if twerk_infrastructure::config::bool("middleware.web.cors.enabled") {
+        router = router.layer(cors_layer());
+    }
 
     router.with_state(state)
 }
@@ -125,7 +126,10 @@ fn mount_job_routes(
             "/jobs",
             post(handlers::create_job_handler).get(handlers::list_jobs_handler),
         )
-        .route("/jobs/{id}", get(handlers::get_job_handler))
+        .route(
+            "/jobs/{id}",
+            get(handlers::get_job_handler).delete(handlers::delete_job_handler),
+        )
         .route("/jobs/{id}/log", get(handlers::get_job_log_handler))
         .route(
             "/jobs/{id}/cancel",
@@ -173,11 +177,11 @@ fn mount_queue_routes(
 fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
     router
         .route(
-        "/triggers",
-        get(handlers::list_triggers_handler).post(handlers::create_trigger_handler),
-    )
-    .route(
-        "/triggers/{id}",
+            "/triggers",
+            get(handlers::list_triggers_handler).post(handlers::create_trigger_handler),
+        )
+        .route(
+            "/triggers/{id}",
             get(handlers::get_trigger_handler)
                 .put(handlers::update_trigger_handler)
                 .delete(handlers::delete_trigger_handler),
@@ -185,18 +189,17 @@ fn mount_trigger_routes(router: Router<AppState>) -> Router<AppState> {
 }
 
 async fn serve_openapi_spec() -> axum::http::Response<axum::body::Body> {
-    openapi::generate_json()
-        .map(|json| {
-            axum::response::Response::builder()
-                .status(200)
-                .header(axum::http::header::CONTENT_TYPE, "application/json")
-                .body(axum::body::Body::from(json.into_bytes()))
-                .unwrap()
-        })
-        .unwrap_or_else(|_| {
-            axum::response::Response::builder()
-                .status(500)
-                .body(axum::body::Body::empty())
-                .unwrap()
-        })
+    if let Ok(json) = openapi::generate_json() {
+        let mut response = axum::http::Response::new(axum::body::Body::from(json.into_bytes()));
+        *response.status_mut() = axum::http::StatusCode::OK;
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        );
+        response
+    } else {
+        let mut response = axum::http::Response::new(axum::body::Body::empty());
+        *response.status_mut() = axum::http::StatusCode::INTERNAL_SERVER_ERROR;
+        response
+    }
 }

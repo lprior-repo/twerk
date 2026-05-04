@@ -84,7 +84,10 @@ pub async fn handle_redelivered(
 
     // Increment redelivered count
     task.redelivered += 1;
-    let queue = persisted.queue.clone().unwrap_or_else(|| "default".to_string());
+    let queue = persisted
+        .queue
+        .clone()
+        .unwrap_or_else(|| "default".to_string());
 
     // Update task in datastore with new redelivered count
     ds.update_task(
@@ -237,6 +240,7 @@ async fn persist_task_progress(
             current.failed_at = task.failed_at;
             current.result.clone_from(&task.result);
             current.error.clone_from(&task.error);
+            current.exit_code = task.exit_code;
             Ok(current)
         }),
     )
@@ -251,6 +255,7 @@ async fn persist_completed_task(
     let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let completed_at = task.completed_at;
     let result = task.result.clone();
+    let exit_code = task.exit_code;
 
     ds.update_task(
         task_id,
@@ -258,6 +263,7 @@ async fn persist_completed_task(
             current.state = TaskState::Completed;
             current.completed_at = completed_at;
             current.result = result;
+            current.exit_code = exit_code;
             Ok(current)
         }),
     )
@@ -285,6 +291,7 @@ async fn persist_failed_task(
     let task_id = task.id.as_deref().ok_or(HandlerError::MissingTaskId)?;
     let failed_at = task.failed_at;
     let task_error = task.error.clone();
+    let exit_code = task.exit_code;
 
     ds.update_task(
         task_id,
@@ -292,6 +299,7 @@ async fn persist_failed_task(
             current.state = TaskState::Failed;
             current.failed_at = failed_at;
             current.error = task_error;
+            current.exit_code = exit_code;
             Ok(current)
         }),
     )
@@ -320,6 +328,7 @@ async fn persist_task_error(
 ) -> Result<()> {
     let task_error = task.error.clone();
     let task_result = task.result.clone();
+    let exit_code = task.exit_code;
 
     ds.update_task(
         task_id,
@@ -328,6 +337,7 @@ async fn persist_task_error(
             current.failed_at = Some(now);
             current.error.clone_from(&task_error);
             current.result.clone_from(&task_result);
+            current.exit_code = exit_code;
             Ok(current)
         }),
     )

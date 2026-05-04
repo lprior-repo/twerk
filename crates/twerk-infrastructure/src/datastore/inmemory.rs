@@ -138,20 +138,20 @@ impl Datastore for InMemoryDatastore {
 
     async fn get_active_tasks(&self, job_id: &str) -> Result<Vec<Task>> {
         // Try to use index first
-        if let Some(job_id_parsed) = JobId::new(job_id).ok() {
+        if let Ok(job_id_parsed) = JobId::new(job_id) {
             if let Some(task_ids) = self.tasks_by_job.get(&job_id_parsed) {
                 let tasks: Vec<Task> = task_ids
                     .value()
                     .iter()
                     .filter_map(|tid| {
-                        self.tasks.get(tid).map(|t| {
+                        self.tasks.get(tid).and_then(|t| {
                             let task = t.value();
                             if task.is_active() {
                                 Some(task.clone())
                             } else {
                                 None
                             }
-                        }).flatten()
+                        })
                     })
                     .collect();
                 return Ok(tasks);
@@ -168,7 +168,7 @@ impl Datastore for InMemoryDatastore {
 
     async fn get_all_tasks_for_job(&self, job_id: &str) -> Result<Vec<Task>> {
         // Try to use index first
-        if let Some(job_id_parsed) = JobId::new(job_id).ok() {
+        if let Ok(job_id_parsed) = JobId::new(job_id) {
             if let Some(task_ids) = self.tasks_by_job.get(&job_id_parsed) {
                 let tasks: Vec<Task> = task_ids
                     .value()
@@ -338,6 +338,11 @@ impl Datastore for InMemoryDatastore {
             .map(|e| twerk_core::job::new_job_summary(e.value()))
             .collect();
         Ok(Self::paginate(summaries, page, size))
+    }
+
+    async fn delete_job(&self, id: &str) -> Result<()> {
+        self.jobs.remove(id);
+        Ok(())
     }
 
     async fn create_scheduled_job(&self, sj: &ScheduledJob) -> Result<()> {
@@ -518,7 +523,7 @@ impl Default for InMemoryDatastore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use twerk_core::id::{JobId, NodeId, RoleId, TaskId, UserId};
+    use twerk_core::id::{RoleId, TaskId};
     use twerk_core::task::TaskState;
 
     fn make_task(id: &str) -> Task {
@@ -578,7 +583,7 @@ mod tests {
     async fn test_update_task_not_found() {
         let ds = InMemoryDatastore::new();
         let err = ds
-            .update_task("nonexistent", Box::new(|t| Ok(t)))
+            .update_task("nonexistent", Box::new(Ok))
             .await
             .unwrap_err();
         assert!(matches!(err, DatastoreError::TaskNotFound));

@@ -6,14 +6,14 @@
 
 #![allow(clippy::print_stdout)]
 
+use serde_saphyr::from_str;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tokio::sync::oneshot;
+use tokio::time::timeout;
 use twerk_app::engine::{Config, Engine, JobListener, Mode};
 use twerk_core::id::JobId;
 use twerk_core::job::{Job, JobState};
-use serde_saphyr::from_str;
-use tokio::sync::oneshot;
-use tokio::time::timeout;
 
 /// Minimal Pokemon API YAML for benchmarking
 const BENCHMARK_YAML: &str = r#"name: throughput-bench
@@ -75,8 +75,10 @@ async fn yaml_workflow_throughput_and_latency() {
     std::env::set_var("TWERK_RUNTIME_TYPE", "shell");
     std::env::set_var("TWERK_RUNTIME_SHELL_CMD", "bash,-c");
 
-    let mut config = Config::default();
-    config.mode = Mode::Standalone;
+    let config = Config {
+        mode: Mode::Standalone,
+        ..Default::default()
+    };
 
     let mut engine = Engine::new(config);
     engine.start().await.unwrap();
@@ -88,13 +90,19 @@ async fn yaml_workflow_throughput_and_latency() {
 
     let parse_start = Instant::now();
     let parse_count = 100_000;
-    for i in 0..parse_count {
+    for _i in 0..parse_count {
         let _ = parse_yaml(BENCHMARK_YAML);
     }
     let parse_elapsed = parse_start.elapsed();
     let parse_ops_per_sec = parse_count as f64 / parse_elapsed.as_secs_f64();
-    println!("│ Parsed {} YAML workflows in {:?}                    │", parse_count, parse_elapsed);
-    println!("│ YAML Parse Throughput: {:>15.0} ops/sec              │", parse_ops_per_sec);
+    println!(
+        "│ Parsed {} YAML workflows in {:?}                    │",
+        parse_count, parse_elapsed
+    );
+    println!(
+        "│ YAML Parse Throughput: {:>15.0} ops/sec              │",
+        parse_ops_per_sec
+    );
     println!("└──────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -105,11 +113,17 @@ async fn yaml_workflow_throughput_and_latency() {
 
     let job_create_start = Instant::now();
     let job_count = 10_000;
-    let jobs = create_job_from_yaml(BENCHMARK_YAML, job_count);
+    let _jobs = create_job_from_yaml(BENCHMARK_YAML, job_count);
     let job_create_elapsed = job_create_start.elapsed();
     let job_create_ops_per_sec = job_count as f64 / job_create_elapsed.as_secs_f64();
-    println!("│ Created {} jobs in {:?}                             │", job_count, job_create_elapsed);
-    println!("│ Job Creation Throughput: {:>15.0} ops/sec              │", job_create_ops_per_sec);
+    println!(
+        "│ Created {} jobs in {:?}                             │",
+        job_count, job_create_elapsed
+    );
+    println!(
+        "│ Job Creation Throughput: {:>15.0} ops/sec              │",
+        job_create_ops_per_sec
+    );
     println!("└──────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -131,10 +145,22 @@ async fn yaml_workflow_throughput_and_latency() {
     let total_tasks = submit_count * 5; // 5 tasks per job
     let tasks_per_sec = total_tasks as f64 / submit_elapsed.as_secs_f64();
 
-    println!("│ Submitted {} jobs ({}/s)                                 │", submit_count, submit_ops_per_sec as u64);
-    println!("│ Total tasks queued: {}                                       │", total_tasks);
-    println!("│ Task Throughput: {:>15.0} tasks/sec                   │", tasks_per_sec);
-    println!("│ Time: {:?}                                              │", submit_elapsed);
+    println!(
+        "│ Submitted {} jobs ({}/s)                                 │",
+        submit_count, submit_ops_per_sec as u64
+    );
+    println!(
+        "│ Total tasks queued: {}                                       │",
+        total_tasks
+    );
+    println!(
+        "│ Task Throughput: {:>15.0} tasks/sec                   │",
+        tasks_per_sec
+    );
+    println!(
+        "│ Time: {:?}                                              │",
+        submit_elapsed
+    );
     println!("└──────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -144,7 +170,7 @@ async fn yaml_workflow_throughput_and_latency() {
     println!("├──────────────────────────────────────────────────────────────┤");
 
     let single_job = create_job_from_yaml(BENCHMARK_YAML, 1).pop().unwrap();
-    let (listeners, mut rx) = completion_listener();
+    let (listeners, rx) = completion_listener();
 
     let latency_start = Instant::now();
     engine.submit_job(single_job, listeners).await.unwrap();
@@ -154,7 +180,10 @@ async fn yaml_workflow_throughput_and_latency() {
 
     match result {
         Ok(_) => {
-            println!("│ Single job latency:  {:?}                          │", latency);
+            println!(
+                "│ Single job latency:  {:?}                          │",
+                latency
+            );
             println!("│ Status: ✓ COMPLETED                                           │");
         }
         Err(_) => {
@@ -171,16 +200,40 @@ async fn yaml_workflow_throughput_and_latency() {
     println!("╠══════════════════════════════════════════════════════════════╣");
     println!("║ Metric                    │ Value                          ║");
     println!("╟────────────────────────────┼────────────────────────────────╢");
-    println!("║ YAML Parse Throughput     │ {:>15.0} ops/sec        ║", parse_ops_per_sec);
-    println!("║ Job Creation Throughput   │ {:>15.0} ops/sec        ║", job_create_ops_per_sec);
-    println!("║ Job Submit Throughput     │ {:>15.0} ops/sec        ║", submit_ops_per_sec);
-    println!("║ Task Throughput           │ {:>15.0} tasks/sec      ║", tasks_per_sec);
-    println!("║ Single Job Latency        │ {:?}                     ║", latency);
+    println!(
+        "║ YAML Parse Throughput     │ {:>15.0} ops/sec        ║",
+        parse_ops_per_sec
+    );
+    println!(
+        "║ Job Creation Throughput   │ {:>15.0} ops/sec        ║",
+        job_create_ops_per_sec
+    );
+    println!(
+        "║ Job Submit Throughput     │ {:>15.0} ops/sec        ║",
+        submit_ops_per_sec
+    );
+    println!(
+        "║ Task Throughput           │ {:>15.0} tasks/sec      ║",
+        tasks_per_sec
+    );
+    println!(
+        "║ Single Job Latency        │ {:?}                     ║",
+        latency
+    );
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
     // Assert targets
-    assert!(parse_ops_per_sec > 1000.0, "YAML parse should be > 1k ops/sec");
-    assert!(job_create_ops_per_sec > 500.0, "Job creation should be > 500 ops/sec");
-    assert!(submit_ops_per_sec > 100.0, "Job submit should be > 100 ops/sec");
+    assert!(
+        parse_ops_per_sec > 1000.0,
+        "YAML parse should be > 1k ops/sec"
+    );
+    assert!(
+        job_create_ops_per_sec > 500.0,
+        "Job creation should be > 500 ops/sec"
+    );
+    assert!(
+        submit_ops_per_sec > 100.0,
+        "Job submit should be > 100 ops/sec"
+    );
 }

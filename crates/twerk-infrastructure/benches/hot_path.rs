@@ -36,7 +36,11 @@ fn query_full_scan(tasks: &DashMap<String, Task>, job_id: &str) -> Vec<Task> {
 }
 
 /// Simulates the new indexed query
-fn query_indexed(tasks: &DashMap<String, Task>, tasks_by_job: &DashMap<JobId, Vec<TaskId>>, job_id: &JobId) -> Vec<Task> {
+fn query_indexed(
+    tasks: &DashMap<String, Task>,
+    tasks_by_job: &DashMap<JobId, Vec<TaskId>>,
+    job_id: &JobId,
+) -> Vec<Task> {
     if let Some(task_ids) = tasks_by_job.get(job_id) {
         task_ids
             .value()

@@ -1,4 +1,4 @@
-//! Timer entry types and TimerId.
+//! Timer entry types and `TimerId`.
 //!
 //! Defines the different timer variants and their data structures.
 
@@ -100,7 +100,7 @@ impl DelayTimer {
 
     #[must_use]
     pub fn expiration_time(&self) -> OffsetDateTime {
-        self.created_at + time::Duration::new(self.duration.as_secs() as i64, self.duration.subsec_nanos() as i32)
+        self.created_at + time::Duration::seconds_f64(self.duration.as_secs_f64())
     }
 }
 
@@ -157,7 +157,7 @@ impl WaitForTimer {
     ///
     /// # Errors
     ///
-    /// Returns `TimerEntryError` if timeout is zero or signal_id is empty.
+    /// Returns `TimerEntryError` if timeout is zero or `signal_id` is empty.
     pub fn new(
         timeout: Duration,
         signal_id: impl Into<String>,
@@ -185,7 +185,7 @@ impl WaitForTimer {
 
     #[must_use]
     pub fn expiration_time(&self) -> OffsetDateTime {
-        self.created_at + time::Duration::new(self.timeout.as_secs() as i64, self.timeout.subsec_nanos() as i32)
+        self.created_at + time::Duration::seconds_f64(self.timeout.as_secs_f64())
     }
 }
 
@@ -255,7 +255,11 @@ pub struct TimerEntry {
 }
 
 impl TimerEntry {
-    #[must_use]
+    /// Creates a new delay timer entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TimerEntryError` if the duration is invalid.
     pub fn new_delay(
         duration: Duration,
         job_id: impl Into<String>,
@@ -269,7 +273,11 @@ impl TimerEntry {
         })
     }
 
-    #[must_use]
+    /// Creates a new scheduled timer entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TimerEntryError` if the cron expression is invalid.
     pub fn new_scheduled(
         cron_expression: impl Into<String>,
         job_id: impl Into<String>,
@@ -287,7 +295,11 @@ impl TimerEntry {
         })
     }
 
-    #[must_use]
+    /// Creates a new wait-for timer entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TimerEntryError` if the timeout or signal ID is invalid.
     pub fn new_wait_for(
         timeout: Duration,
         signal_id: impl Into<String>,
@@ -295,12 +307,7 @@ impl TimerEntry {
         task_id: impl Into<String>,
     ) -> Result<Self, TimerEntryError> {
         Ok(Self {
-            variant: TimerVariant::WaitFor(WaitForTimer::new(
-                timeout,
-                signal_id,
-                job_id,
-                task_id,
-            )?),
+            variant: TimerVariant::WaitFor(WaitForTimer::new(timeout, signal_id, job_id, task_id)?),
             state: TimerState::Pending,
             last_fired_at: None,
             fire_count: 0,
@@ -309,18 +316,13 @@ impl TimerEntry {
 }
 
 /// The state of a timer entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TimerState {
+    #[default]
     Pending,
     Active,
     Firing,
     Cancelled,
     Completed,
-}
-
-impl Default for TimerState {
-    fn default() -> Self {
-        Self::Pending
-    }
 }

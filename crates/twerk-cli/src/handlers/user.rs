@@ -13,8 +13,7 @@ pub async fn user_create(
 ) -> Result<String, CliError> {
     let url = format!("{}/users", endpoint.trim_end_matches('/'));
 
-    let body_json =
-        serde_json::json!({ "username": username, "password": password }).to_string();
+    let body_json = serde_json::json!({ "username": username, "password": password }).to_string();
 
     let client = reqwest::Client::new();
     let response = client

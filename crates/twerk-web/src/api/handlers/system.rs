@@ -56,6 +56,10 @@ pub async fn list_nodes_handler(State(state): State<AppState>) -> Result<Respons
 }
 
 /// GET /nodes/{id}
+///
+/// # Errors
+///
+/// Returns an error if the node is not found or the database query fails.
 #[utoipa::path(
     get,
     path = "/nodes/{id}",

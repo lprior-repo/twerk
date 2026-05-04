@@ -10,14 +10,13 @@ use std::ffi::OsString;
 use tracing::Level;
 use tracing_subscriber::{fmt, fmt::format::FmtSpan, prelude::*, EnvFilter};
 use twerk_common::load_config;
-use twerk_core::domain::{Dsn, Endpoint};
+use twerk_core::domain::Endpoint;
 use twerk_infrastructure::config as app_config;
 use twerk_infrastructure::reexec;
 
 use crate::banner::{display_banner, BannerMode};
 use crate::commands::Commands;
 use crate::error::CliError;
-use crate::migrate::DEFAULT_POSTGRES_DSN;
 
 use dispatch::{
     execute_command, handle_json_help_subcommand, handle_parse_error, handle_runtime_error,
@@ -115,18 +114,6 @@ pub(super) fn get_endpoint() -> Result<Endpoint, twerk_core::domain::EndpointErr
         .or_else(|| get_config_string("endpoint"))
         .map(Endpoint::new)
         .unwrap_or_else(|| Endpoint::new(DEFAULT_ENDPOINT))
-}
-
-/// Get datastore type from configuration or default
-pub(super) fn get_datastore_type() -> String {
-    get_config_string("datastore.type").unwrap_or_else(|| DEFAULT_DATASTORE_TYPE.to_string())
-}
-
-/// Get `PostgreSQL` DSN from configuration or default
-pub(super) fn get_postgres_dsn() -> Result<Dsn, twerk_core::domain::DsnError> {
-    get_config_string("datastore.postgres.dsn")
-        .map(Dsn::new)
-        .unwrap_or_else(|| Dsn::new(DEFAULT_POSTGRES_DSN))
 }
 
 /// Get a string config value, checking config file first, then environment variables.
@@ -261,6 +248,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::panic)]
     fn get_endpoint_reads_client_endpoint_from_environment_override() {
         std::env::set_var("TWERK_CLIENT_ENDPOINT", "http://127.0.0.1:9999");
 

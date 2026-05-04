@@ -15,7 +15,7 @@ struct EnvVarGuard<'a> {
 }
 
 #[cfg(test)]
-impl<'a> Drop for EnvVarGuard<'a> {
+impl Drop for EnvVarGuard<'_> {
     fn drop(&mut self) {
         env::remove_var(self.key);
     }
@@ -34,7 +34,7 @@ mod tests {
         let _guard = EnvVarGuard { key: &env_key };
         let result = var_with_twerk_prefix(key);
         assert!(result.is_some());
-        assert_eq!(result.unwrap(), test_value);
+        assert_eq!(result.as_deref(), Some(test_value));
     }
 
     #[test]

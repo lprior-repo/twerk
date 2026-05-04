@@ -231,8 +231,18 @@ mod tests {
         assert_eq!(CliError::Engine("x".into()).exit_code(), 1);
         assert_eq!(CliError::Migration("x".into()).exit_code(), 1);
         assert_eq!(CliError::NotFound("x".into()).exit_code(), 1);
-        assert_eq!(CliError::ApiError { code: 500, message: "x".into() }.exit_code(), 1);
-        assert_eq!(CliError::Io(io::Error::new(io::ErrorKind::NotFound, "x")).exit_code(), 1);
+        assert_eq!(
+            CliError::ApiError {
+                code: 500,
+                message: "x".into()
+            }
+            .exit_code(),
+            1
+        );
+        assert_eq!(
+            CliError::Io(io::Error::new(io::ErrorKind::NotFound, "x")).exit_code(),
+            1
+        );
     }
 
     #[test]

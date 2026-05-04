@@ -506,3 +506,57 @@ pub fn new_scheduled_job_summary(sj: &ScheduledJob) -> ScheduledJobSummary {
         created_at: sj.created_at,
     }
 }
+
+// ---------------------------------------------------------------------------
+// Runtime enum
+// ---------------------------------------------------------------------------
+
+/// Execution runtime for a [`Task`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Runtime {
+    #[default]
+    Docker,
+    Shell,
+    Podman,
+}
+
+impl fmt::Display for Runtime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Docker => "docker",
+            Self::Shell => "shell",
+            Self::Podman => "podman",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Error returned when a string cannot be parsed as a [`Runtime`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseRuntimeError(String);
+
+impl fmt::Display for ParseRuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unknown runtime: {} (expected: docker, shell, podman)",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for ParseRuntimeError {}
+
+impl FromStr for Runtime {
+    type Err = ParseRuntimeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "docker" => Ok(Self::Docker),
+            "shell" => Ok(Self::Shell),
+            "podman" => Ok(Self::Podman),
+            other => Err(ParseRuntimeError(other.to_owned())),
+        }
+    }
+}

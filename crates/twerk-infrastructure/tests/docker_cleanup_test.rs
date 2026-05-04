@@ -36,7 +36,7 @@ fn make_sidecar_task(id: &str) -> Task {
         cmd: Some(vec!["echo".to_string(), "main".to_string()]),
         sidecars: Some(vec![Task {
             id: Some(format!("{id}-sidecar").into()),
-            name: Some(format!("sidecar-{id}").into()),
+            name: Some(format!("sidecar-{id}")),
             image: Some("busybox:stable".to_string()),
             cmd: Some(vec!["echo".to_string(), "sidecar".to_string()]),
             ..Default::default()
@@ -49,7 +49,7 @@ fn make_multi_sidecar_task(id: &str, count: usize) -> Task {
     let sidecars: Vec<Task> = (0..count)
         .map(|i| Task {
             id: Some(format!("{id}-sc-{i}").into()),
-            name: Some(format!("sc-{id}-{i}").into()),
+            name: Some(format!("sc-{id}-{i}")),
             image: Some("busybox:stable".to_string()),
             cmd: Some(vec!["echo".to_string(), format!("sidecar-{i}")]),
             ..Default::default()
@@ -136,7 +136,7 @@ async fn ensure_busybox(client: &Docker) {
         .iter()
         .any(|i| i.repo_tags.iter().any(|t| t.starts_with("busybox:")));
     if !has_busybox {
-        let mut stream = client.create_image(
+        let stream = client.create_image(
             Some(CreateImageOptions {
                 from_image: Some("busybox:stable".to_string()),
                 ..Default::default()

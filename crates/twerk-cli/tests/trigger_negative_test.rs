@@ -320,7 +320,10 @@ async fn b20_delete_not_found_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_delete_returns_not_found_when_server_returns_404_with_non_json_body() {
-    let router = Router::new().route("/triggers/{id}", routing::delete(b20_delete_not_found_plain));
+    let router = Router::new().route(
+        "/triggers/{id}",
+        routing::delete(b20_delete_not_found_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = trigger_delete(&server.endpoint, "gone", true).await;
@@ -537,7 +540,10 @@ async fn b26_service_unavailable_plain() -> (StatusCode, &'static str) {
 
 #[tokio::test]
 async fn trigger_get_returns_http_status_when_server_returns_non_json_error() {
-    let router = Router::new().route("/triggers/{id}", routing::get(b26_service_unavailable_plain));
+    let router = Router::new().route(
+        "/triggers/{id}",
+        routing::get(b26_service_unavailable_plain),
+    );
     let server = spawn_router(router).await;
 
     let result = trigger_get(&server.endpoint, "test", true).await;
@@ -580,7 +586,10 @@ async fn trigger_create_returns_http_status_when_server_returns_non_json_error()
 // ---------------------------------------------------------------------------
 
 async fn b28_teapot_plain() -> (StatusCode, &'static str) {
-    (StatusCode::from_u16(418).expect("418 is valid"), "I'm a teapot")
+    (
+        StatusCode::from_u16(418).expect("418 is valid"),
+        "I'm a teapot",
+    )
 }
 
 #[tokio::test]

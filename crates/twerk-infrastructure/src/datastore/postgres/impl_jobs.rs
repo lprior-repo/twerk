@@ -529,6 +529,48 @@ impl PostgresDatastore {
             total_items: total,
         })
     }
+
+    pub(super) async fn delete_job_impl(&self, id: &str) -> DatastoreResult<()> {
+        match &self.executor {
+            Executor::Pool(p) => {
+                let mut tx = p
+                    .begin()
+                    .await
+                    .map_err(|e| DatastoreError::Transaction(format!("begin tx failed: {e}")))?;
+                sqlx::query("DELETE FROM jobs_perms WHERE job_id = $1")
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| {
+                        DatastoreError::Database(format!("delete job perms failed: {e}"))
+                    })?;
+                sqlx::query("DELETE FROM jobs WHERE id = $1")
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| DatastoreError::Database(format!("delete job failed: {e}")))?;
+                tx.commit()
+                    .await
+                    .map_err(|e| DatastoreError::Transaction(format!("commit tx failed: {e}")))?;
+            }
+            Executor::Tx(tx) => {
+                let mut tx = tx.lock().await;
+                sqlx::query("DELETE FROM jobs_perms WHERE job_id = $1")
+                    .bind(id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(|e| {
+                        DatastoreError::Database(format!("delete job perms failed: {e}"))
+                    })?;
+                sqlx::query("DELETE FROM jobs WHERE id = $1")
+                    .bind(id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(|e| DatastoreError::Database(format!("delete job failed: {e}")))?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

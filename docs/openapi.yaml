@@ -794,6 +794,13 @@ components:
           - string
           - 'null'
       type: object
+    Runtime:
+      description: Execution runtime for a [`Task`].
+      enum:
+      - docker
+      - shell
+      - podman
+      type: string
     ScheduledJob:
       description: '`ScheduledJob` represents a scheduled job.'
       properties:
@@ -980,6 +987,11 @@ components:
           type:
           - string
           - 'null'
+        exitCode:
+          format: int32
+          type:
+          - integer
+          - 'null'
         failedAt:
           format: date-time
           type:
@@ -1087,6 +1099,10 @@ components:
           type:
           - string
           - 'null'
+        runtime:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/Runtime'
         scheduledAt:
           format: date-time
           type:
@@ -1450,6 +1466,30 @@ paths:
       tags:
       - super::handlers::jobs::create
   /jobs/{id}:
+    delete:
+      operationId: delete_job_handler
+      parameters:
+      - description: The job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      responses:
+        '204':
+          description: Job deleted
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        DELETE /jobs/{id}
+        # Errors
+        Returns an error when the job lookup or deletion fails.
+      tags:
+      - super::handlers::jobs::mutation
     get:
       operationId: get_job_handler
       parameters:

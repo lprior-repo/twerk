@@ -143,7 +143,13 @@ mod tests {
         use bytes::Bytes;
         use futures_util::FutureExt;
         Arc::new(|_req: Parts, _body: Bytes| {
-            async move { Response::builder().status(200).body("".into()).unwrap() }.boxed()
+            async move {
+                Response::builder()
+                    .status(200)
+                    .body("".into())
+                    .expect("valid response")
+            }
+            .boxed()
         })
     }
 
@@ -161,7 +167,7 @@ mod tests {
         registry.register("GET", "/jobs/:id", dummy_handler());
         let result = registry.get_with_pattern("GET", "/jobs/123");
         assert!(result.is_some());
-        let match_result = result.unwrap();
+        let match_result = result.expect("just checked is_some");
         assert_eq!(match_result.params.get("id"), Some(&"123".to_string()));
     }
 
@@ -203,7 +209,7 @@ mod tests {
         registry.register("GET", "/orgs/:org/jobs/:job", dummy_handler());
         let result = registry.get_with_pattern("GET", "/orgs/acme/jobs/456");
         assert!(result.is_some());
-        let match_result = result.unwrap();
+        let match_result = result.expect("just checked is_some");
         assert_eq!(match_result.params.get("org"), Some(&"acme".to_string()));
         assert_eq!(match_result.params.get("job"), Some(&"456".to_string()));
     }

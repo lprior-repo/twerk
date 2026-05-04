@@ -2,7 +2,7 @@
 
 use super::super::BoxedFuture;
 use super::InMemoryBroker;
-use futures_util::{FutureExt, StreamExt};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::{debug, warn};
@@ -82,7 +82,11 @@ pub(crate) fn task(broker: &InMemoryBroker, qname: &str, task: &Task) -> BoxedFu
         } else {
             // Spawn for larger handler counts
             for handler in handlers {
-                spawn_handler(handler.clone(), Arc::clone(&task_arc), "task handler failed");
+                spawn_handler(
+                    handler.clone(),
+                    Arc::clone(&task_arc),
+                    "task handler failed",
+                );
             }
         }
     }
@@ -134,7 +138,11 @@ pub(crate) fn tasks(
             // Direct invocation for small total invocations
             for task_arc in &task_arcs {
                 for handler in &handlers {
-                    invoke_handler_direct(handler, Arc::clone(task_arc), "batch task handler failed");
+                    invoke_handler_direct(
+                        handler,
+                        Arc::clone(task_arc),
+                        "batch task handler failed",
+                    );
                 }
             }
         } else {
@@ -287,6 +295,11 @@ pub(crate) fn event(broker: &InMemoryBroker, topic: String, event: Value) -> Box
 }
 
 /// Publish a task log part.
+///
+/// Unlike other publish functions, this awaits handlers directly instead of
+/// spawning them. This guarantees that log parts are fully persisted before
+/// the publish call returns, eliminating a race condition where a failed task
+/// could be queried before its logs reached the datastore.
 pub(crate) fn task_log_part(broker: &InMemoryBroker, part: &TaskLogPart) -> BoxedFuture<()> {
     let handlers = broker.task_log_part_handlers.clone();
     let task_log_parts = broker.task_log_parts.clone();
@@ -300,19 +313,10 @@ pub(crate) fn task_log_part(broker: &InMemoryBroker, part: &TaskLogPart) -> Boxe
             entry.push(part.clone());
         }
         let handlers = handlers.read().await;
-        let handler_count = handlers.len();
 
-        if handler_count == 0 {
-            return Ok(());
-        }
-
-        if handler_count < HANDLER_SPAWN_THRESHOLD {
-            for handler in handlers.iter() {
-                invoke_handler_direct(handler, part.clone(), "task log part handler failed");
-            }
-        } else {
-            for handler in handlers.iter() {
-                spawn_handler(handler.clone(), part.clone(), "task log part handler failed");
+        for handler in handlers.iter() {
+            if let Err(e) = handler(part.clone()).await {
+                warn!(error = %e, "task log part handler failed");
             }
         }
         Ok(())

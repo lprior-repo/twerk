@@ -254,10 +254,10 @@ mod tests {
 
         // Should implement Write trait
         let result = writer.write_all(b"test output\n");
-        assert!(matches!(result, Ok(_)));
+        assert!(result.is_ok());
 
         let result = writer.flush();
-        assert!(matches!(result, Ok(_)));
+        assert!(result.is_ok());
     }
 
     #[test]

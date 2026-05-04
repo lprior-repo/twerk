@@ -120,9 +120,9 @@ mod tests {
 
         #[test]
         fn test_wildcard_match_star_at_boundaries(s: String) {
-            let pattern_start = format!("*{}", s);
-            let pattern_end = format!("{}*", s);
-            let pattern_both = format!("*{}*", s);
+            let pattern_start = format!("*{s}");
+            let pattern_end = format!("{s}*");
+            let pattern_both = format!("*{s}*");
             prop_assert!(wildcard_match(&pattern_start, &s), "star at start should match");
             prop_assert!(wildcard_match(&pattern_end, &s), "star at end should match");
             prop_assert!(wildcard_match(&pattern_both, &s), "stars at both boundaries should match");

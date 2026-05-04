@@ -19,6 +19,12 @@ impl From<twerk_infrastructure::datastore::Error> for ApiError {
             twerk_infrastructure::datastore::Error::NodeNotFound => {
                 Self::NotFound("node not found".to_string())
             }
+            twerk_infrastructure::datastore::Error::RoleNotFound => {
+                Self::NotFound("role not found".to_string())
+            }
+            twerk_infrastructure::datastore::Error::ContextNotFound => {
+                Self::NotFound("context not found".to_string())
+            }
             _ => Self::Internal(err.to_string()),
         }
     }
@@ -32,7 +38,7 @@ impl From<anyhow::Error> for ApiError {
 
 impl From<twerk_core::id::IdError> for ApiError {
     fn from(err: twerk_core::id::IdError) -> Self {
-        Self::Internal(err.to_string())
+        Self::BadRequest(err.to_string())
     }
 }
 

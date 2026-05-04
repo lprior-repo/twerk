@@ -25,6 +25,7 @@ name = "Local Coordinator"
 cors.enabled = true
 ratelimit.enabled = true
 ratelimit.rps = 100
+ratelimit.burst = 10
 security_headers.enabled = true
 logger.enabled = true
 logger.level = "INFO"

@@ -44,3 +44,6 @@ rstest.workspace = true
 proptest.workspace = true
 mockito.workspace = true
 serde-saphyr.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

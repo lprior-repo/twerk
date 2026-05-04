@@ -167,34 +167,50 @@ pub enum Commands {
     Job {
         #[command(subcommand)]
         command: JobCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     ScheduledJob {
         #[command(subcommand)]
         command: ScheduledJobCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     Task {
         #[command(subcommand)]
         command: TaskCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     Queue {
         #[command(subcommand)]
         command: QueueCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     Trigger {
         #[command(subcommand)]
         command: TriggerCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     Node {
         #[command(subcommand)]
         command: NodeCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     Metrics {
         #[command(subcommand)]
         command: MetricsCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
     User {
         #[command(subcommand)]
         command: UserCommand,
+        #[arg(long, short = 'e')]
+        endpoint: Option<String>,
     },
 }
 
@@ -301,7 +317,10 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Job { command: JobCommand::List })
+                command: Some(Commands::Job {
+                    command: JobCommand::List,
+                    ..
+                })
             })
         ));
     }
@@ -315,7 +334,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Job { command: JobCommand::Create { ref body } })
+                command: Some(Commands::Job { command: JobCommand::Create { ref body }, .. })
             }) if body == r#"{"name":"test"}"#
         ));
     }
@@ -329,7 +348,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Job { command: JobCommand::Get { ref id } })
+                command: Some(Commands::Job { command: JobCommand::Get { ref id }, .. })
             }) if id == "job-123"
         ));
     }
@@ -343,7 +362,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Job { command: JobCommand::Cancel { ref id } })
+                command: Some(Commands::Job { command: JobCommand::Cancel { ref id }, .. })
             }) if id == "job-123"
         ));
     }
@@ -357,7 +376,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Job { command: JobCommand::Restart { ref id } })
+                command: Some(Commands::Job { command: JobCommand::Restart { ref id }, .. })
             }) if id == "job-123"
         ));
     }
@@ -371,7 +390,10 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::List })
+                command: Some(Commands::ScheduledJob {
+                    command: ScheduledJobCommand::List,
+                    ..
+                })
             })
         ));
     }
@@ -385,7 +407,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Create { ref body } })
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Create { ref body }, .. })
             }) if body == r#"{"name":"test"}"#
         ));
     }
@@ -399,7 +421,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Delete { ref id } })
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Delete { ref id }, .. })
             }) if id == "sj-123"
         ));
     }
@@ -413,7 +435,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Pause { ref id } })
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Pause { ref id }, .. })
             }) if id == "sj-123"
         ));
     }
@@ -427,7 +449,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Resume { ref id } })
+                command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Resume { ref id }, .. })
             }) if id == "sj-123"
         ));
     }
@@ -441,7 +463,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Task { command: TaskCommand::Get { ref id } })
+                command: Some(Commands::Task { command: TaskCommand::Get { ref id }, .. })
             }) if id == "task-123"
         ));
     }
@@ -455,7 +477,7 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 json: false,
-                command: Some(Commands::Task { command: TaskCommand::Log { ref id, .. } })
+                command: Some(Commands::Task { command: TaskCommand::Log { ref id, .. }, .. })
             }) if id == "task-456"
         ));
     }
@@ -468,7 +490,8 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 command: Some(Commands::Queue {
-                    command: QueueCommand::List
+                    command: QueueCommand::List,
+                    ..
                 }),
                 ..
             })
@@ -477,7 +500,7 @@ mod tests {
         let get = Cli::try_parse_from(["twerk", "queue", "get", "my-queue"]);
         assert!(matches!(
             get,
-            Ok(Cli { command: Some(Commands::Queue { command: QueueCommand::Get { ref name } }), .. })
+            Ok(Cli { command: Some(Commands::Queue { command: QueueCommand::Get { ref name }, .. }), .. })
             if name == "my-queue"
         ));
     }
@@ -490,7 +513,8 @@ mod tests {
             Ok(Cli {
                 quiet: false,
                 command: Some(Commands::Trigger {
-                    command: TriggerCommand::List
+                    command: TriggerCommand::List,
+                    ..
                 }),
                 ..
             })
@@ -499,7 +523,7 @@ mod tests {
         let get = Cli::try_parse_from(["twerk", "trigger", "get", "trig-1"]);
         assert!(matches!(
             get,
-            Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::Get { ref id } }), .. })
+            Ok(Cli { command: Some(Commands::Trigger { command: TriggerCommand::Get { ref id }, .. }), .. })
             if id == "trig-1"
         ));
     }
@@ -512,7 +536,10 @@ mod tests {
             cli,
             Ok(Cli {
                 quiet: false,
-                command: Some(Commands::Node { command: NodeCommand::List }),
+                command: Some(Commands::Node {
+                    command: NodeCommand::List,
+                    ..
+                }),
                 ..
             })
         ));

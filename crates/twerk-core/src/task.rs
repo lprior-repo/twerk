@@ -1,4 +1,5 @@
 use crate::id::{JobId, NodeId, TaskId};
+use crate::job::Runtime;
 use crate::mount::Mount;
 use crate::role::Role;
 use crate::user::User;
@@ -232,6 +233,9 @@ pub struct Task {
     pub error: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(no_recursion)]
     pub pre: Option<Vec<Task>>,
 
@@ -290,6 +294,9 @@ pub struct Task {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workdir: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<Runtime>,
 
     #[serde(default)]
     pub priority: i64,
@@ -358,6 +365,9 @@ pub struct TaskSummary {
     pub error: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -382,6 +392,7 @@ pub fn new_task_summary(t: &Task) -> TaskSummary {
         started_at: t.started_at,
         completed_at: t.completed_at,
         error: t.error.clone(),
+        exit_code: t.exit_code,
         result: t.result.clone(),
         var: t.var.clone(),
         tags: t.tags.clone(),

@@ -19,8 +19,8 @@ use twerk_core::node::Node;
 use twerk_core::task::Task;
 use twerk_infrastructure::broker::{
     config::RabbitMQOptions, inmemory::InMemoryBroker, rabbitmq::RabbitMQBroker, BoxedFuture,
-    Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler,
-    TaskLogPartHandler, TaskProgressHandler,
+    Broker, EventHandler, HeartbeatHandler, JobHandler, QueueInfo, TaskHandler, TaskLogPartHandler,
+    TaskProgressHandler,
 };
 
 use super::engine_helpers::ensure_config_loaded;

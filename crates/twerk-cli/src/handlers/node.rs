@@ -81,7 +81,11 @@ pub async fn node_list(endpoint: &str, json_mode: bool) -> Result<String, CliErr
 }
 
 pub async fn node_get(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/nodes/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
+    let url = format!(
+        "{}/nodes/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(id)
+    );
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 

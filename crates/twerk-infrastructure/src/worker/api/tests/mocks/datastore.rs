@@ -117,6 +117,9 @@ impl Datastore for MockDatastore {
             total_items: 0,
         })
     }
+    async fn delete_job(&self, _id: &str) -> DatastoreResult<()> {
+        Ok(())
+    }
     async fn create_scheduled_job(
         &self,
         _sj: &twerk_core::job::ScheduledJob,

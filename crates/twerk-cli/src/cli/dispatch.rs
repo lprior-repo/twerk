@@ -6,8 +6,8 @@ use std::ffi::OsString;
 use twerk_core::domain::Endpoint;
 
 use crate::commands::{
-    Cli, Commands, JobCommand, MetricsCommand, NodeCommand, QueueCommand,
-    ScheduledJobCommand, TaskCommand, TriggerCommand, UserCommand,
+    Cli, Commands, JobCommand, MetricsCommand, NodeCommand, QueueCommand, ScheduledJobCommand,
+    TaskCommand, TriggerCommand, UserCommand,
 };
 use crate::error::CliError;
 use crate::handlers;
@@ -19,6 +19,15 @@ use super::help::{
     json_version_payload, print_json, render_help_for_path, HelpVariant,
 };
 use super::{get_endpoint, json_requested, os_string_eq};
+
+fn resolve_endpoint(cmd_endpoint: Option<String>) -> Result<Endpoint, CliError> {
+    match cmd_endpoint {
+        Some(ep_str) => {
+            Endpoint::new(ep_str).map_err(|error| CliError::InvalidEndpoint(error.to_string()))
+        }
+        None => Ok(get_endpoint()?),
+    }
+}
 
 #[allow(dead_code)]
 const fn command_name(cmd: &Commands) -> &'static str {
@@ -101,12 +110,7 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
     match command {
         Commands::ServerStart { mode, hostname } => run_engine(mode, hostname).await,
         Commands::Health { endpoint } => {
-            let ep = if let Some(ep_str) = endpoint {
-                Endpoint::new(ep_str)
-                    .map_err(|error| CliError::InvalidEndpoint(error.to_string()))?
-            } else {
-                get_endpoint()?
-            };
+            let ep = resolve_endpoint(endpoint)?;
             health_check(ep.as_str(), json_mode).await.map(|_| ())
         }
         Commands::Version => {
@@ -118,8 +122,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Job { command } => {
-            let ep = get_endpoint()?;
+        Commands::Job { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 JobCommand::List => {
@@ -143,8 +147,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::ScheduledJob { command } => {
-            let ep = get_endpoint()?;
+        Commands::ScheduledJob { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 ScheduledJobCommand::List => {
@@ -168,8 +172,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Task { command } => {
-            let ep = get_endpoint()?;
+        Commands::Task { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 TaskCommand::Get { id } => {
@@ -181,8 +185,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Queue { command } => {
-            let ep = get_endpoint()?;
+        Commands::Queue { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 QueueCommand::List => {
@@ -197,8 +201,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Trigger { command } => {
-            let ep = get_endpoint()?;
+        Commands::Trigger { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 TriggerCommand::List => {
@@ -219,8 +223,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Node { command } => {
-            let ep = get_endpoint()?;
+        Commands::Node { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 NodeCommand::List => {
@@ -229,8 +233,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::Metrics { command } => {
-            let ep = get_endpoint()?;
+        Commands::Metrics { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 MetricsCommand::Get => {
@@ -239,8 +243,8 @@ pub(super) async fn execute_command(command: Commands, json_mode: bool) -> Resul
             }
             Ok(())
         }
-        Commands::User { command } => {
-            let ep = get_endpoint()?;
+        Commands::User { command, endpoint } => {
+            let ep = resolve_endpoint(endpoint)?;
             let ep_str = ep.as_str();
             match command {
                 UserCommand::Create { username, password } => {

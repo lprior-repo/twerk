@@ -58,6 +58,7 @@ use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
         super::handlers::jobs::read::list_jobs_handler,
         super::handlers::jobs::mutation::cancel_job_handler,
         super::handlers::jobs::mutation::restart_job_handler,
+        super::handlers::jobs::mutation::delete_job_handler,
         super::handlers::jobs::read::get_job_log_handler,
         // Scheduled jobs
         super::handlers::scheduled::create_scheduled_job_handler,
@@ -87,30 +88,52 @@ use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
 )]
 pub struct ApiDoc;
 
-/// Generate the OpenAPI spec as a JSON string.
+/// Generate the `OpenAPI` spec as a JSON string.
+///
+/// # Errors
+///
+/// Returns an error if the `OpenAPI` spec cannot be serialized to JSON.
 pub fn generate_json() -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(&<ApiDoc as utoipa::OpenApi>::openapi())
 }
 
-/// Return the set of route specs documented in the OpenAPI spec.
+/// Return the set of route specs documented in the `OpenAPI` spec.
+#[must_use]
 pub fn documented_route_specs() -> Vec<(String, String)> {
     let mut routes = Vec::new();
     let spec = <ApiDoc as utoipa::OpenApi>::openapi();
     for (path, item) in spec.paths.paths {
-        if item.get.is_some() { routes.push(("GET".to_string(), path.clone())); }
-        if item.post.is_some() { routes.push(("POST".to_string(), path.clone())); }
-        if item.put.is_some() { routes.push(("PUT".to_string(), path.clone())); }
-        if item.delete.is_some() { routes.push(("DELETE".to_string(), path.clone())); }
-        if item.patch.is_some() { routes.push(("PATCH".to_string(), path.clone())); }
-        if item.head.is_some() { routes.push(("HEAD".to_string(), path.clone())); }
-        if item.options.is_some() { routes.push(("OPTIONS".to_string(), path.clone())); }
-        if item.trace.is_some() { routes.push(("TRACE".to_string(), path.clone())); }
+        if item.get.is_some() {
+            routes.push(("GET".to_string(), path.clone()));
+        }
+        if item.post.is_some() {
+            routes.push(("POST".to_string(), path.clone()));
+        }
+        if item.put.is_some() {
+            routes.push(("PUT".to_string(), path.clone()));
+        }
+        if item.delete.is_some() {
+            routes.push(("DELETE".to_string(), path.clone()));
+        }
+        if item.patch.is_some() {
+            routes.push(("PATCH".to_string(), path.clone()));
+        }
+        if item.head.is_some() {
+            routes.push(("HEAD".to_string(), path.clone()));
+        }
+        if item.options.is_some() {
+            routes.push(("OPTIONS".to_string(), path.clone()));
+        }
+        if item.trace.is_some() {
+            routes.push(("TRACE".to_string(), path.clone()));
+        }
     }
     routes.sort();
     routes
 }
 
 /// Return the set of route specs actually mounted in the router.
+#[must_use]
 pub fn mounted_route_specs() -> Vec<(String, String)> {
     let mut routes = vec![
         ("GET".to_string(), "/health".to_string()),
@@ -122,6 +145,7 @@ pub fn mounted_route_specs() -> Vec<(String, String)> {
         ("POST".to_string(), "/jobs".to_string()),
         ("GET".to_string(), "/jobs".to_string()),
         ("GET".to_string(), "/jobs/{id}".to_string()),
+        ("DELETE".to_string(), "/jobs/{id}".to_string()),
         ("GET".to_string(), "/jobs/{id}/log".to_string()),
         ("PUT".to_string(), "/jobs/{id}/cancel".to_string()),
         ("PUT".to_string(), "/jobs/{id}/restart".to_string()),
@@ -144,8 +168,14 @@ pub fn mounted_route_specs() -> Vec<(String, String)> {
     routes
 }
 
-/// Sync the current OpenAPI spec to tracked artifact files.
-pub fn sync_tracked_artifacts(workspace_root: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+/// Sync the current `OpenAPI` spec to tracked artifact files.
+///
+/// # Errors
+///
+/// Returns an error if JSON/YAML serialization fails or file writes fail.
+pub fn sync_tracked_artifacts(
+    workspace_root: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     let json = generate_json()?;
     let yaml = serde_yaml::to_string(&serde_json::from_str::<serde_json::Value>(&json)?)?;
 

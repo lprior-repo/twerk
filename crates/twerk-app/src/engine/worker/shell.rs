@@ -17,7 +17,7 @@ use tracing::instrument;
 // ── Typed error for shell runtime ──────────────────────────────────
 
 #[derive(Debug, thiserror::Error)]
-enum ShellError {
+pub(crate) enum ShellError {
     #[error("id and run script required")]
     IdAndRunScriptRequired,
     #[error("shell command required")]
@@ -25,7 +25,7 @@ enum ShellError {
     #[error("child process spawned but PID unavailable")]
     PidUnavailable,
     #[error("process exited with code {0}")]
-    ExitFailed(String),
+    ExitFailed(i32),
 }
 
 // Module-level function to avoid lifetime issues with associated functions
@@ -347,13 +347,8 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
 
             if !output.status.success() {
-                return Err(ShellError::ExitFailed(
-                    output
-                        .status
-                        .code()
-                        .map_or_else(|| "unknown (signal)".to_string(), |c| c.to_string()),
-                )
-                .into());
+                let code = output.status.code().unwrap_or(1);
+                return Err(ShellError::ExitFailed(code).into());
             }
 
             Ok(())

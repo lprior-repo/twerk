@@ -63,7 +63,11 @@ pub async fn trigger_list(endpoint: &str, json_mode: bool) -> Result<String, Cli
 }
 
 pub async fn trigger_get(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
+    let url = format!(
+        "{}/triggers/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(id)
+    );
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
@@ -187,7 +191,11 @@ pub async fn trigger_update(
     body_json: &str,
     json_mode: bool,
 ) -> Result<String, CliError> {
-    let url = format!("{}/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
+    let url = format!(
+        "{}/triggers/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(id)
+    );
 
     let client = reqwest::Client::new();
     let response = client
@@ -250,7 +258,11 @@ pub async fn trigger_update(
 }
 
 pub async fn trigger_delete(endpoint: &str, id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/triggers/{}", endpoint.trim_end_matches('/'), encode_path_segment(id));
+    let url = format!(
+        "{}/triggers/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(id)
+    );
 
     let client = reqwest::Client::new();
     let response = client.delete(&url).send().await.map_err(CliError::Http)?;

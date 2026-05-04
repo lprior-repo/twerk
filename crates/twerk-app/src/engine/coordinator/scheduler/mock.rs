@@ -165,6 +165,10 @@ impl Datastore for MockDatastore {
         Err(DatastoreError::Database("not implemented".to_string()))
     }
 
+    async fn delete_job(&self, _id: &str) -> DatastoreResult<()> {
+        Err(DatastoreError::Database("not implemented".to_string()))
+    }
+
     async fn create_scheduled_job(&self, _sj: &ScheduledJob) -> DatastoreResult<()> {
         Err(DatastoreError::Database("not implemented".to_string()))
     }

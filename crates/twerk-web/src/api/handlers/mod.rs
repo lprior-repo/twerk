@@ -23,9 +23,9 @@ pub mod triggers;
 
 // Re-exports from submodules
 pub use jobs::{
-    cancel_job_handler, cancel_job_handler_post, create_job_handler, get_job_handler,
-    get_job_log_handler, job_cancel_put, list_jobs_handler, restart_job_handler, CreateJobQuery,
-    WaitMode,
+    cancel_job_handler, cancel_job_handler_post, create_job_handler, delete_job_handler,
+    get_job_handler, get_job_log_handler, job_cancel_put, list_jobs_handler, restart_job_handler,
+    CreateJobQuery, WaitMode,
 };
 pub use queues::{delete_queue_handler, get_queue_handler, list_queues_handler};
 pub use scheduled::{

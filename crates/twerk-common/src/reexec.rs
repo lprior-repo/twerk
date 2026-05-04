@@ -222,19 +222,24 @@ mod tests {
     #[test]
     fn test_register_error_message_exact() {
         let _ = register("msg_test", Box::new(|| {}));
-        let err = register("msg_test", Box::new(|| {}))
-            .expect_err("expected error when registering duplicate name");
-        assert_eq!(
-            err.to_string(),
-            r#"reexec func already registered under name "msg_test""#
-        );
+        let result = register("msg_test", Box::new(|| {}));
+        assert!(matches!(
+            result,
+            Err(CommonReexecError::AlreadyRegistered(_))
+        ));
+        if let Err(err) = result {
+            assert_eq!(
+                err.to_string(),
+                r#"reexec func already registered under name "msg_test""#
+            );
+        }
     }
 
     #[allow(clippy::redundant_pattern_matching)]
     #[test]
     fn test_register_and_init_not_called() {
         let result = register("test_init", Box::new(|| {}));
-        assert!(matches!(result, Ok(_)));
+        assert!(result.is_ok());
         // init() returns false because executable name won't match
         assert!(!init());
     }

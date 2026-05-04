@@ -145,6 +145,9 @@ impl Datastore for FailableDatastore {
     ) -> DatastoreResult<Page<twerk_core::job::JobSummary>> {
         self.inner.get_jobs(current_user, q, page, size).await
     }
+    async fn delete_job(&self, id: &str) -> DatastoreResult<()> {
+        self.inner.delete_job(id).await
+    }
     async fn create_scheduled_job(
         &self,
         sj: &twerk_core::job::ScheduledJob,

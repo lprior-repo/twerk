@@ -14,21 +14,11 @@ use std::sync::Mutex;
 
 use tempfile::TempDir;
 
-use crate::conf::env::extract_env_vars;
+use crate::conf::env::extract_env_vars_with_prefix;
 use crate::conf::parsing::{expand_path, flatten_table, merge_values, parse_toml_file};
 use crate::conf::types::{ConfigError, ConfigState};
 
 static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-fn reset_env() {
-    let keys: Vec<String> = env::vars()
-        .filter(|(k, _)| k.starts_with("TWERK_"))
-        .map(|(k, _)| k)
-        .collect();
-    for key in keys {
-        env::remove_var(key);
-    }
-}
 
 struct TestFixture {
     #[allow(dead_code)]
@@ -239,21 +229,35 @@ fn merge_values_prefers_override_entries() {
 #[test]
 fn extract_env_vars_returns_empty_map_when_no_prefixed_variables_exist() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
-    reset_env();
-    let vars = extract_env_vars();
+    let prefix = "TWERK_TEST_EMPTY_";
+    // Remove any pre-existing vars with our test prefix.
+    for key in env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .map(|(k, _)| k)
+    {
+        env::remove_var(key);
+    }
+    let vars = extract_env_vars_with_prefix(prefix);
     assert!(vars.is_empty());
 }
 
 #[test]
 fn extract_env_vars_reads_only_twerk_prefixed_variables() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
-    reset_env();
-    env::set_var("TWERK_HELLO", "world");
-    env::set_var("TWERK_MAIN_KEY1", "value1");
-    env::set_var("TWERK_NESTED_KEY2", "value2");
+    let prefix = "TWERK_TEST_READ_";
+    // Remove any pre-existing vars with our test prefix.
+    for key in env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .map(|(k, _)| k)
+    {
+        env::remove_var(key);
+    }
+    env::set_var("TWERK_TEST_READ_HELLO", "world");
+    env::set_var("TWERK_TEST_READ_MAIN_KEY1", "value1");
+    env::set_var("TWERK_TEST_READ_NESTED_KEY2", "value2");
     env::set_var("REGULAR_VAR", "should_be_ignored");
 
-    let vars = extract_env_vars();
+    let vars = extract_env_vars_with_prefix(prefix);
 
     assert_eq!(vars.get("hello").and_then(|v| v.as_str()), Some("world"));
     assert_eq!(
@@ -267,23 +271,40 @@ fn extract_env_vars_reads_only_twerk_prefixed_variables() {
     assert!(!vars.contains_key("REGULAR_VAR"));
 
     // Clean up env vars for other tests
-    reset_env();
+    for key in env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .map(|(k, _)| k)
+    {
+        env::remove_var(key);
+    }
 }
 
 #[test]
 fn extract_env_vars_converts_underscores_to_dot_separators() {
     let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
-    reset_env();
-    env::set_var("TWERK_NESTED_DEEP_VALUE", "test");
+    let prefix = "TWERK_TEST_CONV_";
+    // Remove any pre-existing vars with our test prefix.
+    for key in env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .map(|(k, _)| k)
+    {
+        env::remove_var(key);
+    }
+    env::set_var("TWERK_TEST_CONV_NESTED_DEEP_VALUE", "test");
 
-    let vars = extract_env_vars();
+    let vars = extract_env_vars_with_prefix(prefix);
     assert_eq!(
         vars.get("nested.deep.value").and_then(|v| v.as_str()),
         Some("test")
     );
 
     // Clean up env vars for other tests
-    reset_env();
+    for key in env::vars()
+        .filter(|(k, _)| k.starts_with(prefix))
+        .map(|(k, _)| k)
+    {
+        env::remove_var(key);
+    }
 }
 
 #[test]

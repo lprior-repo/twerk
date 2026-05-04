@@ -1,13 +1,12 @@
-//! TimerWheel - Main timer scheduler implementation.
+//! `TimerWheel` - Main timer scheduler implementation.
 //!
-//! Uses tokio::time for scheduling and integrates with SignalRegistry
+//! Uses `tokio::time` for scheduling and integrates with `SignalRegistry`
 //! for waking waiting actors when timers fire.
 
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use time::OffsetDateTime;
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 
@@ -35,16 +34,16 @@ pub enum TimerWheelError {
 /// Result type for timer wheel operations.
 pub type TimerWheelResult<T> = std::result::Result<T, TimerWheelError>;
 
-/// TimerWheel manages pending timers and fires them when due.
+/// `TimerWheel` manages pending timers and fires them when due.
 ///
 /// # Architecture
 ///
-/// - Uses tokio::time for efficient timer scheduling
-/// - Persists timers to Fjall for crash recovery
-/// - Sends signals via SignalRegistry when timers fire
+/// - Uses `tokio::time` for efficient timer scheduling
+/// - Persists timers via the configured [`TimerPersistence`] backend
+/// - Sends signals via `SignalRegistry` when timers fire
 /// - On startup, checks for and fires expired timers
 pub struct TimerWheel {
-    persistence: Arc<TimerPersistence>,
+    persistence: Arc<dyn TimerPersistence>,
     registry: Arc<dyn SignalRegistry>,
     timers: Arc<RwLock<HashMap<String, TimerEntry>>>,
     shutdown_tx: RwLock<Option<mpsc::Sender<()>>>,
@@ -53,13 +52,13 @@ pub struct TimerWheel {
 }
 
 impl TimerWheel {
-    /// Creates a new TimerWheel.
+    /// Creates a new `TimerWheel`.
     ///
     /// # Errors
     ///
     /// Returns error if persistence cannot be initialized.
-    pub async fn new(
-        persistence: Arc<TimerPersistence>,
+    pub fn new(
+        persistence: Arc<dyn TimerPersistence>,
         registry: Arc<dyn SignalRegistry>,
     ) -> Result<Self> {
         let (fire_tx, fire_rx) = mpsc::channel(100);
@@ -112,7 +111,9 @@ impl TimerWheel {
     /// Starts the background fire handler task.
     async fn start_fire_handler(&self) -> Result<()> {
         let mut rx = self.fire_rx.write().await;
-        let receiver = rx.take().ok_or_else(|| anyhow::anyhow!("fire receiver already taken"))?;
+        let receiver = rx
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("fire receiver already taken"))?;
         drop(rx);
 
         let registry = self.registry.clone();
@@ -148,20 +149,13 @@ impl TimerWheel {
         let task_id = variant.task_id().to_string();
 
         let signal_id = match variant {
-            TimerVariant::Delay(_) => timer_id.clone(),
-            TimerVariant::Scheduled(_) => timer_id.clone(),
+            TimerVariant::Delay(_) | TimerVariant::Scheduled(_) => timer_id.clone(),
             TimerVariant::WaitFor(w) => w.signal_id.clone(),
         };
 
         let is_timeout = matches!(variant, TimerVariant::WaitFor(_));
 
-        let signal = TimerSignal::new(
-            signal_id,
-            timer_id,
-            job_id,
-            task_id,
-            is_timeout,
-        );
+        let signal = TimerSignal::new(signal_id, timer_id, job_id, task_id, is_timeout);
 
         registry
             .send_signal(signal)
@@ -182,14 +176,13 @@ impl TimerWheel {
         job_id: impl Into<String>,
         task_id: impl Into<String>,
     ) -> TimerWheelResult<TimerId> {
-        let entry =
-            TimerEntry::new_delay(duration, job_id, task_id).map_err(|e| {
-                TimerWheelError::PersistenceError(e.to_string())
-            })?;
+        let entry = TimerEntry::new_delay(duration, job_id, task_id)
+            .map_err(|e| TimerWheelError::PersistenceError(e.to_string()))?;
 
         let timer_id = entry.variant.timer_id().clone();
         self.add_timer(entry).await?;
-        self.schedule_timer_entry(timer_id.as_str(), duration).await?;
+        self.schedule_timer_entry(timer_id.as_str(), duration)
+            .await?;
         Ok(timer_id)
     }
 
@@ -205,14 +198,13 @@ impl TimerWheel {
         job_id: impl Into<String>,
         task_id: impl Into<String>,
     ) -> TimerWheelResult<TimerId> {
-        let entry =
-            TimerEntry::new_wait_for(timeout, signal_id, job_id, task_id).map_err(|e| {
-                TimerWheelError::PersistenceError(e.to_string())
-            })?;
+        let entry = TimerEntry::new_wait_for(timeout, signal_id, job_id, task_id)
+            .map_err(|e| TimerWheelError::PersistenceError(e.to_string()))?;
 
         let timer_id = entry.variant.timer_id().clone();
         self.add_timer(entry).await?;
-        self.schedule_timer_entry(timer_id.as_str(), timeout).await?;
+        self.schedule_timer_entry(timer_id.as_str(), timeout)
+            .await?;
         Ok(timer_id)
     }
 
@@ -223,14 +215,12 @@ impl TimerWheel {
     /// Returns error if timer cannot be scheduled.
     pub async fn schedule_cron(
         &self,
-        _cron_expression: impl Into<String>,
+        cron_expression: impl Into<String>,
         job_id: impl Into<String>,
         task_id: impl Into<String>,
     ) -> TimerWheelResult<TimerId> {
-        let entry =
-            TimerEntry::new_scheduled(_cron_expression, job_id, task_id).map_err(|e| {
-                TimerWheelError::PersistenceError(e.to_string())
-            })?;
+        let entry = TimerEntry::new_scheduled(cron_expression, job_id, task_id)
+            .map_err(|e| TimerWheelError::PersistenceError(e.to_string()))?;
 
         let timer_id = entry.variant.timer_id().clone();
         self.add_timer(entry).await?;
@@ -245,17 +235,22 @@ impl TimerWheel {
             return Err(TimerWheelError::TimerAlreadyExists(timer_id));
         }
 
-        self.persistence.save_timer(&entry).await.map_err(|e| {
-            TimerWheelError::PersistenceError(e.to_string())
-        })?;
+        self.persistence
+            .save_timer(&entry)
+            .await
+            .map_err(|e| TimerWheelError::PersistenceError(e.to_string()))?;
 
         timers.insert(timer_id, entry);
         Ok(())
     }
 
-    async fn schedule_timer_entry(&self, timer_id: &str, duration: Duration) -> TimerWheelResult<()> {
+    async fn schedule_timer_entry(
+        &self,
+        timer_id: &str,
+        duration: Duration,
+    ) -> TimerWheelResult<()> {
         let timers = self.timers.read().await;
-        let entry = timers
+        let _entry = timers
             .get(timer_id)
             .ok_or_else(|| TimerWheelError::TimerNotFound(timer_id.to_string()))?;
 
@@ -323,6 +318,10 @@ impl TimerWheel {
     }
 
     /// Shuts down the timer wheel.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if shutdown signal cannot be sent.
     pub async fn shutdown(&self) -> TimerWheelResult<()> {
         info!("Shutting down timer wheel");
 
@@ -342,21 +341,15 @@ impl TimerWheel {
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime::timer::InMemorySignalRegistry;
     use super::*;
+    use crate::runtime::timer::{InMemorySignalRegistry, InMemoryTimerPersistence};
 
     #[tokio::test]
-    async fn test_timer_wheel_creation() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let persistence = Arc::new(
-            TimerPersistence::open(temp_dir.path())
-                .await
-                .expect("Failed to open persistence"),
-        );
+    async fn test_timer_wheel_creation() -> Result<()> {
+        let persistence: Arc<dyn TimerPersistence> = Arc::new(InMemoryTimerPersistence::new());
         let registry = Arc::new(InMemorySignalRegistry::new());
-        let wheel = TimerWheel::new(persistence, registry)
-            .await
-            .expect("Failed to create timer wheel");
-        assert!(wheel.start().await.is_ok());
+        let wheel = TimerWheel::new(persistence, registry)?;
+        wheel.start().await?;
+        Ok(())
     }
 }

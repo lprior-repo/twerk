@@ -99,13 +99,20 @@ pub enum VmError {
     #[error("division by zero")]
     DivisionByZero,
     #[error("invalid operation {op} for values {a} and {b}")]
-    InvalidBinaryOp { op: &'static str, a: SlotValue, b: SlotValue },
+    InvalidBinaryOp {
+        op: &'static str,
+        a: SlotValue,
+        b: SlotValue,
+    },
     #[error("invalid unary operation {op} for value {v}")]
     InvalidUnaryOp { op: &'static str, v: SlotValue },
     #[error("slot index {index} out of bounds (slots have {len} entries)")]
     SlotOutOfBounds { index: usize, len: usize },
     #[error("type error: expected {expected} but got {actual}")]
-    TypeError { expected: &'static str, actual: &'static str },
+    TypeError {
+        expected: &'static str,
+        actual: &'static str,
+    },
 }
 
 pub struct ExprVm {
@@ -130,9 +137,10 @@ impl ExprVm {
             self.execute_op(i, slots)?;
         }
 
-        self.stack
-            .pop()
-            .ok_or(VmError::StackUnderflow { needed: 1, available: 0 })
+        self.stack.pop().ok_or(VmError::StackUnderflow {
+            needed: 1,
+            available: 0,
+        })
     }
 
     fn execute_op(&mut self, op_index: usize, slots: &[SlotValue]) -> Result<(), VmError> {
@@ -405,9 +413,10 @@ impl ExprVm {
     }
 
     fn pop(&mut self) -> Result<SlotValue, VmError> {
-        self.stack
-            .pop()
-            .ok_or(VmError::StackUnderflow { needed: 1, available: self.stack.len() })
+        self.stack.pop().ok_or(VmError::StackUnderflow {
+            needed: 1,
+            available: self.stack.len(),
+        })
     }
 }
 
@@ -638,10 +647,7 @@ mod tests {
 
     #[test]
     fn test_not() {
-        let vm = ExprVm::new(vec![
-            Op::LoadConst(SlotValue::Bool(false)),
-            Op::Not,
-        ]);
+        let vm = ExprVm::new(vec![Op::LoadConst(SlotValue::Bool(false)), Op::Not]);
         let mut executor = vm;
         let result = executor.execute(&[]).unwrap();
         assert_eq!(result, SlotValue::Bool(true));
@@ -688,8 +694,11 @@ mod tests {
         assert_eq!(SlotValue::Null.to_string(), "null");
         assert_eq!(SlotValue::Bool(true).to_string(), "true");
         assert_eq!(SlotValue::Int(42).to_string(), "42");
-        assert_eq!(SlotValue::Float(3.14).to_string(), "3.14");
-        assert_eq!(SlotValue::String("hello".to_string()).to_string(), "\"hello\"");
+        assert_eq!(SlotValue::Float(1.23).to_string(), "1.23");
+        assert_eq!(
+            SlotValue::String("hello".to_string()).to_string(),
+            "\"hello\""
+        );
     }
 
     #[test]
@@ -702,7 +711,7 @@ mod tests {
             Op::LoadSlot(2),
             Op::Mul,
         ]);
-        
+
         let start = std::time::Instant::now();
         let iterations = 1_000_000;
         let mut executor = vm;
@@ -710,8 +719,12 @@ mod tests {
             executor.execute(&slots).unwrap();
         }
         let elapsed = start.elapsed();
-        
+
         println!("{} iterations in {:?}", iterations, elapsed);
-        assert!(elapsed.as_millis() < 300, "Benchmark failed: {}ms > 300ms", elapsed.as_millis());
+        assert!(
+            elapsed.as_millis() < 300,
+            "Benchmark failed: {}ms > 300ms",
+            elapsed.as_millis()
+        );
     }
 }

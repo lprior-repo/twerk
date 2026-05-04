@@ -59,7 +59,10 @@ pub struct SwitchState {
 }
 
 impl SwitchState {
-    pub fn new(cases: Vec<SwitchCase>, default: Option<StateName>) -> Result<Self, SwitchStateError> {
+    pub fn new(
+        cases: Vec<SwitchCase>,
+        default: Option<StateName>,
+    ) -> Result<Self, SwitchStateError> {
         if cases.is_empty() {
             return Err(SwitchStateError::EmptyCases);
         }
@@ -133,9 +136,13 @@ mod tests {
             ],
             StateName::new("case2").unwrap(),
         );
-        let switch = SwitchState::new(vec![case1, case2], Some(StateName::new("default").unwrap())).unwrap();
+        let switch =
+            SwitchState::new(vec![case1, case2], Some(StateName::new("default").unwrap())).unwrap();
         let slots: &[SlotValue] = &[];
-        assert_eq!(switch.evaluate(slots), Some(&StateName::new("case1").unwrap()));
+        assert_eq!(
+            switch.evaluate(slots),
+            Some(&StateName::new("case1").unwrap())
+        );
     }
 
     #[test]
@@ -148,9 +155,13 @@ mod tests {
             ],
             StateName::new("case1").unwrap(),
         );
-        let switch = SwitchState::new(vec![case1], Some(StateName::new("default").unwrap())).unwrap();
+        let switch =
+            SwitchState::new(vec![case1], Some(StateName::new("default").unwrap())).unwrap();
         let slots: &[SlotValue] = &[];
-        assert_eq!(switch.evaluate(slots), Some(&StateName::new("default").unwrap()));
+        assert_eq!(
+            switch.evaluate(slots),
+            Some(&StateName::new("default").unwrap())
+        );
     }
 
     #[test]

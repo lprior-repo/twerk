@@ -8,22 +8,33 @@
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
-use governor::{Quota, RateLimiter};
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use std::future::Future;
 use std::num::NonZeroU32;
 use std::pin::Pin;
+use std::sync::Arc;
 
 // ── Rate Limiting ──────────────────────────────────────────────
 
 #[derive(Clone, Debug)]
 pub struct RateLimitConfig {
-    pub(crate) rps: u32,
+    pub rps: u32,
+    pub burst: u32,
+    limiter: Arc<DefaultDirectRateLimiter>,
 }
 
 impl RateLimitConfig {
     #[must_use]
-    pub fn new(rps: u32) -> Self {
-        Self { rps }
+    pub fn new(rps: u32, burst: u32) -> Self {
+        let rps_nonzero = NonZeroU32::new(rps.max(1)).unwrap_or(NonZeroU32::MIN);
+        let burst_nonzero = NonZeroU32::new(burst.max(1)).unwrap_or(NonZeroU32::MIN);
+        let quota = Quota::per_second(rps_nonzero).allow_burst(burst_nonzero);
+        let limiter = Arc::new(RateLimiter::direct(quota));
+        Self {
+            rps,
+            burst,
+            limiter,
+        }
     }
 }
 
@@ -35,10 +46,7 @@ pub async fn rate_limit_middleware(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let rps = NonZeroU32::new(config.rps.max(1)).unwrap_or(NonZeroU32::MIN);
-    let limiter = RateLimiter::direct(Quota::per_second(rps));
-
-    match limiter.check() {
+    match config.limiter.check() {
         Ok(()) => Ok(next.run(request).await),
         Err(_not_until) => Err(StatusCode::TOO_MANY_REQUESTS),
     }

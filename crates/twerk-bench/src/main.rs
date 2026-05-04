@@ -1,9 +1,11 @@
 //! End-to-end throughput benchmark for twerk.
 //! No Docker, no external deps. Proves 5k/s with sub-ms latency.
 
+#![allow(clippy::cast_precision_loss)]
+
+use crossbeam_channel::bounded;
 use std::io::Write;
 use std::time::{Duration, Instant};
-use crossbeam_channel::bounded;
 
 #[derive(Debug, Clone)]
 struct Task {
@@ -13,7 +15,10 @@ struct Task {
 
 impl Task {
     fn new(id: u64, size: usize) -> Self {
-        Self { id, payload: vec![0u8; size] }
+        Self {
+            id,
+            payload: vec![0u8; size],
+        }
     }
 }
 
@@ -38,13 +43,13 @@ struct ComputedStats {
 }
 
 impl ComputedStats {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn from_latencies(n: u64, elapsed: Duration, mut lats: Vec<u64>) -> Self {
-        lats.sort();
+        lats.sort_unstable();
         let cnt = lats.len();
         let sum: u64 = lats.iter().sum();
         let mean_ns = sum as f64 / cnt as f64;
-        let idx =
-            |pct: f64| -> usize { ((cnt as f64 * pct) as usize).min(cnt.saturating_sub(1)) };
+        let idx = |pct: f64| -> usize { ((cnt as f64 * pct) as usize).min(cnt.saturating_sub(1)) };
 
         Self {
             n,
@@ -90,9 +95,9 @@ impl ComputedStats {
 fn execute(t: &Task) -> Duration {
     // Fowler-Noll-Vo hash of payload to prevent optimization.
     // Produces 50-1049ns of CPU work per task.
-    let mut h: u64 = 0xdeadbeef;
+    let mut h: u64 = 0xdead_beef;
     for &b in &t.payload {
-        h = h.wrapping_mul(0x9e3779b9).wrapping_add(u64::from(b));
+        h = h.wrapping_mul(0x9e37_79b9).wrapping_add(u64::from(b));
     }
     if h == 0 {
         std::hint::black_box(());
@@ -101,13 +106,14 @@ fn execute(t: &Task) -> Duration {
 }
 
 fn run_worker(
-    rx: crossbeam_channel::Receiver<(Task, Instant)>,
-    rtx: crossbeam_channel::Sender<BenchResult>,
+    rx: &crossbeam_channel::Receiver<(Task, Instant)>,
+    rtx: &crossbeam_channel::Sender<BenchResult>,
     worker_id: usize,
 ) {
     while let Ok((t, enq)) = rx.recv() {
         let work = execute(&t);
-        let latency = enq.elapsed().as_nanos() as u64 + work.as_nanos() as u64;
+        let latency = u64::try_from(enq.elapsed().as_nanos()).unwrap_or(u64::MAX)
+            + u64::try_from(work.as_nanos()).unwrap_or(u64::MAX);
         let _ = rtx.send(BenchResult {
             task_id: t.id,
             latency_ns: latency,
@@ -117,7 +123,7 @@ fn run_worker(
 }
 
 fn send_tasks(
-    tx: crossbeam_channel::Sender<(Task, Instant)>,
+    tx: &crossbeam_channel::Sender<(Task, Instant)>,
     total: u64,
     payload: usize,
     start: Instant,
@@ -127,8 +133,9 @@ fn send_tasks(
     }
 }
 
-fn collect_latencies(rr: crossbeam_channel::Receiver<BenchResult>, total: u64) -> Vec<u64> {
-    let mut lats = Vec::with_capacity(total as usize);
+fn collect_latencies(rr: &crossbeam_channel::Receiver<BenchResult>, total: u64) -> Vec<u64> {
+    let cap = usize::try_from(total).unwrap_or(0);
+    let mut lats = Vec::with_capacity(cap);
     for _ in 0..total {
         if let Ok(r) = rr.recv() {
             lats.push(r.latency_ns);
@@ -145,13 +152,13 @@ fn channel_pipeline(workers: usize, total: u64, payload: usize) -> ComputedStats
         .map(|wid| {
             let rx = rx.clone();
             let rtx = rtx.clone();
-            std::thread::spawn(move || run_worker(rx, rtx, wid))
+            std::thread::spawn(move || run_worker(&rx, &rtx, wid))
         })
         .collect();
 
     let start = Instant::now();
-    send_tasks(tx, total, payload, start);
-    let lats = collect_latencies(rr, total);
+    send_tasks(&tx, total, payload, start);
+    let lats = collect_latencies(&rr, total);
     drop(handles);
     ComputedStats::from_latencies(total, start.elapsed(), lats)
 }
@@ -159,8 +166,7 @@ fn channel_pipeline(workers: usize, total: u64, payload: usize) -> ComputedStats
 fn run_scaling_bench(out: &mut dyn std::io::Write, total: u64, payload: usize) {
     let _ = writeln!(
         out,
-        "\n-- Crossbeam mpmc channel scaling ({} tasks) --",
-        total
+        "\n-- Crossbeam mpmc channel scaling ({total} tasks) --"
     );
     let _ = writeln!(out, "{}", ComputedStats::header());
     let _ = writeln!(
@@ -179,7 +185,7 @@ fn run_throughput_proof(out: &mut dyn std::io::Write, total: u64, payload: usize
     let stats = channel_pipeline(8, total, payload);
 
     let _ = writeln!(out, "\n========================================");
-    let _ = writeln!(out, "  THROUGHPUT PROOF (8 workers, {} tasks)", total);
+    let _ = writeln!(out, "  THROUGHPUT PROOF (8 workers, {total} tasks)");
     let _ = writeln!(out, "========================================");
     let _ = writeln!(out, "\n{}", ComputedStats::header());
     let _ = writeln!(out, "  8w    {}", stats.row());
@@ -194,19 +200,19 @@ fn run_throughput_proof(out: &mut dyn std::io::Write, total: u64, payload: usize
     let _ = out.flush();
 }
 
+const TOTAL: u64 = 10_000;
+const PAYLOAD: usize = 128;
+
 fn main() {
     let mut out = std::io::stdout();
 
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "========================================");
     let _ = writeln!(out, "  TWERK END-TO-END PERFORMANCE BENCHMARK");
     let _ = writeln!(out, "========================================");
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  Simulated work: 50-1049ns per task (FNV hash)");
     let _ = out.flush();
-
-    const TOTAL: u64 = 10_000;
-    const PAYLOAD: usize = 128;
 
     run_scaling_bench(&mut out, TOTAL, PAYLOAD);
     run_throughput_proof(&mut out, TOTAL, PAYLOAD);
@@ -239,7 +245,7 @@ mod tests {
 
     #[test]
     fn stats_computes_without_panic_on_large_sample() {
-        let lats: Vec<u64> = (0..100).map(|i| i as u64 * 100).collect();
+        let lats: Vec<u64> = (0..100u64).map(|i| i * 100).collect();
         let stats = ComputedStats::from_latencies(100, Duration::from_secs(1), lats);
         assert_eq!(stats.n, 100);
         assert!(stats.p50_ns > 0);

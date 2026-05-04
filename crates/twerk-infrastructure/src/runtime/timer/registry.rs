@@ -1,10 +1,9 @@
 //! Signal registry for waking waiting actors.
 //!
-//! When a timer fires, the SignalRegistry is used to wake the actor
+//! When a timer fires, the `SignalRegistry` is used to wake the actor
 //! that is waiting on that signal.
 
 use async_trait::async_trait;
-use std::time::Duration;
 use thiserror::Error;
 
 /// Errors that can occur when interacting with the signal registry.
@@ -18,7 +17,7 @@ pub enum SignalRegistryError {
     RegistryError(String),
 }
 
-/// Result type for SignalRegistry operations.
+/// Result type for `SignalRegistry` operations.
 pub type SignalRegistryResult<T> = std::result::Result<T, SignalRegistryError>;
 
 /// Signal payload sent when a timer fires.

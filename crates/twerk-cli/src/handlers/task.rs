@@ -58,7 +58,11 @@ pub struct TaskLogEntry {
 }
 
 pub async fn task_get(endpoint: &str, task_id: &str, json_mode: bool) -> Result<String, CliError> {
-    let url = format!("{}/tasks/{}", endpoint.trim_end_matches('/'), encode_path_segment(task_id));
+    let url = format!(
+        "{}/tasks/{}",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(task_id)
+    );
 
     let response = reqwest::get(&url).await.map_err(CliError::Http)?;
 
@@ -135,7 +139,11 @@ pub async fn task_log(
     q: Option<String>,
     json_mode: bool,
 ) -> Result<String, CliError> {
-    let mut url = format!("{}/tasks/{}/log", endpoint.trim_end_matches('/'), encode_path_segment(task_id));
+    let mut url = format!(
+        "{}/tasks/{}/log",
+        endpoint.trim_end_matches('/'),
+        encode_path_segment(task_id)
+    );
     let mut params = Vec::new();
     if let Some(p) = page {
         params.push(format!("page={}", p));

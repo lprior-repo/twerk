@@ -118,4 +118,5 @@ impl Deref for CronExpression {
     }
 }
 
+#[cfg(test)]
 mod tests;

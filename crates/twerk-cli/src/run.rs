@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
-use twerk_app::engine::coordinator::auth::{BasicAuthConfig, KeyAuthConfig};
+use twerk_app::engine::coordinator::auth::KeyAuthConfig;
 use twerk_app::engine::coordinator::limits::{BodyLimitConfig, RateLimitConfig};
 use twerk_app::engine::coordinator::middleware::HttpLogConfig;
 use twerk_app::engine::{Config, Engine, Mode};
@@ -121,19 +121,23 @@ fn read_api_config() -> ApiConfig {
     };
 
     let rate_limit = app_config::bool("middleware.web.ratelimit.enabled").then(|| {
-        RateLimitConfig::new(app_config::int_default("middleware.web.ratelimit.rps", 20) as u32)
+        RateLimitConfig::new(
+            app_config::int_default("middleware.web.ratelimit.rps", 20) as u32,
+            app_config::int_default("middleware.web.ratelimit.burst", 5) as u32,
+        )
     });
 
-    let key_auth = app_config::bool("middleware.web.keyauth.enabled").then(|| {
-        KeyAuthConfig::new(app_config::string_default("middleware.web.keyauth.key", ""))
-    });
+    let key_auth = app_config::bool("middleware.web.keyauth.enabled")
+        .then(|| KeyAuthConfig::new(app_config::string_default("middleware.web.keyauth.key", "")));
 
-    let basic_auth = app_config::bool("middleware.web.basicauth.enabled").then(|| {
-        // Note: BasicAuthConfig needs a datastore handle which we don't have here.
-        // For CLI startup, basic auth is handled differently via the router factory.
-        // Leaving as None for now; basic auth can be enabled via the engine config.
-        None
-    }).flatten();
+    let basic_auth = app_config::bool("middleware.web.basicauth.enabled")
+        .then(|| {
+            // Note: BasicAuthConfig needs a datastore handle which we don't have here.
+            // For CLI startup, basic auth is handled differently via the router factory.
+            // Leaving as None for now; basic auth can be enabled via the engine config.
+            None
+        })
+        .flatten();
 
     let body_limit = app_config::string_default("middleware.web.bodylimit", "500K")
         .parse::<usize>()

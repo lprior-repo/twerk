@@ -20,7 +20,7 @@
 use axum::http::StatusCode;
 use axum::response::Response;
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -469,7 +469,10 @@ async fn get_task_verifies_created_at_field() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = body_to_json(response).await;
-    assert!(body.get("createdAt").is_some(), "createdAt field should be present");
+    assert!(
+        body.get("createdAt").is_some(),
+        "createdAt field should be present"
+    );
 }
 
 // ============================================================================
@@ -1149,9 +1152,17 @@ async fn get_task_comprehensive_all_fields() {
         image: Some("alpine:latest".to_string()),
         run: Some("echo hello".to_string()),
         env: Some(env),
-        cmd: Some(vec!["sh".to_string(), "-c".to_string(), "echo test".to_string()]),
+        cmd: Some(vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "echo test".to_string(),
+        ]),
         entrypoint: Some(vec!["/bin/sh".to_string()]),
-        files: Some([("config.yaml".to_string(), "data: value".to_string())].into_iter().collect()),
+        files: Some(
+            [("config.yaml".to_string(), "data: value".to_string())]
+                .into_iter()
+                .collect(),
+        ),
         queue: Some("default".to_string()),
         redelivered: 0,
         error: None,

@@ -287,11 +287,17 @@ async fn execute_task(
         Ok(()) => {
             t.state = TaskState::Completed;
             t.completed_at = Some(time::OffsetDateTime::now_utc());
+            t.exit_code = Some(0);
         }
         Err(e) => {
             t.state = TaskState::Failed;
             t.failed_at = Some(time::OffsetDateTime::now_utc());
             t.error = Some(e.to_string());
+            if let Some(crate::engine::worker::shell::ShellError::ExitFailed(code)) =
+                e.downcast_ref::<crate::engine::worker::shell::ShellError>()
+            {
+                t.exit_code = Some(*code);
+            }
         }
     }
     active_tasks.remove(&tid);

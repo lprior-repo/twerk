@@ -161,6 +161,7 @@ async fn complete_job(
         Box::new(move |mut u| {
             u.state = JobState::Completed;
             u.completed_at = Some(now);
+            u.progress = 100.0;
             Ok(u)
         }),
     )
@@ -185,6 +186,15 @@ async fn mark_job_as_running(
         .as_deref()
         .ok_or_else(|| JobHandlerError::Handler("job has no id".to_string()))?;
 
+    let tasks = ds
+        .get_all_tasks_for_job(job_id)
+        .await
+        .map_err(|e| JobHandlerError::Datastore(e.to_string()))?;
+    let total = tasks.len().max(1);
+    let completed = tasks.iter().filter(|t| !t.state.is_active()).count();
+    #[allow(clippy::cast_precision_loss)]
+    let progress = (completed as f64 / total as f64) * 100.0;
+
     ds.update_job(
         job_id,
         Box::new(move |mut u| {
@@ -192,6 +202,7 @@ async fn mark_job_as_running(
                 u.state = JobState::Running;
                 u.failed_at = None;
             }
+            u.progress = progress;
             Ok(u)
         }),
     )
@@ -217,6 +228,12 @@ async fn fail_job(
                 u.state = JobState::Failed;
                 u.failed_at = failed_at;
             }
+            let total = u.tasks.as_ref().map_or(1, std::vec::Vec::len).max(1);
+            #[allow(clippy::cast_precision_loss)]
+            let completed = (u.position - 1).max(0) as f64;
+            #[allow(clippy::cast_precision_loss)]
+            let progress = (completed / total as f64) * 100.0;
+            u.progress = progress;
             Ok(u)
         }),
     )
@@ -256,6 +273,7 @@ async fn transition_job_to_scheduled(
             job.state = JobState::Scheduled;
             job.started_at = Some(now);
             job.position = 1;
+            job.progress = 0.0;
             Ok(job)
         }),
     )

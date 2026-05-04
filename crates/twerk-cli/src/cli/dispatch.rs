@@ -39,7 +39,7 @@ const fn command_name(cmd: &Commands) -> &'static str {
 
 pub(super) fn parse_cli_args(args: &[OsString]) -> Result<super::CliAction, clap::Error> {
     Cli::try_parse_from(args.iter().cloned())
-        .map(|cli| super::CliAction::Execute(cli.command, cli.json))
+        .map(|cli| super::CliAction::Execute(cli.command, cli.json, cli.quiet))
 }
 
 pub(super) fn handle_parse_error(error: clap::Error, emit_json: bool) -> i32 {
@@ -265,11 +265,11 @@ mod tests {
         let args = vec![OsString::from("twerk")];
 
         match parse_cli_args(&args) {
-            Ok(CliAction::Execute(None, false)) => {
+            Ok(CliAction::Execute(None, false, false)) => {
                 // No subcommand provided - help will be shown and exit 0 in run()
             }
             other => unreachable!(
-                "expected Ok(CliAction::Execute(None, false)), got {:?}",
+                "expected Ok(CliAction::Execute(None, false, false)), got {:?}",
                 other
             ),
         }
@@ -291,7 +291,7 @@ mod tests {
 
         assert!(matches!(
             parse_cli_args(&args),
-            Ok(CliAction::Execute(Some(Commands::Version), false))
+            Ok(CliAction::Execute(Some(Commands::Version), false, false))
         ));
     }
 
@@ -310,6 +310,7 @@ mod tests {
                     mode: crate::commands::RunMode::Coordinator,
                     hostname: None
                 }),
+                false,
                 false
             ))
         ));
@@ -326,7 +327,7 @@ mod tests {
         ];
 
         match parse_cli_args(&args) {
-            Ok(CliAction::Execute(Some(Commands::Health { endpoint }), true)) => {
+            Ok(CliAction::Execute(Some(Commands::Health { endpoint }), true, false)) => {
                 assert_eq!(endpoint, Some("http://localhost:8080".to_string()));
             }
             other => unreachable!("expected json mode health command, got {:?}", other),

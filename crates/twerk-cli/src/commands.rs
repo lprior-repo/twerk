@@ -13,6 +13,8 @@ const HELP_EXAMPLES: &str = "Examples:\n  twerk server-start standalone\n  twerk
 pub struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
+    #[arg(long, global = true, help = "Suppress banner output")]
+    pub quiet: bool,
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -266,6 +268,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ServerStart {
                     mode: RunMode::Worker,
@@ -282,6 +285,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Version)
             })
@@ -295,6 +299,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Job { command: JobCommand::List })
             })
@@ -308,6 +313,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Job { command: JobCommand::Create { ref body } })
             }) if body == r#"{"name":"test"}"#
@@ -321,6 +327,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Job { command: JobCommand::Get { ref id } })
             }) if id == "job-123"
@@ -334,6 +341,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Job { command: JobCommand::Cancel { ref id } })
             }) if id == "job-123"
@@ -347,6 +355,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Job { command: JobCommand::Restart { ref id } })
             }) if id == "job-123"
@@ -360,6 +369,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::List })
             })
@@ -373,6 +383,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Create { ref body } })
             }) if body == r#"{"name":"test"}"#
@@ -386,6 +397,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Delete { ref id } })
             }) if id == "sj-123"
@@ -399,6 +411,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Pause { ref id } })
             }) if id == "sj-123"
@@ -412,6 +425,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::ScheduledJob { command: ScheduledJobCommand::Resume { ref id } })
             }) if id == "sj-123"
@@ -425,6 +439,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Task { command: TaskCommand::Get { ref id } })
             }) if id == "task-123"
@@ -438,6 +453,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 json: false,
                 command: Some(Commands::Task { command: TaskCommand::Log { ref id, .. } })
             }) if id == "task-456"
@@ -450,6 +466,7 @@ mod tests {
         assert!(matches!(
             list,
             Ok(Cli {
+                quiet: false,
                 command: Some(Commands::Queue {
                     command: QueueCommand::List
                 }),
@@ -471,6 +488,7 @@ mod tests {
         assert!(matches!(
             list,
             Ok(Cli {
+                quiet: false,
                 command: Some(Commands::Trigger {
                     command: TriggerCommand::List
                 }),
@@ -493,6 +511,7 @@ mod tests {
         assert!(matches!(
             cli,
             Ok(Cli {
+                quiet: false,
                 command: Some(Commands::Node { command: NodeCommand::List }),
                 ..
             })

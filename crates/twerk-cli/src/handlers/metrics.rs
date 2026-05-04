@@ -8,27 +8,28 @@ use crate::error::CliError;
 use crate::handlers::common::TriggerErrorResponse;
 
 #[derive(Debug, Deserialize)]
+pub struct JobMetrics {
+    pub running: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TaskMetrics {
+    pub running: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NodeMetrics {
+    #[serde(rename = "online")]
+    pub running: i32,
+    #[serde(rename = "cpuPercent")]
+    pub cpu_percent: f64,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Metrics {
-    #[serde(default)]
-    pub uptime_seconds: Option<u64>,
-    #[serde(default)]
-    pub total_tasks: Option<u64>,
-    #[serde(default)]
-    pub queued_tasks: Option<u64>,
-    #[serde(default)]
-    pub running_tasks: Option<u64>,
-    #[serde(default)]
-    pub completed_tasks: Option<u64>,
-    #[serde(default)]
-    pub failed_tasks: Option<u64>,
-    #[serde(default)]
-    pub total_nodes: Option<u64>,
-    #[serde(default)]
-    pub active_nodes: Option<u64>,
-    #[serde(default)]
-    pub memory_usage_bytes: Option<u64>,
-    #[serde(default)]
-    pub cpu_usage_percent: Option<f64>,
+    pub jobs: JobMetrics,
+    pub tasks: TaskMetrics,
+    pub nodes: NodeMetrics,
 }
 
 pub async fn metrics_get(endpoint: &str, json_mode: bool) -> Result<String, CliError> {
@@ -60,43 +61,16 @@ pub async fn metrics_get(endpoint: &str, json_mode: bool) -> Result<String, CliE
         .await
         .map_err(|e| CliError::InvalidBody(e.to_string()))?;
 
-    let metrics: Metrics =
-        serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
-
     if json_mode {
         println!("{}", body);
     } else {
+        let metrics: Metrics =
+            serde_json::from_str(&body).map_err(|e| CliError::InvalidBody(e.to_string()))?;
         println!("Metrics:");
-        if let Some(uptime) = metrics.uptime_seconds {
-            println!("  Uptime: {}s", uptime);
-        }
-        if let Some(total) = metrics.total_tasks {
-            println!("  Total Tasks: {}", total);
-        }
-        if let Some(queued) = metrics.queued_tasks {
-            println!("  Queued Tasks: {}", queued);
-        }
-        if let Some(running) = metrics.running_tasks {
-            println!("  Running Tasks: {}", running);
-        }
-        if let Some(completed) = metrics.completed_tasks {
-            println!("  Completed Tasks: {}", completed);
-        }
-        if let Some(failed) = metrics.failed_tasks {
-            println!("  Failed Tasks: {}", failed);
-        }
-        if let Some(total_nodes) = metrics.total_nodes {
-            println!("  Total Nodes: {}", total_nodes);
-        }
-        if let Some(active) = metrics.active_nodes {
-            println!("  Active Nodes: {}", active);
-        }
-        if let Some(mem) = metrics.memory_usage_bytes {
-            println!("  Memory Usage: {} bytes", mem);
-        }
-        if let Some(cpu) = metrics.cpu_usage_percent {
-            println!("  CPU Usage: {:.2}%", cpu);
-        }
+        println!("  Jobs Running: {}", metrics.jobs.running);
+        println!("  Tasks Running: {}", metrics.tasks.running);
+        println!("  Nodes Online: {}", metrics.nodes.running);
+        println!("  CPU Usage: {:.2}%", metrics.nodes.cpu_percent);
     }
 
     Ok(body)

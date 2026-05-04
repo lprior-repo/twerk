@@ -40,7 +40,7 @@ pub const GIT_COMMIT: &str = env!("GIT_COMMIT_HASH");
 /// Parsed top-level CLI action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CliAction {
-    Execute(Option<Commands>, bool), // (command, json_mode)
+    Execute(Option<Commands>, bool, bool), // (command, json_mode, quiet)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,8 +172,8 @@ pub async fn run() -> i32 {
         Err(error) => return handle_parse_error(error, emit_json),
     };
 
-    let (cmd, json_mode) = match action {
-        CliAction::Execute(cmd, json) => (cmd, json),
+    let (cmd, json_mode, quiet) = match action {
+        CliAction::Execute(cmd, json, quiet) => (cmd, json, quiet),
     };
 
     // If no subcommand was provided, display help and exit 0
@@ -195,7 +195,7 @@ pub async fn run() -> i32 {
     };
 
     // Setup logging and banner for interactive commands only.
-    if should_emit_startup_ui(&cmd, json_mode) {
+    if should_emit_startup_ui(&cmd, json_mode) && !quiet {
         if let Err(error) = setup_logging() {
             return handle_runtime_error(error, false);
         }

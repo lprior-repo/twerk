@@ -90,12 +90,12 @@ pub async fn cancel_job_handler_post(
     cancel_job_impl(state, id).await
 }
 
-/// PUT /api/v1/jobs/{id}/cancel
+/// PUT /jobs/{id}/cancel
 ///
 /// This is the canonical PUT endpoint for job cancellation (7th job endpoint).
 #[utoipa::path(
     put,
-    path = "/api/v1/jobs/{id}/cancel",
+    path = "/jobs/{id}/cancel",
     params(("id" = JobId, description = "The job ID")),
     responses(
         (status = 200, description = "Job cancelled", body = StatusResponse, content_type = "application/json"),

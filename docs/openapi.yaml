@@ -1520,6 +1520,41 @@ paths:
       tags:
       - super::handlers::jobs::read
   /jobs/{id}/cancel:
+    post:
+      operationId: cancel_job_handler_post
+      parameters:
+      - description: The job ID
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/JobId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+          description: Job cancelled
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job cannot be cancelled in its current state
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Job not found
+      summary: |-
+        POST /jobs/{id}/cancel
+        # Errors
+        Returns an error when the job lookup or update fails, the broker publish fails, or the job
+        cannot be cancelled in its current state.
+      tags:
+      - super::handlers::jobs::mutation
     put:
       operationId: cancel_job_handler
       parameters:
@@ -1662,6 +1697,36 @@ paths:
       summary: |-
         GET /nodes
         # Errors
+      tags:
+      - super::handlers::system
+  /nodes/{id}:
+    get:
+      description: |-
+        # Errors
+
+        Returns an error if the node is not found or the database query fails.
+      operationId: get_node_handler
+      parameters:
+      - description: The node ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+          description: Node found
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Node not found
+      summary: GET /nodes/{id}
       tags:
       - super::handlers::system
   /queues:

@@ -167,49 +167,49 @@ pub enum Commands {
     Job {
         #[command(subcommand)]
         command: JobCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     ScheduledJob {
         #[command(subcommand)]
         command: ScheduledJobCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     Task {
         #[command(subcommand)]
         command: TaskCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     Queue {
         #[command(subcommand)]
         command: QueueCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     Trigger {
         #[command(subcommand)]
         command: TriggerCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     Node {
         #[command(subcommand)]
         command: NodeCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     Metrics {
         #[command(subcommand)]
         command: MetricsCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
     User {
         #[command(subcommand)]
         command: UserCommand,
-        #[arg(long, short = 'e')]
+        #[arg(long, short = 'e', global = true)]
         endpoint: Option<String>,
     },
 }

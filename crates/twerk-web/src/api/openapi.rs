@@ -57,6 +57,7 @@ use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
         super::handlers::jobs::read::get_job_handler,
         super::handlers::jobs::read::list_jobs_handler,
         super::handlers::jobs::mutation::cancel_job_handler,
+        super::handlers::jobs::mutation::cancel_job_handler_post,
         super::handlers::jobs::mutation::restart_job_handler,
         super::handlers::jobs::mutation::delete_job_handler,
         super::handlers::jobs::read::get_job_log_handler,
@@ -76,6 +77,7 @@ use super::trigger_api::{TriggerId, TriggerUpdateRequest, TriggerView};
         super::handlers::queues::delete_queue_handler,
         // System
         super::handlers::system::list_nodes_handler,
+        super::handlers::system::get_node_handler,
         super::handlers::system::get_metrics_handler,
         super::handlers::system::create_user_handler,
         // Triggers
@@ -138,6 +140,7 @@ pub fn mounted_route_specs() -> Vec<(String, String)> {
     let mut routes = vec![
         ("GET".to_string(), "/health".to_string()),
         ("GET".to_string(), "/nodes".to_string()),
+        ("GET".to_string(), "/nodes/{id}".to_string()),
         ("GET".to_string(), "/metrics".to_string()),
         ("POST".to_string(), "/users".to_string()),
         ("GET".to_string(), "/tasks/{id}".to_string()),
@@ -148,6 +151,7 @@ pub fn mounted_route_specs() -> Vec<(String, String)> {
         ("DELETE".to_string(), "/jobs/{id}".to_string()),
         ("GET".to_string(), "/jobs/{id}/log".to_string()),
         ("PUT".to_string(), "/jobs/{id}/cancel".to_string()),
+        ("POST".to_string(), "/jobs/{id}/cancel".to_string()),
         ("PUT".to_string(), "/jobs/{id}/restart".to_string()),
         ("POST".to_string(), "/scheduled-jobs".to_string()),
         ("GET".to_string(), "/scheduled-jobs".to_string()),

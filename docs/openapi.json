@@ -285,6 +285,56 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "super::handlers::jobs::mutation"
+        ],
+        "summary": "POST /jobs/{id}/cancel\n# Errors\nReturns an error when the job lookup or update fails, the broker publish fails, or the job\ncannot be cancelled in its current state.",
+        "operationId": "cancel_job_handler_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The job ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/JobId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Job cannot be cancelled in its current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/jobs/{id}/log": {
@@ -437,6 +487,49 @@
                   "items": {
                     "$ref": "#/components/schemas/Node"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/nodes/{id}": {
+      "get": {
+        "tags": [
+          "super::handlers::system"
+        ],
+        "summary": "GET /nodes/{id}",
+        "description": "# Errors\n\nReturns an error if the node is not found or the database query fails.",
+        "operationId": "get_node_handler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The node ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Node"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
                 }
               }
             }

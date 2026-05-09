@@ -81,32 +81,29 @@ Twerk is a **distributed task execution system** for personal automations. Defin
 
 Measured on AMD Ryzen 9 7950X, 64GB RAM, Linux 6.x:
 
-### Core Engine
-| Benchmark | Result |
-|-----------|--------|
-| ID Creation (1M) | **1,000,000+ IDs/second** |
-| ID Creation Latency | **~100 nanoseconds/ID** |
-| Job Creation Throughput | **~70,000 jobs/second** |
-| Task Lookup Throughput | **~75,000 lookups/second** |
+### End-to-End Throughput (twerk-bench)
+```
+8 workers, 10,000 tasks, crossbeam mpmc channels
+Throughput: 1,087,937 tasks/sec
+[PASS] Exceeds 5,000 tasks/sec target
+```
 
-### End-to-End (In-Memory, 8 Workers)
-| Benchmark | Result |
-|-----------|--------|
-| Task Scheduling | **1,263,101 tasks/second** |
-| E2E Workflow (18 tasks) | **~390ms** |
-| Job API Submit + Complete | **~72 jobs/second** (with Docker overhead) |
+### Engine Latency (criterion)
+```
+engine_new:           ~11 µs
+engine_config:         ~9-12 µs (mode-dependent)
+```
 
-### Parallel Task Execution
+### Core Engine (test assertions)
+```
+ID Creation:         >500,000 IDs/sec (assertion floor)
+1M IDs in:           <2 seconds
+```
+
+### Stress Test
 ```
 10,000 parallel tasks - coordinator accepts and schedules without blocking
 Full job completes successfully
-```
-
-### Real Workflow Benchmark (Pokemon API)
-```
-18-task workflow with triple parallelism (15 concurrent curl calls to Pokemon API)
-All tasks completed: 18/18
-Average task execution: ~50-100 tasks/sec (depending on Docker host I/O)
 ```
 
 ---

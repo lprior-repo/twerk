@@ -1,5 +1,0 @@
-Error: app::missing_workspace
-
-  × Unable to determine workspace root. Please create a .moon or .config/moon
-  │ configuration folder.
-

@@ -2,17 +2,27 @@
 
 > **An agentic workflow engine for personal automations and workflows.** Run jobs across Docker, Podman, or shell — locally or distributed.
 
-**⚠️ Transparency Statement: Twerk is NOT production-ready.** It's a personal automation tool that I've stress-tested extensively through adversarial reviews and hundreds of hours of testing. It's designed for individual developers automating their own workflows — not enterprise deployments.
+**⚠️ NOT production-ready.** Personal automation tool. Use at your own risk.
 
 ---
 
-## Quick Start
+## 📚 Documentation
+
+| Docs | API | CLI | Config | Examples |
+|------|-----|-----|--------|----------|
+| [Full Docs](website/src/) | [REST API](website/src/rest-api.md) | [CLI](website/src/cli.md) | [Config](website/src/configuration.md) | [Examples](website/src/examples.md) |
+| [Quick Start](website/src/quick-start.md) | [YAML Spec](website/src/yaml-language-spec.md) | [Jobs](website/src/jobs.md) | [Tasks](website/src/tasks.md) | [Runtimes](website/src/runtimes.md) |
+| [Architecture](website/src/architecture.md) | [Comprehensive Guide](website/src/COMPREHENSIVE_GUIDE.md) | | | |
+
+---
+
+## ⚡ Quick Start
 
 ```bash
 # Download binary
 curl -L https://github.com/runabol/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
 
-# Run (zero deps - uses in-memory broker + shell)
+# Run (zero deps - in-memory + shell)
 ./twerk run standalone
 
 # Submit a job
@@ -29,88 +39,36 @@ EOF
 
 ---
 
+## ✅ Status
+
+| Tests | Clippy | Format | OpenAPI | Docker |
+|-------|--------|--------|---------|--------|
+| 4,791 passed | ✅ Zero warnings | ✅ Clean | ✅ 19 endpoints | ✅ No leaks |
+
+100s of hours adversarial testing. **This is NOT production software.**
+
+---
+
+## 🚀 Benchmarks
+
+```
+ID Creation:  1,000,000+ IDs/second  (~100ns per ID)
+Stress Test:  10,000 parallel tasks - coordinator accepts without blocking
+Workflow:     Pokemon API benchmark - 18 tasks, triple parallelism, all completed
+```
+
+---
+
 ## What is Twerk?
 
-Twerk is a **distributed task execution system** for personal automations. Define jobs with multiple tasks running in isolated containers.
-
-**Use cases:**
-- 🔄 **Scheduled workflows** — Cron-based task execution with pause/resume
-- 🔧 **Personal automations** — Scripts, backups, file processing
-- 📦 **CI helper** — Run build/test steps without Kubernetes
-- 🐳 **Containerized tasks** — Docker/Podman isolation without the overhead
-
----
-
-## Status & Testing
-
-| Category | Status |
-|----------|--------|
-| Test Suite | ✅ 4,791 tests passing |
-| Clippy | ✅ Zero warnings |
-| Format | ✅ Clean |
-| OpenAPI Contract | ✅ 19 endpoints verified |
-| Docker Cleanup | ✅ No container leaks |
-| Adversarial Review | ✅ 100s of hours of stress testing |
-
-**This is NOT production software.** I make no guarantees about stability, security, or fitness for any purpose. Use at your own risk.
-
----
-
-## Benchmarks
-
-ID creation throughput (validated IDs, Rust):
-```
-ID Creation (1M):    1,000,000+ IDs/second
-ID Creation (100k):  500,000+ IDs/second
-Latency per ID:      ~100 nanoseconds
-```
-
-Stress test (10,000 parallel tasks via `parallel` block):
-```
-Coordinator accepts and schedules 10,000 tasks without blocking
-Full job completes successfully
-```
-
-Pokemon API workflow benchmark (17 tasks with triple parallelism):
-```
-Workflow: 15+ curl commands to Pokemon API via Docker containers
-All tasks completed: 18/18
-Tasks/Second: ~50-100 depending on Docker host
-```
-
----
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| 🚀 **Zero-setup mode** | Single binary, no Postgres/RabbitMQ required |
-| 🐳 **Multi-runtime** | Docker, Podman, or shell execution |
-| 📈 **Parallel tasks** | Run tasks concurrently with `parallel` blocks |
-| 🔄 **Each loops** | Iterate over lists with concurrency control |
-| ⏱️ **Retry** | Configurable retry on failure with backoff |
-| 📅 **Scheduled jobs** | Cron syntax with pause/resume |
-| 🔐 **Secrets** | Auto-redacted environment variables |
-| 📡 **HTTP API** | Full REST API for all operations |
-| 🦀 **Rust** | Tokio async, zero panic in production |
-
----
-
-## Documentation
-
-| Topic | Link |
-|-------|------|
-| 📖 [Full Documentation](website/src/) | Complete docs (mdBook) |
-| ⚡ [Quick Start](website/src/quick-start.md) | Run your first job |
-| 🏗️ [Architecture](website/src/architecture.md) | System components |
-| 📋 [REST API](website/src/rest-api.md) | API reference (19 endpoints) |
-| 📝 [YAML Spec](website/src/yaml-language-spec.md) | Job definition format |
-| 🧩 [Jobs](website/src/jobs.md) | Job reference |
-| ⚙️ [Tasks](website/src/tasks.md) | Task reference |
-| 🐳 [Runtimes](website/src/runtimes.md) | Docker, Podman, Shell |
-| ⚡ [Configuration](website/src/configuration.md) | Config reference |
-| 💻 [CLI Reference](website/src/cli.md) | CLI commands |
-| 📚 [Comprehensive Guide](website/src/COMPREHENSIVE_GUIDE.md) | 1682-line deep dive |
+Distributed task execution for personal automations:
+- 🔄 Scheduled workflows with cron
+- 🔧 Scripts, backups, file processing
+- 🐳 Docker/Podman isolation
+- 📈 Parallel + loop tasks
+- ⏱️ Retry with backoff
+- 📡 HTTP API (19 endpoints)
+- 🦀 Rust + Tokio
 
 ---
 
@@ -122,45 +80,23 @@ Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
             Datastore
 ```
 
-| Mode | Coordinator | Worker | Use Case |
+| Mode | Coordinator | Worker | Best For |
 |------|-------------|--------|----------|
 | `standalone` | ✅ | ✅ | Personal automations |
-| `coordinator` | ✅ | ❌ | Multi-machine setup |
-| `worker` | ❌ | ✅ | Scale out workers |
-
----
-
-## REST API (19 endpoints)
-
-### Jobs
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/jobs` | Submit job |
-| `POST` | `/jobs?wait=true` | Submit and block |
-| `GET` | `/jobs` | List jobs |
-| `GET` | `/jobs/{id}` | Get job |
-| `GET` | `/jobs/{id}/log` | Job logs |
-| `PUT` | `/jobs/{id}/cancel` | Cancel |
-| `PUT` | `/jobs/{id}/restart` | Restart |
-| `DELETE` | `/jobs/{id}` | Delete |
-
-### Tasks, Scheduled Jobs, Queues, Triggers, System
-Full reference: [REST API Docs](website/src/rest-api.md)
+| `coordinator` | ✅ | ❌ | Multi-machine |
+| `worker` | ❌ | ✅ | Scale out |
 
 ---
 
 ## Configuration
 
 ```bash
-# Environment variables
-TWERK_BROKER_TYPE=rabbitmq
-TWERK_DATASTORE_TYPE=postgres
-TWERK_RUNTIME_TYPE=docker
+TWERK_BROKER_TYPE=rabbitmq     # or inmemory
+TWERK_DATASTORE_TYPE=postgres  # or inmemory
+TWERK_RUNTIME_TYPE=docker      # or podman, shell
 ```
 
-Or TOML config at `./config.toml`, `~/twerk/config.toml`, or `/etc/twerk/config.toml`.
-
-Full reference: [Configuration Docs](website/src/configuration.md)
+TOML: `./config.toml`, `~/twerk/config.toml`, `/etc/twerk/config.toml`
 
 ---
 
@@ -168,22 +104,17 @@ Full reference: [Configuration Docs](website/src/configuration.md)
 
 ```bash
 # Coordinator
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_DATASTORE_TYPE=postgres \
-./twerk run coordinator
+TWERK_BROKER_TYPE=rabbitmq TWERK_DATASTORE_TYPE=postgres ./twerk run coordinator
 
-# Worker(s)
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_RUNTIME_TYPE=docker \
-./twerk run worker
+# Worker
+TWERK_BROKER_TYPE=rabbitmq TWERK_RUNTIME_TYPE=docker ./twerk run worker
 ```
 
 ---
 
-## Job Examples
+## Job Example
 
 ```yaml
-# Parallel execution
 name: parallel-work
 tasks:
   - name: parent
@@ -195,35 +126,15 @@ tasks:
         - name: task-b
           image: alpine:latest
           run: echo B
-
-# Loop with concurrency
-name: process-items
-tasks:
-  - name: each-loop
-    each:
-      list: '[1, 2, 3, 4, 5]'
-      concurrency: 2
-      task:
-        image: alpine:latest
-        run: echo "Item {{ item.value }}"
-
-# Retry on failure
-name: with-retry
-tasks:
-  - name: unstable
-    retry:
-      limit: 3
-    image: alpine:latest
-    run: ./might-fail.sh
 ```
 
-More examples: [Examples](website/src/examples.md)
+More: [Examples](website/src/examples.md)
 
 ---
 
 ## Inspiration
 
-Twerk is a Rust port of [Tork](https://github.com/runabol/tork) (Go). Tork is the production-grade version if you need something battle-tested for enterprise workloads.
+Rust port of [Tork](https://github.com/runabol/tork) (Go). Tork is production-grade if you need enterprise-ready.
 
 ---
 

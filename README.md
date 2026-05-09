@@ -1,8 +1,8 @@
+**⚠️ Transparency Statement: Twerk is NOT production-ready.** It's a personal automation tool that I've stress-tested extensively through adversarial reviews and hundreds of hours of testing. It's designed for individual developers automating their own workflows — not enterprise deployments.
+
 # Twerk
 
 > **An agentic workflow engine for personal automations and workflows.** Run jobs across Docker, Podman, or shell — locally or distributed.
-
-**⚠️ Transparency Statement: Twerk is NOT production-ready.** It's a personal automation tool that I've stress-tested extensively through adversarial reviews and hundreds of hours of testing. It's designed for individual developers automating their own workflows — not enterprise deployments.
 
 ---
 

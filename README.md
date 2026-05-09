@@ -4,6 +4,8 @@
 
 > **An agentic workflow engine for personal automations and workflows.** Run jobs across Docker, Podman, or shell — locally or distributed.
 
+🤖 **Agent-first codebase** — Twerk is built with an agent-first development model. AI agents handle implementation, testing, and validation, with human oversight for architecture and design decisions.
+
 ---
 
 [Features](#features) • [Quick Start](#quick-start) • [Installation](#installation) • [Architecture](#architecture) • [Jobs](#jobs) • [Tasks](#tasks) • [Configuration](#configuration) • [REST API](#rest-api) • [Inspiration](#inspiration)

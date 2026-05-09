@@ -91,24 +91,6 @@ These are single-run smoke proofs from `target/release/twerk server-start standa
 | Parallel shell fan-out | `POST /jobs` plus polling | `COMPLETED`; logs contained all fan-out tasks |
 | Docker Alpine task | `TWERK_RUNTIME_TYPE=docker` plus `POST /jobs?wait=true` | `COMPLETED` in 2.5 s with task `exitCode: 0` |
 
-### Lower-Level Measurements
-
-| Measurement | What it actually measures | Result |
-|-------------|---------------------------|--------|
-| `twerk-bench` | Synthetic Crossbeam channel pipeline with fake CPU work | Not a workflow benchmark; run locally if you care about this layer |
-| Criterion `engine_new` | Engine construction only | about 11 us |
-| Criterion `engine_config` | Engine construction by mode | about 9-12 us |
-| ID tests | ID generation assertion floor | greater than 500,000 IDs/sec |
-
-### Known Gaps Found During Manual Proof
-
-| Area | Current evidence |
-|------|------------------|
-| Shell task outputs | `$TWERK_OUTPUT` was empty in a shell runtime API test, so output-passing examples are not currently proven. |
-| Retry | A deterministic fail-once/pass-once shell task went straight to `FAILED`; no retry attempt appeared. |
-| Docker logs | A Docker Alpine task completed successfully, but `/jobs/{id}/log` and `/tasks/{id}/log` returned no log items. |
-| Docker failure exit code | A Docker task that ran `exit 42` failed the job, but the task response reported `exitCode: null`. |
-
 ---
 
 ## Features

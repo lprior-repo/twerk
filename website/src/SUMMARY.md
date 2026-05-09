@@ -3,6 +3,7 @@
 - [Introduction](introduction.md)
 - [Installation](installation.md)
 - [Quick Start](quick-start.md)
+- [Comprehensive Guide](COMPREHENSIVE_GUIDE.md)
 - [Architecture](architecture.md)
 - [CLI Reference](cli.md)
 - [YAML Language Spec](yaml-language-spec.md)

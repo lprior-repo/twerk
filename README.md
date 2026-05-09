@@ -6,58 +6,447 @@
 
 ---
 
-## 📚 Documentation Links
+[Features](#features) • [Quick Start](#quick-start) • [Installation](#installation) • [Architecture](#architecture) • [Jobs](#jobs) • [Tasks](#tasks) • [Configuration](#configuration) • [REST API](#rest-api) • [Inspiration](#inspiration)
 
-| Topic | URL |
-|-------|-----|
-| Full Documentation | https://runabol.github.io/twerk/ |
-| Quick Start | https://github.com/runabol/twerk/blob/main/website/src/quick-start.md |
-| Architecture | https://github.com/runabol/twerk/blob/main/website/src/architecture.md |
-| REST API | https://github.com/runabol/twerk/blob/main/website/src/rest-api.md |
-| YAML Language Spec | https://github.com/runabol/twerk/blob/main/website/src/yaml-language-spec.md |
-| Jobs Reference | https://github.com/runabol/twerk/blob/main/website/src/jobs.md |
-| Tasks Reference | https://github.com/runabol/twerk/blob/main/website/src/tasks.md |
-| Runtimes | https://github.com/runabol/twerk/blob/main/website/src/runtimes.md |
-| Configuration | https://github.com/runabol/twerk/blob/main/website/src/configuration.md |
-| CLI Reference | https://github.com/runabol/twerk/blob/main/website/src/cli.md |
-| Examples | https://github.com/runabol/twerk/blob/main/website/src/examples.md |
-| Comprehensive Guide | https://github.com/runabol/twerk/blob/main/website/src/COMPREHENSIVE_GUIDE.md |
-| Inspiration (Tork) | https://github.com/runabol/tork |
-| Releases | https://github.com/runabol/twerk/releases |
+Twerk is a lightweight, distributed workflow engine for personal automations. Define jobs as YAML and run tasks in Docker containers, Podman, or plain shell — on a single machine or across multiple workers.
+
+## Features
+
+- **REST API** – Submit jobs, query status, cancel/restart
+- **Zero-setup mode** – Single binary with in-memory broker and shell runtime; no Postgres or RabbitMQ required
+- **Multi-runtime** – Docker, Podman, or shell execution
+- **Parallel tasks** – Run tasks concurrently with `parallel` blocks
+- **Each loops** – Iterate over lists with concurrency control
+- **Retry** – Automatic retry with configurable limits; verified in standalone mode
+- **Scheduled jobs** – Cron syntax with pause/resume
+- **Secrets** – Auto-redacted environment variables
+- **Stand-alone and distributed** – Run all-in-one or split into Coordinator + Workers
+- **Task isolation** – Each task runs in its own container (Docker/Podman) or shell process
+- **Rust + Tokio** – Async-first, type-safe, zero panic in production paths
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
+
+### Requirements
+
+1. A recent [Rust toolchain](https://rustup.rs/) (or download a pre-built binary from [Releases](https://github.com/runabol/twerk/releases)).
+2. (Optional) [Docker](https://www.docker.com/get-started) if you want containerized tasks.
+
+### Hello World
+
+Run Twerk in **standalone** mode (zero dependencies):
 
 ```bash
-# Download binary
-curl -L https://github.com/runabol/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
+cargo run --bin twerk -- server-start standalone
+```
 
-# Run (zero deps - uses in-memory broker + shell)
+Or with a pre-built binary:
+
+```bash
 ./twerk server-start standalone
+```
 
-# Submit a job
-curl -X POST 'http://localhost:8000/jobs?wait=true' \
-  -H "Content-Type: text/yaml" \
-  --data-binary @- <<'EOF'
-name: hello-world
+Create `hello.yaml`:
+
+```yaml
+---
+name: hello job
 tasks:
   - name: say hello
-    run: echo "Hello from Twerk!"
-EOF
+    run: |
+      echo -n hello world
+  - name: say goodbye
+    run: |
+      echo -n bye world
+```
+
+Submit the job:
+
+```bash
+JOB_ID=$(curl -s -X POST --data-binary @hello.yaml \
+  -H "Content-type: text/yaml" http://localhost:8000/jobs | jq -r .id)
+```
+
+Check status:
+
+```bash
+curl -s http://localhost:8000/jobs/$JOB_ID
+```
+
+```json
+{
+  "id": "ed0dba93-d262-492b-8cf2-6e6c1c4f1c98",
+  "state": "COMPLETED",
+  ...
+}
+```
+
+### Running in distributed mode
+
+In distributed mode, the **Coordinator** schedules work and **Workers** execute tasks. A message broker (e.g. RabbitMQ) moves tasks between them.
+
+Start PostgreSQL:
+
+```bash
+docker run -d \
+  --name twerk-postgres \
+  -p 5432:5432 \
+  -e POSTGRES_PASSWORD=twerk \
+  -e POSTGRES_USER=twerk \
+  -e POSTGRES_DB=twerk \
+  postgres:16-alpine
+```
+
+Start RabbitMQ:
+
+```bash
+docker run -d \
+  -p 5672:5672 -p 15672:15672 \
+  --name=twerk-rabbitmq \
+  rabbitmq:3-management-alpine
+```
+
+Run the coordinator:
+
+```bash
+TWERK_DATASTORE_TYPE=postgres \
+TWERK_BROKER_TYPE=rabbitmq \
+./twerk server-start coordinator
+```
+
+Run one or more workers:
+
+```bash
+TWERK_BROKER_TYPE=rabbitmq \
+TWERK_RUNTIME_TYPE=docker \
+./twerk server-start worker
+```
+
+Submit the same job as before; the coordinator and workers will process it.
+
+---
+
+## Installation
+
+### From source
+
+```bash
+git clone https://github.com/runabol/twerk.git
+cd twerk
+cargo build --release
+```
+
+The binary will be at `target/release/twerk`.
+
+### Pre-built binaries
+
+Download for your platform from the [Releases](https://github.com/runabol/twerk/releases) page.
+
+---
+
+## Architecture
+
+A workflow is a **job**: a series of **tasks** (steps) run in order. Jobs are defined in YAML:
+
+```yaml
+---
+name: hello job
+tasks:
+  - name: say hello
+    run: echo -n hello world
+  - name: say goodbye
+    run: echo -n bye world
+```
+
+Components:
+
+- **Coordinator** – Tracks jobs, dispatches work to workers, handles retries and failures. Stateless; does not run tasks.
+- **Worker** – Runs tasks via a runtime (Docker, Podman, or Shell).
+- **Broker** – Routes messages between Coordinator and Workers (in-memory or RabbitMQ).
+- **Datastore** – Persists job and task state (in-memory or PostgreSQL).
+- **Runtime** – Execution environment for tasks (Docker, Podman, Shell).
+
+```
+Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
+                ↓
+            Datastore
+```
+
+| Mode | Coordinator | Worker | Use Case |
+|------|-------------|--------|----------|
+| `standalone` | ✅ | ✅ | Personal automations |
+| `coordinator` | ✅ | ❌ | Multi-machine setup |
+| `worker` | ❌ | ✅ | Scale out workers |
+
+---
+
+## Jobs
+
+A **job** is a list of tasks executed in order.
+
+### Simple example
+
+```yaml
+name: hello job
+tasks:
+  - name: say hello
+    run: |
+      echo -n hello world
+  - name: say goodbye
+    run: |
+      echo -n bye world
+```
+
+Submit:
+
+```bash
+curl -s -X POST --data-binary @job.yaml \
+  -H "Content-type: text/yaml" \
+  http://localhost:8000/jobs
+```
+
+### Inputs
+
+```yaml
+name: mov to mp4
+inputs:
+  source: https://example.com/path/to/video.mov
+tasks:
+  - name: convert the video to mp4
+    image: jrottenberg/ffmpeg:3.4-alpine
+    env:
+      SOURCE_URL: '{{ inputs.source }}'
+    run: |
+      ffmpeg -i $SOURCE_URL /tmp/output.mp4
+```
+
+### Secrets
+
+Use the `secrets` block for sensitive values (redacted in API responses):
+
+```yaml
+name: my job
+secrets:
+  api_key: 1111-1111-1111-1111
+tasks:
+  - name: my task
+    image: alpine:latest
+    run: curl -X POST -H "API_KEY: $API_KEY" http://example.com
+    env:
+      API_KEY: '{{ secrets.api_key }}'
+```
+
+### Defaults
+
+Set defaults for all tasks:
+
+```yaml
+name: my job
+defaults:
+  retry:
+    limit: 2
+  limits:
+    cpus: 1
+    memory: 500m
+  timeout: 10m
+  queue: default
+  priority: 3
+tasks:
+  - name: my task
+    image: alpine:latest
+    run: echo hello world
+```
+
+### Scheduled jobs
+
+Use cron syntax:
+
+```yaml
+name: scheduled job test
+schedule:
+  cron: "0/5 * * * *"   # every 5 minutes
+tasks:
+  - name: my first task
+    image: alpine:3.18.3
+    run: echo -n hello world
+```
+
+Submit to the scheduler:
+
+```bash
+curl -s -X POST --data-binary @job.yaml \
+  -H "Content-type: text/yaml" \
+  http://localhost:8000/scheduled-jobs | jq .
 ```
 
 ---
 
-## What is Twerk?
+## Tasks
 
-Twerk is a **distributed task execution system** for personal automations. Define jobs with multiple tasks running as local shell commands or isolated containers.
+A **task** is the unit of execution. With the Docker runtime, each task runs in a container. The `image` property sets the Docker image; `run` is the script to execute.
 
-**Use cases:**
-- 🔄 **Scheduled workflows** — Cron-based task execution with pause/resume
-- 🔧 **Personal automations** — Scripts, backups, file processing
-- 📦 **CI helper** — Run build/test steps without Kubernetes
-- 🐳 **Containerized tasks** — Docker/Podman isolation without the overhead
+### Basic task
+
+```yaml
+- name: say hello
+  image: alpine:latest
+  run: |
+    echo -n hello world
+```
+
+### Output and variables
+
+Write to `$TWERK_OUTPUT` and set `var` to store the result in the job context for later tasks:
+
+```yaml
+tasks:
+  - name: populate a variable
+    var: task1
+    image: alpine:latest
+    run: echo -n "world" > "$TWERK_OUTPUT"
+  - name: say hello
+    image: alpine:latest
+    env:
+      NAME: '{{ tasks.task1 }}'
+    run: echo -n hello $NAME
+```
+
+### Parallel Task
+
+```yaml
+- name: a parallel task
+  parallel:
+    tasks:
+      - image: alpine:latest
+        run: sleep 2
+      - image: alpine:latest
+        run: sleep 1
+      - image: alpine:latest
+        run: sleep 3
+```
+
+### Each Task
+
+Run a task for each item in a list (with optional `concurrency`):
+
+```yaml
+- name: sample each task
+  each:
+    list: '[1, 2, 3, 4, 5]'
+    concurrency: 3
+    task:
+      image: alpine:latest
+      env:
+        ITEM: '{{ item.value }}'
+        INDEX: '{{ item.index }}'
+      run: echo -n HELLO $ITEM at $INDEX
+```
+
+### Retry
+
+```yaml
+retry:
+  limit: 5
+  initialDelay: 5s
+  scalingFactor: 2
+```
+
+---
+
+## Configuration
+
+Twerk can be configured with a `config.toml` file or environment variables. Config file locations (in order): current directory, `~/twerk/config.toml`, `/etc/twerk/config.toml`.
+
+Environment variables: `TWERK_` + property path with dots replaced by underscores (e.g. `TWERK_LOGGING_LEVEL=warn`).
+
+### Example config.toml
+
+```toml
+[broker]
+type = "inmemory"   # inmemory | rabbitmq
+
+[broker.rabbitmq]
+url = "amqp://guest:guest@localhost:5672/"
+consumer.timeout = "30m"
+
+[datastore]
+type = "inmemory"   # inmemory | postgres
+
+[datastore.postgres]
+dsn = "postgres://twerk:twerk@localhost:5432/twerk"
+
+[coordinator]
+address = "localhost:8000"
+
+[worker]
+queues.default = 1
+
+[runtime]
+type = "shell"   # shell | docker | podman
+
+[runtime.shell]
+cmd = ["bash", "-c"]
+```
+
+---
+
+## REST API
+
+Base URL: `http://localhost:8000` (or your coordinator address).
+
+### Health check
+
+```bash
+GET /health
+```
+
+```json
+{ "status": "UP" }
+```
+
+### List jobs
+
+```bash
+GET /jobs?page=1&size=10
+```
+
+Query params: `page`, `size` (1–20).
+
+### Get job
+
+```bash
+GET /jobs/<JOB_ID>
+```
+
+### Submit a job
+
+```bash
+POST /jobs
+Content-Type: text/yaml
+```
+
+Body: job YAML. Or `Content-Type: application/json` with JSON job definition.
+
+### Cancel job
+
+```bash
+PUT /jobs/<JOB_ID>/cancel
+```
+
+### Restart job
+
+```bash
+PUT /jobs/<JOB_ID>/restart
+```
+
+### List queues
+
+```bash
+GET /queues
+```
+
+Returns broker queues with size and subscriber counts.
 
 ---
 
@@ -76,179 +465,24 @@ Twerk is a **distributed task execution system** for personal automations. Defin
 
 ---
 
-## Reality-Checked Performance
-
-There is **no published full-workflow throughput benchmark yet**. The previous million-tasks/sec number came from `twerk-bench`, a synthetic Crossbeam channel microbenchmark. It proves the channel pipeline can move fake tasks quickly; it does **not** measure the Twerk HTTP API, scheduler, datastore, broker, worker runtime, Docker, logs, retries, or YAML execution.
-
-**Verified paths** (all covered by automated tests against real dependencies where applicable):
-- Shell task output via `$TWERK_OUTPUT` — unit tested
-- Retry with fail-once-then-succeed — standalone E2E tested  
-- Docker exit code preservation — runtime tested with `exit 42`
-- Task log retrieval — API endpoint tested
-
-### Real Local Proofs
-
-These are single-run smoke proofs from `target/release/twerk server-start standalone` on the local machine, not capacity benchmarks:
-
-| Use case | API path | Result |
-|----------|----------|--------|
-| One-step shell job | `POST /jobs?wait=true` with `examples/hello-shell.yaml` | `COMPLETED` in 7 ms; log contained `hello from twerk` |
-| Two-step shell workflow | `POST /jobs?wait=true` with inline YAML | `COMPLETED` in 9 ms; logs contained both steps |
-| Parallel shell fan-out | `POST /jobs` plus polling | `COMPLETED`; logs contained all fan-out tasks |
-| Docker Alpine task | `TWERK_RUNTIME_TYPE=docker` plus `POST /jobs?wait=true` | `COMPLETED` in 2.5 s with task `exitCode: 0` |
-
----
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| 🚀 **Zero-setup mode** | Single binary, no Postgres/RabbitMQ required |
-| 🐳 **Multi-runtime** | Docker, Podman, or shell execution |
-| 📈 **Parallel tasks** | Run tasks concurrently with `parallel` blocks |
-| 🔄 **Each loops** | Iterate over lists with concurrency control |
-| ⏱️ **Retry** | Automatic retry with configurable limits; verified in standalone mode |
-| 📅 **Scheduled jobs** | Cron syntax with pause/resume |
-| 🔐 **Secrets** | Auto-redacted environment variables |
-| 📡 **HTTP API** | Full REST API for all operations |
-| 🦀 **Rust** | Tokio async, zero panic in production |
-
----
-
-## Architecture
-
-```
-Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
-                ↓
-            Datastore
-```
-
-| Mode | Coordinator | Worker | Use Case |
-|------|-------------|--------|----------|
-| `standalone` | ✅ | ✅ | Personal automations |
-| `coordinator` | ✅ | ❌ | Multi-machine setup |
-| `worker` | ❌ | ✅ | Scale out workers |
-
----
-
-## REST API
-
-See [`docs/openapi.yaml`](docs/openapi.yaml) or `GET /openapi.json` for the full contract. Common endpoints:
-
-### Jobs
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/jobs` | Submit job |
-| `POST` | `/jobs?wait=true` | Submit and block |
-| `GET` | `/jobs` | List jobs |
-| `GET` | `/jobs/{id}` | Get job |
-| `GET` | `/jobs/{id}/log` | Job logs |
-| `PUT` | `/jobs/{id}/cancel` | Cancel |
-| `PUT` | `/jobs/{id}/restart` | Restart |
-| `DELETE` | `/jobs/{id}` | Delete |
-
-### Tasks
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/tasks/{id}` | Get task |
-| `GET` | `/tasks/{id}/log` | Task logs |
-
-### Scheduled Jobs
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/scheduled-jobs` | Create |
-| `GET` | `/scheduled-jobs` | List |
-| `GET` | `/scheduled-jobs/{id}` | Get |
-| `PUT` | `/scheduled-jobs/{id}/pause` | Pause |
-| `PUT` | `/scheduled-jobs/{id}/resume` | Resume |
-| `DELETE` | `/scheduled-jobs/{id}` | Delete |
-
-### Queues
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/queues` | List queues |
-| `GET` | `/queues/{name}` | Get queue |
-| `DELETE` | `/queues/{name}` | Delete |
-
-### System
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/nodes` | List nodes |
-| `GET` | `/metrics` | Metrics |
-| `GET` | `/openapi.json` | OpenAPI spec |
-
----
-
-## Configuration
-
-```bash
-# Environment variables
-TWERK_BROKER_TYPE=rabbitmq
-TWERK_DATASTORE_TYPE=postgres
-TWERK_RUNTIME_TYPE=docker
-```
-
-Or TOML config at `./config.toml`, `~/twerk/config.toml`, or `/etc/twerk/config.toml`.
-
----
-
-## Distributed Mode
-
-```bash
-# Coordinator
-TWERK_DATASTORE_TYPE=postgres \
-TWERK_BROKER_TYPE=rabbitmq \
-./twerk server-start coordinator
-
-# Worker(s)
-TWERK_BROKER_TYPE=rabbitmq \
-TWERK_RUNTIME_TYPE=docker \
-./twerk server-start worker
-```
-
----
-
-## Job Examples
-
-```yaml
-# Parallel execution
-name: parallel-work
-tasks:
-  - name: parent
-    parallel:
-      tasks:
-        - name: task-a
-          image: alpine:latest
-          run: echo A
-        - name: task-b
-          image: alpine:latest
-          run: echo B
-
-# Loop with concurrency
-name: process-items
-tasks:
-  - name: each-loop
-    each:
-      list: '[1, 2, 3, 4, 5]'
-      concurrency: 2
-      task:
-        image: alpine:latest
-        run: echo "Item {{ item.value }}"
-
-# Docker task, when started with TWERK_RUNTIME_TYPE=docker
-name: docker-work
-tasks:
-  - name: alpine-task
-    image: alpine:latest
-    run: echo "hello from a container"
-```
-
----
-
 ## Inspiration
 
-Twerk is a Rust port of [Tork](https://github.com/runabol/tork) (Go). Tork is the production-grade version if you need something battle-tested for enterprise workloads.
+Twerk is a Rust port of [Tork](https://github.com/runabol/tork) (Go) by Arik Cohen. Both share the same conceptual architecture — coordinator, worker, broker, datastore — and YAML job format, but target different use cases.
+
+| | Twerk | Tork |
+|---|---|---|
+| **Language** | Rust (Tokio) | Go |
+| **Maturity** | Personal automation / learning project | Production-grade, 800+ stars, 144 releases |
+| **Web UI** | API only | Full web UI included |
+| **Expression language** | Winnow parser (in progress) | expr library |
+| **Middleware** | Basic | Extensive (auth, CORS, rate limit, webhooks) |
+| **Pre/Post tasks** | No | Yes |
+| **Subjobs** | No | Yes |
+| **Task priority** | No | 0–9 |
+| **Full-text search** | No | Yes |
+| **Best for** | Personal scripts, learning Rust async | Enterprise workflows, CI/CD, data pipelines |
+
+If you need something battle-tested for production workloads, use **Tork**. If you want a Rust async learning project or personal automation tool, **Twerk** is the spiritual sibling.
 
 ---
 

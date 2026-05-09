@@ -4,7 +4,7 @@
 
 Run scheduled jobs, file-processing pipelines, and local automations across shell, Docker, or Podman — locally in zero-setup mode or in a distributed setup with PostgreSQL and RabbitMQ.
 
-Twerk is built for individual developers automating their own workflows. It is **not production-ready** and should be treated as a personal tool for local and self-managed use.
+Twerk is built for individual developers automating their own workflows. It is **not production-ready** and is intended for personal, self-managed use.
 
 ## Why Twerk
 
@@ -13,7 +13,7 @@ Twerk is built for individual developers automating their own workflows. It is *
 - Execute parallel workflows and each-loops with concurrency control.
 - Schedule recurring jobs with cron syntax.
 - Submit, monitor, and inspect jobs over HTTP.
-- Start with a single binary, then scale out to coordinator/worker mode later if needed.
+- Start with a single binary in standalone mode, then scale out to coordinator/worker mode if needed.
 
 ## Quick start
 

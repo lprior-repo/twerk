@@ -2,12 +2,12 @@
 
 ## Commands
 
-### `twerk run`
+### `twerk server-start`
 
 Start Twerk in a specific mode.
 
 ```bash
-twerk run <MODE> [OPTIONS]
+twerk server-start <MODE> [OPTIONS]
 ```
 
 | Mode | Description |
@@ -21,20 +21,6 @@ twerk run <MODE> [OPTIONS]
 | `--hostname <HOSTNAME>` | Coordinator hostname for workers | none |
 
 Config is loaded from `TWERK_CONFIG` or the default config search paths. There is no `--config` CLI flag.
-
-### `twerk migration`
-
-Run database migrations.
-
-```bash
-twerk migration [OPTIONS]
-```
-
-| Option | Description |
-|--------|-------------|
-| `-y, --yes` | Skip confirmation prompt |
-
-`twerk migration` reads the datastore type and Postgres DSN from config or `TWERK_*` environment variables.
 
 ### `twerk health`
 

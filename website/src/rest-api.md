@@ -72,11 +72,11 @@ tasks:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/triggers` | List triggers |
-| `POST` | `/api/v1/triggers` | Create a trigger |
-| `GET` | `/api/v1/triggers/{id}` | Get a trigger |
-| `PUT` | `/api/v1/triggers/{id}` | Update a trigger |
-| `DELETE` | `/api/v1/triggers/{id}` | Delete a trigger |
+| `GET` | `/triggers` | List triggers |
+| `POST` | `/triggers` | Create a trigger |
+| `GET` | `/triggers/{id}` | Get a trigger |
+| `PUT` | `/triggers/{id}` | Update a trigger |
+| `DELETE` | `/triggers/{id}` | Delete a trigger |
 
 ## OpenAPI
 

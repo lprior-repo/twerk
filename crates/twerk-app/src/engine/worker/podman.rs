@@ -103,7 +103,7 @@ impl PodmanRuntimeAdapter {
 }
 
 impl RuntimeTrait for PodmanRuntimeAdapter {
-    fn run(&self, task: &Task) -> BoxedFuture<()> {
+    fn run(&self, task: &Task) -> BoxedFuture<Option<String>> {
         let (p, h, tid, img, cmd, wd, env) = (
             self.config.privileged,
             self.config.host_network,
@@ -150,7 +150,7 @@ impl RuntimeTrait for PodmanRuntimeAdapter {
                 .into());
             }
 
-            Ok(())
+            Ok(None)
         })
     }
 

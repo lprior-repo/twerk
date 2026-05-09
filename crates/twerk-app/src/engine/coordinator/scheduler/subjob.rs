@@ -3,6 +3,7 @@
 use super::Scheduler;
 use super::SchedulerError;
 use anyhow::Result;
+use twerk_core::uuid::new_short_uuid;
 
 impl Scheduler {
     /// Schedules a subjob task.
@@ -22,10 +23,8 @@ impl Scheduler {
                 scheduler: "subjob".to_string(),
             })?;
 
-        // Use uuid::Uuid to generate a proper RFC 4122 UUID
-        let subjob_uuid = uuid::Uuid::new_v4().to_string();
         let subjob = twerk_core::job::Job {
-            id: Some(twerk_core::id::JobId::new(&subjob_uuid)?),
+            id: Some(twerk_core::id::JobId::new(new_short_uuid())?),
             parent_id: Some(twerk_core::id::JobId::new(task_id.to_string())?),
             name: subjob_task.name.clone(),
             description: subjob_task.description.clone(),

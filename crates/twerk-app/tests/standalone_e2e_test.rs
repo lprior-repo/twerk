@@ -61,7 +61,7 @@ async fn submit_job_and_wait_for_state(
 pub struct FailingRuntime;
 
 impl twerk_infrastructure::runtime::Runtime for FailingRuntime {
-    fn run(&self, _task: &Task) -> BoxedFuture<()> {
+    fn run(&self, _task: &Task) -> BoxedFuture<Option<String>> {
         Box::pin(async { Err(anyhow::anyhow!("task failed intentionally")) })
     }
 

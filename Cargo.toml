@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/twerk-common",
     "crates/twerk-core",
+    "crates/twerk-compiler",
     "crates/twerk-infrastructure",
     "crates/twerk-app",
     "crates/twerk-web",

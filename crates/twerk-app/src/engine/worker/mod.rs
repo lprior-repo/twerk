@@ -284,25 +284,38 @@ async fn execute_task(
     broker.publish_task_progress(&t).await?;
 
     match runtime.run(&t).await {
-        Ok(()) => {
+        Ok(result) => {
             t.state = TaskState::Completed;
             t.completed_at = Some(time::OffsetDateTime::now_utc());
             t.exit_code = Some(0);
+            t.result = result;
         }
         Err(e) => {
             t.state = TaskState::Failed;
             t.failed_at = Some(time::OffsetDateTime::now_utc());
             t.error = Some(e.to_string());
-            if let Some(crate::engine::worker::shell::ShellError::ExitFailed(code)) =
-                e.downcast_ref::<crate::engine::worker::shell::ShellError>()
-            {
-                t.exit_code = Some(*code);
-            }
+            t.exit_code = runtime_exit_code(&e);
         }
     }
     active_tasks.remove(&tid);
 
     broker.publish_task_progress(&t).await
+}
+
+fn runtime_exit_code(error: &anyhow::Error) -> Option<i32> {
+    if let Some(crate::engine::worker::shell::ShellError::ExitFailed(code)) =
+        error.downcast_ref::<crate::engine::worker::shell::ShellError>()
+    {
+        return Some(*code);
+    }
+
+    if let Some(crate::engine::worker::docker::DockerWorkerError::ContainerNonZeroExit(code, _)) =
+        error.downcast_ref::<crate::engine::worker::docker::DockerWorkerError>()
+    {
+        return Some(*code);
+    }
+
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -472,8 +485,8 @@ mod tests {
     }
 
     impl RuntimeTrait for FakeRuntime {
-        fn run(&self, _task: &Task) -> BoxedFuture<()> {
-            Box::pin(async { Ok(()) })
+        fn run(&self, _task: &Task) -> BoxedFuture<Option<String>> {
+            Box::pin(async { Ok(None) })
         }
 
         fn stop(&self, _task: &Task) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {
@@ -624,5 +637,31 @@ mod tests {
         let heartbeats = spy.get_heartbeats().await;
         assert_eq!(heartbeats.len(), 1);
         assert_eq!(heartbeats[0].status, Some(NodeStatus::DOWN));
+    }
+
+    #[test]
+    fn runtime_exit_code_preserves_shell_exit_code() {
+        let error = anyhow::Error::new(crate::engine::worker::shell::ShellError::ExitFailed(7));
+
+        assert_eq!(runtime_exit_code(&error), Some(7));
+    }
+
+    #[test]
+    fn runtime_exit_code_preserves_docker_exit_code() {
+        let error = anyhow::Error::new(
+            crate::engine::worker::docker::DockerWorkerError::ContainerNonZeroExit(
+                42,
+                "docker-failure-proof".to_string(),
+            ),
+        );
+
+        assert_eq!(runtime_exit_code(&error), Some(42));
+    }
+
+    #[test]
+    fn runtime_exit_code_ignores_untyped_runtime_errors() {
+        let error = anyhow::anyhow!("untyped runtime failure");
+
+        assert_eq!(runtime_exit_code(&error), None);
     }
 }

@@ -65,9 +65,10 @@ pub async fn execute_task(
 
     // Update final state
     match result {
-        Ok(()) => {
+        Ok(output) => {
             t.state = TaskState::Completed;
             t.completed_at = Some(OffsetDateTime::now_utc());
+            t.result = output;
         }
         Err(e) => {
             t.state = TaskState::Failed;
@@ -90,7 +91,7 @@ async fn run_task_with_cancel(
     t: &Task,
     runtime: Arc<dyn RuntimeTrait>,
     cancel_rx: &mut broadcast::Receiver<()>,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let task_id_str = t.id.as_deref().unwrap_or(DEFAULT_TASK_NAME);
     let timeout = t.timeout.clone();
 
@@ -107,13 +108,13 @@ async fn run_with_timeout(
     cancel_rx: &mut broadcast::Receiver<()>,
     task_id_str: &str,
     dur: Duration,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let timeout_str = t.timeout.clone().unwrap_or_default();
     tokio::select! {
         result = runtime.run(t) => result,
         _ = cancel_rx.recv() => {
             debug!("Task {} cancelled", task_id_str);
-            Ok(())
+            Ok(None)
         },
         () = sleep(dur) => {
             warn!("Task {} timed out after {}", task_id_str, timeout_str);
@@ -128,12 +129,12 @@ async fn run_without_timeout(
     runtime: Arc<dyn RuntimeTrait>,
     cancel_rx: &mut broadcast::Receiver<()>,
     task_id_str: &str,
-) -> Result<()> {
+) -> Result<Option<String>> {
     tokio::select! {
         result = runtime.run(t) => result,
         _ = cancel_rx.recv() => {
             debug!("Task {} cancelled", task_id_str);
-            Ok(())
+            Ok(None)
         }
     }
 }

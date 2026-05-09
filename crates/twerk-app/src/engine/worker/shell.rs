@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use std::path::Path;
 use std::process::{ExitCode, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
@@ -139,6 +140,11 @@ async fn publish_log_parts(
     }
 }
 
+async fn read_task_output(output_path: &Path) -> anyhow::Result<Option<String>> {
+    let output = tokio::fs::read_to_string(output_path).await?;
+    Ok((!output.is_empty()).then_some(output))
+}
+
 // Process handle to track running shell processes
 #[derive(Debug, Clone)]
 pub struct ProcessHandle {
@@ -221,7 +227,7 @@ impl ShellRuntimeAdapter {
 
 impl RuntimeTrait for ShellRuntimeAdapter {
     #[instrument(name = "shell_run", skip_all)]
-    fn run(&self, task: &Task) -> BoxedFuture<()> {
+    fn run(&self, task: &Task) -> BoxedFuture<Option<String>> {
         let (sc, tid, rs, env, active_processes, temp_dirs, broker, enable_cleanup) = (
             self.config.cmd.clone(),
             task.id.clone().unwrap_or_default(),
@@ -242,9 +248,11 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             let td = tempfile::tempdir()?;
             let sp = td.path().join("script.sh");
             let progress_path = td.path().join("progress");
+            let output_path = td.path().join("stdout");
 
-            // Create empty progress file
+            // Create runtime files before the script starts so shell tasks can write to them.
             tokio::fs::write(&progress_path, "").await?;
+            tokio::fs::write(&output_path, "").await?;
 
             // Write script content
             tokio::fs::write(&sp, format!("#!/bin/bash\n{}", rs)).await?;
@@ -272,6 +280,7 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // for older scripts that still rely on the historical name.
             cmd.env("TWERK_PROGRESS", progress_path.to_string_lossy().as_ref());
             cmd.env("TORK_PROGRESS", progress_path.to_string_lossy().as_ref());
+            cmd.env("TWERK_OUTPUT", output_path.to_string_lossy().as_ref());
 
             if let Some(ref e) = env {
                 for (k, v) in e {
@@ -339,19 +348,20 @@ impl RuntimeTrait for ShellRuntimeAdapter {
             // Wait for completion and publish captured output as task logs.
             let wait_result = child.wait_with_output().await;
             active_processes.remove(tid.as_str());
+            let output = wait_result?;
+            publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
+            let task_output = read_task_output(&output_path).await?;
+
             if enable_cleanup {
                 let _ = cleanup_temp_dir(&temp_dirs, tid.as_str()).await;
             }
 
-            let output = wait_result?;
-            publish_log_parts(broker.as_ref(), &tid, &output.stdout, &output.stderr).await;
-
             if !output.status.success() {
-                let code = output.status.code().unwrap_or(1);
+                let code = output.status.code().map_or(1, std::convert::identity);
                 return Err(ShellError::ExitFailed(code).into());
             }
 
-            Ok(())
+            Ok(task_output)
         })
     }
 
@@ -461,7 +471,29 @@ mod tests {
 
         let result = runtime.run(&task).await;
 
-        assert_eq!(result.map_err(|error| error.to_string()), Ok(()));
+        assert_eq!(result.map_err(|error| error.to_string()), Ok(None));
+    }
+
+    #[tokio::test]
+    async fn shell_runtime_sets_twerk_output_and_returns_file_contents() {
+        let runtime = ShellRuntimeAdapter::new(
+            vec!["bash".to_string(), "-c".to_string()],
+            "-".to_string(),
+            "-".to_string(),
+            None,
+        );
+        let task = Task {
+            id: Some("shell-output-file".into()),
+            run: Some("printf value-123 > \"$TWERK_OUTPUT\"".to_string()),
+            ..Default::default()
+        };
+
+        let result = runtime.run(&task).await;
+
+        assert_eq!(
+            result.map_err(|error| error.to_string()),
+            Ok(Some("value-123".to_string()))
+        );
     }
 
     #[tokio::test]
@@ -511,7 +543,7 @@ mod tests {
         let publish_wait = tokio::time::timeout(Duration::from_secs(1), published_rx).await;
         let published_parts = log_parts.read().await.clone();
 
-        assert_eq!(result.map_err(|error| error.to_string()), Ok(()));
+        assert_eq!(result.map_err(|error| error.to_string()), Ok(None));
         assert_eq!(publish_wait.map_err(|error| error.to_string()), Ok(Ok(())));
         assert_eq!(published_parts.len(), 1);
         assert_eq!(

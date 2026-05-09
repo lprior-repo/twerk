@@ -34,7 +34,7 @@
 curl -L https://github.com/runabol/twerk/releases/latest/download/twerk-linux-x86_64.tar.gz | tar xz
 
 # Run (zero deps - uses in-memory broker + shell)
-./twerk run standalone
+./twerk server-start standalone
 
 # Submit a job
 curl -X POST 'http://localhost:8000/jobs?wait=true' \
@@ -43,7 +43,6 @@ curl -X POST 'http://localhost:8000/jobs?wait=true' \
 name: hello-world
 tasks:
   - name: say hello
-    image: alpine:latest
     run: echo "Hello from Twerk!"
 EOF
 ```
@@ -52,7 +51,7 @@ EOF
 
 ## What is Twerk?
 
-Twerk is a **distributed task execution system** for personal automations. Define jobs with multiple tasks running in isolated containers.
+Twerk is a **distributed task execution system** for personal automations. Define jobs with multiple tasks running as local shell commands or isolated containers.
 
 **Use cases:**
 - 🔄 **Scheduled workflows** — Cron-based task execution with pause/resume
@@ -77,34 +76,38 @@ Twerk is a **distributed task execution system** for personal automations. Defin
 
 ---
 
-## 🚀 Benchmarks
+## Reality-Checked Performance
 
-Measured on AMD Ryzen 9 7950X, 64GB RAM, Linux 6.x:
+There is **no published full-workflow throughput benchmark yet**. The previous million-tasks/sec number came from `twerk-bench`, a synthetic Crossbeam channel microbenchmark. It proves the channel pipeline can move fake tasks quickly; it does **not** measure the Twerk HTTP API, scheduler, datastore, broker, worker runtime, Docker, logs, retries, or YAML execution.
 
-### End-to-End Throughput (twerk-bench)
-```
-8 workers, 10,000 tasks, crossbeam mpmc channels
-Throughput: 1,087,937 tasks/sec
-[PASS] Exceeds 5,000 tasks/sec target
-```
+### Real Local Proofs
 
-### Engine Latency (criterion)
-```
-engine_new:           ~11 µs
-engine_config:         ~9-12 µs (mode-dependent)
-```
+These are single-run smoke proofs from `target/release/twerk server-start standalone` on the local machine, not capacity benchmarks:
 
-### Core Engine (test assertions)
-```
-ID Creation:         >500,000 IDs/sec (assertion floor)
-1M IDs in:           <2 seconds
-```
+| Use case | API path | Result |
+|----------|----------|--------|
+| One-step shell job | `POST /jobs?wait=true` with `examples/hello-shell.yaml` | `COMPLETED` in 7 ms; log contained `hello from twerk` |
+| Two-step shell workflow | `POST /jobs?wait=true` with inline YAML | `COMPLETED` in 9 ms; logs contained both steps |
+| Parallel shell fan-out | `POST /jobs` plus polling | `COMPLETED`; logs contained all fan-out tasks |
+| Docker Alpine task | `TWERK_RUNTIME_TYPE=docker` plus `POST /jobs?wait=true` | `COMPLETED` in 2.5 s with task `exitCode: 0` |
 
-### Stress Test
-```
-10,000 parallel tasks - coordinator accepts and schedules without blocking
-Full job completes successfully
-```
+### Lower-Level Measurements
+
+| Measurement | What it actually measures | Result |
+|-------------|---------------------------|--------|
+| `twerk-bench` | Synthetic Crossbeam channel pipeline with fake CPU work | Not a workflow benchmark; run locally if you care about this layer |
+| Criterion `engine_new` | Engine construction only | about 11 us |
+| Criterion `engine_config` | Engine construction by mode | about 9-12 us |
+| ID tests | ID generation assertion floor | greater than 500,000 IDs/sec |
+
+### Known Gaps Found During Manual Proof
+
+| Area | Current evidence |
+|------|------------------|
+| Shell task outputs | `$TWERK_OUTPUT` was empty in a shell runtime API test, so output-passing examples are not currently proven. |
+| Retry | A deterministic fail-once/pass-once shell task went straight to `FAILED`; no retry attempt appeared. |
+| Docker logs | A Docker Alpine task completed successfully, but `/jobs/{id}/log` and `/tasks/{id}/log` returned no log items. |
+| Docker failure exit code | A Docker task that ran `exit 42` failed the job, but the task response reported `exitCode: null`. |
 
 ---
 
@@ -116,7 +119,7 @@ Full job completes successfully
 | 🐳 **Multi-runtime** | Docker, Podman, or shell execution |
 | 📈 **Parallel tasks** | Run tasks concurrently with `parallel` blocks |
 | 🔄 **Each loops** | Iterate over lists with concurrency control |
-| ⏱️ **Retry** | Configurable retry on failure with backoff |
+| ⏱️ **Retry** | Syntax exists, but standalone runtime retry needs more QA before relying on it |
 | 📅 **Scheduled jobs** | Cron syntax with pause/resume |
 | 🔐 **Secrets** | Auto-redacted environment variables |
 | 📡 **HTTP API** | Full REST API for all operations |
@@ -140,7 +143,9 @@ Client → Coordinator → Broker → Worker → Runtime (Docker/Podman/Shell)
 
 ---
 
-## REST API (19 endpoints)
+## REST API
+
+See [`docs/openapi.yaml`](docs/openapi.yaml) or `GET /openapi.json` for the full contract. Common endpoints:
 
 ### Jobs
 | Method | Path | Description |
@@ -206,12 +211,12 @@ Or TOML config at `./config.toml`, `~/twerk/config.toml`, or `/etc/twerk/config.
 # Coordinator
 TWERK_DATASTORE_TYPE=postgres \
 TWERK_BROKER_TYPE=rabbitmq \
-./twerk run coordinator
+./twerk server-start coordinator
 
 # Worker(s)
 TWERK_BROKER_TYPE=rabbitmq \
 TWERK_RUNTIME_TYPE=docker \
-./twerk run worker
+./twerk server-start worker
 ```
 
 ---
@@ -243,14 +248,12 @@ tasks:
         image: alpine:latest
         run: echo "Item {{ item.value }}"
 
-# Retry on failure
-name: with-retry
+# Docker task, when started with TWERK_RUNTIME_TYPE=docker
+name: docker-work
 tasks:
-  - name: unstable
-    retry:
-      limit: 3
+  - name: alpine-task
     image: alpine:latest
-    run: ./might-fail.sh
+    run: echo "hello from a container"
 ```
 
 ---

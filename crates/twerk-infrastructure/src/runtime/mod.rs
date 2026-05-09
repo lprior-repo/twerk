@@ -96,7 +96,7 @@ pub const PULL_QUEUE_BUFFER_SIZE: usize = 100;
 // ----------------------------------------------------------------------------
 
 pub trait Runtime: Send + Sync {
-    fn run(&self, task: &Task) -> BoxedFuture<()>;
+    fn run(&self, task: &Task) -> BoxedFuture<Option<String>>;
     fn stop(&self, task: &Task) -> BoxedFuture<ShutdownResult<ExitCode>>;
     fn health_check(&self) -> BoxedFuture<()>;
 }

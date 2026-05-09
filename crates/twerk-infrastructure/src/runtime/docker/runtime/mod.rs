@@ -38,7 +38,7 @@ pub struct DockerRuntime {
 }
 
 impl crate::runtime::Runtime for DockerRuntime {
-    fn run(&self, task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<()> {
+    fn run(&self, task: &twerk_core::task::Task) -> crate::runtime::BoxedFuture<Option<String>> {
         let mut task_clone = task.clone();
         let client = self.client.clone();
         let images = Arc::clone(&self.images);
@@ -61,7 +61,8 @@ impl crate::runtime::Runtime for DockerRuntime {
             runtime
                 .run(&mut task_clone)
                 .await
-                .map_err(DockerError::to_anyhow)
+                .map_err(DockerError::to_anyhow)?;
+            Ok(task_clone.result)
         })
     }
 

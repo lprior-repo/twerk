@@ -11,6 +11,7 @@
 //! - `create_broker()` dispatches on type (inmemory only)
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use tokio::sync::RwLock;
@@ -228,9 +229,43 @@ pub async fn create_broker(
     match BrokerType::parse(btype) {
         BrokerType::InMemory => Ok(Box::new(InMemoryBroker::new())),
         BrokerType::RabbitMQ => {
-            let broker = RabbitMQBroker::new(
+            let url = super::engine_helpers::env_string_default(
+                "broker.rabbitmq.url",
                 "amqp://guest:guest@localhost:5672/%2f",
-                RabbitMQOptions::default(),
+            );
+            let management_url = {
+                let v = super::engine_helpers::env_string("broker.rabbitmq.management.url");
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
+            };
+            let consumer_timeout = {
+                let v = super::engine_helpers::env_string("broker.rabbitmq.consumer.timeout");
+                if v.is_empty() {
+                    Duration::from_secs(30)
+                } else {
+                    v.parse::<u64>()
+                        .map(Duration::from_millis)
+                        .unwrap_or_else(|_| Duration::from_secs(30))
+                }
+            };
+            let durable = {
+                let v = super::engine_helpers::env_string("broker.rabbitmq.durable.queues");
+                v == "true" || v == "1"
+            };
+            let queue_type =
+                super::engine_helpers::env_string_default("broker.rabbitmq.queue.type", "classic");
+
+            let broker = RabbitMQBroker::new(
+                &url,
+                RabbitMQOptions {
+                    management_url,
+                    durable_queues: durable,
+                    queue_type,
+                    consumer_timeout: Some(consumer_timeout),
+                },
                 engine_id,
             )
             .await?;

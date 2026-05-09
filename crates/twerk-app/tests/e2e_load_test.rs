@@ -68,7 +68,7 @@ async fn e2e_load_test(task_count: usize) -> anyhow::Result<()> {
     std::env::set_var("TWERK_DATASTORE_TYPE", "postgres");
     std::env::set_var("TWERK_BROKER_TYPE", "rabbitmq");
     std::env::set_var(
-        "BROKER_RABBITMQ_URL",
+        "TWERK_BROKER_RABBITMQ_URL",
         "amqp://guest:guest@localhost:5672/%2f",
     );
 

@@ -11,8 +11,8 @@ use crate::runtime::{BoxedFuture as RuntimeBoxedFuture, Runtime as RuntimeTrait,
 pub struct MockRuntime;
 
 impl RuntimeTrait for MockRuntime {
-    fn run(&self, _task: &Task) -> RuntimeBoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn run(&self, _task: &Task) -> RuntimeBoxedFuture<Option<String>> {
+        Box::pin(async { Ok(None) })
     }
     fn stop(&self, _task: &Task) -> RuntimeBoxedFuture<ShutdownResult<ExitCode>> {
         Box::pin(async { Ok(Ok(ExitCode::SUCCESS)) })

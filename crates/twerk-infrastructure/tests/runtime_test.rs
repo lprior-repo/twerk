@@ -9,7 +9,7 @@
 
 use std::sync::{Arc, Mutex};
 use twerk_core::task::{Probe, Task, TaskLimits};
-use twerk_infrastructure::runtime::docker::DockerRuntime;
+use twerk_infrastructure::runtime::docker::{DockerError, DockerRuntime};
 use twerk_infrastructure::runtime::podman::types::Broker as PodmanBroker;
 use twerk_infrastructure::runtime::podman::{PodmanConfig, PodmanRuntime};
 use twerk_infrastructure::runtime::Runtime;
@@ -61,6 +61,20 @@ echo "done" > /twerk/stdout
         name: Some(format!("test-progress-{id}")),
         image: Some("busybox:stable".to_string()),
         cmd: Some(vec!["sh".to_string(), "-c".to_string(), script.to_string()]),
+        ..Default::default()
+    }
+}
+
+fn make_failing_docker_task(id: &str) -> Task {
+    Task {
+        id: Some(id.into()),
+        name: Some(format!("test-fail-{id}")),
+        image: Some("busybox:stable".to_string()),
+        cmd: Some(vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "echo docker-failure-proof; exit 42".to_string(),
+        ]),
         ..Default::default()
     }
 }
@@ -120,6 +134,30 @@ async fn test_docker_resource_limits() {
     <DockerRuntime as Runtime>::run(&runtime, &task)
         .await
         .expect("Docker run should succeed when resource limits are configured");
+}
+
+#[tokio::test]
+async fn test_docker_non_zero_exit_preserves_exit_code_and_logs() {
+    let runtime = DockerRuntime::default_runtime()
+        .await
+        .expect("should create Docker runtime");
+    let mut task = make_failing_docker_task("docker-non-zero-exit");
+
+    let error = runtime
+        .run(&mut task)
+        .await
+        .expect_err("Docker run should fail for a non-zero container exit");
+
+    match error {
+        DockerError::NonZeroExit(code, message) => {
+            assert_eq!(code, 42);
+            assert!(
+                message.contains("docker-failure-proof"),
+                "non-zero exit error should include container logs, got: {message:?}"
+            );
+        }
+        other => panic!("expected non-zero exit error, got {other}"),
+    }
 }
 
 #[tokio::test]

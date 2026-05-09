@@ -48,12 +48,13 @@ impl Scheduler {
             task.queue = Some("default".to_string());
         }
 
-        // Take ownership of fields we need to move into closure
+        // Clone metadata into the datastore update; the worker must receive the
+        // same retry/limit/timeout settings on the broker-published task.
         let q = task.queue.clone().unwrap_or_default();
-        let queue = task.queue.take();
-        let limits = task.limits.take();
-        let timeout = task.timeout.take();
-        let retry = task.retry.take();
+        let queue = task.queue.clone();
+        let limits = task.limits.clone();
+        let timeout = task.timeout.clone();
+        let retry = task.retry.clone();
         let priority = task.priority;
 
         self.ds
@@ -71,11 +72,6 @@ impl Scheduler {
                 }),
             )
             .await?;
-
-        // Restore task fields for publish (closure moved them)
-        task.queue = Some(q.clone());
-        task.state = twerk_core::task::TaskState::Scheduled;
-        task.scheduled_at = Some(now);
 
         self.broker.publish_task(q, &task).await?;
 

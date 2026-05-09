@@ -10,7 +10,7 @@ use twerk_core::job::JobDefaults;
 use twerk_core::task::{
     EachTask, ParallelTask, SubJobTask, Task, TaskLimits, TaskRetry, TaskState,
 };
-use twerk_infrastructure::broker::inmemory::InMemoryBroker;
+use twerk_infrastructure::broker::{inmemory::InMemoryBroker, Broker};
 
 #[tokio::test]
 async fn schedule_regular_task_sets_scheduled_state_when_task_is_regular() {
@@ -112,6 +112,75 @@ async fn schedule_regular_task_applies_job_defaults_when_task_omits_overrides() 
             .as_ref()
             .and_then(|limits| limits.memory.clone()),
         Some("1g".to_string())
+    );
+}
+
+#[tokio::test]
+async fn schedule_regular_task_publishes_retry_metadata_to_worker_queue() {
+    let ds = Arc::new(FakeDatastore::new());
+    let broker = Arc::new(InMemoryBroker::new());
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job);
+
+    let (published_tx, published_rx) = tokio::sync::oneshot::channel();
+    let published_tx = Arc::new(std::sync::Mutex::new(Some(published_tx)));
+    let captured_tx = published_tx.clone();
+    broker
+        .subscribe_for_tasks(
+            "retry-queue".to_string(),
+            Arc::new(move |task| {
+                let captured_tx = captured_tx.clone();
+                Box::pin(async move {
+                    if let Some(published_tx) = captured_tx
+                        .lock()
+                        .expect("publish notification mutex should not be poisoned")
+                        .take()
+                    {
+                        let _ = published_tx.send((*task).clone());
+                    }
+                    Ok(())
+                })
+            }),
+        )
+        .await
+        .unwrap();
+
+    let mut task = create_test_task();
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000017").unwrap());
+    task.queue = Some("retry-queue".to_string());
+    task.retry = Some(TaskRetry {
+        attempts: 0,
+        limit: 2,
+    });
+    task.timeout = Some("10s".to_string());
+    task.limits = Some(TaskLimits {
+        cpus: Some("1".to_string()),
+        memory: Some("128m".to_string()),
+    });
+    task.priority = 5;
+    ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+
+    let scheduler = Scheduler::new(ds, broker);
+    scheduler.schedule_regular_task(task).await.unwrap();
+
+    let published_task = tokio::time::timeout(std::time::Duration::from_secs(1), published_rx)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(published_task.queue, Some("retry-queue".to_string()));
+    assert_eq!(
+        published_task.retry.as_ref().map(|retry| retry.limit),
+        Some(2)
+    );
+    assert_eq!(published_task.timeout, Some("10s".to_string()));
+    assert_eq!(published_task.priority, 5);
+    assert_eq!(
+        published_task
+            .limits
+            .as_ref()
+            .and_then(|limits| limits.memory.clone()),
+        Some("128m".to_string())
     );
 }
 
@@ -425,6 +494,42 @@ async fn schedule_task_dispatches_to_subjob_scheduler_when_subjob_block_present(
         .get(&twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000013").unwrap());
     assert!(stored.is_some());
     assert_eq!(stored.unwrap().state, TaskState::Running);
+}
+
+#[tokio::test]
+async fn schedule_subjob_task_uses_postgres_safe_short_subjob_id() {
+    let ds = Arc::new(FakeDatastore::new());
+    let broker = InMemoryBroker::new();
+
+    let job = create_test_job();
+    ds.jobs.insert(job.id.clone().unwrap(), job.clone());
+
+    let mut task = create_test_task();
+    task.id = Some(twerk_core::id::TaskId::new("00000000-0000-0000-0000-000000000018").unwrap());
+    task.subjob = Some(SubJobTask {
+        name: Some("Postgres Safe SubJob".to_string()),
+        tasks: Some(vec![]),
+        ..Default::default()
+    });
+
+    ds.tasks.insert(task.id.clone().unwrap(), task.clone());
+
+    let scheduler = Scheduler::new(ds.clone(), Arc::new(broker));
+    scheduler.schedule_subjob_task(task.clone()).await.unwrap();
+
+    let stored = ds.tasks.get(&task.id.unwrap()).unwrap();
+    let subjob_id = stored
+        .subjob
+        .as_ref()
+        .and_then(|subjob| subjob.id.clone())
+        .unwrap();
+
+    assert_eq!(subjob_id.len(), 22);
+    assert!(
+        subjob_id.len() <= 32,
+        "subjob id must fit postgres jobs.id varchar(32), got {subjob_id}"
+    );
+    assert!(ds.jobs.get(&subjob_id).is_some());
 }
 
 #[tokio::test]

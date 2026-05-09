@@ -78,8 +78,8 @@ pub fn resolve_locker_type() -> String {
 pub struct MockRuntime;
 
 impl Runtime for MockRuntime {
-    fn run(&self, _task: &Task) -> BoxedFuture<()> {
-        Box::pin(async { Ok(()) })
+    fn run(&self, _task: &Task) -> BoxedFuture<Option<String>> {
+        Box::pin(async { Ok(None) })
     }
 
     fn stop(&self, _task: &Task) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {

@@ -72,10 +72,10 @@ impl SharedInfra {
 struct EngineEnv {
     _engine_id: String,
     engine: Engine,
+    worker: Engine,
     base_url: String,
     api_handle: JoinHandle<()>,
     client: reqwest::Client,
-    worker_handle: JoinHandle<()>,
 }
 
 impl EngineEnv {
@@ -131,13 +131,6 @@ impl EngineEnv {
             ..Default::default()
         });
         worker.start().await?;
-        let worker_handle = tokio::spawn(async move {
-            // Worker runs in background - owned by this task forever
-            worker
-                .run()
-                .await
-                .expect("worker run loop should not error");
-        });
 
         // Yield once to allow worker task scheduling
         tokio::task::yield_now().await;
@@ -167,16 +160,19 @@ impl EngineEnv {
         Ok(Self {
             _engine_id: engine_id.to_string(),
             engine,
+            worker,
             base_url: format!("http://{address}"),
             api_handle,
             client,
-            worker_handle,
         })
     }
 
     async fn teardown(mut self) {
         self.api_handle.abort();
-        self.worker_handle.abort();
+        self.worker
+            .terminate()
+            .await
+            .expect("worker terminate should succeed");
         self.engine
             .terminate()
             .await

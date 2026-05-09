@@ -7,7 +7,7 @@ use super::types::PodmanRuntime;
 use crate::runtime::Runtime;
 
 impl Runtime for PodmanRuntime {
-    fn run(&self, task: &CoreTask) -> crate::runtime::BoxedFuture<()> {
+    fn run(&self, task: &CoreTask) -> crate::runtime::BoxedFuture<Option<String>> {
         let mut task_clone = task.clone();
         let broker = self.broker.clone();
         let pullq = self.pullq.clone();
@@ -40,7 +40,7 @@ impl Runtime for PodmanRuntime {
                     e
                 );
             }
-            Ok(())
+            Ok(None)
         })
     }
 

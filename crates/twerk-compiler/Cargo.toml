@@ -1,0 +1,16 @@
+[package]
+name = "twerk-compiler"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+twerk-core.workspace = true
+serde.workspace = true
+serde-saphyr.workspace = true
+logos = "0.15"
+winnow = "0.7"
+postcard = { version = "1", features = ["alloc"] }
+thiserror.workspace = true

@@ -7,17 +7,18 @@ use std::sync::Arc;
 use tracing::warn;
 use twerk_core::id::TaskId;
 use twerk_core::mount::Mount;
-use twerk_core::task::Task;
+use twerk_core::task::{Task, TaskLogPart};
 use twerk_infrastructure::broker::Broker;
 use twerk_infrastructure::runtime::docker::create_task_container;
 use twerk_infrastructure::runtime::docker::mounters::Mounter as DockerMounter;
+use twerk_infrastructure::runtime::docker::DockerError;
 use twerk_infrastructure::runtime::Mounter;
 use twerk_infrastructure::runtime::{BoxedFuture, Runtime as RuntimeTrait, ShutdownResult};
 
 // ── Typed errors for Docker runtime ────────────────────────────────
 
 #[derive(Debug, thiserror::Error)]
-enum DockerWorkerError {
+pub(crate) enum DockerWorkerError {
     #[error("task id required")]
     TaskIdRequired,
     #[error("task image required")]
@@ -30,8 +31,38 @@ enum DockerWorkerError {
     ContainerStartFailed(String),
     #[error("container wait error: {0}")]
     ContainerWaitError(String),
+    #[error("container exited with code {0}: {1}")]
+    ContainerNonZeroExit(i32, String),
     #[error("task has no ID for stop operation")]
     MissingTaskIdForStop,
+}
+
+fn non_empty_output(output: String) -> Option<String> {
+    (!output.is_empty()).then_some(output)
+}
+
+fn docker_status_to_exit_code(status_code: i64) -> i32 {
+    i32::try_from(status_code).map_or(i32::MAX, std::convert::identity)
+}
+
+async fn publish_docker_log_part(
+    broker: &Arc<dyn Broker>,
+    task_id: &TaskId,
+    contents: String,
+) -> anyhow::Result<()> {
+    if contents.trim().is_empty() {
+        return Ok(());
+    }
+
+    broker
+        .publish_task_log_part(&TaskLogPart {
+            id: None,
+            number: 1,
+            task_id: Some(task_id.clone()),
+            contents: Some(contents),
+            created_at: None,
+        })
+        .await
 }
 
 struct DockerMounterAdapter {
@@ -117,7 +148,7 @@ impl DockerRuntimeAdapter {
 }
 
 impl DockerRuntimeAdapter {
-    pub fn execute_task(self, task: Task) -> BoxedFuture<()> {
+    pub fn execute_task(self, task: Task) -> BoxedFuture<Option<String>> {
         let active_tasks = self.active_tasks.clone();
         let mounter = self.mounter.clone();
         let broker = self.broker.clone();
@@ -137,7 +168,9 @@ impl DockerRuntimeAdapter {
             let logger = Box::new(std::io::sink());
             let mounter = Arc::new(DockerMounterAdapter::new(mounter));
 
-            let tc = match create_task_container(&client, mounter, broker, &task, logger).await {
+            let tc = match create_task_container(&client, mounter, broker.clone(), &task, logger)
+                .await
+            {
                 Ok(tc) => tc,
                 Err(e) => {
                     return Err(DockerWorkerError::ContainerCreateFailed(e.to_string()).into())
@@ -160,23 +193,49 @@ impl DockerRuntimeAdapter {
             let wait_result = tc.wait().await;
             active_tasks.remove(&task_id);
 
-            if let Err(e) = wait_result {
-                if let Err(re) = tc.remove().await {
-                    warn!(error = %re, "failed to remove container after wait error");
+            let output = match wait_result {
+                Ok(stdout) => {
+                    match tc.read_logs_tail(100).await {
+                        Ok(logs) => publish_docker_log_part(&broker, &task_id, logs).await?,
+                        Err(e) => warn!(error = %e, "failed to read docker logs after completion"),
+                    }
+                    non_empty_output(stdout)
                 }
-                return Err(DockerWorkerError::ContainerWaitError(e.to_string()).into());
-            }
+                Err(DockerError::NonZeroExit(status_code, tail)) => {
+                    publish_docker_log_part(&broker, &task_id, tail.clone()).await?;
+                    if let Err(re) = tc.remove().await {
+                        warn!(error = %re, "failed to remove container after non-zero exit");
+                    }
+                    return Err(DockerWorkerError::ContainerNonZeroExit(
+                        docker_status_to_exit_code(status_code),
+                        tail,
+                    )
+                    .into());
+                }
+                Err(e) => {
+                    match tc.read_logs_tail(100).await {
+                        Ok(logs) => publish_docker_log_part(&broker, &task_id, logs).await?,
+                        Err(log_error) => {
+                            warn!(error = %log_error, "failed to read docker logs after wait error")
+                        }
+                    }
+                    if let Err(re) = tc.remove().await {
+                        warn!(error = %re, "failed to remove container after wait error");
+                    }
+                    return Err(DockerWorkerError::ContainerWaitError(e.to_string()).into());
+                }
+            };
 
             if let Err(e) = tc.remove().await {
                 warn!(error = %e, "failed to remove container after completion");
             }
-            Ok(())
+            Ok(output)
         })
     }
 }
 
 impl RuntimeTrait for DockerRuntimeAdapter {
-    fn run(&self, task: &Task) -> BoxedFuture<()> {
+    fn run(&self, task: &Task) -> BoxedFuture<Option<String>> {
         self.clone().execute_task(task.clone())
     }
 
@@ -215,5 +274,33 @@ impl RuntimeTrait for DockerRuntimeAdapter {
                 .map(|_| ())
                 .map_err(|e| anyhow::anyhow!("{e}"))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn non_empty_output_returns_none_for_empty_container_output() {
+        assert_eq!(non_empty_output(String::new()), None);
+    }
+
+    #[test]
+    fn non_empty_output_preserves_container_output() {
+        assert_eq!(
+            non_empty_output("docker-result".to_string()),
+            Some("docker-result".to_string())
+        );
+    }
+
+    #[test]
+    fn docker_status_to_exit_code_preserves_standard_exit_codes() {
+        assert_eq!(docker_status_to_exit_code(42), 42);
+    }
+
+    #[test]
+    fn docker_status_to_exit_code_saturates_large_values() {
+        assert_eq!(docker_status_to_exit_code(i64::MAX), i32::MAX);
     }
 }

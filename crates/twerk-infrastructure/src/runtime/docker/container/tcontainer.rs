@@ -22,6 +22,23 @@ use crate::runtime::docker::mounters::Mounter;
 use twerk_core::id::TaskId;
 use twerk_core::task::{Probe, Task};
 
+fn container_wait_error_to_docker(error: bollard::errors::Error) -> DockerError {
+    match error {
+        bollard::errors::Error::DockerContainerWaitError { error, code } => {
+            DockerError::NonZeroExit(code, error)
+        }
+        other => DockerError::ContainerWait(other.to_string()),
+    }
+}
+
+fn select_non_zero_exit_message(logs: String, fallback: String) -> String {
+    if logs.is_empty() {
+        fallback
+    } else {
+        logs
+    }
+}
+
 /// Tcontainer is the Docker container wrapper for task execution.
 /// Ported from Go tcontainer struct.
 pub struct Tcontainer {
@@ -290,14 +307,21 @@ impl Tcontainer {
     /// - `DockerError::NonZeroExit` if container exits with non-zero status
     /// - `DockerError::CopyFromContainer` if reading output fails
     pub async fn wait(&self) -> Result<String, DockerError> {
-        let status_code = self.wait_for_container_stopped().await?;
+        let status_code = match self.wait_for_container_stopped().await {
+            Ok(status_code) => status_code,
+            Err(DockerError::NonZeroExit(status_code, wait_message)) => {
+                return Err(DockerError::NonZeroExit(
+                    status_code,
+                    self.read_non_zero_exit_message(wait_message).await,
+                ));
+            }
+            Err(e) => return Err(e),
+        };
 
         if status_code != 0 {
             return Err(DockerError::NonZeroExit(
                 status_code,
-                self.read_logs_tail(10)
-                    .await
-                    .unwrap_or_else(|_| String::new()),
+                self.read_non_zero_exit_message(String::new()).await,
             ));
         }
 
@@ -322,18 +346,28 @@ impl Tcontainer {
             .next()
             .await
             .ok_or_else(|| DockerError::ContainerWait("no wait result".to_string()))?
-            .map_err(|e| DockerError::ContainerWait(e.to_string()))?;
+            .map_err(container_wait_error_to_docker)?;
 
         Ok(result.status_code)
     }
 
+    async fn read_non_zero_exit_message(&self, fallback: String) -> String {
+        match self.read_logs_tail(10).await {
+            Ok(logs) => select_non_zero_exit_message(logs, fallback),
+            Err(e) => {
+                tracing::warn!(error = %e, container_id = %self.id, "failed to read docker logs after non-zero exit");
+                fallback
+            }
+        }
+    }
+
     /// Reads the last N lines of container logs.
-    async fn read_logs_tail(&self, lines: usize) -> Result<String, DockerError> {
+    pub async fn read_logs_tail(&self, lines: usize) -> Result<String, DockerError> {
         read_logs_tail(&self.client, &self.id, lines).await
     }
 
     /// Reads the output file from the container.
-    async fn read_output(&self) -> Result<String, DockerError> {
+    pub async fn read_output(&self) -> Result<String, DockerError> {
         read_output_file(&self.client, &self.id, "/twerk/stdout").await
     }
 
@@ -359,5 +393,53 @@ impl Tcontainer {
         }
 
         upload_files_to_container(&self.client, &self.id, files, workdir).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn container_wait_error_to_docker_preserves_wait_exit_code() {
+        let err =
+            container_wait_error_to_docker(bollard::errors::Error::DockerContainerWaitError {
+                error: String::new(),
+                code: 42,
+            });
+
+        match err {
+            DockerError::NonZeroExit(code, message) => {
+                assert_eq!(code, 42);
+                assert!(message.is_empty());
+            }
+            other => panic!("expected non-zero exit error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn container_wait_error_to_docker_keeps_regular_wait_errors_untyped() {
+        let err = container_wait_error_to_docker(bollard::errors::Error::RequestTimeoutError);
+
+        match err {
+            DockerError::ContainerWait(message) => assert_eq!(message, "Timeout error"),
+            other => panic!("expected container wait error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn select_non_zero_exit_message_prefers_container_logs() {
+        assert_eq!(
+            select_non_zero_exit_message("container tail".to_string(), "wait error".to_string()),
+            "container tail"
+        );
+    }
+
+    #[test]
+    fn select_non_zero_exit_message_uses_fallback_when_logs_are_empty() {
+        assert_eq!(
+            select_non_zero_exit_message(String::new(), "wait error".to_string()),
+            "wait error"
+        );
     }
 }

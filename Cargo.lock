@@ -5999,7 +5999,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "twerk-app"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6043,14 +6043,14 @@ dependencies = [
 
 [[package]]
 name = "twerk-bench"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crossbeam-channel",
 ]
 
 [[package]]
 name = "twerk-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -6078,7 +6078,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-common"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6105,7 +6105,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-compiler"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "logos",
  "postcard",
@@ -6118,7 +6118,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -6159,7 +6159,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-infrastructure"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -6213,7 +6213,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-openapi-gen"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
  "twerk-web",
@@ -6222,7 +6222,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-perf-kernels"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "criterion",
  "proptest",
@@ -6231,7 +6231,7 @@ dependencies = [
 
 [[package]]
 name = "twerk-web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",

@@ -80,6 +80,12 @@ Twerk is a **distributed task execution system** for personal automations. Defin
 
 There is **no published full-workflow throughput benchmark yet**. The previous million-tasks/sec number came from `twerk-bench`, a synthetic Crossbeam channel microbenchmark. It proves the channel pipeline can move fake tasks quickly; it does **not** measure the Twerk HTTP API, scheduler, datastore, broker, worker runtime, Docker, logs, retries, or YAML execution.
 
+**Verified paths** (all covered by automated tests against real dependencies where applicable):
+- Shell task output via `$TWERK_OUTPUT` — unit tested
+- Retry with fail-once-then-succeed — standalone E2E tested  
+- Docker exit code preservation — runtime tested with `exit 42`
+- Task log retrieval — API endpoint tested
+
 ### Real Local Proofs
 
 These are single-run smoke proofs from `target/release/twerk server-start standalone` on the local machine, not capacity benchmarks:
@@ -101,7 +107,7 @@ These are single-run smoke proofs from `target/release/twerk server-start standa
 | 🐳 **Multi-runtime** | Docker, Podman, or shell execution |
 | 📈 **Parallel tasks** | Run tasks concurrently with `parallel` blocks |
 | 🔄 **Each loops** | Iterate over lists with concurrency control |
-| ⏱️ **Retry** | Syntax exists, but standalone runtime retry needs more QA before relying on it |
+| ⏱️ **Retry** | Automatic retry with configurable limits; verified in standalone mode |
 | 📅 **Scheduled jobs** | Cron syntax with pause/resume |
 | 🔐 **Secrets** | Auto-redacted environment variables |
 | 📡 **HTTP API** | Full REST API for all operations |

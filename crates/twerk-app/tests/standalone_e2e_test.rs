@@ -74,6 +74,46 @@ impl twerk_infrastructure::runtime::Runtime for FailingRuntime {
     }
 }
 
+/// Mock runtime that fails on first attempt, succeeds on second
+#[derive(Debug)]
+pub struct FailOnceRuntime {
+    call_count: Arc<Mutex<u32>>,
+}
+
+impl FailOnceRuntime {
+    pub fn new() -> Self {
+        Self {
+            call_count: Arc::new(Mutex::new(0)),
+        }
+    }
+}
+
+impl twerk_infrastructure::runtime::Runtime for FailOnceRuntime {
+    fn run(&self, _task: &Task) -> BoxedFuture<Option<String>> {
+        let count = self.call_count.clone();
+        Box::pin(async move {
+            let mut guard = count.lock().expect("lock should not be poisoned");
+            *guard += 1;
+            let current = *guard;
+            drop(guard);
+
+            if current == 1 {
+                Err(anyhow::anyhow!("failing on first attempt for retry test"))
+            } else {
+                Ok(Some("succeeded on retry".to_string()))
+            }
+        })
+    }
+
+    fn stop(&self, _task: &Task) -> BoxedFuture<ShutdownResult<std::process::ExitCode>> {
+        Box::pin(async { Ok(Ok(std::process::ExitCode::SUCCESS)) })
+    }
+
+    fn health_check(&self) -> BoxedFuture<()> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
 #[tokio::test]
 async fn standalone_engine_marks_job_as_failed_when_task_fails() -> Result<()> {
     // Set up environment
@@ -432,6 +472,69 @@ async fn standalone_engine_completes_each_job_naturally() -> Result<()> {
     .await?;
 
     assert_eq!(completed_job.state, JobState::Completed);
+
+    // Terminate the engine
+    engine.terminate().await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn standalone_engine_retries_failed_task_and_succeeds() -> Result<()> {
+    // Set up environment
+    std::env::set_var("TWERK_DATASTORE_TYPE", "inmemory");
+    std::env::set_var("TWERK_BROKER_TYPE", "inmemory");
+
+    // Initialize engine in Standalone mode
+    let mut config = Config::default();
+    config.mode = Mode::Standalone;
+    let mut engine = Engine::new(config);
+
+    // Register a runtime that fails once then succeeds
+    let fail_once_runtime = FailOnceRuntime::new();
+    engine.register_runtime(Box::new(fail_once_runtime));
+
+    // Start the engine
+    engine.start().await?;
+
+    // Create a job with a task that has retry config
+    let job_id = Uuid::new_v4().to_string();
+    let job = Job {
+        id: Some(to_job_id(job_id.clone())),
+        name: Some("Retry Test Job".to_string()),
+        state: JobState::Pending,
+        tasks: Some(vec![Task {
+            name: Some("retry-task".to_string()),
+            run: Some("echo test".to_string()),
+            retry: Some(twerk_core::task::TaskRetry {
+                limit: 3,
+                attempts: 0,
+            }),
+            ..Default::default()
+        }]),
+        task_count: 1,
+        ..Default::default()
+    };
+
+    // Submit and wait for completion (should succeed after retry)
+    let completed_job = submit_job_and_wait_for_state(
+        &engine,
+        job,
+        &job_id,
+        JobState::Completed,
+        "timeout waiting for retry job completion",
+    )
+    .await?;
+
+    assert_eq!(completed_job.state, JobState::Completed);
+
+    // Verify the task was retried by checking task count
+    let tasks = engine.datastore().get_all_tasks_for_job(&job_id).await?;
+    assert!(
+        tasks.len() >= 2,
+        "should have original + retry task, got {} tasks",
+        tasks.len()
+    );
 
     // Terminate the engine
     engine.terminate().await?;
